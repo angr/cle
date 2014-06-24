@@ -231,7 +231,7 @@ class Elf(object):
 
     def __get_bfd_arch(self, binary):
         """ Get the architecture name using ctypes and cle_bfd.so """
-        lib = "./cle_bfd.so"
+        lib = "./cle_bfd/cle_bfd.so"
         if os.path.exists(lib):
             self.lib = cdll.LoadLibrary(lib)
             self.lib.get_bfd_arch.restype = c_char_p
@@ -261,12 +261,12 @@ class Elf(object):
         """ Get information from the binary using clextract """
         qemu = self.get_qemu_cmd()
         arch = self.arch
-        cle = "%s/clextract" % arch
+        cle = "ccle/%s/clextract" % arch
         if (not os.path.exists(cle)):
             raise CLException("Cannot find clextract binary at %s" % cle)
 
         # clextract needs libcle which resides in arch/ for each arch
-        cmd = [qemu, "-E", "LD_LIBRARY_PATH=" + arch + "/", cle, self.binary]
+        cmd = [qemu, "-E", "LD_LIBRARY_PATH=" + "ccle/" + arch + "/", cle, self.binary]
         s = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE)
         out = s.communicate()

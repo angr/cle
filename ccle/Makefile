@@ -1,6 +1,6 @@
 LIB:=$(CURDIR)
 
-all: libcle-x86_64 libcle-mips libcle-ppc libcle_ctypes-x86_64 clextract-x86_64 clextract-mips clextract-ppc cle_bfd
+all: libcle-x86_64 libcle-mips libcle-ppc libcle_ctypes-x86_64 clextract-x86_64 clextract-mips clextract-ppc
 
 libcle-x86_64: libcle.c
 	x86_64-linux-gnu-gcc -Wall -c -fpic libcle.c -o x86_64/libcle.o
@@ -29,10 +29,6 @@ clextract-mips: clextract.c
 clextract-ppc: clextract.c
 	powerpc-linux-gnu-gcc -c clextract.c -o ppc/clextract.o
 	powerpc-linux-gnu-gcc -L$(LIB)/ppc -Wall ppc/clextract.o -o ppc/clextract -lcle
-
-cle_bfd: cle_bfd.c
-	gcc -Wall -c -fpic cle_bfd.c -o cle_bfd.o 
-	gcc -shared cle_bfd.o -o cle_bfd.so -lbfd-2.22-multiarch
 
 
 clean:
