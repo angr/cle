@@ -232,7 +232,7 @@ class Elf(object):
     def __get_bfd_arch(self, binary):
         """ Get the architecture name using ctypes and cle_bfd.so """
         env_p = os.getenv("VIRTUAL_ENV")
-        lib_p = "lib/python2.7/site-packages"
+        lib_p = "lib"
         lib = os.path.join(env_p, lib_p, "cle_bfd.so")
         if os.path.exists(lib):
             self.lib = cdll.LoadLibrary(lib)
@@ -263,12 +263,15 @@ class Elf(object):
         """ Get information from the binary using clextract """
         qemu = self.get_qemu_cmd()
         arch = self.arch
-        cle = "ccle/%s/clextract" % arch
+        env_p = os.getenv("VIRTUAL_ENV")
+        bin_p = "opt/%s" % arch
+        cle = os.path.join(env_p, bin_p, "clextract")
         if (not os.path.exists(cle)):
             raise CLException("Cannot find clextract binary at %s" % cle)
 
         # clextract needs libcle which resides in arch/ for each arch
-        cmd = [qemu, "-E", "LD_LIBRARY_PATH=" + "ccle/" + arch + "/", cle, self.binary]
+        cmd = [qemu, "-E", "LD_LIBRARY_PATH=" + os.path.join(env_p, bin_p), cle,
+               self.binary]
         s = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE)
         out = s.communicate()
@@ -506,15 +509,19 @@ class Ld(object):
         """ Use LD_AUDIT to find object dependencies and relocation addresses"""
 
         qemu = self.exe.get_qemu_cmd()
+        env_p = os.getenv("VIRTUAL_ENV")
+        bin_p = os.path.join(env_p, "opt" ,self.exe.arch)
 
         # Our LD_AUDIT shared object
-        ld_audit_obj = "./ld_audit/%s/ld_audit" % self.exe.arch
+        ld_audit_obj = os.path.join(bin_p, "ld_audit.so")
 
         #LD_LIBRARY_PATH
         ld_path = os.getenv("LD_LIBRARY_PATH")
-        extralibs = "./%s" % (self.exe.arch)
-        var = "LD_LIBRARY_PATH=%s:%s,LD_AUDIT=%s" % (ld_path, extralibs,
-                                                     ld_audit_obj)
+        if ld_path ==None:
+            ld_path = bin_p
+        else:
+            ld_path = ld_path + ":" + bin_p
+        var = "LD_LIBRARY_PATH=%s,LD_AUDIT=%s" % (ld_path, ld_audit_obj)
 
         #LD_AUDIT's output
         log = "./ld_audit.out"

@@ -1,4 +1,5 @@
 LIB:=$(CURDIR)
+DESTDIR=$(VIRTUAL_ENV)/opt/
 
 all: libcle-x86_64 libcle-mips libcle-ppc libcle_ctypes-x86_64 clextract-x86_64 clextract-mips clextract-ppc
 
@@ -29,6 +30,11 @@ clextract-mips: clextract.c
 clextract-ppc: clextract.c
 	powerpc-linux-gnu-gcc -c clextract.c -o ppc/clextract.o
 	powerpc-linux-gnu-gcc -L$(LIB)/ppc -Wall ppc/clextract.o -o ppc/clextract -lcle
+
+
+install:
+	mkdir -p $(DESTDIR)
+	cp -a x86_64 mips ppc $(DESTDIR)
 
 
 clean:
