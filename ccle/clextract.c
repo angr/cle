@@ -153,6 +153,12 @@ ElfW(Word) *get_hashtab_ptr(ElfW(Dyn) *dynamic, struct segment *s)
     int ret;
 
     vaddr = get_dyn_ptr_addr(dynamic, DT_HASH);
+    if (vaddr == (ElfW(Addr)) -ENODATA)
+    {
+        printf("DT_HASH not found :(\n");
+        return NULL;
+    }
+
 
     offset = addr_offset_from_segment(vaddr, s);
     if (offset == 0) // On error, the offset is 0
@@ -222,13 +228,13 @@ ElfW(Addr) *get_jmprel_ptr(ElfW(Dyn) *dynamic, struct segment *s)
         return 0x0;
     }
 
-    return (ElfW(Addr)) (s->img + offset);
+    return (ElfW(Addr)*) (s->img + offset);
 }
 
 
 void print_jmprel(ElfW(Dyn) *dynamic, struct segment *s)
 {
-   ElfW(Addr) addr;
+   ElfW(Addr) *addr;
    ElfW(Word) relsz, relatype;
    int count, i, symidx, stridx;
    ElfW(Rela) *rela;
@@ -338,6 +344,28 @@ void print_rpath(ElfW(Dyn) *dynamic, struct segment *s)
 }
 
 
+/* In case there is no hash table in the binary, we have no way to know the
+ * size of the symbol table. This is a simple heuristic to recover this value:
+ * the st_name field must point to a valid entry in the string table */
+int guess_symtab_sz(ElfW(Dyn) *dynamic, struct segment *s)
+{
+
+    ElfW(Sym) *symtab;
+    char *strtab;
+    size_t strsz;
+    int i;
+
+    symtab = get_symtab_ptr(dynamic, s);
+    strsz = _get_strtab_sz(dynamic);
+    strtab = get_strtab_ptr(dynamic, s);
+
+    for (i=0; symtab[i].st_name < strsz; i++)
+        continue;
+    return i;
+}
+
+
+
 /* Print the symbol table */
 void print_symtab(ElfW(Dyn) *dynamic, struct segment *s)
 {
@@ -364,7 +392,10 @@ void print_symtab(ElfW(Dyn) *dynamic, struct segment *s)
     /* The second value of the hash table is the size of the chain array, and
      * it has the same size as the symbol table according to the ELF
      * specification*/
-    nchain = hash[1];
+    if (hash)
+        nchain = hash[1];
+    else
+        nchain = guess_symtab_sz(dynamic, s);
 
     for (i=0; i<nchain; i++) 
     {

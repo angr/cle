@@ -967,6 +967,9 @@ const char* reloc_type_tostr_68k(unsigned char type)
         case R_68K_NUM:
             return "R_68K_NUM";
             break;
+        default:
+            return "UNKNOWN";
+            break;
     }
 }
 
@@ -1097,6 +1100,9 @@ const char* reloc_type_tostr_386(unsigned char type)
         case R_386_NUM:
             return "R_386_NUM";
             break;
+        default:
+            return "UNKNOWN";
+            break;
     }
 }
 
@@ -1112,6 +1118,9 @@ char *ei_data_tostr(unsigned char val)
             break;
         case ELFDATANONE:
             return "INVALID";
+            break;
+        default:
+            return "UNKNOWN";
             break;
     }
 }

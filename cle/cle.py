@@ -231,7 +231,9 @@ class Elf(object):
 
     def __get_bfd_arch(self, binary):
         """ Get the architecture name using ctypes and cle_bfd.so """
-        lib = "./cle_bfd/cle_bfd.so"
+        env_p = os.getenv("VIRTUAL_ENV")
+        lib_p = "lib/python2.7/site-packages"
+        lib = os.path.join(env_p, lib_p, "cle_bfd.so")
         if os.path.exists(lib):
             self.lib = cdll.LoadLibrary(lib)
             self.lib.get_bfd_arch.restype = c_char_p
@@ -402,7 +404,7 @@ class Elf(object):
                                                                 size))
 
 
-class CLE(object):
+class Ld(object):
     """ CLE ELF loader
     The loader loads all the objects and exports an abstraction of the memory of
     the process.
@@ -582,7 +584,4 @@ class CLE(object):
         return None
 
 
-logging.basicConfig(level=logging.DEBUG)
-#logging.getLogger("cle").setLevel(logging.DEBUG)
-cle = CLE("../test/test")
-#cle = CLE("../telstra/httpd")
+
