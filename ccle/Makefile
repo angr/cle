@@ -4,14 +4,17 @@ DESTDIR=$(VIRTUAL_ENV)/opt/
 all: libcle-x86_64 libcle-mips libcle-ppc libcle_ctypes-x86_64 clextract-x86_64 clextract-mips clextract-ppc
 
 libcle-x86_64: libcle.c
+	mkdir -p x86_64
 	x86_64-linux-gnu-gcc -Wall -c -fpic libcle.c -o x86_64/libcle.o
 	x86_64-linux-gnu-gcc -shared x86_64/libcle.o -o x86_64/libcle.so
 
 libcle-mips: libcle.c
+	mkdir -p mips
 	mips-linux-gnu-gcc -Wall -c -fpic libcle.c -o mips/libcle.o
 	mips-linux-gnu-gcc -shared mips/libcle.o -o mips/libcle.so
 
 libcle-ppc: libcle.c
+	mkdir -p ppc
 	powerpc-linux-gnu-gcc -Wall -c -fpic libcle.c -o ppc/libcle.o
 	powerpc-linux-gnu-gcc -shared ppc/libcle.o -o ppc/libcle.so
 	
