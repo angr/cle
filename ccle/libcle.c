@@ -739,6 +739,7 @@ const char *sh_type_tostr(ElfW(Word) sh_type)
 }
 
 
+/* Symbol table : special section index values */
 char *sh_index_tostr(ElfW(Half) ndx)
 {
     switch(ndx)
@@ -759,7 +760,8 @@ char *sh_index_tostr(ElfW(Half) ndx)
 }
 
 
-char *symb_info_tostr(unsigned char info)
+/* Symbol table: symbol binding */
+char *symb_bind_tostr(unsigned char info)
 {
     switch(ST_BIND(info))
     {
@@ -777,6 +779,38 @@ char *symb_info_tostr(unsigned char info)
             break;
         default:
             return "N/A";
+            break;
+    }
+}
+
+/* Symbol table: symbol type */
+const char* symb_type_tostr(unsigned char type)
+{
+    switch(type)
+    {
+        case STT_NOTYPE:
+            return "STT_NOTYPE";
+            break;
+        case STT_OBJECT:
+            return "STT_OBJECT";
+            break;
+        case STT_FUNC:
+            return "STT_FUNC";
+            break;
+        case STT_SECTION:
+            return "STT_SECTION";
+            break;
+        case STT_FILE:
+            return "STT_FILE";
+            break;
+        case STT_LOPROC:
+            return "STT_LOPROC";
+            break;
+        case STT_HIPROC:
+            return "STT_HIPROC";
+            break;
+        default:
+            return "CLE_UNKNOWN";
             break;
     }
 }

@@ -372,9 +372,10 @@ void print_symtab(ElfW(Dyn) *dynamic, struct segment *s)
     size_t sz, strsz;
     int i;
     ElfW(Sym) *symtab;
-    char *type, *info, *strtab, *name;
+    const char *type_s, *bind_s, *shn_type, *strtab, *name;
     ElfW(Word) *hash;
     int nchain;
+    unsigned char type_v, bind_v;
 
     if (!s)
         return;
@@ -416,14 +417,24 @@ void print_symtab(ElfW(Dyn) *dynamic, struct segment *s)
            break;
            */
 
-        type = sh_index_tostr(symtab[i].st_shndx);
-        info = symb_info_tostr(symtab[i].st_info);
+        type_v = ST_TYPE(symtab[i].st_info);
+        bind_v = ST_BIND(symtab[i].st_info);
+
+        /*
+        bind_s = symb_bind_tostr(bind_v);
+        type_s = symb_type_tostr(type_v);
+        */
+        bind_s = "toto";
+        type_s = "tata";
+
+        shn_type = sh_index_tostr(symtab[i].st_shndx);
 
         name = &strtab[symtab[i].st_name];
 
-        printf("symtab, %d, %lu, %d, %d, %s, %d, %d, %s, %s\n", 
+        printf("symtab, %d, %lu, %d, %d, %s, %d, %d, %s, %s, %s, %s\n", 
                 symtab[i].st_name, symtab[i].st_value, symtab[i].st_size,
-                symtab[i].st_info, info, symtab[i].st_other, symtab[i].st_shndx, type, name);
+                symtab[i].st_info, symtab[i].st_other,
+                symtab[i].st_shndx, bind_s, type_s, shn_type, name);
     }
 }
 

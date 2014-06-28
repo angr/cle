@@ -1,11 +1,18 @@
 #include <elf.h>
 #include <link.h>
-/* ST_BIND is either ELF32_STBIND or ELF64_STBIND. Though these guys boil down
- * to the same thing (see elf.h), let's play the game and call the correct one.
- * */
+/* ELFxx_ST_BIND is either ELF32_STBIND or ELF64_STBIND. Though these guys boil
+ * down to the same thing (see elf.h), let's play the game and call the correct
+ * one.  */
 #define ST_BIND(x) _XST_BIND(ELF, __ELF_NATIVE_CLASS, _ST_BIND,  x)
 #define _XST_BIND(elf, class, name, x)  __XST_BIND(elf, class, name, x )
 #define __XST_BIND(elf, class, name, x) elf##class##name(x)
+
+/* Same thing with ELFxx_ST_TYPE */
+#define ST_TYPE(x) _XST_TYPE(ELF, __ELF_NATIVE_CLASS, _ST_TYPE,  x)
+#define _XST_TYPE(elf, class, name, x)  __XST_TYPE(elf, class, name, x )
+#define __XST_TYPE(elf, class, name, x) elf##class##name(x)
+
+
 
 /* Same thing with ELFxx_R_SYM*/
 #define ELF_R_SYM(x) _ELF_R_SYM(ELF, __ELF_NATIVE_CLASS, _R_SYM,  x)

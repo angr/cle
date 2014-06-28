@@ -39,7 +39,7 @@ class Elf(object):
         self.rebase_addr = 0
         self.object_type = None
         self.entry_point = None
-        self.deps = None
+        self.deps = None # Needed shared objects (libraries dependencies)
 
         if (os.path.exists(binary)):
             self.binary = binary
@@ -77,6 +77,30 @@ class Elf(object):
             return d["vaddr"]
         else:
             return t["vaddr"]
+
+
+
+    def __get_max_addr(self):
+        """ This returns the highest virtual address contained in any loaded
+        segment of the binary
+
+        NOTE: relocation is taken into consideration, if it exists. By default,
+        rebase_addr is zero.
+        When this is called by Clé's loader (Ld), relocations are already in place.
+        When this function is called directly, the behavior w.r.t relocation is
+        undefined, and depends on whether the caller set rebase_addr to any
+        value.
+        """
+
+        text = self.get_text_phdr_ent()
+        data = self.get_data_phdr_ent()
+
+        m1 = text["vaddr"] + text["memsz"] + self.rebase_addr
+        m2 = data["vaddr"] + data["memsz"] + self.rebase_addr
+
+        if m1 > m2:
+            return m1
+        return m2
 
 
     def __get_phdr(self, data):
@@ -317,17 +341,40 @@ class Elf(object):
 
 
     def arch_to_qemu_arch(self, arch):
-        """ Conversion of arch names used by bfd to the appropriate qemu
-        arch name """
+        """ We internally use the BFD architecture names.
+         This converts names to the convension used by qemu-user to name its
+         different qemu-{arch} architectures. """
 
         if arch == "i386:x86-64":
             return "x86_64"
         elif arch == "mips:isa32":
             return "mips"
+        elif arch == "powerpc:common":
+            return "ppc"
+        elif arch == "armv4t":
+            return "arm"
+        elif arch == "i386":
+            return "i386"
+
         else:
             raise CLException("Architecture name conversion not implemented yet"
                               "for \"%s\" !" % arch)
 
+
+    def arch_to_simuvex_arch(self, arch):
+        """ This function translates architecture names from the BFD convention
+        to the convention used by simuvex """
+
+        if arch == "i386:x86-64":
+            return "AMD64"
+        elif arch == "mips:isa32":
+            return "MIPS32"
+        elif arch == "powerpc:common":
+            return "PPC32"
+        elif arch == "armv4t":
+            return "ARM"
+        elif arch == "i386":
+            return "X86"
 
 
     def load(self):
@@ -419,7 +466,7 @@ class Ld(object):
         self.memory = {} # Dictionary representation of the memory
         self.shared_objects =[] # Executables and libraries
         self.path = binary
-        self.exe = Elf(binary)
+        self.main_bin = Elf(binary)
         self.__load_exe()
         self.__load_shared_libs()
         self.__perform_reloc()
@@ -434,12 +481,55 @@ class Ld(object):
 
     def __perform_reloc(self):
         # Main binary
-        self.__reloc(self.exe)
+        self.__reloc(self.main_bin)
 
         # Libraries
         for obj in self.shared_objects:
             self.__reloc(obj)
 
+
+
+    def addr_belongs_to_object(self, addr):
+        max = self.main_bin.__get_max_addr()
+        min = self.main_bin.__get_exec_base_addr()
+
+        if (addr > min and addr < max):
+            return self.main_bin
+
+        for so in self.shared_objects:
+            max = so.__get_max_addr()
+            min = so.rebase_addr
+            if (addr > min and addr < max):
+                return so
+
+
+
+    def min_addr(self):
+        """ The minimum base address of any loaded object """
+
+        # Let's start with the main executable
+        base = self.main_bin.__get_exec_base_addr(self)
+
+        # Libraries usually have 0 as their base address, until relocation.
+        # It is unlikely that libraries get relocated at a lower address than
+        # the main binary, but we never know...
+        for i in self.shared_objects:
+            if (i.rebase_addr > 0 and i.rebase_addr < base):
+                base = i.rebase_addr
+
+        return base
+
+
+
+    def max_addr(self):
+        """ The maximum address loaded as part of any loaded object """
+
+        m1 = self.main_bin.__get_max_addr()
+        for i in self.shared_objects:
+            m2 = i.__get_max_addr()
+            if m2 > m1:
+                m1 = m2
+        return m1
 
 
 
@@ -462,6 +552,24 @@ class Ld(object):
 
 
 
+    def override_got_entry(self, name, newaddr, obj):
+        """ This overrides the address of the function defined by @symbol with
+        the new address @newaddr, inside the GOT of object @obj.
+        This is used to call simprocedures instead of actual code """
+
+        got = obj.jmprel
+
+        if not (name in got.keys()):
+            l.debug("Could not override the address of symbol %s: symbol not "
+                    "found" % name)
+            return False
+
+        addr = got[name]
+        mem[addr] = newaddr
+        return True
+
+
+
 
     def find_symbol_addr(self, symbol):
         """ Try to get a symbol's address from the exports of shared objects """
@@ -474,7 +582,7 @@ class Ld(object):
 
     def __load_exe(self):
         """ Load exe into "main memory"""
-        for addr, val in self.exe.memory.iteritems():
+        for addr, val in self.main_bin.memory.iteritems():
             # There shouldn't be anything in this memory location yet
             if addr in self.memory:
                 raise CLException("Something is already loaded at 0x%x" % addr)
@@ -485,7 +593,7 @@ class Ld(object):
 
     def __load_shared_libs(self):
         """ Stub to load and rebase shared objects """
-        # shared_libs = self.exe.deps
+        # shared_libs = self.main_bin.deps
         shared_libs = self.ld_so_addr()
         for name, addr in shared_libs.iteritems():
             so = self.__load_so(name)
@@ -508,9 +616,9 @@ class Ld(object):
     def ld_so_addr(self):
         """ Use LD_AUDIT to find object dependencies and relocation addresses"""
 
-        qemu = self.exe.get_qemu_cmd()
+        qemu = self.main_bin.get_qemu_cmd()
         env_p = os.getenv("VIRTUAL_ENV")
-        bin_p = os.path.join(env_p, "opt" ,self.exe.arch)
+        bin_p = os.path.join(env_p, "opt" ,self.main_bin.arch)
 
         # Our LD_AUDIT shared object
         ld_audit_obj = os.path.join(bin_p, "ld_audit.so")

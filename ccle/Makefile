@@ -1,7 +1,7 @@
 LIB:=$(CURDIR)
 DESTDIR=$(VIRTUAL_ENV)/opt/
 
-all: libcle-x86_64 libcle-mips libcle-ppc libcle_ctypes-x86_64 clextract-x86_64 clextract-mips clextract-ppc
+all: libcle-x86_64 libcle-mips libcle-ppc libcle_ctypes-x86_64 clextract-x86_64 clextract-mips clextract-ppc libcle-arm
 
 libcle-x86_64: libcle.c
 	mkdir -p x86_64
@@ -17,6 +17,11 @@ libcle-ppc: libcle.c
 	mkdir -p ppc
 	powerpc-linux-gnu-gcc -Wall -c -fpic libcle.c -o ppc/libcle.o
 	powerpc-linux-gnu-gcc -shared ppc/libcle.o -o ppc/libcle.so
+
+libcle-arm: libcle.c
+	mkdir -p arm
+	arm-linux-gnueabi-gcc -Wall -c -fpic libcle.c -o arm/libcle.o
+	arm-linux-gnueabi-gcc -shared arm/libcle.o -o arm/libcle.so
 	
 libcle_ctypes-x86_64: libcle_ctypes.c
 	x86_64-linux-gnu-gcc -Wall -c -fpic libcle_ctypes.c -o x86_64/libcle_ctypes.o
@@ -33,6 +38,11 @@ clextract-mips: clextract.c
 clextract-ppc: clextract.c
 	powerpc-linux-gnu-gcc -c clextract.c -o ppc/clextract.o
 	powerpc-linux-gnu-gcc -L$(LIB)/ppc -Wall ppc/clextract.o -o ppc/clextract -lcle
+
+clextract-arm: clextract.c
+	arm-linux-gnueabi-gcc -c clextract.c -o arm/clextract.o
+	arm-linux-gnueabi-gcc -L$(LIB)/arm -Wall arm/clextract.o -o arm/clextract -lcle
+
 
 
 install:
