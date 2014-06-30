@@ -740,7 +740,7 @@ const char *sh_type_tostr(ElfW(Word) sh_type)
 
 
 /* Symbol table : special section index values */
-char *sh_index_tostr(ElfW(Half) ndx)
+const char *sh_index_tostr(ElfW(Half) ndx)
 {
     switch(ndx)
     {
@@ -761,7 +761,7 @@ char *sh_index_tostr(ElfW(Half) ndx)
 
 
 /* Symbol table: symbol binding */
-char *symb_bind_tostr(unsigned char info)
+const char *symb_bind_tostr(int info)
 {
     switch(ST_BIND(info))
     {
@@ -784,7 +784,7 @@ char *symb_bind_tostr(unsigned char info)
 }
 
 /* Symbol table: symbol type */
-const char* symb_type_tostr(unsigned char type)
+const char* symb_type_tostr(int type)
 {
     switch(type)
     {
