@@ -129,6 +129,7 @@ void la_preinit(uintptr_t *cookie){
 
     log_append("---", "transfered control to the program", 0x0);
     free(maps);
+    exit(0);
 }
 
 

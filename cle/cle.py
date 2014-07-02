@@ -51,7 +51,8 @@ class Elf(object):
         arch_name = self.__get_bfd_arch(binary)
 
         # We use qemu's convention for arch names
-        self.arch = self.arch_to_qemu_arch(arch_name)
+        self.arch = self.__arch_to_qemu_arch(arch_name)
+        self.simarch = self.__arch_to_simuvex_arch(arch_name)
         info = self.__call_clextract(binary)
         self.symbols = self.__get_symbols(info)
         self.entry_point = self.__get_entry_point(info)
@@ -64,7 +65,7 @@ class Elf(object):
 
 
 
-    def __get_exec_base_addr(self):
+    def get_exec_base_addr(self):
         """
         Return the virtual address of the segment that has the lowest address.
         This is only relevant to executable files, as shared libraries would
@@ -80,13 +81,13 @@ class Elf(object):
 
 
 
-    def __get_max_addr(self):
+    def get_max_addr(self):
         """ This returns the highest virtual address contained in any loaded
         segment of the binary
 
         NOTE: relocation is taken into consideration, if it exists. By default,
         rebase_addr is zero.
-        When this is called by Clé's loader (Ld), relocations are already in place.
+        When this is called by Cle's loader (Ld), relocations are already in place.
         When this function is called directly, the behavior w.r.t relocation is
         undefined, and depends on whether the caller set rebase_addr to any
         value.
@@ -171,10 +172,12 @@ class Elf(object):
         symb = self.__symb(data)
         for i in symb:
             s = {}
-            name = i[9].strip()
-            s["addr"] = int(i[2].strip())
-            s["binding"] = i[5].strip()
-            s["type"] = i[8].strip()
+            name = i[6].strip()
+            s["addr"] = int(i[1].strip())
+            s["size"] = int(i[2].strip())
+            s["binding"] = i[3].strip()
+            s["type"] = i[4].strip()
+            s["sh_info"] = i[5].strip()
             symbols[name] = s
 
         return symbols
@@ -247,8 +250,8 @@ class Elf(object):
             binding = prop["binding"]
 
             # Exports have STB_GLOBAL binding propertie. TODO: STB_WEAK ?
-            if (binding == "STB_GLOBAL"):
-                exports[name] = addr
+            #if (binding == "STB_GLOBAL"):
+            exports[name] = addr
         return exports
 
 
@@ -283,19 +286,42 @@ class Elf(object):
         return deps
 
 
+
+    def get_cross_library_path(self):
+        """ Returns the path to cross libraries for @arch"""
+
+        arch = self.arch
+
+        if arch == "x86_64":
+            return "/usr/x86_64-linux-gnu/"
+        elif arch == "ppc":
+            return "/usr/powerpc-linux-gnu/"
+        elif arch == "mips":
+            return "/usr/mips-linux-gnu/"
+        elif arch == "arm":
+            return "/usr/arm-linux-gnueabi/"
+        elif arch == "i386":
+            return "/lib32"
+
+
+
     def __call_clextract(self, binary):
         """ Get information from the binary using clextract """
         qemu = self.get_qemu_cmd()
         arch = self.arch
         env_p = os.getenv("VIRTUAL_ENV")
-        bin_p = "opt/%s" % arch
+        bin_p = "local/bin/%s" % arch
+        lib_p = "local/lib/%s" % arch
         cle = os.path.join(env_p, bin_p, "clextract")
+
         if (not os.path.exists(cle)):
             raise CLException("Cannot find clextract binary at %s" % cle)
 
+        crosslibs = self.get_cross_library_path()
         # clextract needs libcle which resides in arch/ for each arch
-        cmd = [qemu, "-E", "LD_LIBRARY_PATH=" + os.path.join(env_p, bin_p), cle,
-               self.binary]
+        cmd = [qemu, "-L", crosslibs, "-E", "LD_LIBRARY_PATH=" +
+               os.path.join(env_p, lib_p) + ":" + crosslibs, cle, self.binary]
+
         s = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE)
         out = s.communicate()
@@ -306,7 +332,7 @@ class Elf(object):
         # through an ENV variable ?)
         if (err != 0):
             raise CLException("Qemu returned error %d while running %s :("
-                              % (err, repr(cmd)))
+                              % (err, " ".join(cmd)))
 
         else:
 
@@ -340,18 +366,18 @@ class Elf(object):
 
 
 
-    def arch_to_qemu_arch(self, arch):
+    def __arch_to_qemu_arch(self, arch):
         """ We internally use the BFD architecture names.
          This converts names to the convension used by qemu-user to name its
          different qemu-{arch} architectures. """
 
         if arch == "i386:x86-64":
             return "x86_64"
-        elif arch == "mips:isa32":
+        elif arch == "mips:isa32" or arch == "mips:3000":
             return "mips"
         elif arch == "powerpc:common":
             return "ppc"
-        elif arch == "armv4t":
+        elif arch == "armv4t" or arch =="arm":
             return "arm"
         elif arch == "i386":
             return "i386"
@@ -361,7 +387,8 @@ class Elf(object):
                               "for \"%s\" !" % arch)
 
 
-    def arch_to_simuvex_arch(self, arch):
+
+    def __arch_to_simuvex_arch(self, arch):
         """ This function translates architecture names from the BFD convention
         to the convention used by simuvex """
 
@@ -490,14 +517,14 @@ class Ld(object):
 
 
     def addr_belongs_to_object(self, addr):
-        max = self.main_bin.__get_max_addr()
-        min = self.main_bin.__get_exec_base_addr()
+        max = self.main_bin.get_max_addr()
+        min = self.main_bin.get_exec_base_addr()
 
         if (addr > min and addr < max):
             return self.main_bin
 
         for so in self.shared_objects:
-            max = so.__get_max_addr()
+            max = so.get_max_addr()
             min = so.rebase_addr
             if (addr > min and addr < max):
                 return so
@@ -508,7 +535,7 @@ class Ld(object):
         """ The minimum base address of any loaded object """
 
         # Let's start with the main executable
-        base = self.main_bin.__get_exec_base_addr(self)
+        base = self.main_bin.get_exec_base_addr()
 
         # Libraries usually have 0 as their base address, until relocation.
         # It is unlikely that libraries get relocated at a lower address than
@@ -524,9 +551,9 @@ class Ld(object):
     def max_addr(self):
         """ The maximum address loaded as part of any loaded object """
 
-        m1 = self.main_bin.__get_max_addr()
+        m1 = self.main_bin.get_max_addr()
         for i in self.shared_objects:
-            m2 = i.__get_max_addr()
+            m2 = i.get_max_addr()
             if m2 > m1:
                 m1 = m2
         return m1
@@ -597,9 +624,13 @@ class Ld(object):
         shared_libs = self.ld_so_addr()
         for name, addr in shared_libs.iteritems():
             so = self.__load_so(name)
-            self.rebase_lib(so, addr)
-            so.rebase_addr = addr
-            self.shared_objects.append(so)
+            if (so):
+                self.rebase_lib(so, addr)
+                so.rebase_addr = addr
+                self.shared_objects.append(so)
+            else:
+                l.debug("Shared object %s not loaded :(" % name)
+
 
 
     def rebase_lib(self, so, base):
@@ -618,10 +649,10 @@ class Ld(object):
 
         qemu = self.main_bin.get_qemu_cmd()
         env_p = os.getenv("VIRTUAL_ENV")
-        bin_p = os.path.join(env_p, "opt" ,self.main_bin.arch)
+        bin_p = os.path.join(env_p, "local/lib" ,self.main_bin.arch)
 
         # Our LD_AUDIT shared object
-        ld_audit_obj = os.path.join(bin_p, "ld_audit.so")
+        ld_audit_obj = os.path.join(bin_p, "cle_ld_audit.so")
 
         #LD_LIBRARY_PATH
         ld_path = os.getenv("LD_LIBRARY_PATH")
@@ -629,12 +660,16 @@ class Ld(object):
             ld_path = bin_p
         else:
             ld_path = ld_path + ":" + bin_p
+
+        cross_libs = self.main_bin.get_cross_library_path()
+        ld_path = ld_path + ":" + cross_libs
+
         var = "LD_LIBRARY_PATH=%s,LD_AUDIT=%s" % (ld_path, ld_audit_obj)
 
         #LD_AUDIT's output
         log = "./ld_audit.out"
 
-        cmd = [qemu, "-E", var, self.path]
+        cmd = [qemu, "-L", cross_libs, "-E", var, self.path]
         s = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE)
         s.communicate()
@@ -669,10 +704,11 @@ class Ld(object):
         # search for it in known paths.
         if (not os.path.exists(soname)):
             path = self.__search_so(soname)
-            if (path == None):
-                l.debug("\txxx Could not find shared object %s :(" %
-                        repr(soname))
-                return
+            soname = path
+
+        if (soname == None):
+            raise CLException("Could not find shared object %s :(" %
+                                  repr(soname))
         else:
             so = Elf(soname)
             return so
@@ -687,16 +723,18 @@ class Ld(object):
         loc = []
         loc.append(os.getenv("LD_LIBRARY_PATH"))
         loc.append(os.path.dirname(self.path))
+        loc.append(self.main_bin.get_cross_library_path())
+
+        libname = os.path.basename(soname)
 
         for ld_path in loc:
             if not ld_path: continue
             for s_path, s_dir, s_file in os.walk(ld_path):
-                sopath = os.path.join(s_path,soname)
+                sopath = os.path.join(s_path,libname)
                 #l.debug("\t--> Trying %s" % sopath)
                 if os.path.exists(sopath):
                     l.debug("\t-->Found %s" % sopath)
                     return sopath
-        return None
 
 
 

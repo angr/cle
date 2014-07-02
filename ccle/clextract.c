@@ -235,7 +235,7 @@ ElfW(Addr) *get_jmprel_ptr(ElfW(Dyn) *dynamic, struct segment *s)
 void print_jmprel(ElfW(Dyn) *dynamic, struct segment *s)
 {
    ElfW(Addr) *addr;
-   ElfW(Word) relsz, relatype;
+   ElfW(Word) pltrelsz, relatype;
    int count, i, symidx, stridx;
    ElfW(Rela) *rela;
    ElfW(Rel) *rel;
@@ -245,20 +245,27 @@ void print_jmprel(ElfW(Dyn) *dynamic, struct segment *s)
    unsigned char rtype;
    char *str, *name;
 
-   relsz = get_dyn_val(dynamic, DT_PLTRELSZ);
+   /* Size of relocation entries associated with the PLT */
+   pltrelsz = get_dyn_val(dynamic, DT_PLTRELSZ);
+
+   /* Type of relocation*/
    relatype = get_dyn_val(dynamic, DT_PLTREL);
+
+   /* Address of the JMPREL table */
    addr = get_jmprel_ptr(dynamic, s);
 
+   /* Symbol and string tables */
    symtab = get_symtab_ptr(dynamic, s);
    strtab = get_strtab_ptr(dynamic, s);
 
-   if (!addr)
+   if (!addr || !s)
        return;
 
+   /* The following depends on the type of relocation entries */
    if (relatype == DT_RELA)
    {
        rela = (ElfW(Rela)*) addr;
-       count = relsz / sizeof(ElfW(Rela));
+       count = pltrelsz / sizeof(ElfW(Rela));
 
        for(i=0; i<count; i++){
            symidx = (int) ELF_R_SYM(rela[i].r_info);
@@ -274,7 +281,7 @@ void print_jmprel(ElfW(Dyn) *dynamic, struct segment *s)
    else if (relatype == DT_REL)
    {
        rel = (ElfW(Rel)*) addr;
-       count = relsz / sizeof(ElfW(Rel));
+       count = pltrelsz / sizeof(ElfW(Rel));
 
        for(i=0; i<count; i++){
            symidx = (int) ELF_R_SYM(rel[i].r_info);
@@ -283,7 +290,7 @@ void print_jmprel(ElfW(Dyn) *dynamic, struct segment *s)
 
            rtype = ELF_R_TYPE(rel[i].r_info);
            //str = reloc_type_tostr(rtype);
-           printf("jmprel, %lu, %s, %s\n", rel[i].r_offset, str, name);
+           printf("jmprel, %lu, %lu, %s\n", rel[i].r_offset, rtype, name);
        }
    }
 }
