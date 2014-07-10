@@ -49,7 +49,7 @@ void print_shdr(ElfW(Shdr) *shdr, size_t size)
 /* Display basic info contained in the ELF header*/
 void print_basic_info(ElfW(Ehdr ehdr))
 {
-    printf("Entry point, %lx\n", ehdr.e_entry);
+    printf("Entry point, %ld\n", ehdr.e_entry);
     printf("Machine type, %s\n", _get_arch(ehdr));
     printf("Object type, %s\n", _get_type(ehdr));
     printf("Endianness, %s\n", ei_data_tostr(ehdr.e_ident[EI_DATA]));

@@ -148,7 +148,7 @@ class Elf(object):
         """ Get entry point """
         for i in data:
             if i[0] == "Entry point":
-                return i[1]
+                return int(i[1].strip())
 
 
 
