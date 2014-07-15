@@ -29,6 +29,13 @@ class Segment(object):
             return ((addr > self.vaddr) and (addr < self.vaddr + self.size))
 
 
+class ArchInfo(object):
+    def __init__(self, name=None, bpa=None, asz=None):
+        self.name = name
+        self.bits_per_addr = bpa
+        self.arch_size = asz
+
+
 class Elf(object):
     """ Representation of loaded Elf binaries """
     def __init__(self, binary):
@@ -48,7 +55,10 @@ class Elf(object):
                               binary)
 
         l.debug(" [Loading binary object %s]" % self.binary)
-        arch_name = self.__get_bfd_arch(binary)
+        archinfo = self.__get_bfd_info(binary)
+        self.archinfo = archinfo
+        arch_name = archinfo.name
+        self.bits_per_addr = archinfo.bits_per_addr
 
         # We use qemu's convention for arch names
         self.arch = self.__arch_to_qemu_arch(arch_name)
@@ -155,7 +165,7 @@ class Elf(object):
     def __get_endianness(self, data):
         for i in data:
             if i[0] == "Endianness":
-                return i[1]
+                return i[1].strip()
 
 
     def get_object_type(self, data):
@@ -256,6 +266,23 @@ class Elf(object):
 
 
 
+    def __get_bfd_info(self, binary):
+        """ Get the architecture name using ctypes and cle_bfd.so """
+        env_p = os.getenv("VIRTUAL_ENV")
+        lib_p = "lib"
+        lib = os.path.join(env_p, lib_p, "cle_bfd.so")
+        if os.path.exists(lib):
+            self.lib = cdll.LoadLibrary(lib)
+            self.lib.get_bfd_arch_pname.restype = c_char_p
+            name = self.lib.get_bfd_arch_pname(binary)
+            bpa = self.lib.get_bits_per_addr(binary)
+            asz = self.lib.get_arch_size(binary)
+            return ArchInfo(name, bpa, asz)
+        else:
+            raise CLException("Cannot load cle_bfd.so, invalid path:%s" % lib)
+
+
+
     def __get_bfd_arch(self, binary):
         """ Get the architecture name using ctypes and cle_bfd.so """
         env_p = os.getenv("VIRTUAL_ENV")
@@ -263,8 +290,8 @@ class Elf(object):
         lib = os.path.join(env_p, lib_p, "cle_bfd.so")
         if os.path.exists(lib):
             self.lib = cdll.LoadLibrary(lib)
-            self.lib.get_bfd_arch.restype = c_char_p
-            return self.lib.get_bfd_arch(binary)
+            self.lib.get_bfd_arch_name.restype = c_char_p
+            return self.lib.get_bfd_arch_name(binary)
         else:
             raise CLException("Cannot load cle_bfd.so, invalid path:%s" % lib)
 
@@ -394,7 +421,7 @@ class Elf(object):
 
         if arch == "i386:x86-64":
             return "AMD64"
-        elif arch == "mips:isa32":
+        elif "mips" in arch and self.archinfo.arch_size == 32:
             return "MIPS32"
         elif arch == "powerpc:common":
             return "PPC32"
@@ -402,6 +429,15 @@ class Elf(object):
             return "ARM"
         elif arch == "i386":
             return "X86"
+        # Unsupported architectures:
+        elif "mips" in arch and self.archinfo.arch_size == 64:
+            raise CLException("Architecture MIPS 64 bit not supported")
+        elif "ppc" in arch and self.archinfo.arch_size == 64:
+            raise CLException("Architecture PPC 64 bit not supported")
+        # mipsel
+        elif "mips" in arch and self.endianness == "LSB":
+            l.info("Warning: arch mipsel detected, make sure you compile VEX "
+                   "accordingly")
 
 
     def load(self):
@@ -424,7 +460,7 @@ class Elf(object):
         size = data_hdr["memsz"] - data_hdr["filesz"]
         off = data_hdr["vaddr"] + data_hdr["filesz"]
         for i in range(off, off + size):
-            self.memory[i] = 0x0
+            self.memory[i] = "\x00"
 
 
 
@@ -495,8 +531,11 @@ class Ld(object):
         self.path = binary
         self.main_bin = Elf(binary)
         self.__load_exe()
+        #print "mem@ 0x601000: %s" % repr(self.memory[0x601000])
         self.__load_shared_libs()
+        #print "mem@ 0x601000: %s" % repr(self.memory[0x601000])
         self.__perform_reloc()
+        #print "mem@ 0x601000: %s" % repr(self.memory[0x601000])
 
 
     def host_endianness(self):
@@ -573,9 +612,47 @@ class Ld(object):
                 uaddr = uaddr + obj.rebase_addr
                 l.debug("\t--> Relocation of %s -> 0x%x" %
                         (symb, int(uaddr)))
-                self.memory[got_addr] = uaddr
+
+                baddr = self.__addr_to_bytes(uaddr, obj.endianness,
+                                             obj.bits_per_addr)
+                for i in range(0, len(baddr)):
+                    self.memory[got_addr + i] = baddr[i]
+                    #l.debug("GOT addr 0x%x + 0x%x set to %s" %
+                    #        (got_addr, i, repr(baddr[i])))
+
             else:
                 l.debug("\t--> Cannot locate symbol \"%s\" from SOs" % symb)
+
+
+
+    def __addr_to_bytes(self, addr, end, numbits):
+        """ This splits an address into n bytes
+        @addr is the address to split
+        @end is the endianness of the architecture
+        @numbits is the number of bits per address on this architecture
+        """
+
+        # Craft format string of the right length
+        hex_digits = numbits / 4
+        fmt = "0%dX" % hex_digits
+        fmt = '%' + fmt
+
+        # Convert addr to hex string
+        hx = fmt % addr
+        h_bytes = []
+
+        # Split hex addr in bytes
+        for i in range(0, len(hx), 2):
+            val = int(hx[0:2],16)
+            h = chr(val)
+            h_bytes.append(h)
+            hx = hx[2:]
+
+
+        if end == "LSB":
+            h_bytes.reverse()
+
+        return h_bytes
 
 
 
@@ -593,6 +670,7 @@ class Ld(object):
 
         addr = got[name]
         mem[addr] = newaddr
+        pdb.set_trace()
         return True
 
 
@@ -641,7 +719,10 @@ class Ld(object):
         for addr, data in so.memory.iteritems():
             newaddr = int(addr) + int(base)
             #l.debug("Adding %s at 0x%x" % (repr(data), newaddr))
-            self.memory[newaddr] = data
+            if newaddr in self.memory:
+                raise CLException("Soemthing is already loaded at 0x%x" % newaddr)
+            else:
+                self.memory[newaddr] = str(data)
 
 
     def ld_so_addr(self):
