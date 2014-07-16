@@ -1,13 +1,17 @@
-import angr_ida
-import angr
-from python_lib import standard_logging, angr_debug
+#!/usr/bin/env python
+try:
+    # angr_ida is a the branch of angr using ida, where all the references to
+    # angr are substituted to angr ida. This allows to run both versions in
+    # parallel. If it is not present, only angr is used.
+   # import angr_ida
+    from python_lib import standard_logging, angr_debug
+except ImportError:
+    pass
 
+import angr
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
-#filename = "/home/christophe/binary_project/angr/angr/tests/never/never"
-#filename = "/home/christophe/binary_project/loader/cle/test/test_reloc"
-#filename ="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-amd64"
 
 
 def print_obj_addresses(p_cle):
@@ -74,19 +78,25 @@ def cfg(p):
 
 if __name__ == '__main__':
     filename = "/tmp/fauxware-amd64"
-    p_ida = angr_ida.Project(filename, default_analysis_mode='symbolic',
+    p_ida = None
+    try:
+        p_ida = angr_ida.Project(filename, default_analysis_mode='symbolic',
                     use_sim_procedures=True)
+    except NameError:
+        print("angr_ida is not installed, ignoring...")
+
     p_cle = angr.Project(filename, default_analysis_mode='symbolic',
-                    use_sim_procedures=True)
+                         use_sim_procedures=True)
 
 
     #print "--> Cle's memory compared to IDA's"
     #compare_mem(p_ida.mem, p_cle.mem)
-    run(p_ida)
+    if p_ida:
+        run(p_ida)
+        c1 = cfg(p_ida)
+        browse(p_ida)
+
     run(p_cle)
-    c1 = cfg(p_ida)
     c2 = cfg(p_cle)
     browse(p_cle)
-    browse(p_ida)
-
     print_obj_addresses(p_cle)

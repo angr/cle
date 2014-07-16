@@ -617,8 +617,6 @@ class Ld(object):
                                              obj.bits_per_addr)
                 for i in range(0, len(baddr)):
                     self.memory[got_addr + i] = baddr[i]
-                    #l.debug("GOT addr 0x%x + 0x%x set to %s" %
-                    #        (got_addr, i, repr(baddr[i])))
 
             else:
                 l.debug("\t--> Cannot locate symbol \"%s\" from SOs" % symb)
@@ -722,7 +720,7 @@ class Ld(object):
             if newaddr in self.memory:
                 raise CLException("Soemthing is already loaded at 0x%x" % newaddr)
             else:
-                self.memory[newaddr] = str(data)
+                self.memory[newaddr] = data
 
 
     def ld_so_addr(self):
