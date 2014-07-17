@@ -763,7 +763,7 @@ const char *sh_index_tostr(ElfW(Half) ndx)
 /* Symbol table: symbol binding */
 const char *symb_bind_tostr(int info)
 {
-    switch(ST_BIND(info))
+    switch(info)
     {
         case STB_LOCAL:
             return "STB_LOCAL";
