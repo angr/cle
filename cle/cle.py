@@ -4,8 +4,10 @@ from ctypes import *
 import os
 import logging
 import subprocess
-import platform
-import binascii
+import pdb
+
+#import platform
+#import binascii
 
 l = logging.getLogger("cle")
 
@@ -45,7 +47,8 @@ class Elf(object):
         self.symbols = {} # Object's symbols
         self.rebase_addr = 0
         self.object_type = None
-        self.entry_point = None
+        self.entry_point = None # The entry point defined by CLE
+        self.custom_entry_point = None # A custom entry point
         self.deps = None # Needed shared objects (libraries dependencies)
 
         if (os.path.exists(binary)):
@@ -73,8 +76,6 @@ class Elf(object):
         self.endianness = self.__get_endianness(info)
         self.load()
 
-
-
     def get_exec_base_addr(self):
         """
         Return the virtual address of the segment that has the lowest address.
@@ -88,8 +89,6 @@ class Elf(object):
             return d["vaddr"]
         else:
             return t["vaddr"]
-
-
 
     def get_max_addr(self):
         """ This returns the highest virtual address contained in any loaded
@@ -113,7 +112,6 @@ class Elf(object):
             return m1
         return m2
 
-
     def __get_phdr(self, data):
         """ Get program header table """
         phdr = []
@@ -133,8 +131,6 @@ class Elf(object):
                 phdr.append(h)
         return phdr
 
-
-
     def __get_shdr(self, data):
         """ Get section header table if present """
         shdr = []
@@ -144,7 +140,6 @@ class Elf(object):
                 shdr.append(i)
         return shdr
 
-
     def __get_dynamic(self, data):
         """ Get the dynamic section """
         dyn = []
@@ -153,28 +148,36 @@ class Elf(object):
                 dyn.append(i)
         return dyn
 
-
     def __get_entry_point(self, data):
         """ Get entry point """
         for i in data:
             if i[0] == "Entry point":
                 return int(i[1].strip())
 
+    def entry(self):
+        """ This function mimicks the behavior of the initial Binary class in
+        Angr. TODO: abstract things away"""
+        if self.custom_entry_point is not None:
+            return self.custom_entry_point
+        else:
+            return self.entry_point
 
+    def set_entry(self, entry_point):
+        """ This function mimicks the behavior of the initial Binary class in
+        Angr. TODO: abstract things away """
+        # Set a custom entry point
+        self._custom_entry_point = entry_point
 
     def __get_endianness(self, data):
         for i in data:
             if i[0] == "Endianness":
                 return i[1].strip()
 
-
     def get_object_type(self, data):
         """ Get ELF type """
         for i in data:
             if i[0] == "Object_type":
                 return i[1]
-
-
 
     def __get_symbols(self, data):
         """ Get symbols addresses """
@@ -192,8 +195,6 @@ class Elf(object):
 
         return symbols
 
-
-
     def __symb(self, data):
         """ Extract symbol table entries from Clextract"""
         symb = []
@@ -202,8 +203,6 @@ class Elf(object):
             if i[0] == "symtab":
                 symb.append(i)
         return symb
-
-
 
     def __get_jmprel(self, data):
         """ Get the location of the GOT slots corresponding to the addresses of
@@ -216,15 +215,12 @@ class Elf(object):
                 got[i[3].strip()] = int(i[1].strip())
         return got
 
-
-
     def get_text_phdr_ent(self):
         """ Return the entry of the program header table corresponding to the
         text segment"""
         for i in self.phdr:
             if i["type"] == "PT_LOAD" and i["filesz"] == i["memsz"]:
                 return i
-
 
     def get_data_phdr_ent(self):
         """ Return the enty of the program header table corresponding to the
@@ -236,35 +232,30 @@ class Elf(object):
             if (i["type"] == "PT_LOAD") and (i["filesz"] != i["memsz"]):
                 return i
 
-
-
     def get_imports(self):
         """ Get imports from symbol table """
         imports = {}
         for name,properties in self.symbols.iteritems():
         # Imports are symbols with type SHN_UNDEF in the symbol table.
             addr = properties["addr"]
-            s_type = properties["type"]
-            if (s_type == "SHN_UNDEF"):
+            s_info = properties["sh_info"]
+            if (s_info == "SHN_UNDEF"):
                 imports[name] = int(addr)
         return imports
 
-
-
     def get_exports(self):
-        """ We can basically say that any symbol defined with an address is a
-        potential export """
+        """ We can basically say that any symbol defined with an address and
+        STB_GLOBAL binding is an export
+        """
         exports = {}
         for name,prop in self.symbols.iteritems():
             addr = prop["addr"]
             binding = prop["binding"]
 
-            # Exports have STB_GLOBAL binding propertie. TODO: STB_WEAK ?
-            #if (binding == "STB_GLOBAL"):
-            exports[name] = addr
+            # Exports have STB_GLOBAL binding property. TODO: STB_WEAK ?
+            if (binding == "STB_GLOBAL"):
+                exports[name] = addr
         return exports
-
-
 
     def __get_bfd_info(self, binary):
         """ Get the architecture name using ctypes and cle_bfd.so """
@@ -281,8 +272,6 @@ class Elf(object):
         else:
             raise CLException("Cannot load cle_bfd.so, invalid path:%s" % lib)
 
-
-
     def __get_bfd_arch(self, binary):
         """ Get the architecture name using ctypes and cle_bfd.so """
         env_p = os.getenv("VIRTUAL_ENV")
@@ -294,8 +283,6 @@ class Elf(object):
             return self.lib.get_bfd_arch_name(binary)
         else:
             raise CLException("Cannot load cle_bfd.so, invalid path:%s" % lib)
-
-
 
     def __get_lib_names(self, data):
         """ What are the dependencies of the binary ?
@@ -312,8 +299,6 @@ class Elf(object):
         l.debug("\t--> binary depends on %s" % repr(deps))
         return deps
 
-
-
     def get_cross_library_path(self):
         """ Returns the path to cross libraries for @arch"""
 
@@ -329,8 +314,6 @@ class Elf(object):
             return "/usr/arm-linux-gnueabi/"
         elif arch == "i386":
             return "/lib32"
-
-
 
     def __call_clextract(self, binary):
         """ Get information from the binary using clextract """
@@ -372,8 +355,6 @@ class Elf(object):
                 s.append(i.split(","))
             return s
 
-
-
     def get_qemu_cmd(self):
         """ Find the right qemu-{cmd} for the binary's architecture """
         cmd = "qemu-%s" % self.arch
@@ -390,8 +371,6 @@ class Elf(object):
                               " in PATH :: %s" % (cmd, out))
         else:
             return cmd
-
-
 
     def __arch_to_qemu_arch(self, arch):
         """ We internally use the BFD architecture names.
@@ -412,8 +391,6 @@ class Elf(object):
         else:
             raise CLException("Architecture name conversion not implemented yet"
                               "for \"%s\" !" % arch)
-
-
 
     def __arch_to_simuvex_arch(self, arch):
         """ This function translates architecture names from the BFD convention
@@ -439,7 +416,6 @@ class Elf(object):
             l.info("Warning: arch mipsel detected, make sure you compile VEX "
                    "accordingly")
 
-
     def load(self):
         """ Load the binary file @binary into memory"""
 
@@ -451,8 +427,6 @@ class Elf(object):
         # The data segment is also supposed to contain the BSS section
         self.__load_bss(data)
 
-
-
     def __load_bss(self, data_hdr):
         """ The BSS section does not appear in the binary file, but its size is
         the difference between the binary size and the process memory image size
@@ -462,9 +436,6 @@ class Elf(object):
         for i in range(off, off + size):
             self.memory[i] = "\x00"
 
-
-
-
     def __load(self, hdrinfo, name):
         """ Stub to load the text segment """
         if not hdrinfo:
@@ -472,8 +443,6 @@ class Elf(object):
                                " found :(" % name)
         self.load_segment(hdrinfo["offset"], hdrinfo["filesz"],
                           hdrinfo["vaddr"], name)
-
-
 
     def contains_addr(self, addr):
         """ Is @vaddr in one of the binary's segments we have loaded ?
@@ -484,14 +453,12 @@ class Elf(object):
                 return True
         return False
 
-
     def in_which_segment(self, vaddr):
         """ What is the segment name containing @vaddr ?"""
         for s in self.segments:
             if s.contains_addr(vaddr):
                 return s.name
         return None
-
 
     def load_segment(self, offset, size, vaddr, name=None):
         """ Load a segment into memory """
@@ -522,7 +489,6 @@ class Ld(object):
     The loader loads all the objects and exports an abstraction of the memory of
     the process.
     """
-
     def __init__(self, binary):
         """ @path is the path to licle_ctypes.so"""
 
@@ -537,13 +503,11 @@ class Ld(object):
         self.__perform_reloc()
         #print "mem@ 0x601000: %s" % repr(self.memory[0x601000])
 
-
     def host_endianness(self):
         if (sys.byteorder == "little"):
             return "LSB"
         else:
             return "MSB"
-
 
     def __perform_reloc(self):
         # Main binary
@@ -553,7 +517,11 @@ class Ld(object):
         for obj in self.shared_objects:
             self.__reloc(obj)
 
-
+    def mem_range(self, a_from, a_to):
+        arr = []
+        for addr in range(a_from, a_to):
+            arr.append(self.memory[addr])
+        return "".join(arr)
 
     def addr_belongs_to_object(self, addr):
         max = self.main_bin.get_max_addr()
@@ -567,8 +535,6 @@ class Ld(object):
             min = so.rebase_addr
             if (addr > min and addr < max):
                 return so
-
-
 
     def min_addr(self):
         """ The minimum base address of any loaded object """
@@ -585,8 +551,6 @@ class Ld(object):
 
         return base
 
-
-
     def max_addr(self):
         """ The maximum address loaded as part of any loaded object """
 
@@ -596,8 +560,6 @@ class Ld(object):
             if m2 > m1:
                 m1 = m2
         return m1
-
-
 
     def __reloc(self, obj):
         # Now let's update GOT entries for PLT jumps
@@ -620,8 +582,6 @@ class Ld(object):
 
             else:
                 l.debug("\t--> Cannot locate symbol \"%s\" from SOs" % symb)
-
-
 
     def __addr_to_bytes(self, addr, end, numbits):
         """ This splits an address into n bytes
@@ -652,27 +612,29 @@ class Ld(object):
 
         return h_bytes
 
+    def __override_got_slot(self, got_slot, newaddr):
+        """ This overrides the got slot starting at address @got_slot with
+        address @newaddr """
+        split_addr = self.__addr_to_bytes(newaddr, self.main_bin.endianness,
+                                                self.main_bin.bits_per_addr)
+        for i in range(0, len(split_addr)):
+            self.memory[got_slot + i] = split_addr[i]
 
-
-    def override_got_entry(self, name, newaddr, obj):
+    def override_got_entry(self, symbol, newaddr, obj):
         """ This overrides the address of the function defined by @symbol with
         the new address @newaddr, inside the GOT of object @obj.
         This is used to call simprocedures instead of actual code """
 
         got = obj.jmprel
 
-        if not (name in got.keys()):
+        if not (symbol in got.keys()):
             l.debug("Could not override the address of symbol %s: symbol not "
-                    "found" % name)
+                    "found" % symbol)
             return False
 
-        addr = got[name]
-        mem[addr] = newaddr
-        pdb.set_trace()
+        self.__override_got_slot(got[symbol], newaddr)
+
         return True
-
-
-
 
     def find_symbol_addr(self, symbol):
         """ Try to get a symbol's address from the exports of shared objects """
@@ -680,8 +642,6 @@ class Ld(object):
             ex = so.get_exports()
             if symbol in ex:
                 return int(ex[symbol]) + so.rebase_addr
-
-
 
     def __load_exe(self):
         """ Load exe into "main memory"""
@@ -691,8 +651,6 @@ class Ld(object):
                 raise CLException("Something is already loaded at 0x%x" % addr)
             else:
                 self.memory[addr] = val
-
-
 
     def __load_shared_libs(self):
         """ Stub to load and rebase shared objects """
@@ -707,8 +665,6 @@ class Ld(object):
             else:
                 l.debug("Shared object %s not loaded :(" % name)
 
-
-
     def rebase_lib(self, so, base):
         """ Relocate a shared objet given a base address
         We actually copy the local memory of the object at the new computed
@@ -721,7 +677,6 @@ class Ld(object):
                 raise CLException("Soemthing is already loaded at 0x%x" % newaddr)
             else:
                 self.memory[newaddr] = data
-
 
     def ld_so_addr(self):
         """ Use LD_AUDIT to find object dependencies and relocation addresses"""
@@ -776,7 +731,6 @@ class Ld(object):
                 " The log file '%s' does not exist, did qemu fail ? Try to run "
                               "`%s` manually to check" % (log, " ".join(cmd)))
 
-
     def __load_so(self, soname):
         """ Load a shared object into memory """
         # Soname can be a path or just the name if the library, in which case we
@@ -791,8 +745,6 @@ class Ld(object):
         else:
             so = Elf(soname)
             return so
-
-
 
     def __search_so(self, soname):
         """ Looks for a shared object given its filename"""
