@@ -1,9 +1,5 @@
 #!/usr/bin/env python
 try:
-    # angr_ida is a the branch of angr using ida, where all the references to
-    # angr are substituted to angr ida. This allows to run both versions in
-    # parallel. If it is not present, only angr is used.
-   # import angr_ida
     from python_lib import standard_logging, angr_debug
 except ImportError:
     pass
@@ -16,11 +12,11 @@ logging.basicConfig(level=logging.DEBUG)
 
 def print_obj_addresses(p_cle):
     for i in p_cle.ld.shared_objects:
-        print "base addr of %s is %x" % (i.binary, i.rebase_addr)
-        print "max addr of %s is %x" % (i.binary, i.get_max_addr())
+        print "base addr of %s is 0x%x" % (i.binary, i.rebase_addr)
+        print "max addr of %s is 0x%x" % (i.binary, i.get_max_addr())
 
     max_ld = p_cle.ld.max_addr()
-    print "Cle.Ld's max addr is %x" % max_ld
+    print "Cle.Ld's max addr is 0x%x" % max_ld
 
 
 def compare_mem(m1, m2):
@@ -41,8 +37,8 @@ def compare_mem(m1, m2):
 
 
 def compare_entry(p1,p2):
-    print "entry @ %x" % p1.entry
-    print "entry @ %x" % p2.entry
+    print "entry @ 0x%x" % p1.entry
+    print "entry @ 0x%x" % p2.entry
 
 
 def run(p1):
@@ -51,7 +47,7 @@ def run(p1):
     print "simrun default exit: %s" % hex(run1.default_exit.concretize())
     print "simrun conditional exits %s" % repr(run1.conditional_exits)
     print "simrun #exits %s" % repr(len(run1.exits()))
-    print "simrun addr %x" % run1.addr
+    print "simrun addr 0x%x" % run1.addr
     print "simrun id %s" % repr(run1.id_str)
     print "irsb #instructions %d" % run1.irsb.instructions()
     print "irsb size %d" % run1.irsb.size()
@@ -74,29 +70,34 @@ def cfg(p):
     return cfg
 
 
+def setup_ida(filename):
+    p_ida = None
+    p_ida = angr.Project(filename, default_analysis_mode='symbolic',
+                                 use_sim_procedures=True, arch="X86")
+    return p_ida
+
+
+def setup_cle(filename):
+    p_cle = angr.Project(filename, default_analysis_mode='symbolic',
+                         use_sim_procedures=True, use_cle=True)
+    return p_cle
+
+
+def test(p):
+    run(p)
+    cfg(p)
+    browse(p)
 
 
 if __name__ == '__main__':
-    filename = "/tmp/fauxware-amd64"
-    p_ida = None
-    try:
-        p_ida = angr_ida.Project(filename, default_analysis_mode='symbolic',
-                    use_sim_procedures=True)
-    except NameError:
-        print("angr_ida is not installed, ignoring...")
+    path="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-x86"
+    #path ="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-mips"
+    # path ="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-ppc32"
+    #path="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-amd64"
 
-    p_cle = angr.Project(filename, default_analysis_mode='symbolic',
-                         use_sim_procedures=True)
+    #ida = setup_ida(path)
+    #test(ida)
+    cle = setup_cle(path)
+    test(cle)
 
 
-    #print "--> Cle's memory compared to IDA's"
-    #compare_mem(p_ida.mem, p_cle.mem)
-    if p_ida:
-        run(p_ida)
-        c1 = cfg(p_ida)
-        browse(p_ida)
-
-    run(p_cle)
-    c2 = cfg(p_cle)
-    browse(p_cle)
-    print_obj_addresses(p_cle)
