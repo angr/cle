@@ -68,6 +68,7 @@ class Elf(object):
         self.simarch = self.__arch_to_simuvex_arch(arch_name)
         info = self.__call_clextract(binary)
         self.symbols = self.__get_symbols(info)
+        self.imports = self.__get_imports(self.symbols)
         self.entry_point = self.__get_entry_point(info)
         self.phdr = self.__get_phdr(info)
         self.deps = self.__get_lib_names(info)
@@ -206,14 +207,25 @@ class Elf(object):
 
     def __get_jmprel(self, data):
         """ Get the location of the GOT slots corresponding to the addresses of
-        relocated symbols (jump targets of the (PLT)"""
+        relocated symbols (jump targets of the (PLT).
+        The story:
+        Most arhitectures (including ppc, x86, x86_64 and arm) specify address
+        0 for imports (symbols with SHN_UNDEF and STB_GLOBAL) in the symbol
+        table, and specify GOT addresses in JMPREL. MIPS is an exception, and
+        directly specifies the GOT address in the symbol table.
+        """
         got = {}
+
+        if "mips" in self.arch:
+            return self.imports
+
         for i in data:
             if i[0].strip() == "jmprel":
                 # See the output of clextract:
                 # i[3] is the symbol name, i[1] is the GOT location
                 got[i[3].strip()] = int(i[1].strip(), 16)
         return got
+
 
     def get_text_phdr_ent(self):
         """ Return the entry of the program header table corresponding to the
@@ -232,15 +244,20 @@ class Elf(object):
             if (i["type"] == "PT_LOAD") and (i["filesz"] != i["memsz"]):
                 return i
 
-    def get_imports(self):
+    def __get_imports(self, symbols):
         """ Get imports from symbol table """
         imports = {}
-        for name,properties in self.symbols.iteritems():
-        # Imports are symbols with type SHN_UNDEF in the symbol table.
+        for name,properties in symbols.iteritems():
+        # Imports are symbols with type SHN_UNDEF in the symbol table, and they
+        # always have address 0 except on MIPS
             addr = properties["addr"]
             s_info = properties["sh_info"]
-            if (s_info == "SHN_UNDEF"):
-                imports[name] = addr
+            binding = properties["binding"]
+            if (s_info == "SHN_UNDEF" and binding == "STB_GLOBAL"):
+                imports[name] = int(addr)
+                if (int(addr)) != 0 and not "mips" in self.arch:
+                    raise CLException("ERROR: SHN_UNDEF and STB_GLOBAL symbol "
+                            "%s with non zero address on non MIPS target" % name)
         return imports
 
     def get_exports(self):
@@ -251,9 +268,13 @@ class Elf(object):
         for name,prop in self.symbols.iteritems():
             addr = prop["addr"]
             binding = prop["binding"]
+            info = prop["sh_info"]
 
             # Exports have STB_GLOBAL binding property. TODO: STB_WEAK ?
-            if (binding == "STB_GLOBAL"):
+            if (binding == "STB_GLOBAL" and info != "SHN_UNDEF" ):
+                if addr in self.imports:
+                    raise CLException("Symbol %s at 0x%x is both in imports and "
+                                      "exports, something is wrong :(", name, addr)
                 exports[name] = addr
         return exports
 
@@ -566,9 +587,9 @@ class Ld(object):
         l.debug(" [Performing relocations of %s]" % obj.binary)
         for symb, got_addr in obj.jmprel.iteritems():
             #s_type = obj.symbols[symb]["type"]
-           # if (s_type != "SHN_UNDEF"):
-           #     l.debug("\t--> skipping relocation of \"%s\"" % symb)
-           #     continue
+            # if (s_type != "SHN_UNDEF"):
+            #     l.debug("\t--> skipping relocation of \"%s\"" % symb)
+            #     continue
             uaddr = self.find_symbol_addr(symb)
             if (uaddr):
                 uaddr = uaddr + obj.rebase_addr
@@ -576,7 +597,7 @@ class Ld(object):
                         (symb, uaddr)
 
                 baddr = self.__addr_to_bytes(uaddr, obj.endianness,
-                                             obj.bits_per_addr)
+                                            obj.bits_per_addr)
                 for i in range(0, len(baddr)):
                     self.memory[got_addr + i] = baddr[i]
 
@@ -764,7 +785,7 @@ class Ld(object):
                 sopath = os.path.join(s_path,libname)
                 #l.debug("\t--> Trying %s" % sopath)
                 if os.path.exists(sopath):
-                    l.debug("\t-->Found %s" % sopath)
+                    l.debug("-->Found %s" % sopath)
                     return sopath
 
 
