@@ -124,7 +124,7 @@ class Elf(object):
                 h = {}
                 # Add integer fields
                 for f in int_fields:
-                    h[f] = int(d[idx])
+                    h[f] = int(d[idx], 16)
                     idx += 1
                 # Type is a string
                 h["type"] = d[idx].strip()
@@ -152,7 +152,7 @@ class Elf(object):
         """ Get entry point """
         for i in data:
             if i[0] == "Entry point":
-                return int(i[1].strip())
+                return int(i[1].strip(), 16)
 
     def entry(self):
         """ This function mimicks the behavior of the initial Binary class in
@@ -186,8 +186,8 @@ class Elf(object):
         for i in symb:
             s = {}
             name = i[6].strip()
-            s["addr"] = int(i[1].strip())
-            s["size"] = int(i[2].strip())
+            s["addr"] = int(i[1].strip(), 16)
+            s["size"] = int(i[2].strip(), 16)
             s["binding"] = i[3].strip()
             s["type"] = i[4].strip()
             s["sh_info"] = i[5].strip()
@@ -212,7 +212,7 @@ class Elf(object):
             if i[0].strip() == "jmprel":
                 # See the output of clextract:
                 # i[3] is the symbol name, i[1] is the GOT location
-                got[i[3].strip()] = int(i[1].strip())
+                got[i[3].strip()] = int(i[1].strip(), 16)
         return got
 
     def get_text_phdr_ent(self):
@@ -240,7 +240,7 @@ class Elf(object):
             addr = properties["addr"]
             s_info = properties["sh_info"]
             if (s_info == "SHN_UNDEF"):
-                imports[name] = int(addr)
+                imports[name] = addr
         return imports
 
     def get_exports(self):
@@ -573,7 +573,7 @@ class Ld(object):
             if (uaddr):
                 uaddr = uaddr + obj.rebase_addr
                 l.debug("\t--> Relocation of %s -> 0x%x" %
-                        (symb, int(uaddr)))
+                        (symb, uaddr)
 
                 baddr = self.__addr_to_bytes(uaddr, obj.endianness,
                                              obj.bits_per_addr)
@@ -641,7 +641,7 @@ class Ld(object):
         for so in self.shared_objects:
             ex = so.get_exports()
             if symbol in ex:
-                return int(ex[symbol]) + so.rebase_addr
+                return ex[symbol] + so.rebase_addr
 
     def __load_exe(self):
         """ Load exe into "main memory"""
@@ -671,7 +671,7 @@ class Ld(object):
         address in the "main memory" """
         l.debug("\t--> rebasing the binary object @0x%x" %base)
         for addr, data in so.memory.iteritems():
-            newaddr = int(addr) + int(base)
+            newaddr = addr + base
             #l.debug("Adding %s at 0x%x" % (repr(data), newaddr))
             if newaddr in self.memory:
                 raise CLException("Soemthing is already loaded at 0x%x" % newaddr)
