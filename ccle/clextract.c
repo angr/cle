@@ -49,7 +49,7 @@ void print_shdr(ElfW(Shdr) *shdr, size_t size)
 /* Display basic info contained in the ELF header*/
 void print_basic_info(ElfW(Ehdr ehdr))
 {
-    printf("Entry point, %ld\n", ehdr.e_entry);
+    printf("Entry point, 0x%lx\n", ehdr.e_entry);
     printf("Machine type, %s\n", _get_arch(ehdr));
     printf("Object type, %s\n", _get_type(ehdr));
     printf("Endianness, %s\n", ei_data_tostr(ehdr.e_ident[EI_DATA]));
@@ -410,7 +410,7 @@ void print_symtab(ElfW(Dyn) *dynamic, struct segment *s)
         if (!addr_belongs_to_mem((unsigned long)&symtab[i], (unsigned
                         long)s->img, (unsigned long) s->memsz))
         {
-            printf("Value out of segment: %lx\n", &symtab[i]);
+            printf("Value out of segment: 0x%lx\n", &symtab[i]);
             break;
         }
 
