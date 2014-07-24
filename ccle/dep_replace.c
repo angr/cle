@@ -6,11 +6,15 @@
 #include <string.h>
 #include "libcle.h"
 
-/* Checks whether library name @name is actually required by the binary */
-void check_needed(ElfW(Dyn) *dynamic, struct segment *s)
+/* Checks whether library name @name is actually required by the binary 
+ * If it is, returns the offset of the string in the string table.
+ * If not, returns 0
+ * */
+ElfW(Addr) check_needed(ElfW(Dyn) *dynamic, struct segment *s, lib_orig)
 {
     int i;
     char *strtab;
+    char *lib_found;
 
     strtab = get_strtab_ptr(dynamic, s);
     if (!strtab){
@@ -18,19 +22,25 @@ void check_needed(ElfW(Dyn) *dynamic, struct segment *s)
         return;
     }
 
-    printf("needed");
     for (i=0; dynamic[i].d_tag != DT_NULL; i++)
     {
         if (dynamic[i].d_tag == DT_NEEDED)
-            printf(", %s", &strtab[dynamic[i].d_un.d_ptr]);
+        {
+            lib_found = &strtab[dynamic[i].d_un.d_ptr];
+            if (strcmp(lib_found, lib_orig) == 0)
+                return dynamic[i].d_un.d_ptr;
+        }
     }
-    printf("\n");
+    return 0;
 }
+
 int main(int argc, char **argv)
 {
     char *binary;
     char *lib_orig;
     char *lib_repl;
+    unsigned char *text, *strtab, *vaddr;
+    int str_off;
 
     /* Parameters:
      *  - name of the binary to modify
@@ -79,32 +89,34 @@ int main(int argc, char **argv)
     /* Get ELF header*/
     rewind(f);
     fread(&ehdr, sizeof(Elf64_Ehdr), 1, f);
-    print_basic_info(ehdr);
 
-    /* Get program header table*/
     phdr = get_phdr(ehdr, f);
-    print_phdr(phdr, ehdr.e_phnum);
-
     dynamic = get_dynamic(phdr, ehdr.e_phnum, f);
-    print_dynamic(dynamic);
 
-    data = malloc(sizeof(struct segment));
-    text = malloc(sizeof(struct segment));
+    /* Map the text segment */
+    for (i = 0; i < phdr.e_phnum, i++)
+    {
+        if(phdr[i].p_memsz == phdr[i].p_filesz)
+        {
+            vaddr = phdr[i].p_vaddr;
+            text = mmap(vaddr, phdr[i].filesz, PROT_READ || PROT_WRITE,
+                    MAP_SHARED, f, phdr[i].p_offset);
+        }
+    }
 
-    if(!data || !text)
-        exit(EXIT_FAILURE);
+    /* Where is the strtab */
+    for (i=0; dynamic[i].d_tag != DT_NULL; i++)
+        if (dynamic[i].d_tag == DT_STRTAB)
+            strtab = dynamic[i].d_un.d_ptr;
 
-    if (load_text(ehdr, phdr, text, f) != 0)
-        exit(EXIT_FAILURE);
+    str_off = strtab - vaddr;
+    for (i=0; dynamic[i].d_tag != DT_NULL; i++)
+        if (dynamic[i].d_tag == DT_NEEDED)
 
-    if (load_data(ehdr, phdr, data, f) != 0)
-        exit(EXIT_FAILURE);
+    /* DT_NEEDED */
 
-    check_needed(dynamic, text, lib_orig);
 
     fclose(f);
     free(phdr);
     free(shdr);
-    free_segment(&data);
-    free_segment(&text);
 }
