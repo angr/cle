@@ -623,6 +623,21 @@ const char* d_tag_tostr(ElfW(Sword) d_tag)
         case DT_HIPROC:
             return "DT_HIPROC";
             break;
+        case DT_MIPS_BASE_ADDRESS:
+            return "DT_MIPS_BASE_ADDRESS";
+            break;
+        case DT_MIPS_GOTSYM:
+            return "DT_MIPS_GOTSYM";
+            break;
+        case DT_MIPS_SYMTABNO:
+            return "DT_MIPS_SYMTABNO";
+            break;
+        case DT_MIPS_UNREFEXTNO:
+            return "DT_MIPS_UNREFEXTNO";
+            break;
+        case DT_MIPS_LOCAL_GOTNO:
+            return "DT_MIPS_LOCAL_GOTNO";
+            break;
         default:
             return "Other";
             break;
