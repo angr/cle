@@ -578,7 +578,7 @@ int main(int argc, char *argv[])
     print_needed(dynamic, text);
     print_rpath(dynamic, text);
 
-    printf("GOT is located @%lu\n", get_dyn_val(dynamic, DT_PLTGOT));
+    printf("gotaddr,%lu\n", get_dyn_val(dynamic, DT_PLTGOT));
 
     fclose(f);
     free(phdr);
