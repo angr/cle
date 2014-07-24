@@ -37,6 +37,7 @@ void print_shdr(ElfW(Shdr) *shdr, size_t size)
 {
     int i;
 
+    printf("\nSHDR, OFFSET, ADDR, SIZE, TYPE\n---\n");
     for (i = 0; i < size; i++)
     {
         printf("shdr, 0x%lx, 0x%lx, 0x%lx, %s\n", shdr[i].sh_offset,
@@ -66,6 +67,7 @@ void print_phdr (ElfW(Phdr) *phdr, size_t size)
     if (!phdr || size == 0)
         return;
 
+    printf("\nPHDR, OFFSET, VADDR, FILESZ, MEMSZ, ALIGN, TYPE\n---\n");
     for (i = 0; i < size; i++)
     {
         name = pt_type_tostr(phdr[i].p_type);
@@ -85,6 +87,7 @@ void print_dynamic(ElfW(Dyn) *dynamic)
     if(!dynamic)
         return;
 
+    printf("\nDYN, TAG, PTR, VAL, TAG(str)\n---\n");
     //printf("\tINDEX \t TYPE \t\tVADDR \tVALUE \t\tSEGMENT \t\tTYPE(STRING)\n");
     for (i=0; dynamic[i].d_tag != DT_NULL; i++)
     {
@@ -405,6 +408,7 @@ void print_symtab(ElfW(Dyn) *dynamic, struct segment *s)
     else
         nchain = guess_symtab_sz(dynamic, s);
 
+    printf("\nSYMTAB, VALUE, SIZE, BIND, TYPE, SHTYPE, NAME\n---\n");
     for (i=0; i<nchain; i++) 
     {
         if (!addr_belongs_to_mem((unsigned long)&symtab[i], (unsigned
