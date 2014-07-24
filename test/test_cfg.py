@@ -73,7 +73,8 @@ def cfg(p):
 def setup_ida(filename):
     p_ida = None
     p_ida = angr.Project(filename, default_analysis_mode='symbolic',
-                                 use_sim_procedures=True, arch="X86")
+                         use_sim_procedures=True, arch="MIPS32",
+                         load_libs=True)
     return p_ida
 
 
@@ -90,10 +91,17 @@ def test(p):
 
 
 if __name__ == '__main__':
-    path="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-x86"
-    #path ="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-mips"
-    # path ="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-ppc32"
+    #path="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-x86"
+     # path ="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-mips"
+    #path ="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-ppc32"
     #path="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-amd64"
+
+    #path = "/home/christophe/binary_project/loader/cle/ccle/ppc/clextract"
+    #path = "/home/christophe/binary_project/loader/cle/ccle/i386/clextract"
+    #path = "/home/christophe/binary_project/loader/cle/ccle/x86_64/clextract"
+    #path = "/home/christophe/binary_project/loader/cle/ccle/mips/clextract"
+    #path = "/home/christophe/binary_project/loader/cle/ccle/arm/clextract"
+    path = "/home/christophe/binary_project/loader/cle/test/mips/test_reloc-mips"
 
     #ida = setup_ida(path)
     #test(ida)
