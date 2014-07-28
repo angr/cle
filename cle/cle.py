@@ -5,6 +5,7 @@ import os
 import logging
 import subprocess
 import pdb
+import collections
 
 #import platform
 #import binascii
@@ -44,12 +45,19 @@ class Elf(object):
 
         self.segments = [] # List of segments
         self.memory = {} # Private virtual address space, without relocations
-        self.symbols = {} # Object's symbols
+        self.symbols = None # Object's symbols
         self.rebase_addr = 0
         self.object_type = None
         self.entry_point = None # The entry point defined by CLE
         self.custom_entry_point = None # A custom entry point
         self.deps = None # Needed shared objects (libraries dependencies)
+
+        # MIPS
+        self.mips_static_base_addr = None
+        self.mips_local_gotno = None
+        self.mips_unreftextno = None
+        self.mips_gotsym = None
+        self.mips_symtabno = None
 
         if (os.path.exists(binary)):
             self.binary = binary
@@ -68,10 +76,13 @@ class Elf(object):
         self.simarch = self.__arch_to_simuvex_arch(arch_name)
         info = self.__call_clextract(binary)
         self.symbols = self.__get_symbols(info)
+        self.imports = self.__get_imports(self.symbols)
         self.entry_point = self.__get_entry_point(info)
         self.phdr = self.__get_phdr(info)
         self.deps = self.__get_lib_names(info)
         self.dynamic = self.__get_dynamic(info)
+        self.__mips_specifics() # Set MIPS properties
+        self.gotaddr = self.__get_gotaddr(self.dynamic) # Add rebase_addr if relocated
         self.jmprel = self.__get_jmprel(info)
         self.endianness = self.__get_endianness(info)
         self.load()
@@ -124,7 +135,7 @@ class Elf(object):
                 h = {}
                 # Add integer fields
                 for f in int_fields:
-                    h[f] = int(d[idx])
+                    h[f] = int(d[idx], 16)
                     idx += 1
                 # Type is a string
                 h["type"] = d[idx].strip()
@@ -144,15 +155,25 @@ class Elf(object):
         """ Get the dynamic section """
         dyn = []
         for i in data:
+            ent = {}
             if i[0] == "dyn":
-                dyn.append(i)
+                ent["ptr"] = i[2].strip()
+                ent["val"] = i[3].strip()
+                ent["tag"] = i[4].strip()
+                dyn.append(ent)
         return dyn
 
     def __get_entry_point(self, data):
         """ Get entry point """
         for i in data:
             if i[0] == "Entry point":
-                return int(i[1].strip())
+                return int(i[1].strip(), 16)
+
+    def __get_gotaddr(self, dyn):
+        """ Address of GOT """
+        for i in dyn:
+            if i["tag"] == "DT_PLTGOT":
+                return int(i["val"], 16)
 
     def entry(self):
         """ This function mimicks the behavior of the initial Binary class in
@@ -181,17 +202,17 @@ class Elf(object):
 
     def __get_symbols(self, data):
         """ Get symbols addresses """
-        symbols = {}
+        symbols = []
         symb = self.__symb(data)
         for i in symb:
             s = {}
-            name = i[6].strip()
-            s["addr"] = int(i[1].strip())
-            s["size"] = int(i[2].strip())
+            s["addr"] = int(i[1].strip(), 16)
+            s["size"] = int(i[2].strip(), 16)
             s["binding"] = i[3].strip()
             s["type"] = i[4].strip()
             s["sh_info"] = i[5].strip()
-            symbols[name] = s
+            s["name"] = i[6].strip()
+            symbols.append(s)
 
         return symbols
 
@@ -206,14 +227,53 @@ class Elf(object):
 
     def __get_jmprel(self, data):
         """ Get the location of the GOT slots corresponding to the addresses of
-        relocated symbols (jump targets of the (PLT)"""
+        relocated symbols (jump targets of the (PLT).
+        The story:
+        Most arhitectures (including ppc, x86, x86_64 and arm) specify address
+        0 for imports (symbols with SHN_UNDEF and STB_GLOBAL) in the symbol
+        table, and specify GOT addresses in JMPREL.
+        """
         got = {}
+
+        # MIPS does not support this so we need a workaround
+        if "mips" in self.arch:
+            return self.__get_mips_jmprel()
+
         for i in data:
             if i[0].strip() == "jmprel":
                 # See the output of clextract:
                 # i[3] is the symbol name, i[1] is the GOT location
-                got[i[3].strip()] = int(i[1].strip())
+                got[i[3].strip()] = int(i[1].strip(), 16)
         return got
+
+    # What are the external symbols to relocate on MIPS ? And what are their GOT
+    # entries ? There is no DT_JMPREL on mips, so let's emulate one
+    def __get_mips_jmprel(self):
+
+        symtab_base_idx = self.mips_gotsym # First symbol of symtab that has a GOT entry
+        got_base_idx = self.mips_local_gotno  # Index of first global entry in GOT
+        gotaddr = self.gotaddr
+        got_entry_size = self.bits_per_addr / 8 # How many bytes per slot ?
+
+        jmprel = {}
+
+        count = self.mips_symtabno - self.mips_gotsym # Number of got mapped symbols
+        for i in range(0, count):
+            sym = self.symbols[symtab_base_idx + i]
+            got_idx = got_base_idx + i
+            got_slot = gotaddr + (got_idx) * got_entry_size
+            jmprel[sym["name"]] = got_slot
+        return jmprel
+
+    def relocate_mips_jmprel(self):
+        """ After we relocate an ELF object, we also need, in the case of MIPS,
+        to relocate its GOT addresses relatively to its static base address """
+        if self.rebase_addr == 0:
+            raise CLException("Attempting MIPS relocation with rebase_addr = 0")
+
+        delta = self.rebase_addr - self.mips_static_base_addr
+        for i,v in self.jmprel.iteritems():
+            self.jmprel[i] = v + delta
 
     def get_text_phdr_ent(self):
         """ Return the entry of the program header table corresponding to the
@@ -232,28 +292,35 @@ class Elf(object):
             if (i["type"] == "PT_LOAD") and (i["filesz"] != i["memsz"]):
                 return i
 
-    def get_imports(self):
+    def __get_imports(self, symbols):
         """ Get imports from symbol table """
         imports = {}
-        for name,properties in self.symbols.iteritems():
-        # Imports are symbols with type SHN_UNDEF in the symbol table.
-            addr = properties["addr"]
-            s_info = properties["sh_info"]
-            if (s_info == "SHN_UNDEF"):
+        for i in symbols:
+        # Imports are symbols with type SHN_UNDEF in the symbol table
+            name = i["name"]
+            addr = i["addr"]
+            s_info = i["sh_info"]
+            binding = i["binding"]
+            if (s_info == "SHN_UNDEF" and binding == "STB_GLOBAL"):
                 imports[name] = int(addr)
-        return imports
+            return imports
 
     def get_exports(self):
         """ We can basically say that any symbol defined with an address and
         STB_GLOBAL binding is an export
         """
         exports = {}
-        for name,prop in self.symbols.iteritems():
-            addr = prop["addr"]
-            binding = prop["binding"]
+        for i in self.symbols:
+            name = i["name"]
+            addr = i["addr"]
+            binding = i["binding"]
+            info = i["sh_info"]
 
             # Exports have STB_GLOBAL binding property. TODO: STB_WEAK ?
-            if (binding == "STB_GLOBAL"):
+            if (binding == "STB_GLOBAL" and info != "SHN_UNDEF" ):
+                if name in self.imports:
+                    raise CLException("Symbol %s at 0x%x is both in imports and "
+                                      "exports, something is wrong :(", name, addr)
                 exports[name] = addr
         return exports
 
@@ -482,7 +549,27 @@ class Elf(object):
         self.segments.append(seg)
         l.debug("\t--> Loaded segment %s @0x%x with size:0x%x" % (name, vaddr,
                                                                 size))
+    def __mips_specifics(self):
+        """ These are specific mips entries of the dynamic table """
+        for i in self.dynamic:
+            # How many local references in the GOT
+            if(i["tag"] == "DT_MIPS_LOCAL_GOTNO"):
+                self.mips_local_gotno = int(i["val"].strip(), 16)
+            # Index of first externel symbol in GOT
+            elif(i["tag"] == "DT_MIPS_UNREFEXTNO"):
+                self.mips_unreftextno = int(i["val"].strip(), 16)
+            # Static MIPS base address
+            elif(i["tag"] == "DT_MIPS_BASE_ADDRESS"):
+                self.mips_static_base_addr = int(i["val"].strip(), 16)
+            # Index (in the symbol table) of the first symbol that has an
+            # entry in the GOT
+            elif(i["tag"] == "DT_MIPS_GOTSYM"):
+                self.mips_gotsym = int(i["val"].strip(), 16)
 
+            # How many elements in the symbol table
+            elif(i["tag"] == "DT_MIPS_SYMTABNO"):
+                self.mips_symtabno = int(i["val"].strip(), 16)
+                #pdb.set_trace()
 
 class Ld(object):
     """ CLE ELF loader
@@ -516,6 +603,9 @@ class Ld(object):
         # Libraries
         for obj in self.shared_objects:
             self.__reloc(obj)
+            # Again, MIPS is a pain...
+            if "mips" in obj.arch:
+                obj.relocate_mips_jmprel()
 
     def mem_range(self, a_from, a_to):
         arr = []
@@ -562,36 +652,66 @@ class Ld(object):
         return m1
 
     def __reloc(self, obj):
-        # Now let's update GOT entries for PLT jumps
+        """ Perform relocations of external references """
+
         l.debug(" [Performing relocations of %s]" % obj.binary)
+
+        # As usual, MIPS is different...
+        if "mips" in self.main_bin.arch:
+            self.__reloc_mips_local(obj)
+
+        # Now let's update GOT entries for PLT jumps
         for symb, got_addr in obj.jmprel.iteritems():
-            #s_type = obj.symbols[symb]["type"]
-           # if (s_type != "SHN_UNDEF"):
-           #     l.debug("\t--> skipping relocation of \"%s\"" % symb)
-           #     continue
             uaddr = self.find_symbol_addr(symb)
             if (uaddr):
                 uaddr = uaddr + obj.rebase_addr
-                l.debug("\t--> Relocation of %s -> 0x%x" %
-                        (symb, int(uaddr)))
+                l.debug("\t--> Relocation of %s -> 0x%x [stub@0x%x]" % (symb,
+                                                                     uaddr,
+                                                                     got_addr))
 
-                baddr = self.__addr_to_bytes(uaddr, obj.endianness,
-                                             obj.bits_per_addr)
+                baddr = self.__addr_to_bytes(uaddr)
                 for i in range(0, len(baddr)):
                     self.memory[got_addr + i] = baddr[i]
 
             else:
                 l.debug("\t--> Cannot locate symbol \"%s\" from SOs" % symb)
 
-    def __addr_to_bytes(self, addr, end, numbits):
+    def __reloc_mips_local(self, obj):
+        """ MIPS local relocations (yes, GOT entries for local symbols also need
+        relocation) """
+
+        # If we load the shared library at the predefined base address, there's
+        # nothing to do.
+        delta = obj.rebase_addr - obj.mips_static_base_addr
+        if (delta == 0):
+            l.debug("No need to relocate local symbols for this object")
+            return
+
+        got_entry_size = obj.bits_per_addr / 8 # How many bytes per slot ?
+
+        # Local entries reside in the first part of the GOT
+        for i in range(0, obj.mips_local_gotno): # 0 to number of local symb
+            got_slot = obj.gotaddr + obj.rebase_addr + (i * got_entry_size)
+            addr = self.__bytes_to_addr(self.__read_got_slot(got_slot))
+            newaddr = addr + delta
+            l.debug("\t-->Relocating MIPS local GOT entry @ slot 0x%x from 0x%x"
+                    " to 0x%x" % (got_slot, addr, newaddr))
+            self.__override_got_slot(got_slot, newaddr)
+
+    def test(self):
+        x = self.__addr_to_bytes(int("0xc4f2", 16))
+        y = self.__bytes_to_addr(x)
+
+        print x
+        print y
+
+    def __addr_to_bytes(self, addr):
         """ This splits an address into n bytes
         @addr is the address to split
-        @end is the endianness of the architecture
-        @numbits is the number of bits per address on this architecture
         """
 
         # Craft format string of the right length
-        hex_digits = numbits / 4
+        hex_digits = self.main_bin.bits_per_addr / 4
         fmt = "0%dX" % hex_digits
         fmt = '%' + fmt
 
@@ -606,17 +726,44 @@ class Ld(object):
             h_bytes.append(h)
             hx = hx[2:]
 
-
-        if end == "LSB":
+        if self.main_bin.endianness == "LSB":
             h_bytes.reverse()
 
         return h_bytes
 
+    def __bytes_to_addr(self, addr):
+        """ Expects an array of bytes and returns an int"""
+        sz = self.main_bin.bits_per_addr / 8
+
+        if len(addr) != sz:  # Is it a proper address ?
+            raise CLException("Address of size %d, was expecting %d" %
+                              (len(addr), sz))
+
+        # We are starting the conversion from the least significant byte
+        if self.main_bin.endianness == "LSB":
+            addr.reverse()
+
+        res = 0
+        shift = 0
+        for i in addr:
+            x = ord(i) << shift
+            res = res + x
+            shift = shift + 8 # We shit by a byte everytime...
+        return res
+
+    def __read_got_slot(self, got_slot):
+        """ Reads the content of a GOT slot @ address got_slot """
+        n_bytes = self.main_bin.bits_per_addr / 8
+        s = []
+        for i in range(0, n_bytes):
+            s.append(self.memory[got_slot + i])
+        return s
+
     def __override_got_slot(self, got_slot, newaddr):
         """ This overrides the got slot starting at address @got_slot with
         address @newaddr """
-        split_addr = self.__addr_to_bytes(newaddr, self.main_bin.endianness,
-                                                self.main_bin.bits_per_addr)
+        split_addr = self.__addr_to_bytes(newaddr)
+
         for i in range(0, len(split_addr)):
             self.memory[got_slot + i] = split_addr[i]
 
@@ -641,7 +788,7 @@ class Ld(object):
         for so in self.shared_objects:
             ex = so.get_exports()
             if symbol in ex:
-                return int(ex[symbol]) + so.rebase_addr
+                return ex[symbol] + so.rebase_addr
 
     def __load_exe(self):
         """ Load exe into "main memory"""
@@ -653,7 +800,7 @@ class Ld(object):
                 self.memory[addr] = val
 
     def __load_shared_libs(self):
-        """ Stub to load and rebase shared objects """
+        """ Load and rebase shared objects """
         # shared_libs = self.main_bin.deps
         shared_libs = self.ld_so_addr()
         for name, addr in shared_libs.iteritems():
@@ -669,9 +816,13 @@ class Ld(object):
         """ Relocate a shared objet given a base address
         We actually copy the local memory of the object at the new computed
         address in the "main memory" """
-        l.debug("\t--> rebasing the binary object @0x%x" %base)
+        if "mips" in so.arch:
+            l.debug("\t--> rebasing the binary object @0x%x (instead of 0x%x)" %
+                    (base, so.mips_static_base_addr))
+        else:
+            l.debug("\t--> rebasing the binary object @0x%x" %base)
         for addr, data in so.memory.iteritems():
-            newaddr = int(addr) + int(base)
+            newaddr = addr + base
             #l.debug("Adding %s at 0x%x" % (repr(data), newaddr))
             if newaddr in self.memory:
                 raise CLException("Soemthing is already loaded at 0x%x" % newaddr)
@@ -764,7 +915,7 @@ class Ld(object):
                 sopath = os.path.join(s_path,libname)
                 #l.debug("\t--> Trying %s" % sopath)
                 if os.path.exists(sopath):
-                    l.debug("\t-->Found %s" % sopath)
+                    l.debug("-->Found %s" % sopath)
                     return sopath
 
 

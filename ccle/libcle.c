@@ -284,7 +284,7 @@ char *_get_type(ElfW(Ehdr) ehdr)
             return "ET_HIPROC";
             break;
         default:
-            return "UNKNOWN";
+            return "CLE_UNK";
             break;
     }
 }
@@ -514,7 +514,7 @@ char *_get_arch(ElfW(Ehdr) ehdr)
             return "EM_XTENSA";
             break;
         default:
-            return "UNKNOWN";
+            return "CLE_UNK";
             break;
     }
 }
@@ -622,6 +622,21 @@ const char* d_tag_tostr(ElfW(Sword) d_tag)
             break;
         case DT_HIPROC:
             return "DT_HIPROC";
+            break;
+        case DT_MIPS_BASE_ADDRESS:
+            return "DT_MIPS_BASE_ADDRESS";
+            break;
+        case DT_MIPS_GOTSYM:
+            return "DT_MIPS_GOTSYM";
+            break;
+        case DT_MIPS_SYMTABNO:
+            return "DT_MIPS_SYMTABNO";
+            break;
+        case DT_MIPS_UNREFEXTNO:
+            return "DT_MIPS_UNREFEXTNO";
+            break;
+        case DT_MIPS_LOCAL_GOTNO:
+            return "DT_MIPS_LOCAL_GOTNO";
             break;
         default:
             return "Other";
@@ -733,7 +748,7 @@ const char *sh_type_tostr(ElfW(Word) sh_type)
             return "SHT_MIPS_OPTIONS";
             break;
         default:
-            return "UNKNOWN";
+            return "CLE_UNK";
             break;
     }
 }
@@ -753,8 +768,58 @@ const char *sh_index_tostr(ElfW(Half) ndx)
         case SHN_UNDEF:
             return "SHN_UNDEF";
             break;
+
+
+        /* These two are SPARC specific
+        case SHN_BEFORE:
+            return "SHN_BEFORE";
+            break;
+        case SHN_AFTER:
+            return "SHN_AFTER";
+            break;
+            */
+
+        /* Duplicate values and interfere with other stuff
+        case SHN_LORESERVE:
+            return "SHN_LORESERVE";
+            break;
+
+        case SHN_LOPROC:
+            return "SHN_LOPROC";
+            break;
+        case SHN_HIPROC:
+            return "SHN_HIPROC";
+            break;
+        case SHN_LOOS:
+            return "SHN_LOOS";
+            break;
+        case SHN_HIOS:
+            return "SHN_HIOS";
+            break;
+            */
+        case SHN_XINDEX:
+            return "SHN_XINDEX";
+            break;
+
+
+        /* MIPS Stuff */
+        case SHN_MIPS_ACOMMON:
+            return "SHN_MIPS_ACOMMON";
+            break;
+        case SHN_MIPS_TEXT:
+            return "SHN_MIPS_TEXT";
+            break;
+        case SHN_MIPS_DATA:
+            return "SHN_MIPS_DATA";
+            break;
+        case SHN_MIPS_SCOMMON:
+            return "SHN_MIPS_SCOMMON";
+            break;
+        case SHN_MIPS_SUNDEFINED:
+            return "SHN_MIPS_SUNDEFINED";
+            break;
         default:
-            return "N/A";
+            return "CLE_UNK";
             break;
     }
 }
@@ -810,7 +875,7 @@ const char* symb_type_tostr(int type)
             return "STT_HIPROC";
             break;
         default:
-            return "CLE_UNKNOWN";
+            return "CLE_UNK";
             break;
     }
 }
@@ -866,7 +931,7 @@ const char * pt_type_tostr(ElfW(Word) p_type)
             return "PT_GNU_RELRO";
             break;
         default:
-            return "UNKNOWN";
+            return "CLE_UNK";
             break;
     }
 }
@@ -1002,7 +1067,7 @@ const char* reloc_type_tostr_68k(unsigned char type)
             return "R_68K_NUM";
             break;
         default:
-            return "UNKNOWN";
+            return "CLE_UNK";
             break;
     }
 }
@@ -1135,7 +1200,7 @@ const char* reloc_type_tostr_386(unsigned char type)
             return "R_386_NUM";
             break;
         default:
-            return "UNKNOWN";
+            return "CLE_UNK";
             break;
     }
 }
@@ -1154,7 +1219,7 @@ char *ei_data_tostr(unsigned char val)
             return "INVALID";
             break;
         default:
-            return "UNKNOWN";
+            return "CLE_UNK";
             break;
     }
 }
