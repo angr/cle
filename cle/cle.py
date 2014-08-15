@@ -33,10 +33,209 @@ class Segment(object):
 
 
 class ArchInfo(object):
-    def __init__(self, name=None, bpa=None, asz=None):
-        self.name = name
-        self.bits_per_addr = bpa
-        self.arch_size = asz
+    """ This class extracts architecture information from ELF binaries using the
+        cle_bfd library.
+    """
+
+    # There is a dozen of types of mips and arm CPUs reported from libbfd
+    mips_names = ["mips:isa32", "mips:3000"]
+    ppc_names = ["powerpc:common"]
+    arm_names = ["arm", "armv4t"]
+
+    def __init__(self, binary):
+        """ Getarchitecture information from the binary file @binary using
+        ctypes and cle_bfd.so """
+        env_p = os.getenv("VIRTUAL_ENV")
+        lib_p = "lib"
+        lib = os.path.join(env_p, lib_p, "cle_bfd.so")
+        if os.path.exists(lib):
+            self.lib = cdll.LoadLibrary(lib)
+            self.lib.get_bfd_arch_pname.restype = c_char_p
+
+            self.name = self.lib.get_bfd_arch_pname(binary)
+            self.bpa = self.lib.get_bits_per_addr(binary)
+            self.asz = self.lib.get_arch_size(binary)
+
+            self.qemu_arch = self.to_qemu_arch(self.name)
+            self.simuvex_arch = self.to_simuvex_arch(self.name)
+            self.ida_arch = self.to_ida_arch(self.name)
+        else:
+            raise CLException("Cannot load cle_bfd.so, invalid path:%s" % lib)
+
+
+    def to_qemu_arch(self, arch):
+        """ We internally use the BFD architecture names.
+         This converts names to the convension used by qemu-user to name its
+         different qemu-{arch} architectures. """
+
+        if arch == "i386:x86-64":
+            return "x86_64"
+        elif arch in mips_names:
+            return "mips"
+        elif arch in ppc_names:
+            return "ppc"
+        elif arch in arm_names:
+            return "arm"
+        elif arch == "i386":
+            return "i386"
+
+        else:
+            raise CLException("Architecture name conversion not implemented yet"
+                              "for \"%s\" !" % arch)
+
+    def to_simuvex_arch(self, arch):
+        """ This function translates architecture names from the BFD convention
+        to the convention used by simuvex """
+
+        if arch == "i386:x86-64":
+            return "AMD64"
+        elif "mips" in arch and self.archinfo.arch_size == 32:
+            return "MIPS32"
+        elif arch in ppc_names:
+            return "PPC32"
+        elif arch in arm_names:
+            return "ARM"
+        elif arch == "i386":
+            return "X86"
+        # Unsupported architectures:
+        elif "mips" in arch and self.archinfo.arch_size == 64:
+            raise CLException("Architecture MIPS 64 bit not supported")
+        elif "ppc" in arch and self.archinfo.arch_size == 64:
+            raise CLException("Architecture PPC 64 bit not supported")
+        # mipsel
+        elif "mips" in arch and self.endianness == "LSB":
+            l.info("Warning: arch mipsel detected, make sure you compile VEX "
+                   "accordingly")
+        else:
+            raise CLException("Unknown architecture")
+
+    def to_ida_arch(self, arch):
+        if "i386" in arch:
+            return "metapc"
+        elif "arm" in arch:
+            return "armb"
+        elif "mips" in arch:
+            return "mipsb"
+        elif "powerpc" in arch:
+            return "ppc"
+        else:
+            raise CLException("Unknown architecture")
+
+
+
+class IdaBin(object):
+    """ Get informations from binaries using IDA. This replaces the old Binary
+    class and integrates it into CLE as a fallback """
+    def __init__(self, binary, base_addr):
+        archinfo = Archinfo(binary)
+        processor_type = archinfo.ida_arch
+        if(archinfo.bpa == 32):
+            ida_prog = "idal"
+        else:
+            ida_prog = "idal64"
+
+        pull = base_addr is None
+        self.ida = idalink.IDALink(binary, ida_prog=ida_prog, pull=pull,
+                                   processor_type=processor_type)
+
+
+        self.imports = self.__get_imports()
+        export_names = [e[0] for e in self.get_exports()]
+        self.ida_symbols = self.__lookup_symbols(export_names)
+        self.memory = self.ida.mem()
+        self.entry_point = self.__get_entry_point()
+
+    def rebase(base_addr):
+        """ Rebase binary at address @base_addr """
+        if base_addr is not None:
+            if self.min_addr() >= base_addr:
+                l.debug("It looks like the current idb is already rebased!")
+            else:
+                if self.ida.idaapi.rebase_program(
+                    base_addr, self.ida.idaapi.MSF_FIXONCE |
+                    self.ida.idaapi.MSF_LDKEEP) != 0:
+                    raise Exception("Rebasing of %s failed!", self.filename)
+            self.ida.remake_mem()
+
+
+    def __lookup_symbols(self, symbols):
+        """ Resolves a bunch of symbols denoted by the list @symbols
+            Returns: a dict of the form {symb:addr}"""
+        addrs = {}
+
+        for sym in symbols:
+            addr = self.__get_symbol_addr(sym)
+            if not addr:
+                l.debug("Symbol %s was not found (IDA)" % sym)
+                continue
+            addrs[sym] = addr
+
+    def __get_symbol_addr(self, sym):
+        """ Get the address of the symbol @sym from IDA
+            Returns: an address
+        """
+        addr = self.ida.idaapi.get_name_ea(self.ida.idc.BADADDR, sym)
+        if addr == self.ida.idc.BADADDR:
+            addr = None
+
+    def __get_exports(self):
+        """ Lookup exports names and resolves addresses.
+            Returns: a dictonary of the form {export : addr}
+        """
+        export_names = [e[0] for e in self.__get_exports_names()]
+        exports = self.__lookup_symbols(export_names)
+        return exports
+
+    def __get_exports_names(self):
+        """ Get binary's exports names from IDA and return a list"""
+        export_item_list = []
+        for item in list(self.ida.idautils.Entries()):
+            i = ExportEntry(item[0], item[1], item[2], item[3])
+            export_item_list.append(i)
+        return export_item_list
+
+    def __get_imports(self):
+        """ Extract imports from binary (IDA)"""
+        import_modules_count = self.ida.idaapi.get_import_module_qty()
+
+        for i in xrange(0, import_modules_count):
+            self.current_module_name = self.ida.idaapi.get_import_module_name(
+                i)
+            self.ida.idaapi.enum_import_names(i, self.__import_entry_callback)
+
+        return self.import_list
+
+    def __import_entry_callback(self, ea, name, entry_ord):
+        item = ImportEntry(self.current_module_name, ea, name, entry_ord)
+        self.import_list.append(item)
+        return True
+
+    def min_addr(self):
+        """ Get the min address of the binary (IDA)"""
+        nm = self.ida.idc.NextAddr(0)
+        pm = self.ida.idc.PrevAddr(nm)
+
+        if pm == self.ida.idc.BADADDR:
+            return nm
+        else:
+            return pm
+
+    def max_addr(self):
+        """ Get the max address of the binary (IDA)"""
+        pm = self.ida.idc.PrevAddr(self.ida.idc.MAXADDR)
+        nm = self.ida.idc.NextAddr(pm)
+
+        if nm == self.ida.idc.BADADDR:
+            return pm
+        else:
+            return nm
+
+    def __get_entry_point(self):
+        """ Get the entry point of the binary (from IDA)"""
+        if self._custom_entry_point is not None:
+            return self._custom_entry_point
+        return self.ida.idc.BeginEA()
+
 
 
 class Elf(object):
@@ -66,14 +265,14 @@ class Elf(object):
                               binary)
 
         l.debug(" [Loading binary object %s]" % self.binary)
-        archinfo = self.__get_bfd_info(binary)
+        archinfo = Archinfo(binary)
         self.archinfo = archinfo
         arch_name = archinfo.name
         self.bits_per_addr = archinfo.bits_per_addr
 
         # We use qemu's convention for arch names
-        self.arch = self.__arch_to_qemu_arch(arch_name)
-        self.simarch = self.__arch_to_simuvex_arch(arch_name)
+        self.arch = archinfo.to_qemu_arch(arch_name)
+        self.simarch = archinfo.to_simuvex_arch(arch_name)
         info = self.__call_clextract(binary)
         self.symbols = self.__get_symbols(info)
         self.imports = self.__get_imports(self.symbols)
@@ -324,32 +523,17 @@ class Elf(object):
                 exports[name] = addr
         return exports
 
-    def __get_bfd_info(self, binary):
-        """ Get the architecture name using ctypes and cle_bfd.so """
-        env_p = os.getenv("VIRTUAL_ENV")
-        lib_p = "lib"
-        lib = os.path.join(env_p, lib_p, "cle_bfd.so")
-        if os.path.exists(lib):
-            self.lib = cdll.LoadLibrary(lib)
-            self.lib.get_bfd_arch_pname.restype = c_char_p
-            name = self.lib.get_bfd_arch_pname(binary)
-            bpa = self.lib.get_bits_per_addr(binary)
-            asz = self.lib.get_arch_size(binary)
-            return ArchInfo(name, bpa, asz)
-        else:
-            raise CLException("Cannot load cle_bfd.so, invalid path:%s" % lib)
-
-    def __get_bfd_arch(self, binary):
-        """ Get the architecture name using ctypes and cle_bfd.so """
-        env_p = os.getenv("VIRTUAL_ENV")
-        lib_p = "lib"
-        lib = os.path.join(env_p, lib_p, "cle_bfd.so")
-        if os.path.exists(lib):
-            self.lib = cdll.LoadLibrary(lib)
-            self.lib.get_bfd_arch_name.restype = c_char_p
-            return self.lib.get_bfd_arch_name(binary)
-        else:
-            raise CLException("Cannot load cle_bfd.so, invalid path:%s" % lib)
+    #def __get_bfd_arch(self, binary):
+    #    """ Get the architecture name using ctypes and cle_bfd.so """
+    #    env_p = os.getenv("VIRTUAL_ENV")
+    #    lib_p = "lib"
+    #    lib = os.path.join(env_p, lib_p, "cle_bfd.so")
+    #    if os.path.exists(lib):
+    #        self.lib = cdll.LoadLibrary(lib)
+    #        self.lib.get_bfd_arch_name.restype = c_char_p
+    #        return self.lib.get_bfd_arch_name(binary)
+    #    else:
+    #        raise CLException("Cannot load cle_bfd.so, invalid path:%s" % lib)
 
     def __get_lib_names(self, data):
         """ What are the dependencies of the binary ?
@@ -438,50 +622,6 @@ class Elf(object):
                               " in PATH :: %s" % (cmd, out))
         else:
             return cmd
-
-    def __arch_to_qemu_arch(self, arch):
-        """ We internally use the BFD architecture names.
-         This converts names to the convension used by qemu-user to name its
-         different qemu-{arch} architectures. """
-
-        if arch == "i386:x86-64":
-            return "x86_64"
-        elif arch == "mips:isa32" or arch == "mips:3000":
-            return "mips"
-        elif arch == "powerpc:common":
-            return "ppc"
-        elif arch == "armv4t" or arch =="arm":
-            return "arm"
-        elif arch == "i386":
-            return "i386"
-
-        else:
-            raise CLException("Architecture name conversion not implemented yet"
-                              "for \"%s\" !" % arch)
-
-    def __arch_to_simuvex_arch(self, arch):
-        """ This function translates architecture names from the BFD convention
-        to the convention used by simuvex """
-
-        if arch == "i386:x86-64":
-            return "AMD64"
-        elif "mips" in arch and self.archinfo.arch_size == 32:
-            return "MIPS32"
-        elif arch == "powerpc:common":
-            return "PPC32"
-        elif arch == "armv4t":
-            return "ARM"
-        elif arch == "i386":
-            return "X86"
-        # Unsupported architectures:
-        elif "mips" in arch and self.archinfo.arch_size == 64:
-            raise CLException("Architecture MIPS 64 bit not supported")
-        elif "ppc" in arch and self.archinfo.arch_size == 64:
-            raise CLException("Architecture PPC 64 bit not supported")
-        # mipsel
-        elif "mips" in arch and self.endianness == "LSB":
-            l.info("Warning: arch mipsel detected, make sure you compile VEX "
-                   "accordingly")
 
     def load(self):
         """ Load the binary file @binary into memory"""
@@ -576,7 +716,7 @@ class Ld(object):
     The loader loads all the objects and exports an abstraction of the memory of
     the process.
     """
-    def __init__(self, binary):
+    def __init__(self, binary, force_ida=None):
         """ @path is the path to licle_ctypes.so"""
 
         self.memory = {} # Dictionary representation of the memory
