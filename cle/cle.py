@@ -6,6 +6,8 @@ import logging
 import subprocess
 import pdb
 import collections
+import idalink
+import shutil
 
 #import platform
 #import binascii
@@ -53,8 +55,8 @@ class ArchInfo(object):
             self.lib.get_bfd_arch_pname.restype = c_char_p
 
             self.name = self.lib.get_bfd_arch_pname(binary)
-            self.bpa = self.lib.get_bits_per_addr(binary)
-            self.asz = self.lib.get_arch_size(binary)
+            self.bits = self.lib.get_bits_per_addr(binary)
+            self.arch_size = self.lib.get_arch_size(binary)
 
             self.qemu_arch = self.to_qemu_arch(self.name)
             self.simuvex_arch = self.to_simuvex_arch(self.name)
@@ -70,11 +72,11 @@ class ArchInfo(object):
 
         if arch == "i386:x86-64":
             return "x86_64"
-        elif arch in mips_names:
+        elif arch in self.mips_names:
             return "mips"
-        elif arch in ppc_names:
+        elif arch in self.ppc_names:
             return "ppc"
-        elif arch in arm_names:
+        elif arch in self.arm_names:
             return "arm"
         elif arch == "i386":
             return "i386"
@@ -89,18 +91,18 @@ class ArchInfo(object):
 
         if arch == "i386:x86-64":
             return "AMD64"
-        elif "mips" in arch and self.archinfo.arch_size == 32:
+        elif "mips" in arch and self.arch_size == 32:
             return "MIPS32"
-        elif arch in ppc_names:
+        elif arch in self.ppc_names:
             return "PPC32"
-        elif arch in arm_names:
+        elif arch in self.arm_names:
             return "ARM"
         elif arch == "i386":
             return "X86"
         # Unsupported architectures:
-        elif "mips" in arch and self.archinfo.arch_size == 64:
+        elif "mips" in arch and self.arch_size == 64:
             raise CLException("Architecture MIPS 64 bit not supported")
-        elif "ppc" in arch and self.archinfo.arch_size == 64:
+        elif "ppc" in arch and self.arch_size == 64:
             raise CLException("Architecture PPC 64 bit not supported")
         # mipsel
         elif "mips" in arch and self.endianness == "LSB":
@@ -121,41 +123,91 @@ class ArchInfo(object):
         else:
             raise CLException("Unknown architecture")
 
+    def get_qemu_cmd(self):
+        """ Find the right qemu-{cmd} for the binary's architecture """
+        cmd = "qemu-%s" % self.qemu_arch
+
+        # Check if the command actually exists on the system
+        s = subprocess.Popen(["which", cmd], stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE)
+        out = s.communicate()
+        err = s.returncode
+
+        # Which returns 0 if the command exists
+        if (err != 0):
+            raise CLException("Cannot find \"%s\", it does not exist or is not"
+                              " in PATH :: %s" % (cmd, out))
+        else:
+            return cmd
+
+    def get_cross_library_path(self):
+        """ Returns the path to cross libraries for @arch"""
+
+        arch = self.qemu_arch
+
+        if arch == "x86_64":
+            return "/usr/x86_64-linux-gnu/"
+        elif arch == "ppc":
+            return "/usr/powerpc-linux-gnu/"
+        elif arch == "mips":
+            return "/usr/mips-linux-gnu/"
+        elif arch == "arm":
+            return "/usr/arm-linux-gnueabi/"
+        elif arch == "i386":
+            return "/lib32"
+
 
 
 class IdaBin(object):
     """ Get informations from binaries using IDA. This replaces the old Binary
     class and integrates it into CLE as a fallback """
-    def __init__(self, binary, base_addr):
-        archinfo = Archinfo(binary)
+    def __init__(self, binary, base_addr = None):
+
+        self.rebase_addr = None
+        self.binary = binary
+        archinfo = ArchInfo(binary)
+        self.archinfo = archinfo
+        arch_name = archinfo.name
         processor_type = archinfo.ida_arch
-        if(archinfo.bpa == 32):
+        if(archinfo.bits == 32):
             ida_prog = "idal"
         else:
             ida_prog = "idal64"
 
-        pull = base_addr is None
-        self.ida = idalink.IDALink(binary, ida_prog=ida_prog, pull=pull,
-                                   processor_type=processor_type)
+        self.arch = archinfo.to_qemu_arch(arch_name)
+        self.simarch = archinfo.to_simuvex_arch(arch_name)
 
+        # pull = base_addr is None
+        self.ida = idalink.IDALink(binary, ida_prog=ida_prog,
+                                   processor_type=processor_type, pull = True)
 
-        self.imports = self.__get_imports()
-        export_names = [e[0] for e in self.get_exports()]
-        self.ida_symbols = self.__lookup_symbols(export_names)
-        self.memory = self.ida.mem()
+        if base_addr is not None:
+            self.rebase(base_addr)
+
+        self.imports = {}
+        self.__get_imports()
+
+        self.exports = self.__get_exports()
+        self.memory = self.ida.mem
+        self.custom_entry_point = None # Not implemented yet
         self.entry_point = self.__get_entry_point()
 
-    def rebase(base_addr):
+    def rebase(self, base_addr):
         """ Rebase binary at address @base_addr """
-        if base_addr is not None:
-            if self.min_addr() >= base_addr:
-                l.debug("It looks like the current idb is already rebased!")
-            else:
-                if self.ida.idaapi.rebase_program(
-                    base_addr, self.ida.idaapi.MSF_FIXONCE |
-                    self.ida.idaapi.MSF_LDKEEP) != 0:
-                    raise Exception("Rebasing of %s failed!", self.filename)
+        l.debug("-> Rebasing %s to address %x (IDA)" %
+                (os.path.basename(self.binary), base_addr))
+        if self.get_min_addr() >= base_addr:
+            l.debug("It looks like the current idb is already rebased!")
+        else:
+            if self.ida.idaapi.rebase_program(
+                base_addr, self.ida.idaapi.MSF_FIXONCE |
+                self.ida.idaapi.MSF_LDKEEP) != 0:
+                raise Exception("Rebasing of %s failed!", self.binary)
             self.ida.remake_mem()
+            self.rebase_addr = base_addr
+
+            # We also need to update the exports' addresses
+            #self.exports = self.__get_exports()
 
 
     def __lookup_symbols(self, symbols):
@@ -179,20 +231,19 @@ class IdaBin(object):
             addr = None
 
     def __get_exports(self):
-        """ Lookup exports names and resolves addresses.
-            Returns: a dictonary of the form {export : addr}
-        """
-        export_names = [e[0] for e in self.__get_exports_names()]
-        exports = self.__lookup_symbols(export_names)
-        return exports
-
-    def __get_exports_names(self):
         """ Get binary's exports names from IDA and return a list"""
-        export_item_list = []
+        exports = {}
         for item in list(self.ida.idautils.Entries()):
-            i = ExportEntry(item[0], item[1], item[2], item[3])
-            export_item_list.append(i)
-        return export_item_list
+            name = item[3]
+            ea = item[2]
+            exports[name] = ea
+            # i = {}
+            # i["index"] = item[0]
+            # i["ordinal"] = item[1]
+            # i["ea"] = item[2]
+            # i["name"] = item[3]
+            #exports.append(i)
+        return exports
 
     def __get_imports(self):
         """ Extract imports from binary (IDA)"""
@@ -203,14 +254,11 @@ class IdaBin(object):
                 i)
             self.ida.idaapi.enum_import_names(i, self.__import_entry_callback)
 
-        return self.import_list
-
     def __import_entry_callback(self, ea, name, entry_ord):
-        item = ImportEntry(self.current_module_name, ea, name, entry_ord)
-        self.import_list.append(item)
+        self.imports[name] = ea
         return True
 
-    def min_addr(self):
+    def get_min_addr(self):
         """ Get the min address of the binary (IDA)"""
         nm = self.ida.idc.NextAddr(0)
         pm = self.ida.idc.PrevAddr(nm)
@@ -220,7 +268,7 @@ class IdaBin(object):
         else:
             return pm
 
-    def max_addr(self):
+    def get_max_addr(self):
         """ Get the max address of the binary (IDA)"""
         pm = self.ida.idc.PrevAddr(self.ida.idc.MAXADDR)
         nm = self.ida.idc.NextAddr(pm)
@@ -232,10 +280,49 @@ class IdaBin(object):
 
     def __get_entry_point(self):
         """ Get the entry point of the binary (from IDA)"""
-        if self._custom_entry_point is not None:
-            return self._custom_entry_point
+        if self.custom_entry_point is not None:
+            return self.custom_entry_point
         return self.ida.idc.BeginEA()
 
+    def resolve_import_dirty(self, sym, new_val):
+        """ Resolve import for symbol @sym the dirty way, i.e. find all
+        references to it in the code and replace it with the address @new_val
+        inline (instead of updating GOT slots)"""
+
+        #l.debug("\t %s resolves to 0x%x", sym, new_val)
+
+        # Try IDA's _ptr
+        plt_addr = self.__get_symbol_addr(sym + "_ptr")
+        if (plt_addr):
+            addr = [plt_addr]
+            return self.__update_addrs(addr, newval)
+
+        # Try the __imp_name
+        plt_addr = self.__get_symbol_addr("__imp_" + sym)
+        if (plt_addr):
+            addr = list(self.ida.idautils.DataRefsTo(plt_addr))
+            return self.__update_addrs(addr, newval)
+
+        # Try the normal name
+        plt_addr = self.__get_symbol_addr(sym)
+        if (plt_addr):
+            addr = list(self.ida.idautils.DataRefsTo(plt_addr))
+            # If not datarefs, try coderefs. It can happen on PPC
+            if len(addr) == 0:
+                addr = list(self.ida.idautils.CodeRefsTo(plt_addr))
+            return self.__update_addrs(addr, newval)
+
+        # If none of them has an address, that's a problem
+            l.debug("Warning: could not find references to symbol %s (IDA)" % sym)
+
+    def __update_addrs(update_addrs, newval):
+        fmt = self.arch.struct_fmt
+        packed = struct.pack(fmt, new_val)
+
+        for addr in update_addrs:
+            l.debug("... setting 0x%x to 0x%x", addr, new_val)
+            for n, p in enumerate(packed):
+                self.ida.mem[addr + n] = p
 
 
 class Elf(object):
@@ -265,10 +352,10 @@ class Elf(object):
                               binary)
 
         l.debug(" [Loading binary object %s]" % self.binary)
-        archinfo = Archinfo(binary)
+        archinfo = ArchInfo(binary)
         self.archinfo = archinfo
         arch_name = archinfo.name
-        self.bits_per_addr = archinfo.bits_per_addr
+        self.bits_per_addr = archinfo.bits
 
         # We use qemu's convention for arch names
         self.arch = archinfo.to_qemu_arch(arch_name)
@@ -386,7 +473,7 @@ class Elf(object):
         """ This function mimicks the behavior of the initial Binary class in
         Angr. TODO: abstract things away """
         # Set a custom entry point
-        self._custom_entry_point = entry_point
+        self.custom_entry_point = entry_point
 
     def __get_endianness(self, data):
         for i in data:
@@ -500,9 +587,9 @@ class Elf(object):
             addr = i["addr"]
             s_info = i["sh_info"]
             binding = i["binding"]
-            if (s_info == "SHN_UNDEF" and binding == "STB_GLOBAL"):
+            if ((s_info == "SHN_UNDEF") and (binding == "STB_GLOBAL")):
                 imports[name] = int(addr)
-            return imports
+        return imports
 
     def get_exports(self):
         """ We can basically say that any symbol defined with an address and
@@ -523,18 +610,6 @@ class Elf(object):
                 exports[name] = addr
         return exports
 
-    #def __get_bfd_arch(self, binary):
-    #    """ Get the architecture name using ctypes and cle_bfd.so """
-    #    env_p = os.getenv("VIRTUAL_ENV")
-    #    lib_p = "lib"
-    #    lib = os.path.join(env_p, lib_p, "cle_bfd.so")
-    #    if os.path.exists(lib):
-    #        self.lib = cdll.LoadLibrary(lib)
-    #        self.lib.get_bfd_arch_name.restype = c_char_p
-    #        return self.lib.get_bfd_arch_name(binary)
-    #    else:
-    #        raise CLException("Cannot load cle_bfd.so, invalid path:%s" % lib)
-
     def __get_lib_names(self, data):
         """ What are the dependencies of the binary ?
         This gets the names of the libraries we should load as well, from the
@@ -550,25 +625,9 @@ class Elf(object):
         l.debug("\t--> binary depends on %s" % repr(deps))
         return deps
 
-    def get_cross_library_path(self):
-        """ Returns the path to cross libraries for @arch"""
-
-        arch = self.arch
-
-        if arch == "x86_64":
-            return "/usr/x86_64-linux-gnu/"
-        elif arch == "ppc":
-            return "/usr/powerpc-linux-gnu/"
-        elif arch == "mips":
-            return "/usr/mips-linux-gnu/"
-        elif arch == "arm":
-            return "/usr/arm-linux-gnueabi/"
-        elif arch == "i386":
-            return "/lib32"
-
     def __call_clextract(self, binary):
         """ Get information from the binary using clextract """
-        qemu = self.get_qemu_cmd()
+        qemu = self.archinfo.get_qemu_cmd()
         arch = self.arch
         env_p = os.getenv("VIRTUAL_ENV")
         bin_p = "local/bin/%s" % arch
@@ -578,10 +637,11 @@ class Elf(object):
         if (not os.path.exists(cle)):
             raise CLException("Cannot find clextract binary at %s" % cle)
 
-        crosslibs = self.get_cross_library_path()
+        crosslibs = self.archinfo.get_cross_library_path()
         # clextract needs libcle which resides in arch/ for each arch
         cmd = [qemu, "-L", crosslibs, "-E", "LD_LIBRARY_PATH=" +
-               os.path.join(env_p, lib_p) + ":" + crosslibs, cle, self.binary]
+               os.path.join(env_p, lib_p) + ":" + os.path.join(crosslibs, "lib")
+               , cle, self.binary]
 
         s = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE)
@@ -605,23 +665,6 @@ class Elf(object):
             for i in data:
                 s.append(i.split(","))
             return s
-
-    def get_qemu_cmd(self):
-        """ Find the right qemu-{cmd} for the binary's architecture """
-        cmd = "qemu-%s" % self.arch
-
-        # Check if the command actually exists on the system
-        s = subprocess.Popen(["which", cmd], stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE)
-        out = s.communicate()
-        err = s.returncode
-
-        # Which returns 0 if the command exists
-        if (err != 0):
-            raise CLException("Cannot find \"%s\", it does not exist or is not"
-                              " in PATH :: %s" % (cmd, out))
-        else:
-            return cmd
 
     def load(self):
         """ Load the binary file @binary into memory"""
@@ -709,26 +752,43 @@ class Elf(object):
             # How many elements in the symbol table
             elif(i["tag"] == "DT_MIPS_SYMTABNO"):
                 self.mips_symtabno = int(i["val"].strip(), 16)
-                #pdb.set_trace()
 
 class Ld(object):
     """ CLE ELF loader
     The loader loads all the objects and exports an abstraction of the memory of
     the process.
     """
-    def __init__(self, binary, force_ida=None):
+    def __init__(self, binary, force_ida=None, load_libs=None):
         """ @path is the path to licle_ctypes.so"""
 
+        self.tmp_dir = "/tmp/cle" # IDA needs a directory where it has permissions
         self.memory = {} # Dictionary representation of the memory
         self.shared_objects =[] # Executables and libraries
         self.path = binary
-        self.main_bin = Elf(binary)
+        self.force_ida = force_ida
+
+        if self.force_ida is None:
+            self.force_ida = False
+
+
+        if (force_ida == True):
+            self.force_ida = True
+            self.main_bin = IdaBin(binary)
+        else:
+            self.main_bin = Elf(binary)
+
         self.__load_exe()
+
+        if load_libs is False:
+            return
         #print "mem@ 0x601000: %s" % repr(self.memory[0x601000])
         self.__load_shared_libs()
         #print "mem@ 0x601000: %s" % repr(self.memory[0x601000])
         self.__perform_reloc()
         #print "mem@ 0x601000: %s" % repr(self.memory[0x601000])
+
+        if (self.force_ida == True):
+            self.__ida_sync_mem()
 
     def host_endianness(self):
         if (sys.byteorder == "little"):
@@ -738,14 +798,37 @@ class Ld(object):
 
     def __perform_reloc(self):
         # Main binary
-        self.__reloc(self.main_bin)
+        self.__perform_reloc_stub(self.main_bin)
 
         # Libraries
         for obj in self.shared_objects:
-            self.__reloc(obj)
+            self.__perform_reloc_stub(obj)
             # Again, MIPS is a pain...
-            if "mips" in obj.arch:
+            if "mips" in obj.arch and self.force_ida is None:
                 obj.relocate_mips_jmprel()
+
+    def __perform_reloc_stub(self, binary):
+        """ This performs dynamic linking of all objects, i.e., calculate
+            addresses of relocated symbols and resolve imports for each object.
+            When using CLE without IDA, the rebasing and relocations are done by
+            CLE based on information from Elf files.
+            When using CLE with IDA, the rebasing is done with IDA, and
+            relocations of symbols are done by CLE using the IDA API.
+        """
+        if (self.force_ida):
+            self.__resolve_imports_ida(binary)
+            # Once everything is relocated, we can copy IDA's memory to Ld
+        else:
+            self.__reloc(binary)
+
+    def __ida_sync_mem(self):
+        objs = [self.main_bin]
+        for i in self.shared_objects:
+            objs.append(i)
+
+        for o in objs:
+            l.debug("%s: Copy IDA's memory to Ld's memory" % o.binary)
+            self.__copy_mem(o)
 
     def mem_range(self, a_from, a_to):
         arr = []
@@ -770,7 +853,10 @@ class Ld(object):
         """ The minimum base address of any loaded object """
 
         # Let's start with the main executable
-        base = self.main_bin.get_exec_base_addr()
+        if self.force_ida == True:
+            return self.main_bin.get_min_addr()
+        else:
+            base = self.main_bin.get_exec_base_addr()
 
         # Libraries usually have 0 as their base address, until relocation.
         # It is unlikely that libraries get relocated at a lower address than
@@ -837,13 +923,6 @@ class Ld(object):
             l.debug("\t-->Relocating MIPS local GOT entry @ slot 0x%x from 0x%x"
                     " to 0x%x" % (got_slot, addr, newaddr))
             self.__override_got_slot(got_slot, newaddr)
-
-    def test(self):
-        x = self.__addr_to_bytes(int("0xc4f2", 16))
-        y = self.__bytes_to_addr(x)
-
-        print x
-        print y
 
     def __addr_to_bytes(self, addr):
         """ This splits an address into n bytes
@@ -931,9 +1010,20 @@ class Ld(object):
                 return ex[symbol] + so.rebase_addr
 
     def __load_exe(self):
-        """ Load exe into "main memory"""
-        for addr, val in self.main_bin.memory.iteritems():
-            # There shouldn't be anything in this memory location yet
+        """ Load exe into "main memory
+        """
+        # IDA has its own memory that we sync with CLE at the very end, not now
+        if self.force_ida == False:
+            self.__copy_mem(self.main_bin)
+
+    def __copy_mem(self, obj, rebase_addr = None):
+        """ Copies private memory of obj to Ld's memory (the one we work with)
+            if @rebase_addr is specified, all memory addresses of obj will be
+            translated by @rebase_addr in memory.
+        """
+        for addr, val in obj.memory.iteritems():
+            if (rebase_addr is not None):
+                addr = addr + rebase_addr
             if addr in self.memory:
                 raise CLException("Something is already loaded at 0x%x" % addr)
             else:
@@ -944,7 +1034,13 @@ class Ld(object):
         # shared_libs = self.main_bin.deps
         shared_libs = self.ld_so_addr()
         for name, addr in shared_libs.iteritems():
-            so = self.__load_so(name)
+
+            # IDA
+            if self.force_ida == True:
+                so = self.__load_so_ida(name, addr)
+            else:
+                so = self.__load_so_cle(name)
+
             if (so):
                 self.rebase_lib(so, addr)
                 so.rebase_addr = addr
@@ -956,23 +1052,24 @@ class Ld(object):
         """ Relocate a shared objet given a base address
         We actually copy the local memory of the object at the new computed
         address in the "main memory" """
-        if "mips" in so.arch:
-            l.debug("\t--> rebasing the binary object @0x%x (instead of 0x%x)" %
-                    (base, so.mips_static_base_addr))
+
+        if self.force_ida == True:
+            # Just tell IDA to relocate stuff himself. We'll copy its internal
+            # memory to Ld later.
+            so.rebase(base)
+
         else:
-            l.debug("\t--> rebasing the binary object @0x%x" %base)
-        for addr, data in so.memory.iteritems():
-            newaddr = addr + base
-            #l.debug("Adding %s at 0x%x" % (repr(data), newaddr))
-            if newaddr in self.memory:
-                raise CLException("Soemthing is already loaded at 0x%x" % newaddr)
+            if "mips" in so.arch:
+                l.debug("\t--> rebasing %s @0x%x (instead of 0x%x)" %
+                (so.binary, base, so.mips_static_base_addr))
             else:
-                self.memory[newaddr] = data
+                l.debug("[Rebasing %s @0x%x]" % (os.path.basename(so.binary), base))
+            self.__copy_mem(so, base)
 
     def ld_so_addr(self):
         """ Use LD_AUDIT to find object dependencies and relocation addresses"""
 
-        qemu = self.main_bin.get_qemu_cmd()
+        qemu = self.main_bin.archinfo.get_qemu_cmd()
         env_p = os.getenv("VIRTUAL_ENV")
         bin_p = os.path.join(env_p, "local/lib" ,self.main_bin.arch)
 
@@ -986,8 +1083,8 @@ class Ld(object):
         else:
             ld_path = ld_path + ":" + bin_p
 
-        cross_libs = self.main_bin.get_cross_library_path()
-        ld_path = ld_path + ":" + cross_libs
+        cross_libs = self.main_bin.archinfo.get_cross_library_path()
+        ld_path = ld_path + ":" + os.path.join(cross_libs, "lib")
 
         var = "LD_LIBRARY_PATH=%s,LD_AUDIT=%s" % (ld_path, ld_audit_obj)
 
@@ -1022,8 +1119,44 @@ class Ld(object):
                 " The log file '%s' does not exist, did qemu fail ? Try to run "
                               "`%s` manually to check" % (log, " ".join(cmd)))
 
-    def __load_so(self, soname):
-        """ Load a shared object into memory """
+    def __load_so_ida(self, soname, base_addr):
+        """Ida cannot use system libraries because it needs write access to the
+           same location to write its #@! db files.
+        """
+        dname = os.path.dirname(self.path)
+        lib = os.path.basename(soname)
+        # First, look for the library in the current directory
+        sopath = os.path.join(dname,lib)
+
+        # If it is not there, let's find it somewhere in the system
+        if not os.path.exists(sopath) or not self.__check_arch(sopath):
+            self.__make_tmp_dir()
+            so_system = self.__search_so(soname)
+            # If found, we make a copy of it in our tmpdir
+            if so_system:
+                sopath = self.__copy_obj(so_system)
+
+        obj = IdaBin(sopath, base_addr)
+        return obj
+
+    def __make_tmp_dir(self):
+        """ Create CLE's tmp directory if it does not exists """
+        if not os.path.exists(self.tmp_dir):
+            os.mkdir(self.tmp_dir)
+
+    def __copy_obj(self, path):
+        """ Makes a copy of obj into CLE's tmp directory """
+        self.__make_tmp_dir()
+        if os.path.exists(path):
+            dest = os.path.join(self.tmp_dir, os.path.basename(path))
+            l.debug("\t -> copy obj %s to %s" % (so_system, sopath))
+            shutil.copy(path, dest)
+        else:
+            raise CLException("File %s does not exist :(. Please check that the"
+                              " path is correct" % path)
+        return dest
+
+    def __load_so_cle(self, soname):
         # Soname can be a path or just the name if the library, in which case we
         # search for it in known paths.
         if (not os.path.exists(soname)):
@@ -1032,10 +1165,15 @@ class Ld(object):
 
         if (soname == None):
             raise CLException("Could not find shared object %s :(" %
-                                  repr(soname))
+                                      repr(soname))
         else:
             so = Elf(soname)
-            return so
+        return so
+
+    def __check_arch(self, objpath):
+        """ Is obj the same architecture as our main binary ? """
+        arch = ArchInfo(objpath)
+        return self.main_bin.archinfo.name == arch.name
 
     def __search_so(self, soname):
         """ Looks for a shared object given its filename"""
@@ -1043,9 +1181,10 @@ class Ld(object):
         # Normally we should not need this as LD knows everything already. But
         # in case we need to look for stuff manually...
         loc = []
-        loc.append(os.getenv("LD_LIBRARY_PATH"))
         loc.append(os.path.dirname(self.path))
-        loc.append(self.main_bin.get_cross_library_path())
+        loc.append(self.main_bin.archinfo.get_cross_library_path())
+        # Dangerous, only ok if the hosts sytem's is the same as the target
+        #loc.append(os.getenv("LD_LIBRARY_PATH"))
 
         libname = os.path.basename(soname)
 
@@ -1054,9 +1193,55 @@ class Ld(object):
             for s_path, s_dir, s_file in os.walk(ld_path):
                 sopath = os.path.join(s_path,libname)
                 #l.debug("\t--> Trying %s" % sopath)
-                if os.path.exists(sopath):
+                if os.path.exists(sopath) and self.__check_arch(sopath) == True:
                     l.debug("-->Found %s" % sopath)
                     return sopath
 
+    def __all_so_exports(self):
+        exports = {}
+        for i in self.shared_objects:
+            if len(i.exports) == 0:
+                l.debug("Warning: %s has no exports" % os.path.basename(i.path))
 
+            for symb, addr in i.exports.iteritems():
+                exports[symb] = addr
+        return exports
+
+    def __so_name_from_symbol(self, symb):
+        """ Which shared object exports the symbol @symb ?
+            Returns the first match
+        """
+        for i in self.shared_objects:
+            if symb in i.exports:
+                return os.path.basename(i.path)
+
+    def __resolve_imports_ida(self, b):
+        """ Resolve imports using IDA.
+            @b is the main binary
+        """
+        so_exports = self.__all_so_exports()
+
+        imports = b.imports
+        for name, ea in imports.iteritems():
+            # In the same binary
+            if name in b.exports:
+                b.resolve_import_dirty(name, b.exports[name])
+            # In shared objects
+            elif name in so_exports:
+                l.debug("\t ->resolving import %s to 0x%08x using IDA", name, so_exports[name])
+                try:
+                    b.resolve_import_dirty(name, so_exports[name])
+                except Exception:
+                    l.warning("Mismatch between IDA info and ELF info. Symbols "
+                              "%s in bin %s", name, b.binary)
+            else:
+                l.warning("\t -> unable to resolve import %s using IDA :(", name)
+
+    # Test cases
+    def test_end_conversion(self):
+        x = self.__addr_to_bytes(int("0xc4f2", 16))
+        y = self.__bytes_to_addr(x)
+
+        print x
+        print y
 

@@ -53,13 +53,10 @@ def run(p1):
     print "irsb size %d" % run1.irsb.size()
     print "---"
 
-
 def browse(p):
     run = p.sim_run(p.initial_exit())
     for exit in run.exits():
         print "exit concretized to: %x" % exit.concretize()
-
-
 
 def cfg(p):
     cfg = p.construct_cfg()
@@ -69,26 +66,21 @@ def cfg(p):
     print"---"
     return cfg
 
-
 def setup_ida(filename):
     p_ida = None
     p_ida = angr.Project(filename, default_analysis_mode='symbolic',
-                         use_sim_procedures=True, arch="MIPS32",
-                         load_libs=True)
+                         use_sim_procedures=True, load_libs=True, arch="AMD64")
     return p_ida
-
 
 def setup_cle(filename):
     p_cle = angr.Project(filename, default_analysis_mode='symbolic',
-                         use_sim_procedures=True, use_cle=True)
+                         use_sim_procedures=True, load_libs = False, force_ida = True)
     return p_cle
-
 
 def test(p):
     run(p)
     cfg(p)
     browse(p)
-
 
 if __name__ == '__main__':
     #path="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-x86"
@@ -101,11 +93,11 @@ if __name__ == '__main__':
     #path = "/home/christophe/binary_project/loader/cle/ccle/x86_64/clextract"
     #path = "/home/christophe/binary_project/loader/cle/ccle/mips/clextract"
     #path = "/home/christophe/binary_project/loader/cle/ccle/arm/clextract"
-    path = "/home/christophe/binary_project/loader/cle/test/mips/test_reloc-mips"
+    path = "/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-amd64"
 
-    #ida = setup_ida(path)
-    #test(ida)
-    cle = setup_cle(path)
-    test(cle)
+    p = setup_cle(path)
+    test(p)
+    #cle = setup_cle(path)
+    #test(cle)
 
 
