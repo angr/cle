@@ -36,7 +36,7 @@ class Ld(object):
         self.tmp_dir = "/tmp/cle" # IDA needs a directory where it has permissions
         self.memory = {} # Dictionary representation of the memory
         self.shared_objects =[] # Executables and libraries's binary objects
-        self.libnames = []
+        self.dependencies = {}
         self.path = binary
         self.force_ida = force_ida
         self.ida_rebase_granularity = 0x1000000 # IDA workaround
@@ -54,7 +54,7 @@ class Ld(object):
 
         self.__load_exe()
 
-        self.lib_names = [ o for o in self.ld_so_addr().keys() ]
+        self.dependencies = self.__ld_so_addr()
 
         if load_libs is False:
             return
@@ -312,7 +312,7 @@ class Ld(object):
     def __load_shared_libs(self):
         """ Load and rebase shared objects """
         # shared_libs = self.main_bin.deps
-        shared_libs = self.ld_so_addr()
+        shared_libs = self.dependencies
         for name, addr in shared_libs.iteritems():
 
             # IDA
@@ -352,7 +352,7 @@ class Ld(object):
         base = self.max_addr() + (granularity - self.max_addr() % granularity)
         return base
 
-    def ld_so_addr(self):
+    def __ld_so_addr(self):
         """ Use LD_AUDIT to find object dependencies and relocation addresses"""
 
         qemu = self.main_bin.archinfo.get_qemu_cmd()
@@ -515,14 +515,14 @@ class Ld(object):
                 b.resolve_import_dirty(name, b.exports[name])
             # In shared objects
             elif name in so_exports:
-                l.debug("\t ->resolving import %s to 0x%08x using IDA", name, so_exports[name])
+                l.debug("[R] %s -> at 0x%08x (IDA)", name, so_exports[name])
                 try:
                     b.resolve_import_dirty(name, so_exports[name])
                 except Exception:
                     l.warning("Mismatch between IDA info and ELF info. Symbols "
                               "%s in bin %s", name, b.binary)
             else:
-                l.warning("\t -> unable to resolve import %s using IDA :(", name)
+                l.warning("[U] %s -> unable to resolve import (IDA) :(", name)
 
     # Test cases
     def test_end_conversion(self):
