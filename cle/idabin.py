@@ -3,6 +3,7 @@ import idalink
 from .archinfo import ArchInfo
 import os
 import pdb
+import struct
 
 l = logging.getLogger("cle.idabin")
 
@@ -36,7 +37,7 @@ class IdaBin(object):
             self.rebase(base_addr)
 
         self.imports = {}
-        self.__get_imports()
+        self.__get_ida_imports()
 
         self.exports = self.__get_exports()
         self.custom_entry_point = None # Not implemented yet
@@ -55,9 +56,10 @@ class IdaBin(object):
                 raise Exception("Rebasing of %s failed!", self.binary)
             self.ida.remake_mem()
             self.rebase_addr = base_addr
+            #self.__rebase_exports(base_addr)
 
             # We also need to update the exports' addresses
-            #self.exports = self.__get_exports()
+            self.exports = self.__get_exports()
 
     def in_which_segment(self, addr):
         """ Return the segment name at address @addr (IDA)"""
@@ -79,17 +81,19 @@ class IdaBin(object):
         addrs = {}
 
         for sym in symbols:
-            addr = self.__get_symbol_addr(sym)
+            addr = self.get_symbol_addr(sym)
             if not addr:
                 l.debug("Symbol %s was not found (IDA)" % sym)
                 continue
             addrs[sym] = addr
+        return addrs
 
-    def __get_symbol_addr(self, sym):
+    def get_symbol_addr(self, sym):
         """ Get the address of the symbol @sym from IDA
             Returns: an address
         """
-        addr = self.ida.idaapi.get_name_ea(self.ida.idc.BADADDR, sym)
+        #addr = self.ida.idaapi.get_name_ea(self.ida.idc.BADADDR, sym)
+        addr = self.ida.idc.LocByName(sym)
         if addr == self.ida.idc.BADADDR:
             addr = None
 
@@ -97,18 +101,15 @@ class IdaBin(object):
         """ Get binary's exports names from IDA and return a list"""
         exports = {}
         for item in list(self.ida.idautils.Entries()):
-            name = item[3]
-            ea = item[2]
+            name = item[-1]
+            if name is None:
+                continue
+            ea = item[1]
             exports[name] = ea
-            # i = {}
-            # i["index"] = item[0]
-            # i["ordinal"] = item[1]
-            # i["ea"] = item[2]
-            # i["name"] = item[3]
-            #exports.append(i)
+            #l.debug("\t export %s 0x@%x" % (name, ea))
         return exports
 
-    def __get_imports(self):
+    def __get_ida_imports(self):
         """ Extract imports from binary (IDA)"""
         import_modules_count = self.ida.idaapi.get_import_module_qty()
 
@@ -118,7 +119,13 @@ class IdaBin(object):
             self.ida.idaapi.enum_import_names(i, self.__import_entry_callback)
 
     def __import_entry_callback(self, ea, name, entry_ord):
-        self.imports[name] = ea
+        """ Callback function for IDA's enum_import_names
+            We only get the symbols which have an actual GOT entry """
+
+        gotaddr = self.ida.idc.DfirstB(ea) # Get the GOT slot addr
+        if (gotaddr != self.ida.idc.BADADDR):
+            self.imports[name] = gotaddr
+            l.debug("\t -> has import %s - GOT entry @ 0x%x" % (name, ea))
         return True
 
     def get_min_addr(self):
@@ -155,31 +162,37 @@ class IdaBin(object):
         #l.debug("\t %s resolves to 0x%x", sym, new_val)
 
         # Try IDA's _ptr
-        plt_addr = self.__get_symbol_addr(sym + "_ptr")
+        plt_addr = self.get_symbol_addr(sym + "_ptr")
         if (plt_addr):
             addr = [plt_addr]
-            return self.__update_addrs(addr, newval)
+            return self.update_addrs(addr, new_val)
 
         # Try the __imp_name
-        plt_addr = self.__get_symbol_addr("__imp_" + sym)
+        plt_addr = self.get_symbol_addr("__imp_" + sym)
         if (plt_addr):
             addr = list(self.ida.idautils.DataRefsTo(plt_addr))
-            return self.__update_addrs(addr, newval)
+            return self.update_addrs(addr, new_val)
 
         # Try the normal name
-        plt_addr = self.__get_symbol_addr(sym)
+        plt_addr = self.get_symbol_addr(sym)
         if (plt_addr):
             addr = list(self.ida.idautils.DataRefsTo(plt_addr))
             # If not datarefs, try coderefs. It can happen on PPC
             if len(addr) == 0:
                 addr = list(self.ida.idautils.CodeRefsTo(plt_addr))
-            return self.__update_addrs(addr, newval)
+            return self.update_addrs(addr, new_val)
 
         # If none of them has an address, that's a problem
             l.debug("Warning: could not find references to symbol %s (IDA)" % sym)
 
-    def __update_addrs(update_addrs, newval):
-        fmt = self.arch.struct_fmt
+    def resolve_import_with(self, name, newaddr):
+        if name in self.imports:
+            addr = self.imports[name]
+            self.update_addrs([addr], newaddr)
+
+    def update_addrs(self, update_addrs, new_val):
+        arch = self.archinfo.get_simuvex_obj()
+        fmt = arch.struct_fmt
         packed = struct.pack(fmt, new_val)
 
         for addr in update_addrs:

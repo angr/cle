@@ -11,18 +11,12 @@ import subprocess
 from .elf import Elf
 from .idabin import IdaBin
 from .archinfo import ArchInfo
+from .clexception import CLException
 
 #import platform
 #import binascii
 
 l = logging.getLogger("cle.ld")
-
-class CLException(Exception):
-    def __init__(self, val):
-        self.val = val
-
-    def __str__(self):
-        return repr(self.val)
 
 
 class Ld(object):
@@ -30,7 +24,7 @@ class Ld(object):
     The loader loads all the objects and exports an abstraction of the memory of
     the process.
     """
-    def __init__(self, binary, force_ida=None, load_libs=None):
+    def __init__(self, binary, force_ida=None, load_libs=None, skip_libs=[]):
         """ @path is the path to licle_ctypes.so"""
 
         self.tmp_dir = "/tmp/cle" # IDA needs a directory where it has permissions
@@ -40,6 +34,7 @@ class Ld(object):
         self.path = binary
         self.force_ida = force_ida
         self.ida_rebase_granularity = 0x1000000 # IDA workaround
+        self.skip_libs = skip_libs
 
 
         if self.force_ida is None:
@@ -168,7 +163,7 @@ class Ld(object):
             uaddr = self.find_symbol_addr(symb)
             if (uaddr):
                 uaddr = uaddr + obj.rebase_addr
-                l.debug("\t--> Relocation of %s -> 0x%x [stub@0x%x]" % (symb,
+                l.debug("\t--> [R] Relocation of %s -> 0x%x [stub@0x%x]" % (symb,
                                                                      uaddr,
                                                                      got_addr))
 
@@ -177,7 +172,7 @@ class Ld(object):
                     self.memory[got_addr + i] = baddr[i]
 
             else:
-                l.debug("\t--> Cannot locate symbol \"%s\" from SOs" % symb)
+                l.debug("\t--> [U] Cannot locate symbol \"%s\" from SOs" % symb)
 
     def __reloc_mips_local(self, obj):
         """ MIPS local relocations (yes, GOT entries for local symbols also need
@@ -315,6 +310,7 @@ class Ld(object):
         shared_libs = self.dependencies
         for name, addr in shared_libs.iteritems():
 
+            fname = os.path.basename(name)
             # IDA
             if self.force_ida == True:
                 addr = self.__ida_rebase_addr() # workaround for IDA crash
@@ -322,12 +318,15 @@ class Ld(object):
             else:
                 so = self.__load_so_cle(name)
 
-            if (so):
+            if so is None :
+                if fname not in self.skip_libs:
+                    raise CLException("Could not find lib %s" % fname)
+                else:
+                    l.debug("Shared object %s not loaded (skip_libs)" % name)
+            else:
                 self.rebase_lib(so, addr)
                 so.rebase_addr = addr
                 self.shared_objects.append(so)
-            else:
-                l.debug("Shared object %s not loaded :(" % name)
 
     def rebase_lib(self, so, base):
         """ Relocate a shared objet given a base address
@@ -446,16 +445,15 @@ class Ld(object):
     def __load_so_cle(self, soname):
         # Soname can be a path or just the name if the library, in which case we
         # search for it in known paths.
-        if (not os.path.exists(soname)):
-            path = self.__search_so(soname)
-            soname = path
 
-        if (soname == None):
-            raise CLException("Could not find shared object %s :(" %
-                                      repr(soname))
+        if (os.path.exists(soname)):
+            path = soname
         else:
-            so = Elf(soname)
-        return so
+            path = self.__search_so(soname)
+
+        if path is not None:
+            so = Elf(path)
+            return so
 
     def __check_arch(self, objpath):
         """ Is obj the same architecture as our main binary ? """
@@ -469,20 +467,26 @@ class Ld(object):
         # in case we need to look for stuff manually...
         loc = []
         loc.append(os.path.dirname(self.path))
-        loc.append(self.main_bin.archinfo.get_cross_library_path())
+        arch_lib = os.path.join(self.main_bin.archinfo.get_cross_library_path(),
+                                "lib")
+        loc.append(arch_lib)
         # Dangerous, only ok if the hosts sytem's is the same as the target
         #loc.append(os.getenv("LD_LIBRARY_PATH"))
 
         libname = os.path.basename(soname)
 
+        l.debug("Searching for SO %s" % libname)
         for ld_path in loc:
-            if not ld_path: continue
+            #if not ld_path: continue
             for s_path, s_dir, s_file in os.walk(ld_path):
                 sopath = os.path.join(s_path,libname)
-                #l.debug("\t--> Trying %s" % sopath)
-                if os.path.exists(sopath) and self.__check_arch(sopath) == True:
-                    l.debug("-->Found %s" % sopath)
-                    return sopath
+                if os.path.exists(sopath):
+                    l.debug("\t--> Trying %s" % sopath)
+                    if self.__check_arch(sopath) == False:
+                        l.debug("\t\t -> has wrong architecture")
+                    else:
+                        l.debug("-->Found %s" % sopath)
+                        return sopath
 
     def __all_so_exports(self):
         exports = {}
@@ -492,6 +496,7 @@ class Ld(object):
 
             for symb, addr in i.exports.iteritems():
                 exports[symb] = addr
+                #l.debug("%s has export %s@%x" % (i.binary, symb, addr))
         return exports
 
     def __so_name_from_symbol(self, symb):
@@ -512,17 +517,18 @@ class Ld(object):
         for name, ea in imports.iteritems():
             # In the same binary
             if name in b.exports:
-                b.resolve_import_dirty(name, b.exports[name])
+                newaddr = b.exports[name]
+                #b.resolve_import_dirty(name, b.exports[name])
             # In shared objects
             elif name in so_exports:
-                l.debug("[R] %s -> at 0x%08x (IDA)", name, so_exports[name])
-                try:
-                    b.resolve_import_dirty(name, so_exports[name])
-                except Exception:
-                    l.warning("Mismatch between IDA info and ELF info. Symbols "
-                              "%s in bin %s", name, b.binary)
+                newaddr = so_exports[name]
+
             else:
                 l.warning("[U] %s -> unable to resolve import (IDA) :(", name)
+                continue
+
+            l.debug("[R] %s -> at 0x%08x (IDA)", name, newaddr)
+            b.update_addrs([ea], newaddr)
 
     # Test cases
     def test_end_conversion(self):

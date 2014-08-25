@@ -2,6 +2,7 @@ import os
 from ctypes import *
 import logging
 import subprocess
+import simuvex
 
 l = logging.getLogger("cle.archinfo")
 
@@ -128,4 +129,11 @@ class ArchInfo(object):
             return "/lib32"
 
 
-
+    def get_simuvex_obj(self):
+        s_arch = self.to_simuvex_arch(self.name)
+        if type(s_arch) is str and s_arch in simuvex.Architectures.keys():
+            return simuvex.Architectures[s_arch]()
+        else:
+            raise Exception("cle.archinfo: architecture %s is not in"
+                            " simuvex.Architectures" % repr(s_arch))
+        # Let's first get a Simuvex.Architectures object

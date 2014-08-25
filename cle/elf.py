@@ -3,6 +3,7 @@ import os
 import logging
 from .archinfo import ArchInfo
 import subprocess
+from .clexception import CLException
 
 l = logging.getLogger("cle.elf")
 
@@ -20,7 +21,7 @@ class Segment(object):
 
 class Elf(object):
     """ Representation of loaded Elf binaries """
-    def __init__(self, binary):
+    def __init__(self, binary, load=True):
 
         self.segments = [] # List of segments
         self.memory = {} # Private virtual address space, without relocations
@@ -64,7 +65,9 @@ class Elf(object):
         self.gotaddr = self.__get_gotaddr(self.dynamic) # Add rebase_addr if relocated
         self.jmprel = self.__get_jmprel(info)
         self.endianness = self.__get_endianness(info)
-        self.load()
+
+        if load == True:
+            self.load()
 
     def get_exec_base_addr(self):
         """
@@ -447,3 +450,7 @@ class Elf(object):
                 self.mips_symtabno = int(i["val"].strip(), 16)
 
 
+    def function_name(self, addr):
+        """ Return the name of the function containing @addr"""
+        l.debug("TODO: implement this")
+        return
