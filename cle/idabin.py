@@ -33,13 +33,14 @@ class IdaBin(object):
         self.ida = idalink.IDALink(binary, ida_prog=ida_prog,
                                    processor_type=processor_type, pull = pull)
 
+        self.badaddr = self.ida.idc.BADADDR
         self.memory = self.ida.mem
         if base_addr is not None:
             self.rebase(base_addr)
+        else:
+            self.rebase_addr = 0
 
-        self.__find_got()
-        self.imports = {}
-        self.__get_ida_imports()
+        self.imports = self.__get_imports()
 
         self.exports = self.__get_exports()
         self.custom_entry_point = None # Not implemented yet
@@ -71,15 +72,25 @@ class IdaBin(object):
         return seg
 
     def __find_got(self):
-        """ Locate the GOT in this binary"""
+        """ Locate the section (e.g., .got) that should be updated when
+        relocating functions (that's where we want to write absolute addresses).
+        """
+        sec_name = self.archinfo.got_section_name()
+        self.got_begin = None
+        self.got_end = None
+
         for seg in self.ida.idautils.Segments():
             name = self.ida.idc.SegName(seg)
-            if name == ".got":
+            if name == sec_name:
                 self.got_begin = self.ida.idc.SegStart(seg)
                 self.got_end = self.ida.idc.SegEnd(seg)
 
-    def __in_got(self, addr):
-        """ Is @addr in the GOT ? """
+        # If we reach this point, we should have the addresses
+        if self.got_begin is None or self.got_end is None:
+            raise Exception("This architecture has no section %s :(", sec_name)
+
+    def __in_proper_section(self, addr):
+        """ Is @addr in the proper section for this architecture ?"""
         return (addr > self.got_begin and addr < self.got_end)
 
     def function_name(self, addr):
@@ -126,6 +137,7 @@ class IdaBin(object):
     def __get_ida_imports(self):
         """ Extract imports from binary (IDA)"""
         import_modules_count = self.ida.idaapi.get_import_module_qty()
+        self.raw_imports = {}
 
         for i in xrange(0, import_modules_count):
             self.current_module_name = self.ida.idaapi.get_import_module_name(
@@ -133,27 +145,32 @@ class IdaBin(object):
             self.ida.idaapi.enum_import_names(i, self.__import_entry_callback)
 
     def __import_entry_callback(self, ea, name, entry_ord):
-        """ Callback function for IDA's enum_import_names
-            We only get the symbols which have an actual GOT entry """
-            # Replace name@@crap by name
-       # if "@@" in name:
-       #     real = re.sub("@@.*", "", name)
-       #     if real in self.imports:
-       #         continue
-       #     else:
-       #         name = real
-
-        for addr in list(self.ida.idautils.DataRefsTo(ea)):
-            if self.__in_got(addr) and addr != self.ida.idc.BADADDR:
-                self.imports[name] = addr
-                l.debug("\t -> has import %s - GOT entry @ 0x%x" % (name, addr))
-        #gotaddr = self.ida.idc.DfirstB(ea) # Get the GOT slot addr
-        #if (gotaddr != self.ida.idc.BADADDR):
-            #seg = self.in_which_segment(gotaddr)
-            #if seg != '.got':
-            #    raise Exception("This is not a GOT address, it belongs to %s :("
-            #                      % seg)
+        """ Callback function for IDA's enum_import_names"""
+        self.raw_imports[name] = ea
         return True
+
+    def __get_imports(self):
+        # Locate the GOT on this architecture
+        self.__find_got()
+
+        # Get the list of imports from IDA
+        self.__get_ida_imports()
+
+        # Then process it to get the correct addresses
+        imports = {}
+        for name, ea in self.raw_imports.iteritems():
+            # If this architecture uses the plt directly, then we need to look
+            # in the code segment.
+            if self.archinfo.got_section_name() == '.plt':
+                lst = list(self.ida.idautils.CodeRefsTo(ea, 1))
+            else:
+                lst = list(self.ida.idautils.DataRefsTo(ea))
+
+            for addr in lst:
+                if self.__in_proper_section(addr) and addr != self.badaddr:
+                    imports[name] = addr
+                    l.debug("\t -> has import %s - GOT entry @ 0x%x" % (name, addr))
+        return imports
 
     def get_min_addr(self):
         """ Get the min address of the binary (IDA)"""

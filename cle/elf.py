@@ -69,11 +69,13 @@ class Elf(object):
         if load == True:
             self.load()
 
-    def get_exec_base_addr(self):
+    def get_min_addr(self):
         """
         Return the virtual address of the segment that has the lowest address.
-        This is only relevant to executable files, as shared libraries would
-        have 0 as their text segment load addresses """
+        WARNING: this is calculated BEFORE rebasing the binaries, therefore,
+        this is only relevant to executable files, as shared libraries should always
+        have 0 as their text segment load addresseses.
+        """
 
         t = self.get_text_phdr_ent()
         d = self.get_data_phdr_ent()

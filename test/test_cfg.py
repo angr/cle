@@ -84,9 +84,10 @@ def test(p):
 
 if __name__ == '__main__':
     #path="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-x86"
-    path ="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-mips"
+    #path ="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-mips"
     #path ="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-ppc32"
     #path="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-amd64"
+    path="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-arm"
 
     #path = "/home/christophe/binary_project/loader/cle/ccle/ppc/clextract"
     #path = "/home/christophe/binary_project/loader/cle/ccle/i386/clextract"

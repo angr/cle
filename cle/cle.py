@@ -12,6 +12,7 @@ from .elf import Elf
 from .idabin import IdaBin
 from .archinfo import ArchInfo
 from .clexception import CLException
+import sys
 
 #import platform
 #import binascii
@@ -27,7 +28,10 @@ class Ld(object):
     def __init__(self, binary, force_ida=None, load_libs=None, skip_libs=None):
         """ @path is the path to licle_ctypes.so"""
 
-        self.tmp_dir = "/tmp/cle" # IDA needs a directory where it has permissions
+        # IDA needs a directory where it has permissions
+        arch = ArchInfo(binary).name
+        self.tmp_dir = "/tmp/cle_" + os.path.basename(binary) + "_" + arch
+
         self.memory = {} # Dictionary representation of the memory
         self.shared_objects =[] # Executables and libraries's binary objects
         self.dependencies = {}
@@ -113,7 +117,7 @@ class Ld(object):
 
     def addr_belongs_to_object(self, addr):
         max = self.main_bin.get_max_addr()
-        min = self.main_bin.get_exec_base_addr()
+        min = self.main_bin.get_min_addr()
 
         if (addr > min and addr < max):
             return self.main_bin
@@ -121,6 +125,9 @@ class Ld(object):
         for so in self.shared_objects:
             max = so.get_max_addr()
             min = so.rebase_addr
+            if min == 0:
+                raise CLException("Rebase address of object %s is 0, should be "
+                                  "updated", os.path.basename(so.binary))
             if (addr > min and addr < max):
                 return so
 
@@ -131,7 +138,7 @@ class Ld(object):
         if self.force_ida == True:
             return self.main_bin.get_min_addr()
         else:
-            base = self.main_bin.get_exec_base_addr()
+            base = self.main_bin.get_min_addr()
 
         # Libraries usually have 0 as their base address, until relocation.
         # It is unlikely that libraries get relocated at a lower address than
@@ -438,6 +445,7 @@ class Ld(object):
         if not os.path.exists(self.tmp_dir):
             os.mkdir(self.tmp_dir)
 
+
     def __copy_obj(self, path):
         """ Makes a copy of obj into CLE's tmp directory """
         self.__make_tmp_dir()
@@ -466,6 +474,12 @@ class Ld(object):
     def __check_arch(self, objpath):
         """ Is obj the same architecture as our main binary ? """
         arch = ArchInfo(objpath)
+
+        # Hack: there are plenty of arm variants
+        # TODO: check Endianness
+        if "arm" in arch.name and "arm" in self.main_bin.archinfo.name:
+            return True
+
         return self.main_bin.archinfo.name == arch.name
 
     def __search_so(self, soname):
@@ -475,8 +489,7 @@ class Ld(object):
         # in case we need to look for stuff manually...
         loc = []
         loc.append(os.path.dirname(self.path))
-        arch_lib = os.path.join(self.main_bin.archinfo.get_cross_library_path(),
-                                "lib")
+        arch_lib = self.main_bin.archinfo.get_cross_library_path()
         loc.append(arch_lib)
         # Dangerous, only ok if the hosts sytem's is the same as the target
         #loc.append(os.getenv("LD_LIBRARY_PATH"))

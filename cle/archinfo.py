@@ -124,7 +124,7 @@ class ArchInfo(object):
         arch = self.qemu_arch
 
         if arch == "x86_64":
-            return "/usr/x86_64-linux-gnu/"
+            return "/lib/x86_64-linux-gnu/"
         elif arch == "ppc":
             return "/usr/powerpc-linux-gnu/"
         elif arch == "mips":
@@ -134,12 +134,15 @@ class ArchInfo(object):
         elif arch == "i386":
             return "/lib32"
 
+        raise CLException("Architecture %s is not supported" % arch)
+
     def get_cross_ld_path(self):
         """ LD_LIBRARY_PATH expects "$ARCH_LIB/lib" except for i386..."""
+        path = self.get_cross_library_path()
         if self.qemu_arch == "i386":
-            return self.get_cross_library_path()
+            return path
         else:
-            return os.path.join(self.get_cross_library_path, "/lib")
+            return os.path.join(path, "/lib")
 
     def get_simuvex_obj(self):
         s_arch = self.to_simuvex_arch(self.name)
@@ -149,3 +152,21 @@ class ArchInfo(object):
             raise Exception("cle.archinfo: architecture %s is not in"
                             " simuvex.Architectures" % repr(s_arch))
         # Let's first get a Simuvex.Architectures object
+
+    def got_section_name(self):
+        """ Returns the name of the section that holds absolute addresses of
+            functions, that is, what we want to update after relocation.
+            It varies with the architecture.
+        """
+        # MIPS: .got (normal names) (PS: .extern has crappy @@names)
+        # ARM : .got (_ptr name)
+        if "mips" in self.name or "arm" in self.name:
+            return '.got'
+
+        # PPC 32: .plt (.extern has crappy @@names)
+        if "powerpc" in self.name:
+            return '.plt'
+
+        # x86 .got.plt
+        if "i386" in self.name or 'x86-64' in self.name:
+            return '.got.plt'
