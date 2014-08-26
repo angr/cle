@@ -48,6 +48,7 @@ class Ld(object):
             self.force_ida = False
 
         if (force_ida == True):
+            self.original_path = binary
             self.path = self.__copy_obj(binary)
             self.force_ida = True
             self.main_bin = IdaBin(self.path)
@@ -422,20 +423,30 @@ class Ld(object):
            same location to write its #@! db files.
         """
 
+        # This looks for an existing /tmp/cle_blah/lib_blah.so
         dname = os.path.dirname(self.path)
         lib = os.path.basename(soname)
-        # First, look for the library in the current directory
         sopath = os.path.join(dname,lib)
 
-        # If it is not there, let's find it somewhere in the system
+        # Otherwise, create cle's tmp dir and try to find the lib somewhere else
         if not os.path.exists(sopath) or not self.__check_arch(sopath):
             self.__make_tmp_dir()
-            so_system = self.__search_so(soname)
-            # If found, we make a copy of it in our tmpdir
-            if so_system is not None:
-                sopath = self.__copy_obj(so_system)
+
+            # Look in the same dir as the main binary
+            orig_dname = os.path.dirname(self.original_path)
+            so_orig = os.path.join(orig_dname, lib)
+
+            if os.path.exists(so_orig) and self.__check_arch(so_orig):
+                sopath = self.__copy_obj(so_orig)
+
+            # finally let's find it somewhere in the system
             else:
-                return None
+                so_system = self.__search_so(soname)
+                # If found, we make a copy of it in our tmpdir
+                if so_system is not None:
+                    sopath = self.__copy_obj(so_system)
+                else:
+                    return None
 
         obj = IdaBin(sopath, base_addr)
         return obj
