@@ -4,13 +4,13 @@ from .archinfo import ArchInfo
 import os
 import pdb
 import struct
-import re
 
 l = logging.getLogger("cle.idabin")
 
 class IdaBin(object):
-    """ Get informations from binaries using IDA. This replaces the old Binary
-    class and integrates it into CLE as a fallback """
+    """ Get informations from binaries using IDA.
+    This replaces the old Binary class and integrates it into CLE as a fallback
+    """
     def __init__(self, binary, base_addr = None):
 
         self.rebase_addr = None
@@ -47,7 +47,7 @@ class IdaBin(object):
         self.entry_point = self.__get_entry_point()
 
     def rebase(self, base_addr):
-        """ Rebase binary at address @base_addr """
+        """ Rebase the binary at address @base_addr """
         l.debug("-> Rebasing %s to address 0x%x (IDA)" %
                 (os.path.basename(self.binary), base_addr))
         if self.get_min_addr() >= base_addr:
@@ -150,6 +150,10 @@ class IdaBin(object):
         return True
 
     def __get_imports(self):
+        """ Extract imports from the binary. This uses the exports we get from IDA,
+        and then tries to find the GOT entries related to them.
+        It returns a dict {import:got_address}
+        """
         # Locate the GOT on this architecture
         self.__find_got()
 
@@ -201,7 +205,9 @@ class IdaBin(object):
     def resolve_import_dirty(self, sym, new_val):
         """ Resolve import for symbol @sym the dirty way, i.e. find all
         references to it in the code and replace it with the address @new_val
-        inline (instead of updating GOT slots)"""
+        inline (instead of updating GOT slots)
+        Don't use this unless you really have to, use resolve_import_with instead.
+        """
 
         #l.debug("\t %s resolves to 0x%x", sym, new_val)
 
@@ -232,12 +238,17 @@ class IdaBin(object):
     def resolve_import_with(self, name, newaddr):
         """ Resolve import @name with address @newaddr, that is, update the GOT
             entry for @name with @newaddr
+            Note: this should be called update_got_slot to match the Elf class.
         """
         if name in self.imports:
             addr = self.imports[name]
             self.update_addrs([addr], newaddr)
 
     def update_addrs(self, update_addrs, new_val):
+        """ Updates all the addresses of @update_addrs with @new_val
+            @updatre_addrs is a list
+            @new_val is an address
+        """
         arch = self.archinfo.get_simuvex_obj()
         fmt = arch.struct_fmt
         packed = struct.pack(fmt, new_val)
@@ -246,5 +257,4 @@ class IdaBin(object):
             #l.debug("... setting 0x%x to 0x%x", addr, new_val)
             for n, p in enumerate(packed):
                 self.ida.mem[addr + n] = p
-
 

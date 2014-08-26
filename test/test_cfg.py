@@ -74,7 +74,7 @@ def setup_ida(filename):
 
 def setup_cle(filename):
     p_cle = angr.Project(filename, default_analysis_mode='symbolic',
-                         use_sim_procedures=True, load_libs = True, force_ida = False)
+                         use_sim_procedures=True, load_libs = True, force_ida = True)
     return p_cle
 
 def test(p):
