@@ -4,6 +4,7 @@ from .archinfo import ArchInfo
 import os
 import pdb
 import struct
+import re
 
 l = logging.getLogger("cle.idabin")
 
@@ -36,6 +37,7 @@ class IdaBin(object):
         if base_addr is not None:
             self.rebase(base_addr)
 
+        self.__find_got()
         self.imports = {}
         self.__get_ida_imports()
 
@@ -67,6 +69,18 @@ class IdaBin(object):
         if len(seg) == 0:
             seg = "unknown"
         return seg
+
+    def __find_got(self):
+        """ Locate the GOT in this binary"""
+        for seg in self.ida.idautils.Segments():
+            name = self.ida.idc.SegName(seg)
+            if name == ".got":
+                self.got_begin = self.ida.idc.SegStart(seg)
+                self.got_end = self.ida.idc.SegEnd(seg)
+
+    def __in_got(self, addr):
+        """ Is @addr in the GOT ? """
+        return (addr > self.got_begin and addr < self.got_end)
 
     def function_name(self, addr):
         """ Return the function name at address @addr (IDA) """
@@ -121,11 +135,24 @@ class IdaBin(object):
     def __import_entry_callback(self, ea, name, entry_ord):
         """ Callback function for IDA's enum_import_names
             We only get the symbols which have an actual GOT entry """
+            # Replace name@@crap by name
+       # if "@@" in name:
+       #     real = re.sub("@@.*", "", name)
+       #     if real in self.imports:
+       #         continue
+       #     else:
+       #         name = real
 
-        gotaddr = self.ida.idc.DfirstB(ea) # Get the GOT slot addr
-        if (gotaddr != self.ida.idc.BADADDR):
-            self.imports[name] = gotaddr
-            l.debug("\t -> has import %s - GOT entry @ 0x%x" % (name, ea))
+        for addr in list(self.ida.idautils.DataRefsTo(ea)):
+            if self.__in_got(addr) and addr != self.ida.idc.BADADDR:
+                self.imports[name] = addr
+                l.debug("\t -> has import %s - GOT entry @ 0x%x" % (name, addr))
+        #gotaddr = self.ida.idc.DfirstB(ea) # Get the GOT slot addr
+        #if (gotaddr != self.ida.idc.BADADDR):
+            #seg = self.in_which_segment(gotaddr)
+            #if seg != '.got':
+            #    raise Exception("This is not a GOT address, it belongs to %s :("
+            #                      % seg)
         return True
 
     def get_min_addr(self):
@@ -186,6 +213,9 @@ class IdaBin(object):
             l.debug("Warning: could not find references to symbol %s (IDA)" % sym)
 
     def resolve_import_with(self, name, newaddr):
+        """ Resolve import @name with address @newaddr, that is, update the GOT
+            entry for @name with @newaddr
+        """
         if name in self.imports:
             addr = self.imports[name]
             self.update_addrs([addr], newaddr)
@@ -196,7 +226,7 @@ class IdaBin(object):
         packed = struct.pack(fmt, new_val)
 
         for addr in update_addrs:
-            l.debug("... setting 0x%x to 0x%x", addr, new_val)
+            #l.debug("... setting 0x%x to 0x%x", addr, new_val)
             for n, p in enumerate(packed):
                 self.ida.mem[addr + n] = p
 

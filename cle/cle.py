@@ -24,7 +24,7 @@ class Ld(object):
     The loader loads all the objects and exports an abstraction of the memory of
     the process.
     """
-    def __init__(self, binary, force_ida=None, load_libs=None, skip_libs=[]):
+    def __init__(self, binary, force_ida=None, load_libs=None, skip_libs=None):
         """ @path is the path to licle_ctypes.so"""
 
         self.tmp_dir = "/tmp/cle" # IDA needs a directory where it has permissions
@@ -34,7 +34,10 @@ class Ld(object):
         self.path = binary
         self.force_ida = force_ida
         self.ida_rebase_granularity = 0x1000000 # IDA workaround
-        self.skip_libs = skip_libs
+        if skip_libs is None:
+            self.skip_libs = []
+        else:
+            self.skip_libs = skip_libs
 
 
         if self.force_ida is None:
@@ -320,7 +323,9 @@ class Ld(object):
 
             if so is None :
                 if fname not in self.skip_libs:
-                    raise CLException("Could not find lib %s" % fname)
+                    raise CLException("Could not find suitable %s (%s), please copy it in the "
+                                      "binary's directory or set skip_libs = "
+                                      "[\"%s\"]" % (fname, self.main_bin.archinfo.name, fname))
                 else:
                     l.debug("Shared object %s not loaded (skip_libs)" % name)
             else:
@@ -369,7 +374,8 @@ class Ld(object):
             ld_path = ld_path + ":" + bin_p
 
         cross_libs = self.main_bin.archinfo.get_cross_library_path()
-        ld_path = ld_path + ":" + os.path.join(cross_libs, "lib")
+        ld_libs = self.main_bin.archinfo.get_cross_ld_path()
+        ld_path = ld_path + ":" + ld_libs
 
         var = "LD_LIBRARY_PATH=%s,LD_AUDIT=%s" % (ld_path, ld_audit_obj)
 
@@ -419,8 +425,10 @@ class Ld(object):
             self.__make_tmp_dir()
             so_system = self.__search_so(soname)
             # If found, we make a copy of it in our tmpdir
-            if so_system:
+            if so_system is not None:
                 sopath = self.__copy_obj(so_system)
+            else:
+                return None
 
         obj = IdaBin(sopath, base_addr)
         return obj

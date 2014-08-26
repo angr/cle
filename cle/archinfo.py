@@ -3,6 +3,8 @@ from ctypes import *
 import logging
 import subprocess
 import simuvex
+import pdb
+from .clexception import CLException
 
 l = logging.getLogger("cle.archinfo")
 
@@ -22,19 +24,22 @@ class ArchInfo(object):
         env_p = os.getenv("VIRTUAL_ENV")
         lib_p = "lib"
         lib = os.path.join(env_p, lib_p, "cle_bfd.so")
-        if os.path.exists(lib):
-            self.lib = cdll.LoadLibrary(lib)
-            self.lib.get_bfd_arch_pname.restype = c_char_p
 
-            self.name = self.lib.get_bfd_arch_pname(binary)
-            self.bits = self.lib.get_bits_per_addr(binary)
-            self.arch_size = self.lib.get_arch_size(binary)
-
-            self.qemu_arch = self.to_qemu_arch(self.name)
-            self.simuvex_arch = self.to_simuvex_arch(self.name)
-            self.ida_arch = self.to_ida_arch(self.name)
-        else:
+        if not os.path.exists(lib):
             raise CLException("Cannot load cle_bfd.so, invalid path:%s" % lib)
+        if not os.path.exists(binary):
+            raise CLException("Binary %s does not exist" % binary)
+
+        self.lib = cdll.LoadLibrary(lib)
+        self.lib.get_bfd_arch_pname.restype = c_char_p
+
+        self.name = self.lib.get_bfd_arch_pname(binary)
+        self.bits = self.lib.get_bits_per_addr(binary)
+        self.arch_size = self.lib.get_arch_size(binary)
+
+        self.qemu_arch = self.to_qemu_arch(self.name)
+        self.simuvex_arch = self.to_simuvex_arch(self.name)
+        self.ida_arch = self.to_ida_arch(self.name)
 
 
     def to_qemu_arch(self, arch):
@@ -113,7 +118,8 @@ class ArchInfo(object):
             return cmd
 
     def get_cross_library_path(self):
-        """ Returns the path to cross libraries for @arch"""
+        """ Returns the path to cross libraries for @arch, suitable for qemu's
+        -L option"""
 
         arch = self.qemu_arch
 
@@ -128,6 +134,12 @@ class ArchInfo(object):
         elif arch == "i386":
             return "/lib32"
 
+    def get_cross_ld_path(self):
+        """ LD_LIBRARY_PATH expects "$ARCH_LIB/lib" except for i386..."""
+        if self.qemu_arch == "i386":
+            return self.get_cross_library_path()
+        else:
+            return os.path.join(self.get_cross_library_path, "/lib")
 
     def get_simuvex_obj(self):
         s_arch = self.to_simuvex_arch(self.name)

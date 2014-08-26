@@ -334,9 +334,10 @@ class Elf(object):
             raise CLException("Cannot find clextract binary at %s" % cle)
 
         crosslibs = self.archinfo.get_cross_library_path()
+        ld_libs = self.archinfo.get_cross_ld_path()
         # clextract needs libcle which resides in arch/ for each arch
         cmd = [qemu, "-L", crosslibs, "-E", "LD_LIBRARY_PATH=" +
-               os.path.join(env_p, lib_p) + ":" + os.path.join(crosslibs, "lib")
+               os.path.join(env_p, lib_p) + ":" + ld_libs
                , cle, self.binary]
 
         s = subprocess.Popen(cmd, stdout=subprocess.PIPE,
