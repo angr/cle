@@ -55,8 +55,8 @@ skip_libs=[list, of, libs])
 
 # Dependencies
 
-You will need binutils-multiarch-dev and gcc for mips, arm, ppc, x86 and
-x86_64. On Debian, this is provided by emdebian.
+You will need binutils-multiarch-dev, gcc and libc6 crosscompiled for mips,
+arm, ppc, x86 and x86_64. On Debian, this is provided by emdebian.
 
 
 # Manual install
