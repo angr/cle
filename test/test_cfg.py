@@ -6,6 +6,7 @@ except ImportError:
 
 import angr
 import logging
+import os
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -74,7 +75,7 @@ def setup_ida(filename):
 
 def setup_cle(filename):
     p_cle = angr.Project(filename, default_analysis_mode='symbolic',
-                         use_sim_procedures=True, load_libs = True, force_ida = True)
+                         use_sim_procedures=True, load_libs = True, force_ida = False)
     return p_cle
 
 def test(p):
@@ -83,18 +84,13 @@ def test(p):
     browse(p)
 
 if __name__ == '__main__':
-    #path="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-x86"
-    #path ="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-mips"
-    #path ="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-ppc32"
-    #path="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-amd64"
-    #path="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-arm"
+    home = os.getenv("HOME")
 
-    #path = "/home/christophe/binary_project/loader/cle/ccle/ppc/clextract"
-    #path = "/home/christophe/binary_project/loader/cle/ccle/i386/clextract"
-    path = "/home/christophe/binary_project/loader/cle/ccle/x86_64/clextract"
-    #path = "/home/christophe/binary_project/loader/cle/ccle/mips/clextract"
-    # path = "/home/christophe/binary_project/loader/cle/ccle/arm/clextract"
-    #path = "/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-x86"
+    path= home + "/binary_project/angr/angr/tests/fauxware/fauxware-x86"
+    #path = home + "/binary_project/angr/angr/tests/fauxware/fauxware-mips"
+    #path = home + "/binary_project/angr/angr/tests/fauxware/fauxware-ppc32"
+    #path= home + "/binary_project/angr/angr/tests/fauxware/fauxware-amd64"
+    #path= home + "/binary_project/angr/angr/tests/fauxware/fauxware-arm"
 
     p = setup_cle(path)
     test(p)
