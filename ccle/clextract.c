@@ -562,7 +562,7 @@ int main(int argc, char *argv[])
 
     /* Get ELF header*/
     rewind(f);
-    fread(&ehdr, sizeof(Elf64_Ehdr), 1, f);
+    fread(&ehdr, sizeof(ElfW(Ehdr)), 1, f);
     print_basic_info(ehdr);
 
     /* Get program header table*/
