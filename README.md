@@ -45,7 +45,9 @@ skip_libs=[list, of, libs])
           executions for the same binary AND architecture
         - in the same folder as the main binary
         - in the system (in the corresponding library path for the architecture
-          of the binary, e.g., /usr/arm-linux-gnueabi/lib for ARM)
+          of the binary, e.g., /usr/arm-linux-gnueabi/lib for ARM, note that
+          you need to install cross libraries for this, e.g.,
+          libc6-powerpc-cross on Debian - needs emdebian repos)
 
        If no binary is found with the correct architecture, Ld raises an
        exception, unless the library causing trouble is defined in skip_libs. 

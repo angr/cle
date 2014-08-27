@@ -86,11 +86,11 @@ def test(p):
 if __name__ == '__main__':
     home = os.getenv("HOME")
 
-    path= home + "/binary_project/angr/angr/tests/fauxware/fauxware-x86"
-    #path = home + "/binary_project/angr/angr/tests/fauxware/fauxware-mips"
-    #path = home + "/binary_project/angr/angr/tests/fauxware/fauxware-ppc32"
-    #path= home + "/binary_project/angr/angr/tests/fauxware/fauxware-amd64"
-    #path= home + "/binary_project/angr/angr/tests/fauxware/fauxware-arm"
+    #path= home + "/binary_project/angr/angr/tests/fauxware/fauxware-x86"
+    # path = home + "/binary_project/angr/angr/tests/fauxware/fauxware-mips"
+    # path = home + "/binary_project/angr/angr/tests/fauxware/fauxware-ppc32"
+    # path= home + "/binary_project/angr/angr/tests/fauxware/fauxware-amd64"
+    path= home + "/binary_project/angr/angr/tests/fauxware/fauxware-arm"
 
     p = setup_cle(path)
     test(p)
