@@ -258,3 +258,7 @@ class IdaBin(object):
             for n, p in enumerate(packed):
                 self.ida.mem[addr + n] = p
 
+    def is_thumb(self, addr):
+        """ Is the address @addr in thumb mode ? (ARM) """
+        if "arm" in self.arch:
+            return self.binary_by_addr(addr).ida.idc.GetReg(addr, "T") == 1

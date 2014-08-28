@@ -452,6 +452,23 @@ class Elf(object):
             elif(i["tag"] == "DT_MIPS_SYMTABNO"):
                 self.mips_symtabno = int(i["val"].strip(), 16)
 
+    def is_thumb(self,addr):
+        """ Is the address @addr in thumb mode ? """
+        if not "arm" in self.arch:
+            raise CLException("Dude, thumb mode is on ARM!")
+
+        """ Is the entry point in ARM or Thumb mode ?
+        If the first bit of the entry point's address is 1, then Thumb.
+        If it is 00, then ARM. Check page 46 of this document for details:
+        http://infocenter.arm.com/help/topic/com.arm.doc.ihi0044e/IHI0044E_aaelf.pdf
+        """
+        if addr == self.entry_point:
+            t_bit = addr
+            while t_bit > 2:
+                t_bit >> 1
+                return t_bit == 1
+        else:
+            raise CLException("Runtime thumb mode detection not implemented")
 
     def function_name(self, addr):
         """ Return the name of the function containing @addr"""

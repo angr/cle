@@ -120,7 +120,7 @@ class Ld(object):
         max = self.main_bin.get_max_addr()
         min = self.main_bin.get_min_addr()
 
-        if (addr > min and addr < max):
+        if (addr >= min and addr <= max):
             return self.main_bin
 
         for so in self.shared_objects:
@@ -129,7 +129,7 @@ class Ld(object):
             if min == 0:
                 raise CLException("Rebase address of object %s is 0, should be "
                                   "updated", os.path.basename(so.binary))
-            if (addr > min and addr < max):
+            if (addr >= min and addr <= max):
                 return so
 
     def min_addr(self):
