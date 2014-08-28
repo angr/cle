@@ -6,6 +6,11 @@
 #include <string.h>
 #include "libcle.h"
 
+#if __ELF_NATIVE_CLASS == 32
+    #define ELF32
+#else
+    #define ELF64
+#endif
 
 
 /* Get the section header table */
@@ -40,9 +45,16 @@ void print_shdr(ElfW(Shdr) *shdr, size_t size)
     printf("\nSHDR, OFFSET, ADDR, SIZE, TYPE\n---\n");
     for (i = 0; i < size; i++)
     {
+#ifdef ELF64
         printf("shdr, 0x%lx, 0x%lx, 0x%lx, %s\n", shdr[i].sh_offset,
                 shdr[i].sh_addr, shdr[i].sh_size,
                 sh_type_tostr(shdr[i].sh_type)); 
+#else
+        printf("shdr, 0x%x, 0x%x, 0x%x, %s\n", shdr[i].sh_offset,
+                shdr[i].sh_addr, shdr[i].sh_size,
+                sh_type_tostr(shdr[i].sh_type)); 
+#endif
+
     }
 }
 
@@ -50,7 +62,11 @@ void print_shdr(ElfW(Shdr) *shdr, size_t size)
 /* Display basic info contained in the ELF header*/
 void print_basic_info(ElfW(Ehdr ehdr))
 {
+#ifdef ELF64
     printf("Entry point, 0x%lx\n", ehdr.e_entry);
+#else
+    printf("Entry point, 0x%x\n", ehdr.e_entry);
+#endif
     printf("Machine type, %s\n", _get_arch(ehdr));
     printf("Object type, %s\n", _get_type(ehdr));
     printf("Endianness, %s\n", ei_data_tostr(ehdr.e_ident[EI_DATA]));
@@ -71,9 +87,15 @@ void print_phdr (ElfW(Phdr) *phdr, size_t size)
     for (i = 0; i < size; i++)
     {
         name = pt_type_tostr(phdr[i].p_type);
+#ifdef ELF64
         printf("phdr, 0x%lx, 0x%lx, 0x%lx, 0x%lx, 0x%lx, %s\n", 
                 phdr[i].p_offset, phdr[i].p_vaddr, phdr[i].p_filesz,
                 phdr[i].p_memsz, phdr[i].p_align, name); 
+#else
+        printf("phdr, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, %s\n", 
+                phdr[i].p_offset, phdr[i].p_vaddr, phdr[i].p_filesz,
+                phdr[i].p_memsz, phdr[i].p_align, name);
+#endif
     }
 }
 
@@ -82,7 +104,6 @@ void print_phdr (ElfW(Phdr) *phdr, size_t size)
 void print_dynamic(ElfW(Dyn) *dynamic)
 {
     int i;
-    char *str;
 
     if(!dynamic)
         return;
@@ -91,9 +112,15 @@ void print_dynamic(ElfW(Dyn) *dynamic)
     //printf("\tINDEX \t TYPE \t\tVADDR \tVALUE \t\tSEGMENT \t\tTYPE(STRING)\n");
     for (i=0; dynamic[i].d_tag != DT_NULL; i++)
     {
+#ifdef ELF64
         printf("dyn, 0x%lx, 0x%lx, 0x%lx, %s\n" , 
                 dynamic[i].d_tag, dynamic[i].d_un.d_ptr, dynamic[i].d_un.d_val,
                 d_tag_tostr(dynamic[i].d_tag));
+#else
+   printf("dyn, 0x%x, 0x%x, 0x%x, %s\n" , 
+                dynamic[i].d_tag, dynamic[i].d_un.d_ptr, dynamic[i].d_un.d_val,
+                d_tag_tostr(dynamic[i].d_tag));
+#endif
 
     }
 }
@@ -107,7 +134,6 @@ ElfW(Sym) *get_symtab_ptr(ElfW(Dyn) *dynamic, struct segment *s)
 
     ElfW(Addr) vaddr;
     ElfW(Off) offset;
-    int ret;
 
     if (!dynamic || !s)
     {
@@ -136,7 +162,6 @@ char* get_strtab_ptr(ElfW(Dyn) *dynamic, struct segment *s)
 
     ElfW(Addr) vaddr;
     ElfW(Word) offset;
-    int ret;
 
     vaddr = _get_strtab_vaddr(dynamic);
     offset = addr_offset_from_segment(vaddr, s);
@@ -153,7 +178,6 @@ ElfW(Word) *get_hashtab_ptr(ElfW(Dyn) *dynamic, struct segment *s)
 {
     ElfW(Addr) vaddr;
     ElfW(Word) offset;
-    int ret;
 
     vaddr = get_dyn_ptr_addr(dynamic, DT_HASH);
     if (vaddr == (ElfW(Addr)) -ENODATA)
@@ -179,7 +203,6 @@ ElfW(Rela) *get_rela_ptr(ElfW(Dyn) *dynamic, struct segment *s)
 
     ElfW(Addr) vaddr;
     ElfW(Word) offset;
-    int ret;
 
     vaddr = get_dyn_ptr_addr(dynamic, DT_RELA);
 
@@ -199,7 +222,6 @@ ElfW(Rel) *get_rel_ptr(ElfW(Dyn) *dynamic, struct segment *s)
 
     ElfW(Addr) vaddr;
     ElfW(Word) offset;
-    int ret;
 
     vaddr = get_dyn_ptr_addr(dynamic, DT_REL);
 
@@ -220,7 +242,6 @@ ElfW(Addr) *get_jmprel_ptr(ElfW(Dyn) *dynamic, struct segment *s)
     ElfW(Addr) vaddr;
 
     ElfW(Word) offset;
-    int ret;
 
     vaddr = get_dyn_ptr_addr(dynamic, DT_JMPREL);
 
@@ -246,7 +267,7 @@ void print_jmprel(ElfW(Dyn) *dynamic, struct segment *s)
    ElfW(Sym) *symtab;
    char *strtab;
    unsigned char rtype;
-   char *str, *name;
+   char *name;
 
    /* Size of relocation entries associated with the PLT */
    pltrelsz = get_dyn_val(dynamic, DT_PLTRELSZ);
@@ -277,7 +298,12 @@ void print_jmprel(ElfW(Dyn) *dynamic, struct segment *s)
 
            rtype = ELF_R_TYPE(rela[i].r_info);
            //str = reloc_type_tostr(rtype);
-           printf("jmprel, 0x%lx, 0x%lx, %s\n", rela[i].r_offset, rtype, name);
+#ifdef ELF64
+           printf("jmprel, 0x%lx, 0x%x, %s\n", rela[i].r_offset, rtype, name);
+#else
+           printf("jmprel, 0x%x, 0x%x, %s\n", rela[i].r_offset, rtype, name);
+#endif
+
        }
    }
 
@@ -293,7 +319,11 @@ void print_jmprel(ElfW(Dyn) *dynamic, struct segment *s)
 
            rtype = ELF_R_TYPE(rel[i].r_info);
            //str = reloc_type_tostr(rtype);
-           printf("jmprel, 0x%lx, 0x%lx, %s\n", rel[i].r_offset, rtype, name);
+#ifdef ELF64
+           printf("jmprel, 0x%lx, 0x%x, %s\n", rel[i].r_offset, rtype, name);
+#else
+           printf("jmprel, 0x%x, 0x%x, %s\n", rel[i].r_offset, rtype, name);
+#endif
        }
    }
 }
@@ -331,12 +361,19 @@ void print_rela(ElfW(Dyn) *dynamic, struct segment *s)
 
     /* Print either rel or rela, depending on whichever is set */
     for(i=0 ;i<size; i++)
+#ifdef ELF64
         if (rela)
             printf("reloc, 0x%lx, 0x%lx, 0x%lx\n", rela[i].r_offset, rela[i].r_info,
                     rela[i].r_addend);
         else if (rel)
             printf("reloc, 0x%lx, 0x%lx\n", rel[i].r_offset, rel[i].r_info);
-
+#else
+        if (rela)
+        printf("reloc, 0x%x, 0x%x, 0x%x\n", rela[i].r_offset, rela[i].r_info,
+                rela[i].r_addend);
+        else if (rel)
+            printf("reloc, 0x%x, 0x%x\n", rel[i].r_offset, rel[i].r_info);
+#endif
 }
 
 
@@ -359,15 +396,14 @@ void print_rpath(ElfW(Dyn) *dynamic, struct segment *s)
  * the st_name field must point to a valid entry in the string table */
 int guess_symtab_sz(ElfW(Dyn) *dynamic, struct segment *s)
 {
-
     ElfW(Sym) *symtab;
-    char *strtab;
     size_t strsz;
     int i;
+    //char *strtab;
 
     symtab = get_symtab_ptr(dynamic, s);
     strsz = _get_strtab_sz(dynamic);
-    strtab = get_strtab_ptr(dynamic, s);
+    //strtab = get_strtab_ptr(dynamic, s);
 
     for (i=0; symtab[i].st_name < strsz; i++)
         continue;
@@ -414,7 +450,7 @@ void print_symtab(ElfW(Dyn) *dynamic, struct segment *s)
         if (!addr_belongs_to_mem((unsigned long)&symtab[i], (unsigned
                         long)s->img, (unsigned long) s->memsz))
         {
-            printf("Value out of segment: 0x%lx\n", &symtab[i]);
+            printf("Value out of segment: 0x%lx\n", (unsigned long)&symtab[i]);
             break;
         }
 
@@ -445,8 +481,14 @@ void print_symtab(ElfW(Dyn) *dynamic, struct segment *s)
                 symtab[i].st_info, symtab[i].st_other,
                 symtab[i].st_shndx, bind_s, type_s, shn_type, name);
                 */
+#ifdef ELF64
         printf("symtab, 0x%lx, 0x%lx, %s, %s, %s, %s\n", symtab[i].st_value,
                 symtab[i].st_size, bind_s, type_s, shn_type, name);
+#else
+        printf("symtab, 0x%x, 0x%x, %s, %s, %s, %s\n", symtab[i].st_value,
+                symtab[i].st_size, bind_s, type_s, shn_type, name);
+#endif
+
     }
 }
 
@@ -480,8 +522,14 @@ void print_mips_reloc(ElfW(Dyn) *dynamic, struct segment *s)
     for (i=0; dynamic[i].d_tag != DT_NULL; i++)
     {
         if (dynamic[i].d_tag == DT_MIPS_GOTSYM)
+#ifdef ELF64
+            printf("MIPS first got entry in dynsym: 0x%lx\n",
+                    dynamic[i].d_un.d_ptr);
+#else
             printf("MIPS first got entry in dynsym: 0x%x\n",
                     dynamic[i].d_un.d_ptr);
+
+#endif
     }
 
 }
@@ -491,10 +539,10 @@ void print_mips_reloc(ElfW(Dyn) *dynamic, struct segment *s)
 int load_stub(ElfW(Phdr) *phdr, int pt_index, struct segment *s, FILE *f)
 {
     int ret;
-    if(ret = alloc_segment(pt_index, phdr, s) != 0)
+    if((ret = alloc_segment(pt_index, phdr, s)) != 0)
         return ret;
 
-    if (ret = load_segment(s, f) != 0)
+    if ((ret = load_segment(s, f)) != 0)
         return ret;
 
     return 0;
@@ -504,7 +552,7 @@ int load_stub(ElfW(Phdr) *phdr, int pt_index, struct segment *s, FILE *f)
 /* Load the text segment */
 int load_text(ElfW(Ehdr) ehdr, ElfW(Phdr) *phdr, struct segment *s, FILE *f)
 {
-    int pt_index, ret;
+    int pt_index;
 
     if((pt_index = find_text_index(ehdr, phdr)) < 0)
         return pt_index;
@@ -516,7 +564,7 @@ int load_text(ElfW(Ehdr) ehdr, ElfW(Phdr) *phdr, struct segment *s, FILE *f)
 /* Load the data segment */
 int load_data(ElfW(Ehdr) ehdr, ElfW(Phdr) *phdr, struct segment *s, FILE *f)
 {
-    int pt_index, ret;
+    int pt_index;
 
     if((pt_index = find_data_index(ehdr, phdr)) < 0)
         return pt_index;
@@ -531,12 +579,10 @@ int main(int argc, char *argv[])
     ElfW(Phdr) *phdr; // Program header table
     ElfW(Shdr) *shdr; // Section header
     ElfW(Dyn) *dynamic;
-    ElfW(Sym) *symtab;
     FILE *f;
     const char *binfile;
-    char *filename;
+    //char *filename;
     struct segment *data, *text;
-    int pt_index, ret;
 
     if (argc < 2)
     {
@@ -596,7 +642,7 @@ int main(int argc, char *argv[])
     print_rpath(dynamic, text);
     print_mips_reloc(dynamic,text);
 
-    printf("gotaddr,0x%lx\n", get_dyn_val(dynamic, DT_PLTGOT));
+    printf("gotaddr,0x%x\n", get_dyn_val(dynamic, DT_PLTGOT));
 
     fclose(f);
     free(phdr);
