@@ -2,61 +2,67 @@ LIB:=$(CURDIR)
 BINDIR=$(VIRTUAL_ENV)/local/bin
 LIBDIR=$(VIRTUAL_ENV)/local/lib
 
-all:	libcle-mips clextract-mips \
-		libcle-ppc clextract-ppc \
-		libcle-x86_64 libcle_ctypes-x86_64 clextract-x86_64 clextract-x86_64 \
-		libcle-arm clextract-arm \
-		libcle-i386 clextract-i386
+cflags=-Wall -fstack-protector #-fdiagnostics-color=auto
+
+cc_x64=x86_64-linux-gnu-gcc $(cflags)
+cc_mips=mips-linux-gnu-gcc $(cflags) 
+cc_ppc=powerpc-linux-gnu-gcc $(cflags)
+cc_arm=arm-linux-gnueabi-gcc $(cflags)
+cc_x86= gcc -m32 $(cflags)
+
+all: x86_64 mips ppc arm i386
+
+x86_64: libcle-x86_64 clextract-x86_64
+mips: libcle-mips clextract-mips
+ppc: libcle-ppc clextract-ppc
+arm: libcle-arm clextract-arm
+i386: libcle-i386 clextract-i386
+
 
 libcle-x86_64: libcle.c
 	mkdir -p x86_64
-	x86_64-linux-gnu-gcc -Wall -c -fpic libcle.c -o x86_64/libcle.o
-	x86_64-linux-gnu-gcc -shared x86_64/libcle.o -o x86_64/libcle.so
+	$(cc_x64) -c -fpic libcle.c -o x86_64/libcle.o
+	$(cc_x64) -shared x86_64/libcle.o -o x86_64/libcle.so
+	
+clextract-x86_64: clextract.c
+	$(cc_x64) -c clextract.c -o x86_64/clextract.o
+	$(cc_x64) -L$(LIB)/x86_64 -Wall x86_64/clextract.o -o x86_64/clextract -lcle
 
 libcle-i386: libcle.c
 	mkdir -p i386
-	x86_64-linux-gnu-gcc -m32 -Wall -c -fpic libcle.c -o i386/libcle.o
-	x86_64-linux-gnu-gcc -m32 -shared i386/libcle.o -o i386/libcle.so
+	$(cc_x86) -c -fpic libcle.c -o i386/libcle.o
+	$(cc_x86) -shared i386/libcle.o -o i386/libcle.so
+
+clextract-i386: clextract.c
+	$(cc_x86) -c clextract.c -o i386/clextract.o
+	$(cc_x86) -L$(LIB)/i386 -Wall i386/clextract.o -o i386/clextract -lcle
 
 libcle-mips: libcle.c
 	mkdir -p mips
-	mips-linux-gnu-gcc -Wall -c -fpic libcle.c -o mips/libcle.o
-	mips-linux-gnu-gcc -shared mips/libcle.o -o mips/libcle.so
+	$(cc_mips) -c -fpic libcle.c -o mips/libcle.o
+	$(cc_mips) -shared mips/libcle.o -o mips/libcle.so
+
+clextract-mips: clextract.c
+	$(cc_mips) -c clextract.c -o mips/clextract.o
+	$(cc_mips) -L$(LIB)/mips -Wall mips/clextract.o -o mips/clextract -lcle
 
 libcle-ppc: libcle.c
 	mkdir -p ppc
-	powerpc-linux-gnu-gcc -Wall -c -fpic libcle.c -o ppc/libcle.o
-	powerpc-linux-gnu-gcc -shared ppc/libcle.o -o ppc/libcle.so
+	$(cc_ppc) -c -fpic libcle.c -o ppc/libcle.o
+	$(cc_ppc) -shared ppc/libcle.o -o ppc/libcle.so
+
+clextract-ppc: clextract.c
+	$(cc_ppc) -c clextract.c -o ppc/clextract.o
+	$(cc_ppc) -L$(LIB)/ppc -Wall ppc/clextract.o -o ppc/clextract -lcle
 
 libcle-arm: libcle.c
 	mkdir -p arm
-	arm-linux-gnueabi-gcc -Wall -c -fpic libcle.c -o arm/libcle.o
-	arm-linux-gnueabi-gcc -shared arm/libcle.o -o arm/libcle.so
-	
-libcle_ctypes-x86_64: libcle_ctypes.c
-	x86_64-linux-gnu-gcc -Wall -c -fpic libcle_ctypes.c -o x86_64/libcle_ctypes.o
-	x86_64-linux-gnu-gcc -shared x86_64/libcle_ctypes.o x86_64/libcle.o -o x86_64/libcle_ctypes.so
-
-clextract-x86_64: clextract.c
-	x86_64-linux-gnu-gcc -c clextract.c -o x86_64/clextract.o
-	x86_64-linux-gnu-gcc -L$(LIB)/x86_64 -Wall x86_64/clextract.o -o x86_64/clextract -lcle
-
-clextract-mips: clextract.c
-	mips-linux-gnu-gcc -c clextract.c -o mips/clextract.o
-	mips-linux-gnu-gcc -L$(LIB)/mips -Wall mips/clextract.o -o mips/clextract -lcle
-
-clextract-ppc: clextract.c
-	powerpc-linux-gnu-gcc -c clextract.c -o ppc/clextract.o
-	powerpc-linux-gnu-gcc -L$(LIB)/ppc -Wall ppc/clextract.o -o ppc/clextract -lcle
+	$(cc_arm) -c -fpic libcle.c -o arm/libcle.o
+	$(cc_arm) -shared arm/libcle.o -o arm/libcle.so
 
 clextract-arm: clextract.c
-	arm-linux-gnueabi-gcc -c clextract.c -o arm/clextract.o
-	arm-linux-gnueabi-gcc -L$(LIB)/arm -Wall arm/clextract.o -o arm/clextract -lcle
-
-clextract-i386: clextract.c
-	x86_64-linux-gnu-gcc -m32 -c clextract.c -o i386/clextract.o
-	x86_64-linux-gnu-gcc -m32 -L$(LIB)/i386 -Wall i386/clextract.o -o i386/clextract -lcle
-
+	$(cc_arm) -c clextract.c -o arm/clextract.o
+	$(cc_arm) -L$(LIB)/arm -Wall arm/clextract.o -o arm/clextract -lcle
 
 install:
 	for arch in "x86_64" "mips" "ppc" "i386" "arm" ; do \
