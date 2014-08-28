@@ -1,26 +1,34 @@
 LIBDIR=$(VIRTUAL_ENV)/local/lib
 
-all: ld_audit-amd64 ld_audit-ppc32 ld_audit-mips32 ld_audit-arm ld_audit-i386
+cflags=-Wall -fstack-protector
 
-ld_audit-arm: ld_audit.c
+cc_x64=x86_64-linux-gnu-gcc $(cflags)
+cc_mips=mips-linux-gnu-gcc $(cflags)
+cc_ppc=powerpc-linux-gnu-gcc $(cflags)
+cc_arm=arm-linux-gnueabi-gcc $(cflags)
+cc_x86= gcc -m32 $(cflags)
+
+all: ld_amd64 ld_arm ld_ppc ld_mips ld_arm ld_i386
+
+ld_arm: ld_audit.c
 	mkdir -p arm
-	arm-linux-gnueabi-gcc -o arm/cle_ld_audit.so ld_audit.c -fpic --shared
+	$(cc_arm) -o arm/cle_ld_audit.so ld_audit.c -fpic --shared
 
-ld_audit-ppc32: ld_audit.c
+ld_ppc: ld_audit.c
 	mkdir -p ppc
-	powerpc-linux-gnu-gcc -o ppc/cle_ld_audit.so ld_audit.c -fpic --shared
+	$(cc_ppc) -o ppc/cle_ld_audit.so ld_audit.c -fpic --shared
 
-ld_audit-amd64: ld_audit.c
+ld_amd64: ld_audit.c
 	mkdir -p x86_64
-	gcc -o x86_64/cle_ld_audit.so ld_audit.c -fpic --shared
+	$(cc_x64) -o x86_64/cle_ld_audit.so ld_audit.c -fpic --shared
 
-ld_audit-i386: ld_audit.c
+ld_i386: ld_audit.c
 	mkdir -p i386
-	gcc -m32 -o i386/cle_ld_audit.so ld_audit.c -fpic --shared
+	$(cc_x86) -o i386/cle_ld_audit.so ld_audit.c -fpic --shared
 
-ld_audit-mips32: ld_audit.c
+ld_mips: ld_audit.c
 	mkdir -p mips
-	mips-linux-gnu-gcc -o mips/cle_ld_audit.so ld_audit.c -fpic --shared
+	$(cc_mips) -o mips/cle_ld_audit.so ld_audit.c -fpic --shared
 
 clean:
 	rm -f */*.so
