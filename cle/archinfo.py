@@ -21,7 +21,7 @@ class ArchInfo(object):
     def __init__(self, binary):
         """ Getarchitecture information from the binary file @binary using
         ctypes and cle_bfd.so """
-        env_p = os.getenv("VIRTUAL_ENV")
+        env_p = os.getenv("VIRTUAL_ENV", "/")
         lib_p = "lib"
         lib = os.path.join(env_p, lib_p, "cle_bfd.so")
 
