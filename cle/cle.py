@@ -58,10 +58,13 @@ class Ld(object):
         self.__load_exe()
 
 
+        # We need to resolve this here, even when load_libs=False because of
+        # SimProcedure resolution:
+        self.dependencies = self.__ld_so_addr()
+
         if load_libs is False:
             return
 
-        self.dependencies = self.__ld_so_addr()
         #print "mem@ 0x601000: %s" % repr(self.memory[0x601000])
         self.__load_shared_libs()
         #print "mem@ 0x601000: %s" % repr(self.memory[0x601000])
