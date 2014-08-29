@@ -466,7 +466,7 @@ class Elf(object):
             t_bit = addr
             while t_bit > 2:
                 t_bit >> 1
-                return t_bit == 1
+                return t_bit & 0b1
         else:
             raise CLException("Runtime thumb mode detection not implemented")
 
