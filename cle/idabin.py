@@ -261,4 +261,4 @@ class IdaBin(object):
     def is_thumb(self, addr):
         """ Is the address @addr in thumb mode ? (ARM) """
         if "arm" in self.arch:
-            return self.binary_by_addr(addr).ida.idc.GetReg(addr, "T") == 1
+            return self.ida.idc.GetReg(addr, "T") == 1

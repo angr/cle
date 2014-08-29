@@ -7,6 +7,7 @@ except ImportError:
 import angr
 import logging
 import os
+import simuvex
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -75,7 +76,12 @@ def setup_ida(filename):
 
 def setup_cle(filename):
     p_cle = angr.Project(filename, default_analysis_mode='symbolic',
-                         use_sim_procedures=True, load_libs = True, force_ida = False)
+                         use_sim_procedures=True, load_libs = True, force_ida =
+                         False, except_thumb_mismatch=False)
+
+    p_cle.add_custom_sim_procedure(0x4005d0,
+                               simuvex.SimProcedures["stubs"]["Nop"], {})
+    # strtoul
     return p_cle
 
 def test(p):
@@ -91,6 +97,7 @@ if __name__ == '__main__':
     #path = home + "/binary_project/angr/angr/tests/fauxware/fauxware-ppc32"
     #path = home + "/binary_project/angr/angr/tests/fauxware/fauxware-amd64"
     path= home + "/binary_project/angr/angr/tests/fauxware/fauxware-arm"
+    #path = "/tmp/fauxware-arm"
 
     p = setup_cle(path)
     test(p)

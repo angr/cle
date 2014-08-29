@@ -60,6 +60,21 @@ int get_arch_size(const char *filename)
     return arch_size;
 }
 
+const char* get_arch_byte_order(const char *filename)
+{
+    bfd *bfd;
+    bfd = open_bfd(filename);
+    if (!bfd)
+        return 0;
+
+    if bfd_little_endian(bfd)
+        return "LSB";
+    else if bfd_big_endian(bfd)
+        return "MSB";
+    else
+        return "ERR";
+}
+
 
 
 /* ##### The following static functions are not meant to be called from Python

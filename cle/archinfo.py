@@ -32,10 +32,12 @@ class ArchInfo(object):
 
         self.lib = cdll.LoadLibrary(lib)
         self.lib.get_bfd_arch_pname.restype = c_char_p
+        self.lib.get_arch_byte_order.restype = c_char_p
 
         self.name = self.lib.get_bfd_arch_pname(binary)
         self.bits = self.lib.get_bits_per_addr(binary)
         self.arch_size = self.lib.get_arch_size(binary)
+        self.byte_order = self.lib.get_arch_byte_order(binary)
 
         self.qemu_arch = self.to_qemu_arch(self.name)
         self.simuvex_arch = self.to_simuvex_arch(self.name)
@@ -170,3 +172,32 @@ class ArchInfo(object):
         # x86 .got.plt
         if "i386" in self.name or 'x86-64' in self.name:
             return '.got.plt'
+
+    def compatible_with(self, arch):
+        """ Compare the architecture of self with @arch
+            in terms of endianness, bits per address and matching names
+            e.g., arm-xxx compatible with arm-yyy
+
+            Note: @arch is another archinfo object
+            """
+
+        # Same names
+        if self.name == arch:
+            return True
+
+        if self.byte_order != arch.byte_order:
+            return False
+        if self.bits != arch.bits:
+            return False
+
+        # ARM and MIPS have tons of names, so let's just pattern match
+        if "mips" in arch.name and "mips" in self.name:
+            l.warning("Considering %s and %s compatible" % (self.name, arch.name))
+            return True
+
+        elif "arm" in arch.name and "arm" in self.name:
+            l.warning("Considering %s and %s compatible" % (self.name, arch.name))
+            return True
+
+        return False
+

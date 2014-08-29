@@ -57,10 +57,11 @@ class Ld(object):
 
         self.__load_exe()
 
-        self.dependencies = self.__ld_so_addr()
 
         if load_libs is False:
             return
+
+        self.dependencies = self.__ld_so_addr()
         #print "mem@ 0x601000: %s" % repr(self.memory[0x601000])
         self.__load_shared_libs()
         #print "mem@ 0x601000: %s" % repr(self.memory[0x601000])
@@ -189,12 +190,17 @@ class Ld(object):
         """ MIPS local relocations (yes, GOT entries for local symbols also need
         relocation) """
 
+        delta = obj.rebase_addr - obj.mips_static_base_addr
+
         # If we load the shared library at the predefined base address, there's
         # nothing to do.
-        delta = obj.rebase_addr - obj.mips_static_base_addr
         if (delta == 0):
             l.debug("No need to relocate local symbols for this object")
             return
+
+        elif (delta < 0):
+            l.warning("We are relocating a MIPS object at a lower address than"
+                      " its static base address. This is weird.")
 
         got_entry_size = obj.bits_per_addr / 8 # How many bytes per slot ?
 
@@ -352,7 +358,7 @@ class Ld(object):
 
         else:
             if "mips" in so.arch:
-                l.debug("\t--> rebasing %s @0x%x (instead of 0x%x)" %
+                l.debug("\t--> rebasing %s @0x%x (instead of static base addr 0x%x)" %
                 (so.binary, base, so.mips_static_base_addr))
             else:
                 l.debug("[Rebasing %s @0x%x]" % (os.path.basename(so.binary), base))
@@ -484,14 +490,10 @@ class Ld(object):
 
     def __check_arch(self, objpath):
         """ Is obj the same architecture as our main binary ? """
+
         arch = ArchInfo(objpath)
-
-        # Hack: there are plenty of arm variants
-        # TODO: check Endianness
-        if "arm" in arch.name and "arm" in self.main_bin.archinfo.name:
-            return True
-
-        return self.main_bin.archinfo.name == arch.name
+        #The architectures are exactly the same
+        return self.main_bin.archinfo.compatible_with(arch)
 
     def __search_so(self, soname):
         """ Looks for a shared object given its filename"""
