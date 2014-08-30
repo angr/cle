@@ -16,7 +16,16 @@ class Segment(object):
         self.name = name
 
     def contains_addr(self, addr):
-            return ((addr > self.vaddr) and (addr < self.vaddr + self.size))
+            return ((addr >= self.vaddr) and (addr < self.vaddr + self.size))
+
+    def contains_offset(self, offset):
+        return ((offset >= self.offset) and (offset < self.offset + self.size))
+
+    def addr_to_offset(self, addr):
+        return addr - self.vaddr + self.offset
+
+    def offset_to_addr(self, offset):
+        return offset - self.offset + self.vaddr
 
 
 class Elf(object):
@@ -409,6 +418,17 @@ class Elf(object):
                 return s.name
         return None
 
+    def addr_to_offset(self, addr):
+        for s in self.segments:
+            if s.contains_addr(addr):
+                return s.addr_to_offset(addr)
+        return None
+
+    def offset_to_addr(self, offset):
+        for s in self.segments:
+            if s.contains_offset(offset):
+                return s.offset_to_addr(offset)
+
     def load_segment(self, offset, size, vaddr, name=None):
         """ Load a segment into memory """
 
@@ -427,7 +447,7 @@ class Elf(object):
             self.memory[i] = f.read(1)
 
         # Add the segment to the list of loaded segments
-        seg = Segment(name, vaddr, size)
+        seg = Segment(name, vaddr, size, offset)
         self.segments.append(seg)
         l.debug("\t--> Loaded segment %s @0x%x with size:0x%x" % (name, vaddr,
                                                                 size))

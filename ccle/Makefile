@@ -7,14 +7,16 @@ cflags=-Wall -fstack-protector #-fdiagnostics-color=auto
 cc_x64=x86_64-linux-gnu-gcc $(cflags)
 cc_mips=mips-linux-gnu-gcc $(cflags) 
 cc_ppc=powerpc-linux-gnu-gcc $(cflags)
+cc_ppc64=powerpc-linux-gnu-gcc -m64 $(cflags)
 cc_arm=arm-linux-gnueabi-gcc $(cflags)
 cc_x86= gcc -m32 $(cflags)
 
-all: x86_64 mips ppc arm i386
+all: x86_64 mips ppc ppc64 arm i386
 
 x86_64: libcle-x86_64 clextract-x86_64
 mips: libcle-mips clextract-mips
 ppc: libcle-ppc clextract-ppc
+ppc64: libcle-ppc64 clextract-ppc64
 arm: libcle-arm clextract-arm
 i386: libcle-i386 clextract-i386
 
@@ -55,6 +57,15 @@ clextract-ppc: clextract.c
 	$(cc_ppc) -c clextract.c -o ppc/clextract.o
 	$(cc_ppc) -L$(LIB)/ppc -Wall ppc/clextract.o -o ppc/clextract -lcle
 
+libcle-ppc64: libcle.c
+	mkdir -p ppc64
+	$(cc_ppc64) -c -fpic libcle.c -o ppc64/libcle.o
+	$(cc_ppc64) -shared ppc64/libcle.o -o ppc64/libcle.so
+
+clextract-ppc64: clextract.c
+	$(cc_ppc64) -c clextract.c -o ppc64/clextract.o
+	$(cc_ppc64) -L$(LIB)/ppc64 -Wall ppc64/clextract.o -o ppc64/clextract -lcle
+
 libcle-arm: libcle.c
 	mkdir -p arm
 	$(cc_arm) -c -fpic libcle.c -o arm/libcle.o
@@ -65,7 +76,7 @@ clextract-arm: clextract.c
 	$(cc_arm) -L$(LIB)/arm -Wall arm/clextract.o -o arm/clextract -lcle
 
 install:
-	for arch in "x86_64" "mips" "ppc" "i386" "arm" ; do \
+	for arch in "x86_64" "mips" "ppc" "ppc64" "i386" "arm" ; do \
 		mkdir -p $(BINDIR)/$$arch; \
 		mkdir -p $(LIBDIR)/$$arch; \
 		cp $$arch/libcle.so $(LIBDIR)/$$arch; \
@@ -77,4 +88,5 @@ clean:
 	 rm -f i386/*.so *.o clextract 
 	 rm -f arm/*.so arm/*.o arm/clextract 
 	 rm -f mips/*.so mips/*.o mips/clextract 
-	 rm -f ppc/*.so arm/*.o arm/clextract 
+	 rm -f ppc/*.so ppc/*.o ppc/clextract 
+	 rm -f ppc64/*.so ppc64/*.o ppc64/clextract 
