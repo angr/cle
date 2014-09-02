@@ -397,7 +397,7 @@ class Ld(object):
         """ Use LD_AUDIT to find object dependencies and relocation addresses"""
 
         qemu = self.main_bin.archinfo.get_qemu_cmd()
-        env_p = os.getenv("VIRTUAL_ENV")
+        env_p = os.getenv("VIRTUAL_ENV", "/")
         bin_p = os.path.join(env_p, "local/lib" ,self.main_bin.arch)
 
         # Our LD_AUDIT shared object
