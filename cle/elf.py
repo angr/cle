@@ -327,7 +327,7 @@ class Elf(object):
         """ Get information from the binary using clextract """
         qemu = self.archinfo.get_qemu_cmd()
         arch = self.arch
-        env_p = os.getenv("VIRTUAL_ENV")
+        env_p = os.getenv("VIRTUAL_ENV", "/")
         bin_p = "local/bin/%s" % arch
         lib_p = "local/lib/%s" % arch
         cle = os.path.join(env_p, bin_p, "clextract")
