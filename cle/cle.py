@@ -38,6 +38,7 @@ class Ld(object):
         self.path = binary
         self.force_ida = force_ida
         self.ida_rebase_granularity = 0x1000000 # IDA workaround
+
         if skip_libs is None:
             self.skip_libs = []
         else:
