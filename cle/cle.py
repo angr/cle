@@ -43,7 +43,6 @@ class Ld(object):
         else:
             self.skip_libs = skip_libs
 
-
         if self.force_ida is None:
             self.force_ida = False
 
@@ -61,6 +60,9 @@ class Ld(object):
         # We need to resolve this here, even when load_libs=False because of
         # SimProcedure resolution:
         self.dependencies = self.__ld_so_addr()
+
+        if self.dependencies == None:
+            self.dependencies = self.__ld_so_addr_fallback()
 
         if load_libs is False:
             return
@@ -332,8 +334,10 @@ class Ld(object):
 
             fname = os.path.basename(name)
             # IDA
+            if self.force_ida == True or addr == 0:
+                addr = self.__get_safe_rebase_addr() # workaround for IDA crash
+
             if self.force_ida == True:
-                addr = self.__ida_rebase_addr() # workaround for IDA crash
                 so = self.__load_so_ida(name)
             else:
                 so = self.__load_so_cle(name)
@@ -355,23 +359,39 @@ class Ld(object):
         We actually copy the local memory of the object at the new computed
         address in the "main memory" """
 
+        if "mips" in so.arch and self.force_ida == False:
+            l.debug("\t--> rebasing %s @0x%x (instead of static base addr 0x%x)" %
+            (so.binary, base, so.mips_static_base_addr))
+            return
+
+        l.info("[Rebasing %s @0x%x]" % (os.path.basename(so.binary), base))
+
         if self.force_ida == True:
             so.rebase(base)
-            return # IDA already rebased stuff at load time
-
         else:
-            if "mips" in so.arch:
-                l.debug("\t--> rebasing %s @0x%x (instead of static base addr 0x%x)" %
-                (so.binary, base, so.mips_static_base_addr))
-            else:
-                l.debug("[Rebasing %s @0x%x]" % (os.path.basename(so.binary), base))
             self.__copy_mem(so, base)
 
-    def __ida_rebase_addr(self):
-        """ IDA crashes if we try to rebase binaries at too high addresses..."""
+    def __get_safe_rebase_addr(self):
+        """
+        Get a "safe" rebase addr, i.e., that won't overlap with already loaded stuff.
+        This is used as a fallback when we cannot use LD to tell use where to load
+        a binary object. It is also a workaround to IDA crashes when we try to
+        rebase binaries at too high addresses.
+        """
         granularity = self.ida_rebase_granularity
         base = self.max_addr() + (granularity - self.max_addr() % granularity)
         return base
+
+    def __same_dir_shared_objects(self):
+        """
+        Returns the list of *.so found in the same directory as the main binary
+        """
+        so = {}
+        curdir = os.path.dirname(self.original_path)
+        for f in os.listdir(curdir):
+            if os.path.isfile(os.path.join(curdir, f)) and ".so" in f:
+                so[f] = 0
+        return so
 
     def __ld_so_addr(self):
         """ Use LD_AUDIT to find object dependencies and relocation addresses"""
@@ -423,9 +443,34 @@ class Ld(object):
             return libs
 
         else:
-            raise CLException("Could not find library dependencies using ld."
+            l.error("Could not find library dependencies using ld."
                 " The log file '%s' does not exist, did qemu fail ? Try to run "
                               "`%s` manually to check" % (log, " ".join(cmd)))
+            l.info("Will fallback to alternate loading mode. The addresses won't "
+                   "match qemu's addresses anymore, and only libraries from the "
+                   "current directory will be loaded.")
+            return None
+
+    def __ld_so_addr_fallback(self):
+        """
+        Sometimes, __ld_so_addr fails, because it relies on LD_AUDIT, and that
+        won't work for binaries that have been compiled for a different ABI.
+        In this case, we only extract the DT_NEEDED field of Elf binaries, and
+        set 0 as the laod address for SOs.
+        """
+
+        if self.force_ida == True:
+            elf_b = Elf(self.path, load=False)  # Use Elf to determine needed libs
+            deps = elf_b.deps
+        else:
+            deps = self.main_bin.deps
+        if deps is None:
+            raise CLException("Could not find any dependencies for this binary,"
+                              " this is most likely a bug")
+        load = {}
+        for i in deps:
+            load[i] = 0
+        return load
 
     def __load_so_ida(self, soname, base_addr = None):
         """Ida cannot use system libraries because it needs write access to the

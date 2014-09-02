@@ -262,3 +262,14 @@ class IdaBin(object):
         """ Is the address @addr in thumb mode ? (ARM) """
         if "arm" in self.arch:
             return self.ida.idc.GetReg(addr, "T") == 1
+
+    def get_strings(self):
+            """ Extract strings from binary (IDA) """
+            ss = self.ida.idautils.Strings()
+            string_list = []
+            for s in ss:
+                t_entry = (s.ea, str(s), s.length)
+                string_list.append(t_entry)
+            return string_list
+
+
