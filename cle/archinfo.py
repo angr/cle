@@ -207,5 +207,8 @@ class ArchInfo(object):
             l.warning("Considering %s and %s compatible" % (self.name, arch.name))
             return True
 
+        elif "powerpc" in arch.name and "powerpc" in self.name:
+            return True
+
         return False
 
