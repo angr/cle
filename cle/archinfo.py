@@ -21,7 +21,7 @@ class ArchInfo(object):
     def __init__(self, binary):
         """ Getarchitecture information from the binary file @binary using
         ctypes and cle_bfd.so """
-        env_p = os.getenv("VIRTUAL_ENV")
+        env_p = os.getenv("VIRTUAL_ENV", "/")
         lib_p = "lib"
         lib = os.path.join(env_p, lib_p, "cle_bfd.so")
 
@@ -35,6 +35,10 @@ class ArchInfo(object):
         self.lib.get_arch_byte_order.restype = c_char_p
 
         self.name = self.lib.get_bfd_arch_pname(binary)
+        if self.name == "ERROR":
+            raise CLException("This doesn't look like an ELF File. Unsupported"
+                              " format or architecture")
+
         self.bits = self.lib.get_bits_per_addr(binary)
         self.arch_size = self.lib.get_arch_size(binary)
         self.byte_order = self.lib.get_arch_byte_order(binary)

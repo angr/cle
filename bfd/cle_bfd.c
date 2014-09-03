@@ -17,6 +17,8 @@ const char *get_bfd_arch_name(const char* filename)
     const bfd_arch_info_type *info;
 
     info = get_bfd_info(filename);
+    if (!info)
+        return NULL;
     return info->arch_name;
 }
 
@@ -28,7 +30,7 @@ const char *get_bfd_arch_pname(const char* filename)
 
     bfd = open_bfd(filename);
     if (!bfd)
-        return NULL;
+        return "ERROR";
 
 
     return bfd_printable_name(bfd);
@@ -42,6 +44,8 @@ int get_bits_per_addr(const char *filename)
     const bfd_arch_info_type *info;
 
     info = get_bfd_info(filename);
+    if (!info)
+        return 0;
     return info->bits_per_address;
 }
 
@@ -106,6 +110,9 @@ static inline const bfd_arch_info_type *get_bfd_info(const char *filename)
 {
     const char *archname;
     const bfd_arch_info_type *info;
+
+    if (!filename)
+        return NULL;
 
     archname = get_bfd_arch_pname(filename);
     info = bfd_scan_arch(archname);
