@@ -35,9 +35,12 @@ class ArchInfo(object):
         self.lib.get_arch_byte_order.restype = c_char_p
 
         self.name = self.lib.get_bfd_arch_pname(binary)
+
         if self.name == "ERROR":
             raise CLException("This doesn't look like an ELF File. Unsupported"
                               " format or architecture")
+        elif self.name == "unknown":
+            raise CLException("Dude, your libbfd doesn't seem to know this architecture.")
 
         self.bits = self.lib.get_bits_per_addr(binary)
         self.arch_size = self.lib.get_arch_size(binary)
