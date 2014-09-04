@@ -79,9 +79,6 @@ def setup_cle(filename):
                          use_sim_procedures=True, load_libs = True, force_ida =
                          False, except_thumb_mismatch=False)
 
-    p_cle.add_custom_sim_procedure(0x4005d0,
-                               simuvex.SimProcedures["stubs"]["Nop"], {})
-    # strtoul
     return p_cle
 
 def test(p):

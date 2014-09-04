@@ -172,8 +172,9 @@ class Ld(object):
 
         l.debug(" [Performing relocations of %s]" % obj.binary)
 
-        # As usual, MIPS is different...
-        if "mips" in self.main_bin.arch:
+        # MIPS local GOT entries need relocation too (except for the main
+        # binary as we don't relocate it).
+        if "mips" in self.main_bin.arch and obj != self.main_bin:
             self.__reloc_mips_local(obj)
 
         # Now let's update GOT entries for PLT jumps
@@ -205,7 +206,7 @@ class Ld(object):
             return
 
         elif (delta < 0):
-            l.warning("We are relocating a MIPS object at a lower address than"
+            l.error("We are relocating a MIPS object at a lower address than"
                       " its static base address. This is weird.")
 
         got_entry_size = obj.bits_per_addr / 8 # How many bytes per slot ?
@@ -360,17 +361,17 @@ class Ld(object):
         We actually copy the local memory of the object at the new computed
         address in the "main memory" """
 
+        if self.force_ida == True:
+            so.rebase(base)
+            return
+
         if "mips" in so.arch and self.force_ida == False:
             l.debug("\t--> rebasing %s @0x%x (instead of static base addr 0x%x)" %
             (so.binary, base, so.mips_static_base_addr))
-            return
-
-        l.info("[Rebasing %s @0x%x]" % (os.path.basename(so.binary), base))
-
-        if self.force_ida == True:
-            so.rebase(base)
         else:
-            self.__copy_mem(so, base)
+            l.info("[Rebasing %s @0x%x]" % (os.path.basename(so.binary), base))
+
+        self.__copy_mem(so, base)
 
     def __get_safe_rebase_addr(self):
         """
