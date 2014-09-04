@@ -16,7 +16,7 @@ class ArchInfo(object):
     # There is a dozen of types of mips and arm CPUs reported from libbfd
     mips_names = ["mips:isa32", "mips:3000"]
     ppc_names = ["powerpc:common"]
-    arm_names = ["arm", "armv4t"]
+    arm_names = ["arm", "armv4t", "armv5t"]
 
     def __init__(self, binary):
         """ Getarchitecture information from the binary file @binary using
