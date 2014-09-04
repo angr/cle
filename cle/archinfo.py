@@ -195,13 +195,9 @@ class ArchInfo(object):
             return False
 
         # ARM and MIPS have tons of names, so let's just pattern match
-        if "mips" in arch.name and "mips" in self.name:
-            l.warning("Considering %s and %s compatible" % (self.name, arch.name))
-            return True
-
-        elif "arm" in arch.name and "arm" in self.name:
-            l.warning("Considering %s and %s compatible" % (self.name, arch.name))
-            return True
+        for i in ["mips", "arm", "powerpc"]:
+            if i in arch.name and i in self.name:
+                l.warning("Considering %s and %s compatible" % (self.name, arch.name))
+                return True
 
         return False
-

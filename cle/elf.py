@@ -459,7 +459,7 @@ class Elf(object):
 
         """ Is the entry point in ARM or Thumb mode ?
         If the first bit of the entry point's address is 1, then Thumb.
-        If it is 00, then ARM. Check page 46 of this document for details:
+        If it is 00, then ARM. Check page 16 of this document for details:
         http://infocenter.arm.com/help/topic/com.arm.doc.ihi0044e/IHI0044E_aaelf.pdf
         """
         if addr == self.entry_point:
