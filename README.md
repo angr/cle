@@ -68,11 +68,18 @@ environment, e.g.:
 
     workon angr
 
+On Ubuntu 14.04, this might help:
+
+	echo "deb http://www.emdebian.org/debian/ squeeze main" | sudo tee /etc/apt/sources.list.d/emdebian.list
+	sudo apt-get update
+	sudo apt-get install emdebian-keyring
+	sudo apt-get update
+	sudo apt-get install 'gcc-[a-zA-z0-9]*-linux-gnu' 'libc-dev-[a-zA-z0-9]*-cross' gcc-4.4-mips-linux-gnu binutils-multiarch-dev linux-libc-dev:i386 build-essential dkms dpkg-dev g++ gcc hardening-includes lintian
+
 And then:
+
     make 
     make install
-in each directory.
-
 
 # Auto install
 
