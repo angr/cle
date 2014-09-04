@@ -84,8 +84,8 @@ install:
 	done
 
 clean:
-	 rm -f x86_64/*.so *.o clextract 
-	 rm -f i386/*.so *.o clextract 
+	 rm -f x86_64/*.so x86_64/*.o x86_64/clextract 
+	 rm -f i386/*.so i386/*.o i386/clextract 
 	 rm -f arm/*.so arm/*.o arm/clextract 
 	 rm -f mips/*.so mips/*.o mips/clextract 
 	 rm -f ppc/*.so ppc/*.o ppc/clextract 
