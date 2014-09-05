@@ -644,6 +644,8 @@ int main(int argc, char *argv[])
 
     printf("gotaddr,0x%x\n", get_dyn_val(dynamic, DT_PLTGOT));
 
+    printf("Ehdr Flags: 0x%x\n", ehdr.e_flags);
+
     fclose(f);
     free(phdr);
     free(shdr);
