@@ -14,7 +14,7 @@ class ArchInfo(object):
     """
 
     # There is a dozen of types of mips and arm CPUs reported from libbfd
-    mips_names = ["mips:isa32", "mips:3000"]
+    mips_names = ["mips:isa32", "mips:3000", "mips:6000"]
     ppc_names = ["powerpc:common", "powerpc:common64"]
     arm_names = ["arm", "armv4t", "armv5t"]
 
