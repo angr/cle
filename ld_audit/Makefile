@@ -1,7 +1,7 @@
 LIBDIR=$(VIRTUAL_ENV)/local/lib
 
 cflags=-Wall -fstack-protector
-cflags_ppc64=-I/cross/ppc/usr/include/powerpc-linux-gnu/ -L/cross/ppc/lib64
+cflags_ppc64=-I/cross/ppc/usr/include/powerpc-linux-gnu/
 
 cc_x64=x86_64-linux-gnu-gcc $(cflags)
 cc_mips=mips-linux-gnu-gcc $(cflags)
