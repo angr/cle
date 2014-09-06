@@ -64,8 +64,8 @@ libcle-ppc64: libcle.c
 	$(cc_ppc64) $(cflags_ppc64) -shared ppc64/libcle.o -o ppc64/libcle.so
 
 clextract-ppc64: clextract.c
-	$(cc_ppc64) -c clextract.c -o ppc64/clextract.o
-	$(cc_ppc64) -L$(LIB)/ppc64 -Wall ppc64/clextract.o -o ppc64/clextract -lcle
+	$(cc_ppc64) $(cflags_ppc64) -c clextract.c -o ppc64/clextract.o
+	$(cc_ppc64) $(cflags_ppc64) -L$(LIB)/ppc64 -Wall ppc64/clextract.o -o ppc64/clextract -lcle
 
 libcle-arm: libcle.c
 	mkdir -p arm
