@@ -3,6 +3,7 @@ BINDIR=$(VIRTUAL_ENV)/local/bin
 LIBDIR=$(VIRTUAL_ENV)/local/lib
 
 cflags=-Wall -fstack-protector #-fdiagnostics-color=auto
+cflags_ppc64=-I/cross/ppc/usr/include/powerpc-linux-gnu/
 
 cc_x64=x86_64-linux-gnu-gcc $(cflags)
 cc_mips=mips-linux-gnu-gcc $(cflags) 
@@ -59,12 +60,12 @@ clextract-ppc: clextract.c
 
 libcle-ppc64: libcle.c
 	mkdir -p ppc64
-	$(cc_ppc64) -c -fpic libcle.c -o ppc64/libcle.o
-	$(cc_ppc64) -shared ppc64/libcle.o -o ppc64/libcle.so
+	$(cc_ppc64) $(cflags_ppc64) -c -fpic libcle.c -o ppc64/libcle.o
+	$(cc_ppc64) $(cflags_ppc64) -shared ppc64/libcle.o -o ppc64/libcle.so
 
 clextract-ppc64: clextract.c
-	$(cc_ppc64) -c clextract.c -o ppc64/clextract.o
-	$(cc_ppc64) -L$(LIB)/ppc64 -Wall ppc64/clextract.o -o ppc64/clextract -lcle
+	$(cc_ppc64) $(cflags_ppc64) -c clextract.c -o ppc64/clextract.o
+	$(cc_ppc64) $(cflags_ppc64) -L$(LIB)/ppc64 -Wall ppc64/clextract.o -o ppc64/clextract -lcle
 
 libcle-arm: libcle.c
 	mkdir -p arm

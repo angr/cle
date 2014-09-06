@@ -1,6 +1,7 @@
 LIBDIR=$(VIRTUAL_ENV)/local/lib
 
 cflags=-Wall -fstack-protector
+cflags_ppc64=-I/cross/ppc/usr/include/powerpc-linux-gnu/
 
 cc_x64=x86_64-linux-gnu-gcc $(cflags)
 cc_mips=mips-linux-gnu-gcc $(cflags)
@@ -21,7 +22,7 @@ ld_ppc: ld_audit.c
 
 ld_ppc64: ld_audit.c
 	mkdir -p ppc64
-	$(cc_ppc64) -o ppc64/cle_ld_audit.so ld_audit.c -fpic --shared
+	$(cc_ppc64) $(cflags_ppc64) -o ppc64/cle_ld_audit.so ld_audit.c -fpic --shared
 
 ld_amd64: ld_audit.c
 	mkdir -p x86_64
