@@ -142,6 +142,8 @@ class ArchInfo(object):
             return "/usr/powerpc-linux-gnu/"
         elif arch == "mips":
             return "/usr/mips-linux-gnu/"
+        elif arch == "mipsel":
+            return "/usr/mipsel-linux-gnu/"
         elif arch == "arm":
             return "/usr/arm-linux-gnueabi/"
         elif arch == "i386":
