@@ -62,7 +62,7 @@ class Ld(object):
         # SimProcedure resolution:
         self.dependencies = self.__ld_so_addr()
 
-        if self.dependencies == None:
+        if self.dependencies is None:
             self.dependencies = self.__ld_so_addr_fallback()
 
         if load_libs is False:
@@ -335,8 +335,9 @@ class Ld(object):
         for name, addr in shared_libs.iteritems():
 
             fname = os.path.basename(name)
-            # IDA
-            if self.force_ida == True or addr == 0:
+            # If we haven't determined any base address yet (probably because
+            # LD_AUDIT failed)
+            if addr == 0:
                 addr = self.__get_safe_rebase_addr() # workaround for IDA crash
 
             if self.force_ida == True:

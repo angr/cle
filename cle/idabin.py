@@ -19,10 +19,9 @@ class IdaBin(object):
         self.archinfo = archinfo
         arch_name = archinfo.name
         processor_type = archinfo.ida_arch
-        if(archinfo.bits == 32):
-            ida_prog = "idal"
-        else:
-            ida_prog = "idal64"
+
+        # We don't really need idal32
+        ida_prog = "idal64"
 
         self.arch = archinfo.to_qemu_arch(arch_name)
         self.simarch = archinfo.to_simuvex_arch(arch_name)
