@@ -95,6 +95,7 @@ if __name__ == '__main__':
     #path = home + "/binary_project/angr/angr/tests/fauxware/fauxware-amd64"
     path= home + "/binary_project/angr/angr/tests/fauxware/arm32l/fauxware"
     path= home + "/binary_project/angr/angr/tests/fauxware/mips32l/fauxware"
+    path = home + "/binary_project/darpa/Linksys/ta2/ping"
     #path = "/tmp/fauxware-arm"
 
     p = setup_cle(path)

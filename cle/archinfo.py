@@ -58,8 +58,10 @@ class ArchInfo(object):
 
         if arch == "i386:x86-64":
             return "x86_64"
-        elif arch in self.mips_names:
+        elif arch in self.mips_names and self.byte_order == "MSB":
             return "mips"
+        elif arch in self.mips_names and self.byte_order == "LSB":
+            return "mipsel"
         elif arch in self.ppc_names and self.arch_size == 32:
             return "ppc"
         elif arch in self.ppc_names and self.arch_size == 64:
