@@ -85,26 +85,27 @@ clextract-ppc: clextract.c
 	$(cc_ppc) -L$(LIB)/ppc -Wall ppc/clextract.o -o ppc/clextract -lcle
 
 libcle-ppc64: libcle.c
-ifeq (,$(shell which $(cc_mips)))
+ifeq (,$(shell which $(cc_ppc64)))
 	echo "CLE: no powerpc64 compiler"
 else
-ifneq (, $(shell $(cc_ppc64) --version | egrep -o 4.4))
-	echo "CLE: Your gcc version does not support ppc64, ignoring target"
-else
+ifneq (, $(shell $(cc_ppc64) --version | egrep -o '4\.[5-9]'))
 	mkdir -p ppc64
 	$(cc_ppc64) $(cflags_ppc64) -c -fpic libcle.c -o ppc64/libcle.o
 	$(cc_ppc64) $(cflags_ppc64) -shared ppc64/libcle.o -o ppc64/libcle.so
+else
+	echo "CLE: Your gcc version does not support ppc64, ignoring target"
 endif
 endif
 
 clextract-ppc64: clextract.c
-ifeq (,$(shell which $(cc_mips)))
+ifeq (,$(shell which $(cc_ppc64)))
 	echo "CLE: no powerpc64 compiler"
-ifneq (, $(shell $(cc_ppc64) --version | egrep -o 4.4))
-	echo "CLE: Your gcc version does not support ppc64, ignoring target"
 else
+ifneq (, $(shell $(cc_ppc64) --version | egrep -o '4\.[5-9]'))
 	$(cc_ppc64) $(cflags_ppc64) -c clextract.c -o ppc64/clextract.o
 	$(cc_ppc64) $(cflags_ppc64) -L$(LIB)/ppc64 -Wall ppc64/clextract.o -o ppc64/clextract -lcle
+else
+	echo "CLE: Your gcc version does not support ppc64, ignoring target"
 endif
 endif
 
