@@ -70,6 +70,7 @@ void print_basic_info(ElfW(Ehdr ehdr))
     printf("Machine type, %s\n", _get_arch(ehdr));
     printf("Object type, %s\n", _get_type(ehdr));
     printf("Endianness, %s\n", ei_data_tostr(ehdr.e_ident[EI_DATA]));
+    printf("Flags, 0x%x\n", ehdr.e_flags);
 }
 
 

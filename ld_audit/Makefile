@@ -1,14 +1,16 @@
 LIBDIR=$(VIRTUAL_ENV)/local/lib
 
 cflags=-Wall -fstack-protector
+cflags_ppc64=-I/cross/ppc/usr/include/powerpc-linux-gnu/
 
 cc_x64=x86_64-linux-gnu-gcc $(cflags)
 cc_mips=mips-linux-gnu-gcc $(cflags)
 cc_ppc=powerpc-linux-gnu-gcc $(cflags)
+cc_ppc64=powerpc-linux-gnu-gcc -m64 $(cflags)
 cc_arm=arm-linux-gnueabi-gcc $(cflags)
 cc_x86= gcc -m32 $(cflags)
 
-all: ld_amd64 ld_arm ld_ppc ld_mips ld_arm ld_i386
+all: ld_amd64 ld_arm ld_ppc ld_ppc64 ld_mips ld_arm ld_i386
 
 ld_arm: ld_audit.c
 	mkdir -p arm
@@ -17,6 +19,10 @@ ld_arm: ld_audit.c
 ld_ppc: ld_audit.c
 	mkdir -p ppc
 	$(cc_ppc) -o ppc/cle_ld_audit.so ld_audit.c -fpic --shared
+
+ld_ppc64: ld_audit.c
+	mkdir -p ppc64
+	$(cc_ppc64) $(cflags_ppc64) -o ppc64/cle_ld_audit.so ld_audit.c -fpic --shared
 
 ld_amd64: ld_audit.c
 	mkdir -p x86_64
@@ -35,10 +41,10 @@ clean:
 
 install:
 	mkdir -p $(DESTDIR)
-	cp -a x86_64 ppc mips arm i386 $(DESTDIR)
+	cp -a x86_64 ppc ppc64 mips arm i386 $(DESTDIR)
 
 install:
-	for arch in "x86_64" "mips" "ppc" "i386" "arm" ; do \
+	for arch in "x86_64" "mips" "ppc" "ppc64" "i386" "arm" ; do \
 		mkdir -p $(LIBDIR)/$$arch; \
 		cp $$arch/cle_ld_audit.so $(LIBDIR)/$$arch; \
 	done

@@ -14,8 +14,8 @@ class ArchInfo(object):
     """
 
     # There is a dozen of types of mips and arm CPUs reported from libbfd
-    mips_names = ["mips:isa32", "mips:3000"]
-    ppc_names = ["powerpc:common"]
+    mips_names = ["mips:isa32", "mips:3000", "mips:6000"]
+    ppc_names = ["powerpc:common", "powerpc:common64"]
     arm_names = ["arm", "armv4t", "armv5t"]
 
     def __init__(self, binary):
@@ -35,9 +35,12 @@ class ArchInfo(object):
         self.lib.get_arch_byte_order.restype = c_char_p
 
         self.name = self.lib.get_bfd_arch_pname(binary)
+
         if self.name == "ERROR":
             raise CLException("This doesn't look like an ELF File. Unsupported"
                               " format or architecture")
+        elif self.name == "unknown":
+            raise CLException("Dude, your libbfd doesn't seem to know this architecture.")
 
         self.bits = self.lib.get_bits_per_addr(binary)
         self.arch_size = self.lib.get_arch_size(binary)
@@ -57,8 +60,10 @@ class ArchInfo(object):
             return "x86_64"
         elif arch in self.mips_names:
             return "mips"
-        elif arch in self.ppc_names:
+        elif arch in self.ppc_names and self.arch_size == 32:
             return "ppc"
+        elif arch in self.ppc_names and self.arch_size == 64:
+            return "ppc64"
         elif arch in self.arm_names:
             return "arm"
         elif arch == "i386":
@@ -76,8 +81,10 @@ class ArchInfo(object):
             return "AMD64"
         elif "mips" in arch and self.arch_size == 32:
             return "MIPS32"
-        elif arch in self.ppc_names:
+        elif arch in self.ppc_names and self.arch_size == 32:
             return "PPC32"
+        elif arch in self.ppc_names and self.arch_size == 64:
+            return "PPC64"
         elif arch in self.arm_names:
             return "ARM"
         elif arch == "i386":
@@ -85,8 +92,6 @@ class ArchInfo(object):
         # Unsupported architectures:
         elif "mips" in arch and self.arch_size == 64:
             raise CLException("Architecture MIPS 64 bit not supported")
-        elif "ppc" in arch and self.arch_size == 64:
-            raise CLException("Architecture PPC 64 bit not supported")
         # mipsel
         elif "mips" in arch and self.endianness == "LSB":
             l.info("Warning: arch mipsel detected, make sure you compile VEX "
@@ -131,7 +136,7 @@ class ArchInfo(object):
 
         if arch == "x86_64":
             return "/lib/x86_64-linux-gnu/"
-        elif arch == "ppc":
+        elif arch in ("ppc", "ppc64"):
             return "/usr/powerpc-linux-gnu/"
         elif arch == "mips":
             return "/usr/mips-linux-gnu/"
@@ -147,6 +152,8 @@ class ArchInfo(object):
         path = self.get_cross_library_path()
         if self.qemu_arch == "i386":
             return path
+        elif self.qemu_arch == "ppc64":
+            return os.path.join(path, "/lib64")
         else:
             return os.path.join(path, "/lib")
 
