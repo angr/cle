@@ -1,10 +1,9 @@
-from ctypes import *
 import os
 import logging
-from .archinfo import ArchInfo
 import subprocess
 from .clexception import CLException
 import struct
+from .abs_obj import AbsObj
 
 l = logging.getLogger("cle.elf")
 
@@ -29,18 +28,20 @@ class Segment(object):
         return offset - self.offset + self.vaddr
 
 
-class Elf(object):
+class Elf(AbsObj):
     """ Representation of loaded Elf binaries """
-    def __init__(self, binary, load=True):
 
-        self.segments = [] # List of segments
-        self.memory = {} # Private virtual address space, without relocations
-        self.symbols = None # Object's symbols
-        self.rebase_addr = 0
-        self.object_type = None
-        self.entry_point = None # The entry point defined by CLE
-        self.custom_entry_point = None # A custom entry point
-        self.deps = None # Needed shared objects (libraries dependencies)
+    def __init__(self, *args, **kwargs):
+        """ Initialization of the Elf object.
+        This is called by the constructor of the parent class
+        """
+
+        # Call the constructor of AbsObj
+        super(Elf, self).__init__(*args, **kwargs)
+
+        # Shall we load the binary ? Yes by default
+        if 'load' not in kwargs:
+            load = True
 
         # MIPS
         self.mips_static_base_addr = None
@@ -49,24 +50,13 @@ class Elf(object):
         self.mips_gotsym = None
         self.mips_symtabno = None
 
-        if (os.path.exists(binary)):
-            self.binary = binary
-        else:
-            raise CLException("The binary file \"%s\" does not exist :(" %
-                              binary)
+        info = self.__call_clextract(self.binary)
 
-        l.debug(" [Loading binary object %s]" % self.binary)
-        archinfo = ArchInfo(binary)
-        self.archinfo = archinfo
-        arch_name = archinfo.name
-        self.bits_per_addr = archinfo.bits
-
-        # We use qemu's convention for arch names
-        self.arch = archinfo.to_qemu_arch(arch_name)
-        self.simarch = archinfo.to_simuvex_arch(arch_name)
-        info = self.__call_clextract(binary)
+        # TODO: fix this
         self.elfflags = self.__get_elf_flags(info)
         self.archinfo.elfflags = self.elfflags
+        ##
+
         self.symbols = self.__get_symbols(info)
         self.imports = self.__get_imports(self.symbols)
         self.entry_point = self.__get_entry_point(info)
@@ -78,10 +68,10 @@ class Elf(object):
         self.jmprel = self.__get_jmprel(info)
         self.endianness = self.__get_endianness(info)
 
-        if load == True:
-            self.load()
-
         self.__ppc64_abiv1_entry_fix()
+
+        if load is True:
+            self.load()
 
     def get_min_addr(self):
         """

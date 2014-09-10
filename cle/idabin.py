@@ -1,47 +1,41 @@
 import logging
+from .clexception import CLException
 import idalink
-from .archinfo import ArchInfo
 import os
 import struct
+from .abs_obj import AbsObj
 
 l = logging.getLogger("cle.idabin")
 
-class IdaBin(object):
+
+class IdaBin(AbsObj):
+
     """ Get informations from binaries using IDA.
     This replaces the old Binary class and integrates it into CLE as a fallback
     """
-    def __init__(self, binary, base_addr = None):
+    def __init__(self, *args, **kwargs):
 
-        self.rebase_addr = None
-        self.binary = binary
-        archinfo = ArchInfo(binary)
-        self.archinfo = archinfo
-        arch_name = archinfo.name
-        processor_type = archinfo.ida_arch
+        # Call the constructor of AbsObj
+        super(IdaBin, self).__init(*args, **kwargs)
 
         # We don't really need 32 bit idal, do we ?
         ida_prog = "idal64"
 
-        self.arch = archinfo.to_qemu_arch(arch_name)
-        self.simarch = archinfo.to_simuvex_arch(arch_name)
+        processor_type = self.archinfo.ida_arch
 
-        #pull = base_addr is None
-        pull = False
-        l.debug("Loading binary %s using IDA with arch %s" % (binary, processor_type))
-        self.ida = idalink.IDALink(binary, ida_prog=ida_prog,
-                                   processor_type=processor_type, pull = pull)
+        l.debug("Loading binary %s using IDA with arch %s" % (self.binary, processor_type))
+        self.ida = idalink.IDALink(self.binary, ida_prog=ida_prog,
+                                   processor_type=processor_type, pull = False)
 
         self.badaddr = self.ida.idc.BADADDR
         self.memory = self.ida.mem
-        if base_addr is not None:
-            self.rebase(base_addr)
+        if self.base_addr is not None:
+            self.rebase(self.base_addr)
         else:
             self.rebase_addr = 0
 
         self.imports = self.__get_imports()
-
         self.exports = self.__get_exports()
-        self.custom_entry_point = None # Not implemented yet
         self.entry_point = self.__get_entry_point()
 
     def rebase(self, base_addr):
@@ -54,7 +48,7 @@ class IdaBin(object):
             if self.ida.idaapi.rebase_program(
                 base_addr, self.ida.idaapi.MSF_FIXONCE |
                 self.ida.idaapi.MSF_LDKEEP) != 0:
-                raise Exception("Rebasing of %s failed!", self.binary)
+                raise CLException("Rebasing of %s failed!", self.binary)
             self.ida.remake_mem()
             self.rebase_addr = base_addr
             #self.__rebase_exports(base_addr)
@@ -85,7 +79,7 @@ class IdaBin(object):
 
         # If we reach this point, we should have the addresses
         if self.got_begin is None or self.got_end is None:
-            raise Exception("This architecture has no section %s :(", sec_name)
+            raise CLException("This architecture has no section %s :(", sec_name)
 
     def __in_proper_section(self, addr):
         """ Is @addr in the proper section for this architecture ?"""

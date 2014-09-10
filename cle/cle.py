@@ -338,7 +338,7 @@ class Ld(object):
             # If we haven't determined any base address yet (probably because
             # LD_AUDIT failed)
             if addr == 0:
-                addr = self.__get_safe_rebase_addr() # workaround for IDA crash
+                addr = self.__get_safe_rebase_addr()
 
             if self.force_ida == True:
                 so = self.__load_so_ida(name)
