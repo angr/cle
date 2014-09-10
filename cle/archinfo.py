@@ -49,6 +49,7 @@ class ArchInfo(object):
         self.qemu_arch = self.to_qemu_arch(self.name)
         self.simuvex_arch = self.to_simuvex_arch(self.name)
         self.ida_arch = self.to_ida_arch(self.name)
+        self.elfflags = 0
 
 
     def to_qemu_arch(self, arch):
@@ -144,12 +145,23 @@ class ArchInfo(object):
             return "/usr/mips-linux-gnu/"
         elif arch == "mipsel":
             return "/usr/mipsel-linux-gnu/"
-        elif arch == "arm":
+        elif arch == "arm" and self.elfflags & 0x200:
             return "/usr/arm-linux-gnueabi/"
+        elif arch == "arm":
+            return "/usr/arm-linux-gnueabihf/"
         elif arch == "i386":
             return "/lib32"
 
         raise CLException("Architecture %s is not supported" % arch)
+
+    def get_unique_name(self):
+        arch = self.qemu_arch
+
+        if arch == 'arm':
+            if self.elfflags & 0x200:
+                return 'armel'
+            return 'armhf'
+        return arch
 
     def get_cross_ld_path(self):
         """ LD_LIBRARY_PATH expects "$ARCH_LIB/lib" except for i386..."""

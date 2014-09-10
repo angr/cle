@@ -10,17 +10,19 @@ cc_mips=mips-linux-gnu-gcc $(cflags)
 cc_mipsel=mipsel-linux-gnu-gcc $(cflags) 
 cc_ppc=powerpc-linux-gnu-gcc $(cflags)
 cc_ppc64=powerpc-linux-gnu-gcc -m64 $(cflags)
-cc_arm=arm-linux-gnueabi-gcc $(cflags)
+cc_armel=arm-linux-gnueabi-gcc $(cflags)
+cc_armhf=arm-linux-gnueabihf-gcc $(cflags)
 cc_x86= gcc -m32 $(cflags)
 
-all: x86_64 mips mipsel ppc arm i386 ppc64
+all: x86_64 mips mipsel ppc armel armhf i386 ppc64
 
 x86_64: libcle-x86_64 clextract-x86_64
 mips: libcle-mips clextract-mips
 mipsel: libcle-mipsel clextract-mipsel
 ppc: libcle-ppc clextract-ppc
 ppc64: libcle-ppc64 clextract-ppc64
-arm: libcle-arm clextract-arm
+armel: libcle-armel clextract-armel
+armhf: libcle-armhf clextract-armhf
 i386: libcle-i386 clextract-i386
 
 libcle-x86_64: libcle.c
@@ -109,17 +111,26 @@ else
 endif
 endif
 
-libcle-arm: libcle.c
-	mkdir -p arm
-	$(cc_arm) -c -fpic libcle.c -o arm/libcle.o
-	$(cc_arm) -shared arm/libcle.o -o arm/libcle.so
+libcle-armel: libcle.c
+	mkdir -p armel
+	$(cc_armel) -c -fpic libcle.c -o armel/libcle.o
+	$(cc_armel) -shared armel/libcle.o -o armel/libcle.so
 
-clextract-arm: clextract.c
-	$(cc_arm) -c clextract.c -o arm/clextract.o
-	$(cc_arm) -L$(LIB)/arm -Wall arm/clextract.o -o arm/clextract -lcle
+clextract-armel: clextract.c
+	$(cc_armel) -c clextract.c -o armel/clextract.o
+	$(cc_armel) -L$(LIB)/armel -Wall armel/clextract.o -o armel/clextract -lcle
+
+libcle-armhf: libcle.c
+	mkdir -p armhf
+	$(cc_armhf) -c -fpic libcle.c -o armhf/libcle.o
+	$(cc_armhf) -shared armhf/libcle.o -o armhf/libcle.so
+
+clextract-armhf: clextract.c
+	$(cc_armhf) -c clextract.c -o armhf/clextract.o
+	$(cc_armhf) -L$(LIB)/armhf -Wall armhf/clextract.o -o armhf/clextract -lcle
 
 install:
-	for arch in "x86_64" "mips" "mipsel" "ppc" "ppc64" "i386" "arm" ; do \
+	for arch in "x86_64" "mips" "mipsel" "ppc" "ppc64" "i386" "armel" "armhf" ; do \
 		mkdir -p $(BINDIR)/$$arch; \
 		mkdir -p $(LIBDIR)/$$arch; \
 		cp $$arch/libcle.so $(LIBDIR)/$$arch; \
@@ -129,7 +140,8 @@ install:
 clean:
 	 rm -f x86_64/*.so x86_64/*.o x86_64/clextract 
 	 rm -f i386/*.so i386/*.o i386/clextract 
-	 rm -f arm/*.so arm/*.o arm/clextract 
+	 rm -f armel/*.so armel/*.o armel/clextract 
+	 rm -f armhf/*.so armhf/*.o armhf/clextract 
 	 rm -f mips/*.so mips/*.o mips/clextract 
 	 rm -f mipsel/*.so mipsel/*.o mipsel/clextract 
 	 rm -f ppc/*.so ppc/*.o ppc/clextract 

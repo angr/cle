@@ -8,14 +8,19 @@ cc_mips=mips-linux-gnu-gcc $(cflags)
 cc_mipsel=mipsel-linux-gnu-gcc $(cflags)
 cc_ppc=powerpc-linux-gnu-gcc $(cflags)
 cc_ppc64=powerpc-linux-gnu-gcc -m64 $(cflags)
-cc_arm=arm-linux-gnueabi-gcc $(cflags)
+cc_armel=arm-linux-gnueabi-gcc $(cflags)
+cc_armhf=arm-linux-gnueabihf-gcc $(cflags)
 cc_x86= gcc -m32 $(cflags)
 
-all: ld_amd64 ld_arm ld_ppc ld_ppc64 ld_mips ld_mipsel ld_arm ld_i386
+all: ld_amd64 ld_armel ld_armhf ld_ppc ld_ppc64 ld_mips ld_mipsel ld_i386
 
-ld_arm: ld_audit.c
-	mkdir -p arm
-	$(cc_arm) -o arm/cle_ld_audit.so ld_audit.c -fpic --shared
+ld_armel: ld_audit.c
+	mkdir -p armel
+	$(cc_armel) -o armel/cle_ld_audit.so ld_audit.c -fpic --shared
+
+ld_armhf: ld_audit.c
+	mkdir -p armhf
+	$(cc_armhf) -o armhf/cle_ld_audit.so ld_audit.c -fpic --shared
 
 ld_ppc: ld_audit.c
 	mkdir -p ppc
@@ -25,11 +30,11 @@ ld_ppc64: ld_audit.c
 ifeq (,$(shell which $(cc_mips)))
 	echo "CLE: no powerpc64 compiler"
 else
-ifneq (, $(shell $(cc_ppc64) --version | egrep -o 4.4))
-	echo "CLE: Your gcc version does not support ppc64, ignoring target"
-else
+ifneq (, $(shell $(cc_ppc64) --version | egrep -o '4\.[5-9]'))
 	mkdir -p ppc64
 	$(cc_ppc64) $(cflags_ppc64) -o ppc64/cle_ld_audit.so ld_audit.c -fpic --shared
+else
+	echo "CLE: Your gcc version does not support ppc64, ignoring target"
 endif
 endif
 
@@ -62,10 +67,10 @@ clean:
 
 install:
 	mkdir -p $(DESTDIR)
-	cp -a x86_64 ppc ppc64 mips mipsel arm i386 $(DESTDIR)
+	cp -a x86_64 ppc ppc64 mips mipsel armel armhf i386 $(DESTDIR)
 
 install:
-	for arch in "x86_64" "mips" "mipsel" "ppc" "ppc64" "i386" "arm" ; do \
+	for arch in "x86_64" "mips" "mipsel" "ppc" "ppc64" "i386" "armel" "armhf" ; do \
 		mkdir -p $(LIBDIR)/$$arch; \
 		cp $$arch/cle_ld_audit.so $(LIBDIR)/$$arch; \
 	done

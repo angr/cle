@@ -65,6 +65,8 @@ class Elf(object):
         self.arch = archinfo.to_qemu_arch(arch_name)
         self.simarch = archinfo.to_simuvex_arch(arch_name)
         info = self.__call_clextract(binary)
+        self.elfflags = self.__get_elf_flags(info)
+        self.archinfo.elfflags = self.elfflags
         self.symbols = self.__get_symbols(info)
         self.imports = self.__get_imports(self.symbols)
         self.entry_point = self.__get_entry_point(info)
@@ -75,7 +77,6 @@ class Elf(object):
         self.gotaddr = self.__get_gotaddr(self.dynamic) # Add rebase_addr if relocated
         self.jmprel = self.__get_jmprel(info)
         self.endianness = self.__get_endianness(info)
-        self.elfflags = self.__get_elf_flags(info)
 
         if load == True:
             self.load()
@@ -350,7 +351,7 @@ class Elf(object):
     def __call_clextract(self, binary):
         """ Get information from the binary using clextract """
         qemu = self.archinfo.get_qemu_cmd()
-        arch = self.arch
+        arch = self.archinfo.get_unique_name()
         env_p = os.getenv("VIRTUAL_ENV", "/")
         bin_p = "local/bin/%s" % arch
         lib_p = "local/lib/%s" % arch

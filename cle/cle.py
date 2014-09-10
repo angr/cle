@@ -401,7 +401,7 @@ class Ld(object):
 
         qemu = self.main_bin.archinfo.get_qemu_cmd()
         env_p = os.getenv("VIRTUAL_ENV", "/")
-        bin_p = os.path.join(env_p, "local/lib" ,self.main_bin.arch)
+        bin_p = os.path.join(env_p, "local/lib", self.main_bin.archinfo.get_unique_name())
 
         # Our LD_AUDIT shared object
         ld_audit_obj = os.path.join(bin_p, "cle_ld_audit.so")
