@@ -2,7 +2,6 @@ import logging
 import idalink
 from .archinfo import ArchInfo
 import os
-import pdb
 import struct
 
 l = logging.getLogger("cle.idabin")
@@ -20,7 +19,7 @@ class IdaBin(object):
         arch_name = archinfo.name
         processor_type = archinfo.ida_arch
 
-        # We don't really need idal32
+        # We don't really need 32 bit idal, do we ?
         ida_prog = "idal64"
 
         self.arch = archinfo.to_qemu_arch(arch_name)
@@ -120,6 +119,7 @@ class IdaBin(object):
         addr = self.ida.idc.LocByName(sym)
         if addr == self.ida.idc.BADADDR:
             addr = None
+        return addr
 
     def __get_exports(self):
         """ Get binary's exports names from IDA and return a list"""
