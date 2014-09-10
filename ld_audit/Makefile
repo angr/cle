@@ -19,18 +19,22 @@ ld_armel: ld_audit.c
 	$(cc_armel) -o armel/cle_ld_audit.so ld_audit.c -fpic --shared
 
 ld_armhf: ld_audit.c
+ifeq (,$(shell which $(cc_armhf)))
+	echo "CLE: no powerpc64 compiler"
+else
 	mkdir -p armhf
 	$(cc_armhf) -o armhf/cle_ld_audit.so ld_audit.c -fpic --shared
+endif
 
 ld_ppc: ld_audit.c
 	mkdir -p ppc
 	$(cc_ppc) -o ppc/cle_ld_audit.so ld_audit.c -fpic --shared
 
 ld_ppc64: ld_audit.c
-ifeq (,$(shell which $(cc_mips)))
+ifeq (,$(shell which $(cc_ppc64)))
 	echo "CLE: no powerpc64 compiler"
 else
-ifneq (, $(shell $(cc_ppc64) --version | egrep -o '4\.[5-9]'))
+ifeq (, $(shell $(cc_ppc64) --version | egrep -o '4\.[5-9]'))
 	mkdir -p ppc64
 	$(cc_ppc64) $(cflags_ppc64) -o ppc64/cle_ld_audit.so ld_audit.c -fpic --shared
 else

@@ -90,7 +90,7 @@ libcle-ppc64: libcle.c
 ifeq (,$(shell which $(cc_ppc64)))
 	echo "CLE: no powerpc64 compiler"
 else
-ifneq (, $(shell $(cc_ppc64) --version | egrep -o '4\.[5-9]'))
+ifeq (, $(shell $(cc_ppc64) --version | egrep -o '4\.[5-9]'))
 	mkdir -p ppc64
 	$(cc_ppc64) $(cflags_ppc64) -c -fpic libcle.c -o ppc64/libcle.o
 	$(cc_ppc64) $(cflags_ppc64) -shared ppc64/libcle.o -o ppc64/libcle.so
@@ -103,7 +103,7 @@ clextract-ppc64: clextract.c
 ifeq (,$(shell which $(cc_ppc64)))
 	echo "CLE: no powerpc64 compiler"
 else
-ifneq (, $(shell $(cc_ppc64) --version | egrep -o '4\.[5-9]'))
+ifeq (, $(shell $(cc_ppc64) --version | egrep -o '4\.[5-9]'))
 	$(cc_ppc64) $(cflags_ppc64) -c clextract.c -o ppc64/clextract.o
 	$(cc_ppc64) $(cflags_ppc64) -L$(LIB)/ppc64 -Wall ppc64/clextract.o -o ppc64/clextract -lcle
 else
@@ -121,13 +121,21 @@ clextract-armel: clextract.c
 	$(cc_armel) -L$(LIB)/armel -Wall armel/clextract.o -o armel/clextract -lcle
 
 libcle-armhf: libcle.c
+ifeq (,$(shell which $(cc_armhf)))
+	@echo "CLE: MIPS LSB Compiler not present, ignoring target"
+else
 	mkdir -p armhf
 	$(cc_armhf) -c -fpic libcle.c -o armhf/libcle.o
 	$(cc_armhf) -shared armhf/libcle.o -o armhf/libcle.so
+endif
 
 clextract-armhf: clextract.c
+ifeq (,$(shell which $(cc_armhf)))
+	@echo "CLE: MIPS LSB Compiler not present, ignoring target"
+else
 	$(cc_armhf) -c clextract.c -o armhf/clextract.o
 	$(cc_armhf) -L$(LIB)/armhf -Wall armhf/clextract.o -o armhf/clextract -lcle
+endif
 
 install:
 	for arch in "x86_64" "mips" "mipsel" "ppc" "ppc64" "i386" "armel" "armhf" ; do \
