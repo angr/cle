@@ -191,6 +191,12 @@ class Elf(object):
             if i[0] == "Endianness":
                 return i[1].strip()
 
+    def get_vex_ir_endness(self):
+        return 'Iend_LE' if self.endianness == 'LSB' else 'Iend_BE'
+
+    def get_vex_endness(self):
+        return 'VexEndnessLE' if self.endianness == 'LSB' else 'VexEndnessBE'
+
     def __get_elf_flags(self, data):
         for i in data:
             if i[0] == "Flags":
