@@ -22,6 +22,17 @@ const char *get_bfd_arch_name(const char* filename)
     return info->arch_name;
 }
 
+int get_bfd_file_flags(const char* filename)
+{
+    bfd *bfd;
+
+    bfd = open_bfd(filename);
+    if (!bfd)
+        return "ERROR";
+
+
+    return bfd_get_file_flags(bfd);
+}
 
 /* This gives the printable name of the architecture, e.g.: mips:3000*/
 const char *get_bfd_arch_pname(const char* filename)
