@@ -76,8 +76,11 @@ def setup_ida(filename):
 
 def setup_cle(filename):
     p_cle = angr.Project(filename, default_analysis_mode='symbolic',
-                         use_sim_procedures=True, load_libs = True, force_ida =
-                         False, except_thumb_mismatch=False)
+                         use_sim_procedures=True, except_thumb_mismatch=False,
+                         cle_ops=\
+                         {filename: {'load_libs': True, \
+                                     'skip_libs': ['ld.so.1'], \
+                                     'backend': 'ida'}})
 
     return p_cle
 
@@ -95,7 +98,7 @@ if __name__ == '__main__':
     #path = home + "/binary_project/angr/angr/tests/fauxware/fauxware-amd64"
     path= home + "/binary_project/angr/angr/tests/fauxware/arm32l/fauxware"
     path= home + "/binary_project/angr/angr/tests/fauxware/mips32l/fauxware"
-    path = home + "/binary_project/darpa/Linksys/ta2/ping"
+    #path = home + "/binary_project/darpa/Linksys/ta2/ping"
     #path = "/tmp/fauxware-arm"
 
     p = setup_cle(path)

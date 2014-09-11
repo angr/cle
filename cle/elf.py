@@ -68,7 +68,7 @@ class Elf(AbsObj):
         self.jmprel = self.__get_jmprel(info)
         self.endianness = self.__get_endianness(info)
 
-        self.__ppc64_abiv1_entry_fix()
+        self._ppc64_abiv1_entry_fix()
 
         if load is True:
             self.load()
@@ -181,9 +181,6 @@ class Elf(AbsObj):
         for i in data:
             if i[0] == "Endianness":
                 return i[1].strip()
-
-    def get_vex_ir_endness(self):
-        return 'Iend_LE' if self.endianness == 'LSB' else 'Iend_BE'
 
     def get_vex_endness(self):
         return 'VexEndnessLE' if self.endianness == 'LSB' else 'VexEndnessBE'
@@ -477,30 +474,6 @@ class Elf(AbsObj):
             # How many elements in the symbol table
             elif(i["tag"] == "DT_MIPS_SYMTABNO"):
                 self.mips_symtabno = int(i["val"].strip(), 16)
-
-    def __ppc64_abiv1_entry_fix(self):
-        """
-        On powerpc64, the e_flags elf header entry's lowest two bits determine
-        the ABI type. in ABIv1, the entry point given in the elf headers is not
-        actually the entry point, but rather the address in memory where there
-        exists a pointer to the entry point.
-
-        Utter bollocks, but this function should fix it.
-        """
-
-        self.ppc64_initial_rtoc = None
-        if self.archinfo.qemu_arch != 'ppc64': return
-        if self.elfflags & 3 < 2:
-            ep_offset = self.entry_point - self.rebase_addr
-            fmt = '<Q' if self.endianness == 'LSB' else '>Q'
-
-            ep_bitstring = ''.join(self.memory[ep_offset + i] for i in xrange(8))
-            self.entry_point = struct.unpack(fmt, ep_bitstring)[0]
-
-            rtoc_bitstring = ''.join(self.memory[ep_offset + i + 8] for i in xrange(8))
-            self.ppc64_initial_rtoc = struct.unpack(fmt, rtoc_bitstring)[0]
-        else:
-            pass
 
     def is_thumb(self,addr):
         """ Is the address @addr in thumb mode ? """

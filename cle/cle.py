@@ -3,13 +3,13 @@
 #from ctypes import *
 import os
 import logging
-import pdb
 #import collections
 import shutil
 import subprocess
 
 from .elf import Elf
 from .idabin import IdaBin
+from .blob import Blob
 from .archinfo import ArchInfo
 from .clexception import CLException
 import sys
@@ -19,62 +19,148 @@ import sys
 
 l = logging.getLogger("cle.ld")
 
+"""
+FIXME list
+    1)  add support for per-library backend (right now, it all depends on the
+        global flag ida_main, i.e., the main binary's backend.
+    2)  Smart fallback: if no backend was specified and it the binary is NOT
+        elf, fall back to blob
+"""
 
 class Ld(object):
     """ CLE ELF loader
     The loader loads all the objects and exports an abstraction of the memory of
     the process.
     """
-    def __init__(self, binary, force_ida=None, load_libs=None, skip_libs=None):
-        """ @path is the path to licle_ctypes.so"""
+    def __init__(self, cle_ops):
+        """
+        Cle expects a dict as a set of parameters of the following form:
+            {path1:{options1}, path2:{options2} etc.
 
-        # IDA needs a directory where it has permissions
-        arch = ArchInfo(binary).name
-        self.tmp_dir = "/tmp/cle_" + os.path.basename(binary) + "_" + arch
+            where:
+                - each path is a distinct binary. The first binary is expected to
+                be the main binary. Every other binary is expected to be a
+                dependency of the fist binary.
+
+                - each set of options is a dict.
+
+        Valid options are:
+
+            @backend : 'ida' or 'elf' or 'blob' (defaults to 'elf')
+
+        The following options are only relevant for the main binary (i.e., the
+        first binary passed to CLE):
+
+            @auto_load_libs : bool ; shall we also load dynamic libraries ?
+            @skip_libs = [] ; specific libs to skip, e.g., skip_libs=['libc.so.6']
+
+        The following options override CLE's automatic detection:
+
+            @custom_entry_point: the address of a custom entry point that will
+                override CLE's automatic detection.
+            @custom_base_addr: base address to load the binary
+            @custom_offset: discard everything in the binary until this address
+
+            @provides: which dependency is provided by the binary.
+            This is used instead of what CLE would normally load for this
+            dependency.
+            e.g., provides = 'libc.so.6'.
+
+        Example of valid parameters:
+            {'/bin/ls': {backend:'elf', auto_load_libs:True, skip_libs:['libc.so.6']}}
+
+        """
+
+        # These are all the class variables of Ld
+        # Please add new stuff here along with a description :)
 
         self.memory = {} # Dictionary representation of the memory
-        self.shared_objects =[] # Executables and libraries's binary objects
-        self.dependencies = {}
-        self.path = binary
-        self.force_ida = force_ida
-        self.ida_rebase_granularity = 0x1000000 # IDA workaround
+        self.shared_objects =[] # Contains autodetected libraries (CLE binaries)
+        self.dependencies = {} # {libname : vaddr} dict
+        self.__custom_dependencies = {} # {libname : vaddr} dict
+        self.__custom_shared_objects = [] # Contains manually specified libs (CLE binaries)
+        self.ida_rebase_granularity = 0x1000000 # IDA workaround/fallback
+        self.ida_main = False  # Is the main binary backed with ida ?
+        self.path = None  # Path to the main binary
+        self.skip_libs = [] # Libraries we don't want to load
+        self.main_bin = None  # The main binary (i.e., the executable)
+        self.auto_load_libs = True  # Shall we load the libraries the main binary depends on ?
+        self.tmp_dir = None  # A temporary directory where we store copies of the binaries
+        self.original_path = None  # The path to the original binary (before copy)
 
-        if skip_libs is None:
-            self.skip_libs = []
-        else:
-            self.skip_libs = skip_libs
+        if type(cle_ops) is not dict:
+            raise CLException("CLE expects a dict as unique parameter")
 
-        if self.force_ida is None:
-            self.force_ida = False
+        if len(cle_ops) == 0:
+            raise CLException("Empty ops list")
 
-        if (force_ida == True):
-            self.original_path = binary
-            self.path = self.__copy_obj(binary)
-            self.force_ida = True
-            self.main_bin = IdaBin(self.path)
-        else:
-            self.main_bin = Elf(binary)
+        # Get the a list of binaries to load from the parameters. We assume here
+        # a main binary and its dependencies.
+        binaries = []
+        b_ops = []
+        for b, ops in cle_ops.iteritems():
+            binaries.append(b)
+            if 'backend' not in ops:
+                ops['backend'] = 'elf'  # We default to Elf
+            b_ops.append(ops)
 
-        self.__load_exe()
+        if len(binaries) == 0:
+            raise CLException("No binary passed to CLE")
 
+        # We load everything we got as specified in the parameters. This means
+        # that custom shared libraries with custom options will be loaded
+        # in place of autodetected stuff (which come later anyway)
+        self.__load_exe(binaries[0], b_ops[0])
+        for i in range(1, len(binaries)):
+            self.__make_custom_lib(binaries[i], b_ops[i])
 
-        # We need to resolve this here, even when load_libs=False because of
-        # SimProcedure resolution:
+        """
+        From here, we have a coupe of options:
+
+            1. The sole specified binary in an elf file: we autodetect
+            dependencies, and load them.
+
+            2. The sole binary is a blob: we load it and exit.
+
+            3. All binaries are Elf files. We autodetect dependencies, and only
+            load those that are not already provided by one of the specified
+            binaries.  (See the provide option)
+
+            4. The main binary is an Elf file, the rest is mixed:
+                - We apply 3, and blobs replace autodetected dependencies if
+                they provide the same library. Not sure how useful this is.
+
+            5. The main binary is a blob. The rest is mixed:
+                - We don't try to autodetect anything, we just load everything
+                arbitrarily.
+        """
+
+        # Load custom binaries
+        for o in self.__custom_shared_objects:
+            self.__manual_load(o)
+
+        # Cases 2 and 5, skip dependencies resolution if the main binary is a blob
+        if isinstance(self.main_bin, Blob):
+            return
+
+        # If we reach this point, the main binary is Elf.
+        # We need to resolve dependencies here, even when auto_load_libs=False
+        # because the SimProcedure resolution needs this info.
         self.dependencies = self.__ld_so_addr()
 
         if self.dependencies is None:
             self.dependencies = self.__ld_so_addr_fallback()
 
-        if load_libs is False:
-            return
+        if self.auto_load_libs is True:
+            l.info("TODO: check for memory overlapping with manually loaded stuff")
+            self.__auto_load_shared_libs()
 
-        #print "mem@ 0x601000: %s" % repr(self.memory[0x601000])
-        self.__load_shared_libs()
-        #print "mem@ 0x601000: %s" % repr(self.memory[0x601000])
+        # Relocating stuff, resolving exports, etc. is done here
         self.__perform_reloc()
-        #print "mem@ 0x601000: %s" % repr(self.memory[0x601000])
 
-        if (self.force_ida == True):
+        # IDA backed stuff is not kept in sync with cle's mem, and the
+        # relocations most likely altered it
+        if (self.ida_main is True):
             self.ida_sync_mem()
 
     def host_endianness(self):
@@ -87,11 +173,13 @@ class Ld(object):
         # Main binary
         self.__perform_reloc_stub(self.main_bin)
 
+        l.info("TODO: relocations in custom loaded shared objects")
         # Libraries
         for obj in self.shared_objects:
             self.__perform_reloc_stub(obj)
+
             # Again, MIPS is a pain...
-            if "mips" in obj.arch and self.force_ida is None:
+            if "mips" in obj.arch and isinstance(obj, Elf):
                 obj.relocate_mips_jmprel()
 
     def __perform_reloc_stub(self, binary):
@@ -102,19 +190,25 @@ class Ld(object):
             When using CLE with IDA, the rebasing is done with IDA, and
             relocations of symbols are done by CLE using the IDA API.
         """
-        if (self.force_ida):
+        if isinstance(binary, IdaBin):
             self.__resolve_imports_ida(binary)
             # Once everything is relocated, we can copy IDA's memory to Ld
         else:
             self.__reloc(binary)
 
     def ida_sync_mem(self):
+        """
+            TODO: be smarter, and add a flag to IdaBin to toggle resync
+        """
         objs = [self.main_bin]
         for i in self.shared_objects:
-            objs.append(i)
+            if isinstance(i, IdaBin):
+                objs.append(i)
+            else:
+                l.warning("Not syncing memory for %s, not IDA backed" % i.binary)
 
         for o in objs:
-            l.debug("%s: Copy IDA's memory to Ld's memory" % o.binary)
+            l.info("**SLOW**: Copy IDA's memory to Ld's memory (%s)" % o.binary)
             self.__copy_mem(o, update=True)
 
     def mem_range(self, a_from, a_to):
@@ -139,11 +233,17 @@ class Ld(object):
             if (addr >= min and addr <= max):
                 return so
 
+    def is_ida_mapped(self, addr):
+        """
+            Is the object mapping @addr an instance of IdaBin ?
+        """
+        return isinstance(IdaBin, self.addr_belongs_to_object(addr))
+
     def min_addr(self):
         """ The minimum base address of any loaded object """
 
         # Let's start with the main executable
-        if self.force_ida == True:
+        if self.ida_main == True:
             return self.main_bin.get_min_addr()
         else:
             base = self.main_bin.get_min_addr()
@@ -182,7 +282,7 @@ class Ld(object):
             uaddr = self.find_symbol_addr(symb)
             if (uaddr):
                 uaddr = uaddr + obj.rebase_addr
-                l.debug("\t--> [R] Relocation of %s -> 0x%x [stub@0x%x]" % (symb,
+                l.info("\t--> [R] Relocation of %s -> 0x%x [stub@0x%x]" % (symb,
                                                                      uaddr,
                                                                      got_addr))
 
@@ -191,7 +291,7 @@ class Ld(object):
                     self.memory[got_addr + i] = baddr[i]
 
             else:
-                l.debug("\t--> [U] Cannot locate symbol \"%s\" from SOs" % symb)
+                l.warning("\t--> [U] Cannot locate symbol \"%s\" from SOs" % symb)
 
     def __reloc_mips_local(self, obj):
         """ MIPS local relocations (yes, GOT entries for local symbols also need
@@ -305,12 +405,95 @@ class Ld(object):
             if symbol in ex:
                 return ex[symbol] + so.rebase_addr
 
-    def __load_exe(self):
-        """ Load exe into "main memory
+    def __load_exe(self, path, main_binary_ops):
+        """ Instanciate and load exe into "main memory
         """
         # Warning: when using IDA, the relocations will be performed in its own
         # memory, which we'll have to sync later with Ld's memory
+        self.path = path
+
+        if 'skip_libs' in main_binary_ops:
+            self.skip_libs = main_binary_ops['skip_libs']
+
+        if 'auto_load_libs' in main_binary_ops:
+            self.skip_libs = main_binary_ops['auto_load_libs']
+
+        # The backend defaults to Elf
+        self.main_bin = self.__instanciate_binary(path, main_binary_ops)
+
+        # IDA specific crap
+        if main_binary_ops['backend'] == 'ida':
+            arch = ArchInfo(self.path).name
+            self.ida_main = True
+            # If we use IDA, it needs a directory where it has permissions
+            self.tmp_dir = "/tmp/cle_" + os.path.basename(self.path) + "_" + arch
+            self.original_path = self.path
+            self.path = self.__copy_obj(self.path)
+
+        # Copy mem from object's private memory to Ld's address space
         self.__copy_mem(self.main_bin)
+
+    def __make_custom_lib(self, path, ops):
+        """
+        Instanciate custom library (i.e., manyally specified lib) as opposed to auto-loading)
+        Returns: nothing, it only appends the new binary to the custom shared objects dict
+        """
+
+        obj = self.__instanciate_binary(path, ops)
+        self.__custom_shared_objects.append(obj)
+
+        # What library is that ? If nothing was specified, we use the filename
+        if obj.provides is not None:
+            dep = obj.provides
+        else:
+            dep = os.path.basename(path)
+
+        self.__custom_dependencies[dep] = obj.custom_base_addr
+
+    def __manual_load(self, obj):
+        """
+        Manual loading stub.
+        """
+        # If no base address was specified, let's find one
+        if obj.custom_base_addr is None:
+            base = self.__get_safe_rebase_addr()
+            obj.rebase_addr = base
+        else:
+            obj.rebase_addr = obj.custom_rebase_addr
+        self.__copy_mem(obj, obj.rebase_addr)
+
+
+    def __instanciate_binary(self, path, ops):
+        """
+        Simple stub function to instanciate the right type given the backend name
+        """
+        backend = ops['backend']
+
+        if backend  == 'elf':
+            obj = Elf(self.path)
+
+        elif backend == 'ida':
+            obj = IdaBin(self.path)
+
+        elif backend == 'blob':
+            obj = Blob(self.path)
+
+        else:
+            raise CLException("Unknown backend %s" % backend)
+
+        if 'custom_base_addr' in ops:
+            obj.custom_base_addr = ops['custom_base_addr']
+
+        if 'custom_entry_point' in ops:
+            obj.custom_entry_point = ops['custom_entry_point']
+
+        if 'custom_offset' in ops:
+            obj.custom_offset = ops['custom_offset']
+
+        if 'provides' in ops:
+            obj.provides = ops['provides']
+
+        return obj
 
     def __copy_mem(self, obj, rebase_addr = None, update = False):
         """ Copies private memory of obj to Ld's memory (the one we work with)
@@ -328,11 +511,16 @@ class Ld(object):
             else:
                 self.memory[addr] = val
 
-    def __load_shared_libs(self):
+    def __auto_load_shared_libs(self):
         """ Load and rebase shared objects """
         # shared_libs = self.main_bin.deps
         shared_libs = self.dependencies
         for name, addr in shared_libs.iteritems():
+
+            # If a custom loaded object already provides the same dependency as
+            # what we autodetected, let's skip that
+            if name in self.__custom_dependencies:
+                continue
 
             fname = os.path.basename(name)
             # If we haven't determined any base address yet (probably because
@@ -340,10 +528,10 @@ class Ld(object):
             if addr == 0:
                 addr = self.__get_safe_rebase_addr()
 
-            if self.force_ida == True:
-                so = self.__load_so_ida(name)
+            if self.ida_main == True:
+                so = self.__auto_load_so_ida(name)
             else:
-                so = self.__load_so_cle(name)
+                so = self.__auto_load_so_cle(name)
 
             if so is None :
                 if fname not in self.skip_libs:
@@ -362,11 +550,11 @@ class Ld(object):
         We actually copy the local memory of the object at the new computed
         address in the "main memory" """
 
-        if self.force_ida == True:
+        if isinstance(so, IdaBin):
             so.rebase(base)
             return
 
-        if "mips" in so.arch and self.force_ida == False:
+        if "mips" in so.arch and isinstance(so, Elf):
             l.debug("\t--> rebasing %s @0x%x (instead of static base addr 0x%x)" %
             (so.binary, base, so.mips_static_base_addr))
         else:
@@ -462,7 +650,9 @@ class Ld(object):
         set 0 as the laod address for SOs.
         """
 
-        if self.force_ida == True:
+        # This is hackish, but I haven't found a way to get extract DT_NEEDED
+        # entries from the dynamic table using IDA
+        if self.ida_main == True:
             elf_b = Elf(self.path, load=False)  # Use Elf to determine needed libs
             deps = elf_b.deps
         else:
@@ -475,7 +665,7 @@ class Ld(object):
             load[i] = 0
         return load
 
-    def __load_so_ida(self, soname, base_addr = None):
+    def __auto_load_so_ida(self, soname, base_addr = None):
         """Ida cannot use system libraries because it needs write access to the
            same location to write its #@! db files.
         """
@@ -526,7 +716,7 @@ class Ld(object):
                               " path is correct" % path)
         return dest
 
-    def __load_so_cle(self, soname):
+    def __auto_load_so_cle(self, soname):
         # Soname can be a path or just the name if the library, in which case we
         # search for it in known paths.
 
@@ -612,7 +802,7 @@ class Ld(object):
                 l.warning("[U] %s -> unable to resolve import (IDA) :(", name)
                 continue
 
-            l.debug("[R] %s -> at 0x%08x (IDA)", name, newaddr)
+            l.info("[R] %s -> at 0x%08x (IDA)", name, newaddr)
             b.update_addrs([ea], newaddr)
 
     # Test cases

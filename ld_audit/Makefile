@@ -34,7 +34,7 @@ ld_ppc64: ld_audit.c
 ifeq (,$(shell which $(cc_ppc64)))
 	echo "CLE: no powerpc64 compiler"
 else
-ifeq (, $(shell $(cc_ppc64) --version | egrep -o '4\.[5-9]'))
+ifneq (, $(shell $(cc_ppc64) --version | egrep -o '4\.[5-9]'))
 	mkdir -p ppc64
 	$(cc_ppc64) $(cflags_ppc64) -o ppc64/cle_ld_audit.so ld_audit.c -fpic --shared
 else

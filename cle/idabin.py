@@ -16,7 +16,7 @@ class IdaBin(AbsObj):
     def __init__(self, *args, **kwargs):
 
         # Call the constructor of AbsObj
-        super(IdaBin, self).__init(*args, **kwargs)
+        super(IdaBin, self).__init__(*args, **kwargs)
 
         # We don't really need 32 bit idal, do we ?
         ida_prog = "idal64"
@@ -29,14 +29,20 @@ class IdaBin(AbsObj):
 
         self.badaddr = self.ida.idc.BADADDR
         self.memory = self.ida.mem
-        if self.base_addr is not None:
-            self.rebase(self.base_addr)
-        else:
-            self.rebase_addr = 0
+
+        # This flag defines whether synchronization with Ld is needed
+        self.mem_needs_sync = False
+
+       # if self.rebase_addr != 0:
+       #     self.rebase(self.base_addr)
+       # else:
+       #     self.rebase_addr = 0
 
         self.imports = self.__get_imports()
         self.exports = self.__get_exports()
         self.entry_point = self.__get_entry_point()
+
+        self._ppc64_abiv1_entry_fix()
 
     def rebase(self, base_addr):
         """ Rebase the binary at address @base_addr """
@@ -250,6 +256,10 @@ class IdaBin(AbsObj):
             #l.debug("... setting 0x%x to 0x%x", addr, new_val)
             for n, p in enumerate(packed):
                 self.ida.mem[addr + n] = p
+
+        # IDA memory was modified, it needs to be synced with Ld
+        if len(update_addrs) > 0:
+            self.mem_needs_sync = True
 
     def is_thumb(self, addr):
         """ Is the address @addr in thumb mode ? (ARM) """
