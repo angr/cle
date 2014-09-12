@@ -68,10 +68,10 @@ class Elf(AbsObj):
         self.jmprel = self.__get_jmprel(info)
         self.endianness = self.__get_endianness(info)
 
-        self._ppc64_abiv1_entry_fix()
-
         if load is True:
             self.load()
+
+        self._ppc64_abiv1_entry_fix()
 
     def get_min_addr(self):
         """
