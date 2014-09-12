@@ -182,9 +182,6 @@ class Elf(AbsObj):
             if i[0] == "Endianness":
                 return i[1].strip()
 
-    def get_vex_endness(self):
-        return 'VexEndnessLE' if self.endianness == 'LSB' else 'VexEndnessBE'
-
     def __get_elf_flags(self, data):
         for i in data:
             if i[0] == "Flags":
@@ -302,8 +299,8 @@ class Elf(AbsObj):
         return imports
 
     def get_exports(self):
-        """ We can basically say that any symbol defined with an address and
-        STB_GLOBAL binding is an export
+        """ Symbol defined with an address and with STB_GLOBAL or STB_WEAK
+        binding are exports.
         """
         exports = {}
         for i in self.symbols:
@@ -312,12 +309,13 @@ class Elf(AbsObj):
             binding = i["binding"]
             info = i["sh_info"]
 
-            # Exports have STB_GLOBAL binding property. TODO: STB_WEAK ?
-            if (binding == "STB_GLOBAL" and info != "SHN_UNDEF" ):
-                if name in self.imports:
-                    raise CLException("Symbol %s at 0x%x is both in imports and "
+            # Exports are defined symbols with STB_GLOBAL or STB_WEAK binding properties.
+            if (info != 'SHN_UNDEF'):
+                if (binding == "STB_GLOBAL" or binding == "STB_WEAK"):
+                    if name in self.imports:
+                        raise CLException("Symbol %s at 0x%x is both in imports and "
                                       "exports, something is wrong :(", name, addr)
-                exports[name] = addr
+                    exports[name] = addr
         return exports
 
     def __get_lib_names(self, data):
