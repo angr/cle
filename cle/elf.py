@@ -2,10 +2,10 @@ import os
 import logging
 import subprocess
 from .clexception import CLException
-import struct
 from .abs_obj import AbsObj
 
 l = logging.getLogger("cle.elf")
+
 
 class Segment(object):
     """ Simple representation of an ELF file segment"""
@@ -408,7 +408,7 @@ class Elf(AbsObj):
         (i.e., is it mapped into memory ?)
         """
         for i in self.segments:
-            if contains_addr(i, addr):
+            if i.contains_addr(addr):
                 return True
         return False
 
