@@ -67,6 +67,7 @@ class Elf(AbsObj):
         self.gotaddr = self.__get_gotaddr(self.dynamic) # Add rebase_addr if relocated
         self.jmprel = self.__get_jmprel(info)
         self.endianness = self.__get_endianness(info)
+        self.linking = self.__get_linking_type(info)
 
         if load is True:
             self.load()
@@ -257,6 +258,11 @@ class Elf(AbsObj):
             got_slot = gotaddr + (got_idx) * got_entry_size
             jmprel[sym["name"]] = got_slot
         return jmprel
+
+    def __get_linking_type(self, data):
+        for i in data:
+            if i[0] == "Linking":
+                return i[1].strip()
 
     def relocate_mips_jmprel(self):
         """ After we relocate an ELF object, we also need, in the case of MIPS,

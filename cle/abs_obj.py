@@ -34,6 +34,7 @@ class AbsObj(object):
 
         self.object_type = None
         self.deps = None # Needed shared objects (libraries dependencies)
+        self.linking = None # Dynamic or static linking
 
         # Custom options
         self.custom_base_addr = None

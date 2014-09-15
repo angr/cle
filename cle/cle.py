@@ -144,8 +144,14 @@ class Ld(object):
             return
 
         # If we reach this point, the main binary is Elf.
+
+        if self.main_bin.linking == 'static':
+            "This binary was linked statically, there is nothing to resolve here"
+            return;
+
         # We need to resolve dependencies here, even when auto_load_libs=False
         # because the SimProcedure resolution needs this info.
+
         self.dependencies = self.__ld_so_addr()
 
         if self.dependencies is None:
@@ -270,7 +276,7 @@ class Ld(object):
     def __reloc(self, obj):
         """ Perform relocations of external references """
 
-        l.debug(" [Performing relocations of %s]" % obj.binary)
+        l.debug("[Performing relocations of %s]" % obj.binary)
 
         # MIPS local GOT entries need relocation too (except for the main
         # binary as we don't relocate it).
