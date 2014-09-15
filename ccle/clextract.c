@@ -270,6 +270,9 @@ void print_jmprel(ElfW(Dyn) *dynamic, struct segment *s)
    unsigned char rtype;
    char *name;
 
+   if (!dynamic || !s)
+       return;
+
    /* Size of relocation entries associated with the PLT */
    pltrelsz = get_dyn_val(dynamic, DT_PLTRELSZ);
 
@@ -339,6 +342,8 @@ void print_rela(ElfW(Dyn) *dynamic, struct segment *s)
     int i;
     ElfW(Word) relaent, relasz, pltrel;
 
+    if (!dynamic || !s)
+        return;
 
     /* Relocation entries can be ElfW(Rela) of ElfW(Rel) structures*/
     pltrel = get_dyn_val(dynamic, DT_PLTREL);
@@ -383,6 +388,9 @@ void print_rpath(ElfW(Dyn) *dynamic, struct segment *s)
     int off;
     char *strtab;
 
+    if (!dynamic || !s)
+        return;
+
     off = (int)get_dyn_val(dynamic, DT_RPATH);
 
     strtab = get_strtab_ptr(dynamic, s);
@@ -424,7 +432,7 @@ void print_symtab(ElfW(Dyn) *dynamic, struct segment *s)
     int nchain;
     unsigned char type_v, bind_v;
 
-    if (!s)
+    if (!s || !dynamic)
         return;
 
     symtab = get_symtab_ptr(dynamic, s);
@@ -501,6 +509,10 @@ void print_needed(ElfW(Dyn) *dynamic, struct segment *s)
     int i;
     char *strtab;
 
+    if (!dynamic || !s)
+        return;
+
+
     strtab = get_strtab_ptr(dynamic, s);
     if (!strtab){
         printf("ERR: NOSTRTAB");
@@ -520,6 +532,10 @@ void print_needed(ElfW(Dyn) *dynamic, struct segment *s)
 void print_mips_reloc(ElfW(Dyn) *dynamic, struct segment *s)
 {
     int i;
+
+    if (!dynamic || !s)
+        return;
+
     for (i=0; dynamic[i].d_tag != DT_NULL; i++)
     {
         if (dynamic[i].d_tag == DT_MIPS_GOTSYM)
@@ -621,38 +637,47 @@ int main(int argc, char *argv[])
     print_shdr(shdr, ehdr.e_shnum);
 
     dynamic = get_dynamic(phdr, ehdr.e_phnum, f);
-    print_dynamic(dynamic);
 
-    data = malloc(sizeof(struct segment));
-    text = malloc(sizeof(struct segment));
+    if (!dynamic)
+        printf("Linking, static\n");
+    else
+    {
+        printf("Linking, dynamic\n");
 
-    if(!data || !text)
-        exit(EXIT_FAILURE);
+        print_dynamic(dynamic);
 
-    if (load_text(ehdr, phdr, text, f) != 0)
-        exit(EXIT_FAILURE);
+        data = malloc(sizeof(struct segment));
+        text = malloc(sizeof(struct segment));
 
-    if (load_data(ehdr, phdr, data, f) != 0)
-        exit(EXIT_FAILURE);
+        if(!data || !text)
+            exit(EXIT_FAILURE);
+
+        if (load_text(ehdr, phdr, text, f) != 0)
+            exit(EXIT_FAILURE);
+
+        if (load_data(ehdr, phdr, data, f) != 0)
+            exit(EXIT_FAILURE);
 
 
-    print_symtab(dynamic, text);
-    print_rela(dynamic, text);
-    print_jmprel(dynamic, text);
-    print_needed(dynamic, text);
-    print_rpath(dynamic, text);
-    print_mips_reloc(dynamic,text);
+        print_symtab(dynamic, text);
+        print_rela(dynamic, text);
+        print_jmprel(dynamic, text);
+        print_needed(dynamic, text);
+        print_rpath(dynamic, text);
+        print_mips_reloc(dynamic,text);
 
-    printf("gotaddr,0x%x\n", get_dyn_val(dynamic, DT_PLTGOT));
+        printf("gotaddr,0x%x\n", get_dyn_val(dynamic, DT_PLTGOT));
+
+        free_segment(&data);
+        free_segment(&text);
+    }
 
     printf("Ehdr Flags: 0x%x\n", ehdr.e_flags);
+
 
     fclose(f);
     free(phdr);
     free(shdr);
-
-    free_segment(&data);
-    free_segment(&text);
-
+    
     return 0;
 }
