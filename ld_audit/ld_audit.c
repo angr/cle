@@ -5,6 +5,11 @@
 
 #define MAX_LIBS 20
 
+#if __ELF_NATIVE_CLASS == 32
+    #define ELF32
+#else
+    #define ELF64
+#endif
 
 /* The following makes use of the LD's audit interface to resolve symbols and
  * get addresses where it loads shared libraries at runtime.
@@ -13,7 +18,6 @@
  * --shared) and run the target program using LD_AUDIT=./this_lib
  *  /path/to/program.
  */
-
 
 const char *library="LIB";
 const char *symbol="SYM";
@@ -57,6 +61,7 @@ int map_add(struct link_map *map, uintptr_t cookie){
                 break;
             }
         }
+    return 0;
 }
 
 // Append info to the log file
@@ -65,7 +70,11 @@ void log_append(const char*type, const char *name, ElfW(Addr) addr)
 FILE *path;
 
 path = fopen(logfile, "a");
-fprintf(path, "%s,%s,%p\n", type, name, addr);
+#ifdef ELF64
+fprintf(path, "%s,%s,%lx\n", type, name, addr);
+#else
+fprintf(path, "%s,%s,%x\n", type, name, addr);
+#endif
 fclose(path);
 }
 

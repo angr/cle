@@ -6,6 +6,8 @@ except ImportError:
 
 import angr
 import logging
+import os
+import simuvex
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -53,13 +55,10 @@ def run(p1):
     print "irsb size %d" % run1.irsb.size()
     print "---"
 
-
 def browse(p):
     run = p.sim_run(p.initial_exit())
     for exit in run.exits():
         print "exit concretized to: %x" % exit.concretize()
-
-
 
 def cfg(p):
     cfg = p.construct_cfg()
@@ -69,43 +68,42 @@ def cfg(p):
     print"---"
     return cfg
 
-
 def setup_ida(filename):
     p_ida = None
     p_ida = angr.Project(filename, default_analysis_mode='symbolic',
-                         use_sim_procedures=True, arch="MIPS32",
-                         load_libs=True)
+                         use_sim_procedures=True, load_libs=True, arch="MIPS32")
     return p_ida
-
 
 def setup_cle(filename):
     p_cle = angr.Project(filename, default_analysis_mode='symbolic',
-                         use_sim_procedures=True, use_cle=True)
-    return p_cle
+                         use_sim_procedures=True, except_thumb_mismatch=False,
+                         cle_ops=\
+                         {filename: {'load_libs': True, \
+                                     'skip_libs': ['ld.so.1'], \
+                                     'backend': 'ida'}})
 
+    return p_cle
 
 def test(p):
     run(p)
     cfg(p)
     browse(p)
 
-
 if __name__ == '__main__':
-    #path="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-x86"
-     # path ="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-mips"
-    #path ="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-ppc32"
-    #path="/home/christophe/binary_project/angr/angr/tests/fauxware/fauxware-amd64"
+    home = os.getenv("HOME")
 
-    #path = "/home/christophe/binary_project/loader/cle/ccle/ppc/clextract"
-    #path = "/home/christophe/binary_project/loader/cle/ccle/i386/clextract"
-    #path = "/home/christophe/binary_project/loader/cle/ccle/x86_64/clextract"
-    #path = "/home/christophe/binary_project/loader/cle/ccle/mips/clextract"
-    #path = "/home/christophe/binary_project/loader/cle/ccle/arm/clextract"
-    path = "/home/christophe/binary_project/loader/cle/test/mips/test_reloc-mips"
+    #path= home + "/binary_project/angr/angr/tests/fauxware/fauxware-x86"
+    #path = home + "/binary_project/angr/angr/tests/fauxware/fauxware-mips"
+    #path = home + "/binary_project/angr/angr/tests/fauxware/fauxware-ppc32"
+    #path = home + "/binary_project/angr/angr/tests/fauxware/fauxware-amd64"
+    path= home + "/binary_project/angr/angr/tests/fauxware/arm32l/fauxware"
+    path= home + "/binary_project/angr/angr/tests/fauxware/mips32l/fauxware"
+    #path = home + "/binary_project/darpa/Linksys/ta2/ping"
+    #path = "/tmp/fauxware-arm"
 
-    #ida = setup_ida(path)
-    #test(ida)
-    cle = setup_cle(path)
-    test(cle)
+    p = setup_cle(path)
+    test(p)
+    #cle = setup_cle(path)
+    #test(cle)
 
 
