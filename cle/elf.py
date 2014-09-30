@@ -294,7 +294,8 @@ class Elf(AbsObj):
             addr = i["addr"]
             s_info = i["sh_info"]
             binding = i["binding"]
-            if ((s_info == "SHN_UNDEF") and (binding == "STB_GLOBAL")):
+            if ((s_info == "SHN_UNDEF") and (binding == "STB_GLOBAL" or binding
+                                             == "STB_WEAK")):
                 imports[name] = int(addr)
         return imports
 

@@ -51,6 +51,8 @@ class ArchInfo(object):
         self.ida_arch = self.to_ida_arch(self.name)
         self.elfflags = 0
 
+        self.path = binary
+
 
     def to_qemu_arch(self, arch):
         """ We internally use the BFD architecture names.
@@ -209,11 +211,12 @@ class ArchInfo(object):
             """
 
         # Same names
-        if self.name == arch:
+        if self.name == arch.name:
             return True
 
         if self.byte_order != arch.byte_order:
             return False
+
         if self.bits != arch.bits:
             return False
 
