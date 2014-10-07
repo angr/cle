@@ -411,6 +411,17 @@ class Ld(object):
             if symbol in ex:
                 return ex[symbol] + so.rebase_addr
 
+    def find_symbol_got_entry(self, symbol):
+        """ Look for the address of a GOT entry for symbol @symbol.
+        If found, return the address, otherwise, return None
+        """
+        if type(self.main_bin) is IdaBin:
+            if symbol in self.main_bin.imports:
+                return self.main_bin.imports[symbol]
+        elif type(self.main_bin) is Elf:
+            if symbol in self.main_bin.jmprel:
+                return self.main_bin.jmprel[symbol]
+
     def __load_exe(self, path, main_binary_ops):
         """ Instanciate and load exe into "main memory
         """
@@ -424,17 +435,18 @@ class Ld(object):
         if 'auto_load_libs' in main_binary_ops:
             self.skip_libs = main_binary_ops['auto_load_libs']
 
-        # The backend defaults to Elf
-        self.main_bin = self.__instanciate_binary(path, main_binary_ops)
-
-        # IDA specific crap
+                # IDA specific crap
         if main_binary_ops['backend'] == 'ida':
             arch = ArchInfo(self.path).name
             self.ida_main = True
             # If we use IDA, it needs a directory where it has permissions
             self.tmp_dir = "/tmp/cle_" + os.path.basename(self.path) + "_" + arch
             self.original_path = self.path
-            self.path = self.__copy_obj(self.path)
+            path = self.__copy_obj(self.path)
+            self.path = path
+
+        # The backend defaults to Elf
+        self.main_bin = self.__instanciate_binary(path, main_binary_ops)
 
         # Copy mem from object's private memory to Ld's address space
         self.__copy_mem(self.main_bin)
