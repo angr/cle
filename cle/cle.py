@@ -99,7 +99,7 @@ class Ld(object):
         binaries = []
         b_ops = []
         for b, ops in cle_ops.iteritems():
-            binaries.append(b)
+            binaries.append(str(b))
             if 'backend' not in ops:
                 ops['backend'] = 'elf'  # We default to Elf
             b_ops.append(ops)
@@ -611,12 +611,12 @@ class Ld(object):
         ld_libs = self.main_bin.archinfo.get_cross_ld_path()
         ld_path = ld_path + ":" + ld_libs
 
-        var = "LD_LIBRARY_PATH=%s,LD_AUDIT=%s" % (ld_path, ld_audit_obj)
+        var = "LD_LIBRARY_PATH=%s,LD_AUDIT=%s,LD_BIND_NOW=yes" % (ld_path, ld_audit_obj)
 
         #LD_AUDIT's output
         log = "./ld_audit.out"
 
-        cmd = [qemu, "-L", cross_libs, "-E", var, self.path]
+        cmd = [qemu, "-strace", "-L", cross_libs, "-E", var, self.path]
         s = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE)
         s.communicate()
