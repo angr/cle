@@ -433,7 +433,7 @@ class Ld(object):
             self.skip_libs = main_binary_ops['skip_libs']
 
         if 'auto_load_libs' in main_binary_ops:
-            self.skip_libs = main_binary_ops['auto_load_libs']
+            self.auto_load_libs = main_binary_ops['auto_load_libs']
 
                 # IDA specific crap
         if main_binary_ops['backend'] == 'ida':

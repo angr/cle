@@ -133,28 +133,34 @@ class ArchInfo(object):
         else:
             return cmd
 
-    def get_cross_library_path(self):
-        """ Returns the path to cross libraries for @arch, suitable for qemu's
-        -L option"""
+
+    def _arch_paths(self):
+        """ Architecture specific libs paths """
 
         arch = self.qemu_arch
 
         if arch == "x86_64":
-            return "/lib/x86_64-linux-gnu/"
+            return ["/usr/lib/x86_64-linux-gnu/", "/lib/x86_64-linux-gnu/"]
         elif arch in ("ppc", "ppc64"):
-            return "/usr/powerpc-linux-gnu/"
+            return ["/usr/powerpc-linux-gnu/"]
         elif arch == "mips":
-            return "/usr/mips-linux-gnu/"
+            return ["/usr/mips-linux-gnu/"]
         elif arch == "mipsel":
-            return "/usr/mipsel-linux-gnu/"
+            return ["/usr/mipsel-linux-gnu/"]
         elif arch == "arm" and self.elfflags & 0x200:
-            return "/usr/arm-linux-gnueabi/"
+            return ["/usr/arm-linux-gnueabi/"]
         elif arch == "arm":
-            return "/usr/arm-linux-gnueabihf/"
+            return ["/usr/arm-linux-gnueabihf/"]
         elif arch == "i386":
-            return "/lib32"
+            return ["/lib32"]
 
         raise CLException("Architecture %s is not supported" % arch)
+
+    def get_cross_library_path(self):
+        """ Returns the paths to cross libraries for @arch, suitable for qemu's
+        -L option (for LD_LIBRARY_PATH, use get_cross_ld_path())"""
+
+        return ":".join(self._arch_paths())
 
     def get_unique_name(self):
         arch = self.qemu_arch
@@ -166,14 +172,18 @@ class ArchInfo(object):
         return arch
 
     def get_cross_ld_path(self):
-        """ LD_LIBRARY_PATH expects "$ARCH_LIB/lib" except for i386..."""
-        path = self.get_cross_library_path()
-        if self.qemu_arch == "i386":
-            return path
+        """
+        This returns a string of contatenated paths where to look for libs, for
+        use e.g., with LD_LIBRARY_PATH.
+        """
+        path = self._arch_paths()
+        if self.qemu_arch == "i386"or self.qemu_arch == "x86_64":
+            pass
         elif self.qemu_arch == "ppc64":
-            return os.path.join(path, "/lib64")
+            map(lambda x: os.path.join(x, "/lib64"), path)
         else:
-            return os.path.join(path, "/lib")
+            map(lambda x: os.path.join(x, "/lib"), path)
+        return ":".join(path)
 
     def get_simuvex_obj(self):
         s_arch = self.to_simuvex_arch(self.name)
