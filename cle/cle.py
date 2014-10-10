@@ -689,31 +689,24 @@ class Ld(object):
         back to executing the target, which we don't want ! This is a problem
         specific to GNU LD, we can't fix this.
 
-        This is a simple hack to work around it: override the data at the entry
-        point with (sizeof address) null bytes, on a copy of the given main binary.
-        This will cause an error when trying to execute the main binary.
+        This is a simple hack to work around it: set the address of the entry
+        point to 0 in the program header
+        This will cause the main binary to segfault if executed.
         """
 
         # Let's work on a copy of the main binary
         copy = self.__copy_obj(path, suffix="screwed")
         f = open(copy, 'r+')
 
-        # Get the main binary's text segment info
-        text = self.main_bin.get_segment(self.main_bin.entry_point)
-
-        # Skip the bytes until the beginning of text
-        skip = text.offset
-
-        # Offset of the entry point (relative to the text segment)
-        off = (self.main_bin.entry_point - text.vaddr)
-        f.seek(off + skip)
-
-        screw_str = "screw it"
+        # Looking at elf.h, we can see that the the entry point's
+        # definition is always at the same place for all architectures.
+        off = 0x18
+        f.seek(off)
         count = self.main_bin.archinfo.bits / 8
-        screw = screw_str[0:count]
 
-        # Shred the entry point's code with crap
-        #byt = "\xff" * count
+        # Set the entry point to address 0
+        screw_char = "\x00"
+        screw = screw_char * count
         f.write(screw)
         f.close()
         return copy
