@@ -40,8 +40,7 @@ class Elf(AbsObj):
         super(Elf, self).__init__(*args, **kwargs)
 
         # Shall we load the binary ? Yes by default
-        if 'load' not in kwargs:
-            load = True
+        load = True if 'load' not in kwargs else False
 
         # MIPS
         self.mips_static_base_addr = None
@@ -368,7 +367,7 @@ class Elf(AbsObj):
         # We want to make sure qemu returns correctly before we interpret
         # the output. TODO: we should also get clextract's return code (maybe
         # through an ENV variable ?)
-        if (err != 0):
+        if (err != 0 and err !=1): # For some reasons, it returns 1 sometimes on success
             raise CLException("Qemu returned error %d while running %s :("
                               % (err, " ".join(cmd)))
 
