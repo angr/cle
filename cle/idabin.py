@@ -85,7 +85,7 @@ class IdaBin(AbsObj):
 
         # If we reach this point, we should have the addresses
         if self.got_begin is None or self.got_end is None:
-            raise CLException("This architecture has no section %s :(", sec_name)
+            raise CLException("This architecture has no section %s :(" % sec_name)
 
     def __in_proper_section(self, addr):
         """ Is @addr in the proper section for this architecture ?"""
