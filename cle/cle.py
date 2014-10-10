@@ -53,6 +53,8 @@ class Ld(object):
 
             @auto_load_libs : bool ; shall we also load dynamic libraries ?
             @skip_libs = [] ; specific libs to skip, e.g., skip_libs=['libc.so.6']
+            @except_on_ld_fail: bool ; shall we raise an exception if LD_AUDIT fails ?
+            @ignore_missing_libs: bool ; shall we ignore missing libs (instead of exception)
 
         The following options override CLE's automatic detection:
 
@@ -87,6 +89,8 @@ class Ld(object):
         self.auto_load_libs = True  # Shall we load the libraries the main binary depends on ?
         self.tmp_dir = None  # A temporary directory where we store copies of the binaries
         self.original_path = None  # The path to the original binary (before copy)
+        self.except_on_ld_fail = False # Raise an exception when LD_AUDIT fails
+        self.ignore_missing_libs = False # Raise an exception when a lib cannot be loaded
 
         if type(cle_ops) is not dict:
             raise CLException("CLE expects a dict as unique parameter")
@@ -155,6 +159,8 @@ class Ld(object):
         self.dependencies = self.__ld_so_addr()
 
         if self.dependencies is None:
+            l.warning("Could not get dependencies from LD, falling back to"
+                      " static mode")
             self.dependencies = self.__ld_so_addr_fallback()
 
         if self.auto_load_libs is True:
@@ -428,6 +434,8 @@ class Ld(object):
         # Warning: when using IDA, the relocations will be performed in its own
         # memory, which we'll have to sync later with Ld's memory
         self.path = path
+        arch = ArchInfo(self.path).name
+        self.tmp_dir = "/tmp/cle_" + os.path.basename(self.path) + "_" + arch
 
         if 'skip_libs' in main_binary_ops:
             self.skip_libs = main_binary_ops['skip_libs']
@@ -435,12 +443,16 @@ class Ld(object):
         if 'auto_load_libs' in main_binary_ops:
             self.auto_load_libs = main_binary_ops['auto_load_libs']
 
-                # IDA specific crap
+        if 'except_on_ld_fail' in main_binary_ops:
+            self.except_on_ld_fail = main_binary_ops['except_on_ld_fail']
+
+        if 'ignore_missing_libs' in main_binary_ops:
+            self.ignore_missing_libs = main_binary_ops['ignore_missing_libs']
+
+        # IDA specific crap
         if main_binary_ops['backend'] == 'ida':
-            arch = ArchInfo(self.path).name
             self.ida_main = True
             # If we use IDA, it needs a directory where it has permissions
-            self.tmp_dir = "/tmp/cle_" + os.path.basename(self.path) + "_" + arch
             self.original_path = self.path
             path = self.__copy_obj(self.path)
             self.path = path
@@ -553,9 +565,12 @@ class Ld(object):
 
             if so is None :
                 if fname not in self.skip_libs:
-                    raise CLException("Could not find suitable %s (%s), please copy it in the "
+                    if self.ignore_missing_libs is True:
+                        raise CLException("Could not find suitable %s (%s), please copy it in the "
                                       "binary's directory or set skip_libs = "
                                       "[\"%s\"]" % (fname, self.main_bin.archinfo.name, fname))
+                    else:
+                        l.warning("Could not load lib %s" % fname)
                 else:
                     l.debug("Shared object %s not loaded (skip_libs)" % name)
             else:
@@ -625,10 +640,13 @@ class Ld(object):
 
         var = "LD_LIBRARY_PATH=%s,LD_AUDIT=%s,LD_BIND_NOW=yes" % (ld_path, ld_audit_obj)
 
+        # Let's work on a copy of the binary
+        binary = self._binary_screwup_copy(self.path)
+
         #LD_AUDIT's output
         log = "./ld_audit.out"
 
-        cmd = [qemu, "-strace", "-L", cross_libs, "-E", var, self.path]
+        cmd = [qemu, "-strace", "-L", cross_libs, "-E", var, binary]
         s = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE)
         s.communicate()
@@ -652,13 +670,53 @@ class Ld(object):
             return libs
 
         else:
+
             l.error("Could not find library dependencies using ld."
                 " The log file '%s' does not exist, did qemu fail ? Try to run "
                               "`%s` manually to check" % (log, " ".join(cmd)))
             l.info("Will fallback to alternate loading mode. The addresses won't "
                    "match qemu's addresses anymore, and only libraries from the "
                    "current directory will be loaded.")
+
+            if self.except_on_ld_fail:
+                raise CLException("Could not find library dependencies using ld.")
+
             return None
+
+    def _binary_screwup_copy(self, path):
+        """
+        When LD_AUDIT cannot load CLE's auditing library, it unfortunately falls
+        back to executing the target, which we don't want ! This is a problem
+        specific to GNU LD, we can't fix this.
+
+        This is a simple hack to work around it: override the data at the entry
+        point with (sizeof address) null bytes, on a copy of the given main binary.
+        This will cause an error when trying to execute the main binary.
+        """
+
+        # Let's work on a copy of the main binary
+        copy = self.__copy_obj(path, suffix="screwed")
+        f = open(copy, 'r+')
+
+        # Get the main binary's text segment info
+        text = self.main_bin.get_segment(self.main_bin.entry_point)
+
+        # Skip the bytes until the beginning of text
+        skip = text.offset
+
+        # Offset of the entry point (relative to the text segment)
+        off = (self.main_bin.entry_point - text.vaddr)
+        f.seek(off + skip)
+
+        screw_str = "screw it"
+        count = self.main_bin.archinfo.bits / 8
+        screw = screw_str[0:count]
+
+        # Shred the entry point's code with crap
+        #byt = "\xff" * count
+        f.write(screw)
+        f.close()
+        return copy
 
     def __ld_so_addr_fallback(self):
         """
@@ -722,11 +780,15 @@ class Ld(object):
             os.mkdir(self.tmp_dir)
 
 
-    def __copy_obj(self, path):
+    def __copy_obj(self, path, suffix=None):
         """ Makes a copy of obj into CLE's tmp directory """
         self.__make_tmp_dir()
         if os.path.exists(path):
-            dest = os.path.join(self.tmp_dir, os.path.basename(path))
+            if suffix is None:
+                bn = os.path.basename(path)
+            else:
+                bn = os.path.basename(path) + "_" + suffix
+            dest = os.path.join(self.tmp_dir, bn)
             l.info("\t -> copy obj %s to %s" % (path, dest))
             shutil.copy(path, dest)
         else:

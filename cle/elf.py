@@ -49,6 +49,7 @@ class Elf(AbsObj):
         self.mips_unreftextno = None
         self.mips_gotsym = None
         self.mips_symtabno = None
+        #self.segments = None # Loaded segments
 
         info = self.__call_clextract(self.binary)
 
@@ -425,6 +426,12 @@ class Elf(AbsObj):
             if s.contains_addr(vaddr):
                 return s.name
         return None
+
+    def get_segment(self, vaddr):
+        """ Returns the segment that contains @vaddr """
+        for s in self.segments:
+            if s.contains_addr(vaddr):
+                return s
 
     def addr_to_offset(self, addr):
         for s in self.segments:
