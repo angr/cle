@@ -60,14 +60,17 @@ class Elf(AbsObj):
         self.symbols = self.__get_symbols(info)
         self.imports = self.__get_imports(self.symbols)
         self.entry_point = self.__get_entry_point(info)
+        self.linking = self.__get_linking_type(info)
         self.phdr = self.__get_phdr(info)
         self.deps = self.__get_lib_names(info)
         self.dynamic = self.__get_dynamic(info)
         self.__mips_specifics() # Set MIPS properties
-        self.gotaddr = self.__get_gotaddr(self.dynamic) # Add rebase_addr if relocated
-        self.jmprel = self.__get_jmprel(info)
         self.endianness = self.__get_endianness(info)
-        self.linking = self.__get_linking_type(info)
+
+        # Stuff static binaries don't have
+        if self.linking == "dynamic":
+            self.gotaddr = self.__get_gotaddr(self.dynamic) # Add rebase_addr if relocated
+            self.jmprel = self.__get_jmprel(info)
 
         if load is True:
             self.load()
@@ -240,9 +243,11 @@ class Elf(AbsObj):
                 got[i[3].strip()] = int(i[1].strip(), 16)
         return got
 
-    # What are the external symbols to relocate on MIPS ? And what are their GOT
-    # entries ? There is no DT_JMPREL on mips, so let's emulate one
     def __get_mips_jmprel(self):
+        """
+        What are the external symbols to relocate on MIPS ? And what are their GOT
+        entries ? There is no DT_JMPREL on mips, so let's emulate one
+        """
 
         symtab_base_idx = self.mips_gotsym # First symbol of symtab that has a GOT entry
         got_base_idx = self.mips_local_gotno  # Index of first global entry in GOT

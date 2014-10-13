@@ -39,6 +39,8 @@ class IdaBin(AbsObj):
        #     self.rebase_addr = 0
 
         self.imports = self.__get_imports()
+        self.linking = self._get_linking_type()
+
         self.exports = self.__get_exports()
         self.entry_point = self.__get_entry_point()
 
@@ -278,4 +280,14 @@ class IdaBin(AbsObj):
                 string_list.append(t_entry)
             return string_list
 
+    def _get_linking_type(self):
+        """ Define whether a binary is sattically or dynamically linked based on
+        its imports.
+        TODO: this is not the best, and with the Elf class we actually look for
+        the presence of a dynamic table. We should do it with IDA too.
+        """
+        if len(self.imports) == 0:
+            return "static"
+        else:
+            return "dynamic"
 
