@@ -279,22 +279,33 @@ class Elf(AbsObj):
         for i,v in self.jmprel.iteritems():
             self.jmprel[i] = v + delta
 
+    def _get_load_phdr_ent(self):
+        """ Get entries of the program header table that correspond to PT_LOAD
+        segments
+        """
+        loadable = []
+        for i in self.phdr:
+            if i["type"] == "PT_LOAD":
+                loadable.append(i)
+        return loadable
+
     def get_text_phdr_ent(self):
         """ Return the entry of the program header table corresponding to the
-        text segment"""
-        for i in self.phdr:
-            if i["type"] == "PT_LOAD" and i["filesz"] == i["memsz"]:
-                return i
+        text segment. This is the first PT_LOAD segment we encounter"""
+        load = self._get_load_phdr_ent()
+        # Return the segment with the lowest vaddr
+        return load[0] if load[0]["vaddr"] < load[1]["vaddr"] else load[1]
 
     def get_data_phdr_ent(self):
         """ Return the enty of the program header table corresponding to the
-        data segment"""
-        for i in self.phdr:
-            # The data segment is smaller in the file than in memory because of
-            # the BSS section (not represented in the file as it only contains
-            # null bytes)
-            if (i["type"] == "PT_LOAD") and (i["filesz"] != i["memsz"]):
-                return i
+        data segment.
+        Note: the DATA segment is often smaller on disk than it is in memory because
+        of the BSS segment, but it is not always the case so we can't use that
+        as a valid heuristic
+        """
+        load = self._get_load_phdr_ent()
+        # Return the segment with the highest vaddr
+        return load[0] if load[0]["vaddr"] > load[1]["vaddr"] else load[1]
 
     def __get_imports(self, symbols):
         """ Get imports from symbol table """
