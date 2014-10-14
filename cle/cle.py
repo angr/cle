@@ -32,24 +32,22 @@ class Ld(object):
     The loader loads all the objects and exports an abstraction of the memory of
     the process.
     """
-    def __init__(self, cle_ops):
+    def __init__(self, main_binary, cle_ops):
         """
-        Cle expects a dict as a set of parameters of the following form:
+        Cle expects:
+            - @main_binary: the path to the main binary of the project
+            - optionally, a dict as a set of parameters of the following form:
             {path1:{options1}, path2:{options2} etc.
 
             where:
-                - each path is a distinct binary. The first binary is expected to
-                be the main binary. Every other binary is expected to be a
-                dependency of the fist binary.
-
+                - each path is a distinct binary.
                 - each set of options is a dict.
 
         Valid options are:
 
             @backend : 'ida' or 'elf' or 'blob' (defaults to 'elf')
 
-        The following options are only relevant for the main binary (i.e., the
-        first binary passed to CLE):
+        The following options are only relevant for the main binary:
 
             @auto_load_libs : bool ; shall we also load dynamic libraries ?
             @skip_libs = [] ; specific libs to skip, e.g., skip_libs=['libc.so.6']
@@ -76,7 +74,7 @@ class Ld(object):
         # These are all the class variables of Ld
         # Please add new stuff here along with a description :)
 
-        self.cle_ops = cle_ops
+        self.cle_ops = cle_ops # Load options passed to Cle
         self.memory = {} # Dictionary representation of the memory
         self.shared_objects =[] # Contains autodetected libraries (CLE binaries)
         self.dependencies = {} # {libname : vaddr} dict
@@ -93,32 +91,32 @@ class Ld(object):
         self.except_on_ld_fail = False # Raise an exception when LD_AUDIT fails
         self.ignore_missing_libs = False # Raise an exception when a lib cannot be loaded
 
-        #if type(cle_ops) is not dict:
-        if type(cle_ops) is not collections.OrderedDict:
-            raise CLException("CLE expects a collection.OrderedDict as unique parameter")
-
         if len(cle_ops) == 0:
-            raise CLException("Empty ops list")
+            l.info("No load_options passed to Cle")
 
-        # Get the a list of binaries to load from the parameters. We assume here
-        # a main binary and its dependencies.
-        binaries = []
-        b_ops = []
+        main_ops = []
+        libs = []
+        libs_ops = []
+
+        # Get the a list of binaries for which we have parameters
         for b, ops in cle_ops.iteritems():
-            binaries.append(str(b))
             if 'backend' not in ops:
                 ops['backend'] = 'elf'  # We default to Elf
-            b_ops.append(ops)
 
-        if len(binaries) == 0:
-            raise CLException("No binary passed to CLE")
+            if b == main_binary:
+                main_ops = ops
+                continue
+
+            else:
+                libs.append(str(b))
+                libs_ops.append(ops)
 
         # We load everything we got as specified in the parameters. This means
         # that custom shared libraries with custom options will be loaded
         # in place of autodetected stuff (which come later anyway)
-        self.__load_exe(binaries[0], b_ops[0])
-        for i in range(1, len(binaries)):
-            self.__make_custom_lib(binaries[i], b_ops[i])
+        self.__load_exe(main_binary, main_ops)
+        for i in range(0, len(libs)):
+                self.__make_custom_lib(libs[i], libs_ops[i])
 
         """
         From here, we have a coupe of options:
