@@ -827,7 +827,7 @@ class Ld(object):
         l.debug("Searching for SO %s" % libname)
         for ld_path in loc:
             #if not ld_path: continue
-            for s_path, s_dir, s_file in os.walk(ld_path):
+            for s_path, s_dir, s_file in os.walk(ld_path, followlinks=True):
                 sopath = os.path.join(s_path,libname)
                 if os.path.exists(sopath):
                     l.debug("\t--> Trying %s" % sopath)
