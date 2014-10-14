@@ -180,10 +180,10 @@ class ArchInfo(object):
         if self.qemu_arch == "i386"or self.qemu_arch == "x86_64":
             pass
         elif self.qemu_arch == "ppc64":
-            j_path = map(lambda x: os.path.join(x, "/lib64"), path)
+            path = map(lambda x: os.path.join(x, "/lib64"), path)
         else:
-            j_path = map(lambda x: os.path.join(x, "/lib"), path)
-        return ":".join(j_path)
+            path = map(lambda x: os.path.join(x, "/lib"), path)
+        return ":".join(path)
 
     def get_simuvex_obj(self):
         s_arch = self.to_simuvex_arch(self.name)
