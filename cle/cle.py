@@ -3,7 +3,7 @@
 #from ctypes import *
 import os
 import logging
-#import collections
+import collections
 import shutil
 import subprocess
 
@@ -93,8 +93,9 @@ class Ld(object):
         self.except_on_ld_fail = False # Raise an exception when LD_AUDIT fails
         self.ignore_missing_libs = False # Raise an exception when a lib cannot be loaded
 
-        if type(cle_ops) is not dict:
-            raise CLException("CLE expects a dict as unique parameter")
+        #if type(cle_ops) is not dict:
+        if type(cle_ops) is not collections.OrderedDict:
+            raise CLException("CLE expects a collection.OrderedDict as unique parameter")
 
         if len(cle_ops) == 0:
             raise CLException("Empty ops list")
@@ -274,10 +275,13 @@ class Ld(object):
         """ The maximum address loaded as part of any loaded object """
 
         m1 = self.main_bin.get_max_addr()
+
         for i in self.shared_objects:
-            m2 = i.get_max_addr()
-            if m2 > m1:
-                m1 = m2
+            m1 = max(m1, i.get_max_addr())
+
+        for i in self._custom_shared_objects:
+            m1 = max(m1, i.get_max_addr())
+
         return m1
 
     def __reloc(self, obj):
@@ -479,7 +483,7 @@ class Ld(object):
         else:
             dep = os.path.basename(path)
 
-        self._custom_dependencies[dep] = obj.custom_base_addr
+        self._custom_dependencies[dep] = obj.custom_base_addr if obj.custom_base_addr else 0
 
     def __manual_load(self, obj):
         """
@@ -501,13 +505,13 @@ class Ld(object):
         backend = ops['backend']
 
         if backend  == 'elf':
-            obj = Elf(self.path)
+            obj = Elf(path)
 
         elif backend == 'ida':
-            obj = IdaBin(self.path)
+            obj = IdaBin(path)
 
         elif backend == 'blob':
-            obj = Blob(self.path)
+            obj = Blob(path)
 
         else:
             raise CLException("Unknown backend %s" % backend)
