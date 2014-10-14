@@ -553,6 +553,9 @@ class Ld(object):
             if name in self._custom_dependencies:
                 continue
 
+            if name in self.skip_libs:
+                continue
+
             fname = os.path.basename(name)
             # If we haven't determined any base address yet (probably because
             # LD_AUDIT failed)
@@ -565,15 +568,12 @@ class Ld(object):
                 so = self.__auto_load_so_cle(name)
 
             if so is None :
-                if fname not in self.skip_libs:
-                    if self.ignore_missing_libs is False:
-                        raise CLException("Could not find suitable %s (%s), please copy it in the "
-                                      "binary's directory or set skip_libs = "
-                                      "[\"%s\"]" % (fname, self.main_bin.archinfo.name, fname))
-                    else:
-                        l.warning("Could not load lib %s" % fname)
-                else:
+                if fname in self.skip_libs:
                     l.debug("Shared object %s not loaded (skip_libs)" % name)
+                else:
+                    l.warning("Could not load lib %s" % fname)
+                    if self.ignore_missing_libs is False:
+                        raise CLException("Could not find suitable %s (%s), please copy it in the  binary's directory or set skip_libs = [\"%s\"]" % (fname, self.main_bin.archinfo.name, fname))
             else:
                 self.rebase_lib(so, addr)
                 so.rebase_addr = addr
