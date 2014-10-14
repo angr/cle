@@ -88,6 +88,10 @@ class Elf(AbsObj):
         t = self.get_text_phdr_ent()
         d = self.get_data_phdr_ent()
 
+        # If there is no data segment
+        if d is None:
+            return t["vaddr"]
+
         if t["vaddr"] > d["vaddr"]:
             return d["vaddr"]
         else:
@@ -107,6 +111,10 @@ class Elf(AbsObj):
 
         text = self.get_text_phdr_ent()
         data = self.get_data_phdr_ent()
+
+        # if there is no data segment
+        if data is None:
+            return text["vaddr"] + text["memsz"] + self.rebase_addr
 
         m1 = text["vaddr"] + text["memsz"] + self.rebase_addr
         m2 = data["vaddr"] + data["memsz"] + self.rebase_addr
@@ -295,6 +303,8 @@ class Elf(AbsObj):
         """ Return the entry of the program header table corresponding to the
         text segment. This is the first PT_LOAD segment we encounter"""
         load = self._get_load_phdr_ent()
+        if len(load) == 1:
+            return load[0]
         # Return the segment with the lowest vaddr
         return load[0] if load[0]["vaddr"] < load[1]["vaddr"] else load[1]
 
@@ -306,6 +316,9 @@ class Elf(AbsObj):
         as a valid heuristic
         """
         load = self._get_load_phdr_ent()
+        if len(load) == 1:
+            return None
+
         # Return the segment with the highest vaddr
         return load[0] if load[0]["vaddr"] > load[1]["vaddr"] else load[1]
 
@@ -406,10 +419,12 @@ class Elf(AbsObj):
         text = self.get_text_phdr_ent()
         data = self.get_data_phdr_ent()
         self.__load(text, "text")
-        self.__load(data, "data")
-
-        # The data segment is also supposed to contain the BSS section
-        self.__load_bss(data)
+        if data is not None:
+            self.__load(data, "data")
+            # The data segment is also supposed to contain the BSS section
+            self.__load_bss(data)
+        else:
+            l.warning("There is NO data segment in this binary !")
 
     def __load_bss(self, data_hdr):
         """ The BSS section does not appear in the binary file, but its size is
