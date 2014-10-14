@@ -94,7 +94,7 @@ class Ld(object):
         if len(cle_ops) == 0:
             l.info("No load_options passed to Cle")
 
-        main_ops = []
+        main_ops = {'backend':'elf'}
         libs = []
         libs_ops = []
 
