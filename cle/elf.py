@@ -268,6 +268,8 @@ class Elf(AbsObj):
         for i in data:
             if i[0] == "Linking":
                 return i[1].strip()
+        raise CLException("We could not get any linking information from the "
+                          "binary, this should not happen")
 
     def relocate_mips_jmprel(self):
         """ After we relocate an ELF object, we also need, in the case of MIPS,

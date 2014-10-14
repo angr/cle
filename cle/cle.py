@@ -76,11 +76,12 @@ class Ld(object):
         # These are all the class variables of Ld
         # Please add new stuff here along with a description :)
 
+        self.cle_ops = cle_ops
         self.memory = {} # Dictionary representation of the memory
         self.shared_objects =[] # Contains autodetected libraries (CLE binaries)
         self.dependencies = {} # {libname : vaddr} dict
-        self.__custom_dependencies = {} # {libname : vaddr} dict
-        self.__custom_shared_objects = [] # Contains manually specified libs (CLE binaries)
+        self._custom_dependencies = {} # {libname : vaddr} dict
+        self._custom_shared_objects = [] # Contains manually specified libs (CLE binaries)
         self.ida_rebase_granularity = 0x1000000 # IDA workaround/fallback
         self.ida_main = False  # Is the main binary backed with ida ?
         self.path = None  # Path to the main binary
@@ -140,7 +141,7 @@ class Ld(object):
         """
 
         # Load custom binaries
-        for o in self.__custom_shared_objects:
+        for o in self._custom_shared_objects:
             self.__manual_load(o)
 
         # Cases 2 and 5, skip dependencies resolution if the main binary is a blob
@@ -470,7 +471,7 @@ class Ld(object):
         """
 
         obj = self.__instanciate_binary(path, ops)
-        self.__custom_shared_objects.append(obj)
+        self._custom_shared_objects.append(obj)
 
         # What library is that ? If nothing was specified, we use the filename
         if obj.provides is not None:
@@ -478,7 +479,7 @@ class Ld(object):
         else:
             dep = os.path.basename(path)
 
-        self.__custom_dependencies[dep] = obj.custom_base_addr
+        self._custom_dependencies[dep] = obj.custom_base_addr
 
     def __manual_load(self, obj):
         """
@@ -549,7 +550,7 @@ class Ld(object):
 
             # If a custom loaded object already provides the same dependency as
             # what we autodetected, let's skip that
-            if name in self.__custom_dependencies:
+            if name in self._custom_dependencies:
                 continue
 
             fname = os.path.basename(name)
@@ -565,7 +566,7 @@ class Ld(object):
 
             if so is None :
                 if fname not in self.skip_libs:
-                    if self.ignore_missing_libs is True:
+                    if self.ignore_missing_libs is False:
                         raise CLException("Could not find suitable %s (%s), please copy it in the "
                                       "binary's directory or set skip_libs = "
                                       "[\"%s\"]" % (fname, self.main_bin.archinfo.name, fname))
@@ -716,7 +717,7 @@ class Ld(object):
         Sometimes, __ld_so_addr fails, because it relies on LD_AUDIT, and that
         won't work for binaries that have been compiled for a different ABI.
         In this case, we only extract the DT_NEEDED field of Elf binaries, and
-        set 0 as the laod address for SOs.
+        set 0 as the load address for SOs.
         """
 
         # This is hackish, but I haven't found a way to get extract DT_NEEDED
