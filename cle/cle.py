@@ -97,9 +97,11 @@ class Ld(object):
         main_ops = {'backend':'elf'}
         libs = []
         libs_ops = []
+        main_binary = str(main_binary)
 
         # Get the a list of binaries for which we have parameters
         for b, ops in cle_ops.iteritems():
+            b = str(b)
             if 'backend' not in ops:
                 ops['backend'] = 'elf'  # We default to Elf
 
@@ -108,7 +110,7 @@ class Ld(object):
                 continue
 
             else:
-                libs.append(str(b))
+                libs.append(b)
                 libs_ops.append(ops)
 
         # We load everything we got as specified in the parameters. This means
