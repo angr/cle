@@ -332,10 +332,13 @@ class Ld(object):
         for i in range(0, obj.mips_local_gotno): # 0 to number of local symb
             got_slot = obj.gotaddr + obj.rebase_addr + (i * got_entry_size)
             addr = self.__bytes_to_addr(self.__read_got_slot(got_slot))
-            newaddr = addr + delta
-            l.debug("\t-->Relocating MIPS local GOT entry @ slot 0x%x from 0x%x"
-                    " to 0x%x" % (got_slot, addr, newaddr))
-            self.__override_got_slot(got_slot, newaddr)
+            if (addr == 0):
+                l.error("Address in GOT at 0x%x is 0" % got_slot)
+            else:
+                newaddr = addr + delta
+                l.debug("\t-->Relocating MIPS local GOT entry @ slot 0x%x from 0x%x"
+                        " to 0x%x" % (got_slot, addr, newaddr))
+                self.__override_got_slot(got_slot, newaddr)
 
     def __addr_to_bytes(self, addr):
         """ This splits an address into n bytes
