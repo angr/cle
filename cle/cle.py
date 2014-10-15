@@ -883,6 +883,14 @@ class Ld(object):
             l.info("[R] %s -> at 0x%08x (IDA)", name, newaddr)
             b.update_addrs([ea], newaddr)
 
+    def read_bytes(self, addr, n):
+        """ Read @n bytes at address @addr in memory and return an array of bytes
+        """
+        bytes = []
+        for i in range(addr, addr+n):
+            bytes.append(self.memory[i])
+        return bytes
+
     # Test cases
     def test_end_conversion(self):
         x = self.__addr_to_bytes(int("0xc4f2", 16))
