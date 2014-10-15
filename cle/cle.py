@@ -821,8 +821,8 @@ class Ld(object):
         # in case we need to look for stuff manually...
         loc = []
         loc.append(os.path.dirname(self.path))
-        arch_lib = self.main_bin.archinfo.get_cross_library_path()
-        loc.append(arch_lib)
+        arch_lib = self.main_bin.archinfo._arch_paths()
+        loc = loc + arch_lib
         # Dangerous, only ok if the hosts sytem's is the same as the target
         #loc.append(os.getenv("LD_LIBRARY_PATH"))
 

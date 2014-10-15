@@ -177,7 +177,7 @@ class ArchInfo(object):
         use e.g., with LD_LIBRARY_PATH.
         """
         path = self._arch_paths()
-        if self.qemu_arch == "i386"or self.qemu_arch == "x86_64":
+        if self.qemu_arch == "i386" or self.qemu_arch == "x86_64":
             pass
         elif self.qemu_arch == "ppc64":
             path = map(lambda x: os.path.join(x, "/lib64"), path)
