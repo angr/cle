@@ -237,3 +237,21 @@ class ArchInfo(object):
                 return True
 
         return False
+
+    def get_struct_fmt(self):
+        """ Stuct format for the current architecture, e.g. returns '>Q' for big
+        endian 64 bit
+        """
+        if self.byte_order == 'MSB':
+            c = '>'
+        else:
+            c = '<'
+
+        if self.bits == 64:
+            s = 'Q'
+        elif self.bits == 32:
+            s = 'I'
+        elif self.bits == 16:
+            s = 'H'
+        return c + s
+
