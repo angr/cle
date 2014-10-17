@@ -91,13 +91,22 @@ class Ld(object):
         self.except_on_ld_fail = False # Raise an exception when LD_AUDIT fails
         self.ignore_missing_libs = False # Raise an exception when a lib cannot be loaded
 
+        main_binary = str(main_binary)
+
         if len(cle_ops) == 0:
             l.info("No load_options passed to Cle")
+        else:
+            #import pdb; pdb.set_trace()
+            # If just a dict is passed, we assume these options are for the main
+            # binary, and we transform it into a dict of dict
+            if type(cle_ops.values()[0]) != dict:
+                nd = {}
+                nd[main_binary] = cle_ops
+                cle_ops = nd
 
         main_ops = {'backend':'elf'}
         libs = []
         libs_ops = []
-        main_binary = str(main_binary)
 
         # Get the a list of binaries for which we have parameters
         for b, ops in cle_ops.iteritems():

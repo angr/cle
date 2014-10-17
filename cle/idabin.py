@@ -88,7 +88,7 @@ class IdaBin(AbsObj):
         # If we reach this point, we should have the addresses
         if self.got_begin is None or self.got_end is None:
             #raise CLException("This architecture has no section %s :(" % sec_name)
-            l.warning("No section %s, is this a static binary ?"  % sec_name)
+            l.warning("No section %s, is this a static binary ? (or stripped)"  % sec_name)
             return False
         return True
 
@@ -163,12 +163,13 @@ class IdaBin(AbsObj):
 
         # Static binary
         if len(self.raw_imports) == 0:
+            l.info("This is a static binary.")
             return
 
         # Locate the GOT on this architecture. If we can't, let's just default
         # to IDA's imports (which gives stub addresses instead).
         if not self.__find_got():
-            l.warning("We could not identify the GOT section.")
+            l.warning("We could not identify the GOT section. This looks like a stripped binary. IDA'll probably give us PLT stubs instead, so keep in mind that Ld.find_symbol_got_entry() and friends won't work with actual GOT addresses. If that's a problem, use the ELF backend instead.")
             return self.raw_imports
 
         # Then process it to get the correct addresses
