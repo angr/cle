@@ -158,11 +158,18 @@ class IdaBin(AbsObj):
         and then tries to find the GOT entries related to them.
         It returns a dict {import:got_address}
         """
-        # Locate the GOT on this architecture
-        self.__find_got()
-
         # Get the list of imports from IDA
         self.__get_ida_imports()
+
+        # Static binary
+        if len(self.raw_imports) == 0:
+            return
+
+        # Locate the GOT on this architecture. If we can't, let's just default
+        # to IDA's imports (which gives stub addresses instead).
+        if not self.__find_got():
+            l.warning("We could not identify the GOT section.")
+            return self.raw_imports
 
         # Then process it to get the correct addresses
         imports = {}
@@ -286,7 +293,7 @@ class IdaBin(AbsObj):
         TODO: this is not the best, and with the Elf class we actually look for
         the presence of a dynamic table. We should do it with IDA too.
         """
-        if len(self.imports) == 0:
+        if len(self.raw_imports) == 0:
             return "static"
         else:
             return "dynamic"

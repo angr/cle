@@ -314,6 +314,9 @@ class Ld(object):
         """ MIPS local relocations (yes, GOT entries for local symbols also need
         relocation) """
 
+        if obj.rebase_addr == 0:
+            raise CLException("MIPS local GOT relocation only occurs to shared objects")
+
         delta = obj.rebase_addr - obj.mips_static_base_addr
 
         # If we load the shared library at the predefined base address, there's

@@ -281,11 +281,21 @@ class Elf(AbsObj):
 
     def relocate_mips_jmprel(self):
         """ After we relocate an ELF object, we also need, in the case of MIPS,
-        to relocate its GOT addresses relatively to its static base address """
+        to relocate its GOT addresses relatively to its static base address.
+        Note: according to the Elf specification, this ONLY applies to shared objects
+        """
+
+        # This should not be called for non rebased binaries (i.e., main
+        # binaries)
         if self.rebase_addr == 0:
             raise CLException("Attempting MIPS relocation with rebase_addr = 0")
 
+        # Here, we shift all GOT addresses (the slots, not what they contain)
+        # by a delta. This is because the MIPS compiler expected us to load the
+        # binary at self.mips_static_base_addr)
         delta = self.rebase_addr - self.mips_static_base_addr
+        l.info("Relocating MIPS GOT entries - static base addr is 0%x, acutal "
+               "base addr is 0x%x" % (self.mips_static_base_addr, self.rebase_addr))
         for i,v in self.jmprel.iteritems():
             self.jmprel[i] = v + delta
 
