@@ -90,6 +90,7 @@ class Ld(object):
         self.original_path = None  # The path to the original binary (before copy)
         self.except_on_ld_fail = False # Raise an exception when LD_AUDIT fails
         self.ignore_missing_libs = False # Raise an exception when a lib cannot be loaded
+        self.custom_ld_path = None # Extra location to look for libraries
 
         main_binary = str(main_binary)
 
@@ -469,6 +470,9 @@ class Ld(object):
         if 'ignore_missing_libs' in main_binary_ops:
             self.ignore_missing_libs = main_binary_ops['ignore_missing_libs']
 
+        if 'custom_ld_path' in main_binary_ops:
+            self.custom_ld_path = main_binary_ops['custom_ld_path']
+
         # IDA specific crap
         if main_binary_ops['backend'] == 'ida':
             self.ida_main = True
@@ -836,6 +840,8 @@ class Ld(object):
         # in case we need to look for stuff manually...
         loc = []
         loc.append(os.path.dirname(self.path))
+        if self.custom_ld_path is not None:
+            loc.append(self.custom_ld_path)
         arch_lib = self.main_bin.archinfo._arch_paths()
         loc = loc + arch_lib
         # Dangerous, only ok if the hosts sytem's is the same as the target
