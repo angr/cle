@@ -91,6 +91,8 @@ class Ld(object):
         self.except_on_ld_fail = False # Raise an exception when LD_AUDIT fails
         self.ignore_missing_libs = False # Raise an exception when a lib cannot be loaded
         self.custom_ld_path = None # Extra location to look for libraries
+        self.ignore_imports = []  # Imports we don't want to resolve
+
 
         main_binary = str(main_binary)
 
@@ -306,8 +308,13 @@ class Ld(object):
 
         # Now let's update GOT entries for PLT jumps
         for symb, got_addr in obj.jmprel.iteritems():
+            # We don't resolve ignored functions
+            if symb in self.ignore_imports:
+                continue
             uaddr = self.find_symbol_addr(symb)
             if (uaddr):
+                # We resolved this symbol
+                obj.resolved_imports.append(symb)
                 uaddr = uaddr + obj.rebase_addr
                 l.info("\t--> [R] Relocation of %s -> 0x%x [stub@0x%x]" % (symb,
                                                                      uaddr,
@@ -472,6 +479,9 @@ class Ld(object):
 
         if 'custom_ld_path' in main_binary_ops:
             self.custom_ld_path = main_binary_ops['custom_ld_path']
+
+        if 'ignore_imports' in main_binary_ops:
+            self.ignore_imports = main_binary_ops['ignore_imports']
 
         # IDA specific crap
         if main_binary_ops['backend'] == 'ida':

@@ -66,6 +66,7 @@ class Elf(AbsObj):
         self.dynamic = self.__get_dynamic(info)
         self.__mips_specifics() # Set MIPS properties
         self.endianness = self.__get_endianness(info)
+        self.resolved_imports = [] # Imports successfully resolved, i.e. GOT slot updated
 
         # Stuff static binaries don't have
         if self.linking == "dynamic":
