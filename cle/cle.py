@@ -430,8 +430,8 @@ class Ld(object):
         got = obj.jmprel
 
         if not (symbol in got.keys()):
-            l.debug("Could not override the address of symbol %s: symbol not "
-                    "found" % symbol)
+            l.debug("Could not override the address of symbol %s: symbol entry not "
+                    "found in GOT" % symbol)
             return False
 
         self.__override_got_slot(got[symbol], newaddr)
@@ -463,7 +463,8 @@ class Ld(object):
         objs = objs + self.shared_objects
 
         for o in objs:
-            if o.contains_addr(addr):
+            # The Elf class only works with static non-relocated addresses
+            if o.contains_addr(addr - o.rebase_addr):
                 return os.path.basename(o.binary)
 
     def find_symbol_got_entry(self, symbol):

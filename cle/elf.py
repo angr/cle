@@ -457,6 +457,15 @@ class Elf(AbsObj):
     def contains_addr(self, addr):
         """ Is @vaddr in one of the binary's segments we have loaded ?
         (i.e., is it mapped into memory ?)
+
+        WARNING: in the case of relocatable objects (e.g., libraries), this
+        function works with relative addresses (wrt the start of the object).
+        Remember that statically, the Elf headers define a virtual address of 0
+        for relocatable objects.
+
+        If you try to use this function with a runtime address of a relocated
+        object, you should consider substracting the rebase_addr value to @addr
+        beforehands.
         """
         for i in self.segments:
             if i.contains_addr(addr):
@@ -555,7 +564,8 @@ class Elf(AbsObj):
         for e in self.symbols:
             if e['sh_info'] != 'SHN_UNDEF':
                 if self.contains_addr(e['addr']):
-                    local_symbols[e['addr']] = e['name']
+                    addr = e['addr']
+                    local_symbols[addr] = e['name']
 
         return local_symbols
 
@@ -563,6 +573,10 @@ class Elf(AbsObj):
         """
         Try to guess whether @addr is inside the code of a local function.
         """
+
+        # The Elf class works with static non relocated addresses
+        addr = addr - self.rebase_addr
+
         if not self.contains_addr(addr):
             return None
 
@@ -580,7 +594,7 @@ class Elf(AbsObj):
             return None
 
         for i in range(0, len(addrs) - 1):
-            if addr > addrs[i] and addr < addrs[i+1]:
+            if addr >= addrs[i] and addr < addrs[i+1]:
                 r = addrs[i]
                 return local[r]
 
