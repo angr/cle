@@ -445,6 +445,27 @@ class Ld(object):
             if symbol in ex:
                 return ex[symbol] + so.rebase_addr
 
+    def find_symbol_name(self, addr):
+        """ Return the name of the function starting at addr.  Note: we are not
+        trying to be smart and guess function boundaries here, we just look at
+        GOT values.
+        """
+        objs = [self.main_bin]
+        objs = objs + self.shared_objects
+
+        for o in objs:
+            name = o.function_name(addr)
+            if name is not None:
+                return name
+
+    def find_module_name(self, addr):
+        objs = [self.main_bin]
+        objs = objs + self.shared_objects
+
+        for o in objs:
+            if o.contains_addr(addr):
+                return os.path.basename(o.binary)
+
     def find_symbol_got_entry(self, symbol):
         """ Look for the address of a GOT entry for symbol @symbol.
         If found, return the address, otherwise, return None

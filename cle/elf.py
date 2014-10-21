@@ -545,9 +545,42 @@ class Elf(AbsObj):
         else:
             raise CLException("Runtime thumb mode detection not implemented")
 
-    def function_name(self, addr):
-        """ Return the name of the function containing @addr"""
-        l.debug("TODO: implement this")
-        return
+    def get_local_functions(self):
+        """
+        We consider local functions those that are not SHN_UNDEF in the symbol table,
+        and that have an address inside the binary.
+        This returns a dict indexed by *addresses*
+        """
+        local_symbols={}
+        for e in self.symbols:
+            if e['sh_info'] != 'SHN_UNDEF':
+                if self.contains_addr(e['addr']):
+                    local_symbols[e['addr']] = e['name']
 
+        return local_symbols
+
+    def function_name(self, addr):
+        """
+        Try to guess whether @addr is inside the code of a local function.
+        """
+        if not self.contains_addr(addr):
+            return None
+
+        local = self.get_local_functions()
+        if len(local) == 0:
+            return None
+
+        addrs = local.keys()
+        addrs.sort()
+
+        # Let's add the upper bound of the text segment to this list.
+        addrs.append(self.segments[0].vaddr + self.segments[0].size)
+
+        if addr < min(addrs) or addr > max(addrs):
+            return None
+
+        for i in range(0, len(addrs) - 1):
+            if addr > addrs[i] and addr < addrs[i+1]:
+                r = addrs[i]
+                return local[r]
 
