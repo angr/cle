@@ -85,7 +85,7 @@ class Ld(object):
         self.path = None  # Path to the main binary
         self.skip_libs = [] # Libraries we don't want to load
         self.main_bin = None  # The main binary (i.e., the executable)
-        self.auto_load_libs = True  # Shall we load the libraries the main binary depends on ?
+        self.auto_load_libs = False  # Shall we load the libraries the main binary depends on ?
         self.tmp_dir = None  # A temporary directory where we store copies of the binaries
         self.original_path = None  # The path to the original binary (before copy)
         self.except_on_ld_fail = False # Raise an exception when LD_AUDIT fails
