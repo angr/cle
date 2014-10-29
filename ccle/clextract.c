@@ -420,6 +420,37 @@ int guess_symtab_sz(ElfW(Dyn) *dynamic, struct segment *s)
 }
 
 
+/* Print the string table */
+void print_strtab(ElfW(Dyn) *dynamic, struct segment *s)
+{
+    char *strtab;
+    size_t strsz;
+    int i;
+    int eos = 0;
+
+    strtab = get_strtab_ptr(dynamic, s);
+    strsz = _get_strtab_sz(dynamic);
+
+    printf("\nSTRTAB, OFFSET, STR\n---");
+    for(i=0; i<strsz; i++)
+    {
+        if (strtab[i] == '\0')
+        {
+            if (eos == 0)
+            {
+                eos=1;
+                printf("\nstrtab, 0x%x ", i);
+            }
+            else
+                continue;
+        }
+        else
+        {
+            printf("%c", strtab[i]);
+            eos=0;
+        }
+    }
+}
 
 /* Print the symbol table */
 void print_symtab(ElfW(Dyn) *dynamic, struct segment *s)
@@ -660,6 +691,7 @@ int main(int argc, char *argv[])
 
 
         print_symtab(dynamic, text);
+	    print_strtab(dynamic, text);
         print_rela(dynamic, text);
         print_jmprel(dynamic, text);
         print_needed(dynamic, text);
