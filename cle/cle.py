@@ -130,7 +130,11 @@ class Ld(object):
         # in place of autodetected stuff (which come later anyway)
         self.__load_exe(main_binary, main_ops)
         for i in range(0, len(libs)):
-                self.__make_custom_lib(libs[i], libs_ops[i])
+                if not os.path.exists(libs[i]):
+                    path = self.__search_so(os.path.basename(libs[i]))
+                else:
+                    path = libs[i]
+                self.__make_custom_lib(path, libs_ops[i])
 
         """
         From here, we have a coupe of options:
