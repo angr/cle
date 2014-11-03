@@ -92,6 +92,7 @@ class Ld(object):
         self.ignore_missing_libs = False # Raise an exception when a lib cannot be loaded
         self.custom_ld_path = None # Extra location to look for libraries
         self.ignore_imports = []  # Imports we don't want to resolve
+        self.ld_failed = None # Whether using LD auditing interface failed
 
 
         main_binary = str(main_binary)
@@ -140,7 +141,7 @@ class Ld(object):
         From here, we have a coupe of options:
 
             1. The sole specified binary in an elf file: we autodetect
-            dependencies, and load them.
+            dependencies, and load them if auto_load_libs is True
 
             2. The sole binary is a blob: we load it and exit.
 
@@ -698,6 +699,10 @@ class Ld(object):
         ld_libs = self.main_bin.archinfo.get_cross_ld_path()
         ld_path = ld_path + ":" + ld_libs
 
+        # Make LD look for custom libraries in the right place
+        if self.custom_ld_path is not None:
+            ld_path = ld_path + ":" + self.custom_ld_path
+
         var = "LD_LIBRARY_PATH=%s,LD_AUDIT=%s,LD_BIND_NOW=yes" % (ld_path, ld_audit_obj)
 
         # Let's work on a copy of the binary
@@ -727,6 +732,7 @@ class Ld(object):
 
             l.debug("---")
             os.remove(log)
+            self.ld_failed = False
             return libs
 
         else:
@@ -740,6 +746,8 @@ class Ld(object):
 
             if self.except_on_ld_fail:
                 raise CLException("Could not find library dependencies using ld.")
+            else:
+                self.ld_failed = True
 
             return None
 
