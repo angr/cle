@@ -598,3 +598,26 @@ class Elf(AbsObj):
                 r = addrs[i]
                 return local[r]
 
+    def get_plt_stub_addr(self, name):
+        """
+        Get the address of the PLT stub for function @name.
+        Functions must have a know GOT entry in self.jmprel
+        """
+        if name not in self.jmprel.keys():
+            raise CLException("%s does not figure in the GOT")
+
+        # What's in the got slot for @name ?
+        got = self.jmprel[name]
+        fetch = self.memory.read_bytes(got, self.archinfo.bits/8)
+
+        """
+        This is the address of the next second instruction in the PLT stub
+        This is hackish but it works
+        """
+        addr = self.archinfo.bytes_to_addr(fetch)
+
+        if self.archinfo.name == "i386:x86-64":
+            # 0x6 is the size of the plt's jmpq instruction in x86_64
+            return addr - 0x6
+        else:
+            raise CLException("Not implemented yet.")

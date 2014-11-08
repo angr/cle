@@ -3,7 +3,6 @@
 #from ctypes import *
 import os
 import logging
-import collections
 import shutil
 import subprocess
 
@@ -12,6 +11,7 @@ from .idabin import IdaBin
 from .blob import Blob
 from .archinfo import ArchInfo
 from .clexception import CLException
+from .memory import Clemory
 import sys
 
 #import platform
@@ -75,7 +75,7 @@ class Ld(object):
         # Please add new stuff here along with a description :)
 
         self.cle_ops = cle_ops # Load options passed to Cle
-        self.memory = {} # Dictionary representation of the memory
+        self.memory = Clemory() # Dictionary representation of the memory
         self.shared_objects =[] # Contains autodetected libraries (CLE binaries)
         self.dependencies = {} # {libname : vaddr} dict
         self._custom_dependencies = {} # {libname : vaddr} dict
@@ -129,13 +129,13 @@ class Ld(object):
         # We load everything we got as specified in the parameters. This means
         # that custom shared libraries with custom options will be loaded
         # in place of autodetected stuff (which come later anyway)
-        self.__load_exe(main_binary, main_ops)
+        self._load_exe(main_binary, main_ops)
         for i in range(0, len(libs)):
                 if not os.path.exists(libs[i]):
-                    path = self.__search_so(os.path.basename(libs[i]))
+                    path = self._search_so(os.path.basename(libs[i]))
                 else:
                     path = libs[i]
-                self.__make_custom_lib(path, libs_ops[i])
+                self._make_custom_lib(path, libs_ops[i])
 
         """
         From here, we have a coupe of options:
@@ -160,7 +160,7 @@ class Ld(object):
 
         # Load custom binaries
         for o in self._custom_shared_objects:
-            self.__manual_load(o)
+            self._manual_load(o)
 
         # Cases 2 and 5, skip dependencies resolution if the main binary is a blob
         if isinstance(self.main_bin, Blob):
@@ -175,19 +175,19 @@ class Ld(object):
         # We need to resolve dependencies here, even when auto_load_libs=False
         # because the SimProcedure resolution needs this info.
 
-        self.dependencies = self.__ld_so_addr()
+        self.dependencies = self._ld_so_addr()
 
         if self.dependencies is None:
             l.warning("Could not get dependencies from LD, falling back to"
                       " static mode")
-            self.dependencies = self.__ld_so_addr_fallback()
+            self.dependencies = self._ld_so_addr_fallback()
 
         if self.auto_load_libs is True:
             l.info("TODO: check for memory overlapping with manually loaded stuff")
-            self.__auto_load_shared_libs()
+            self._auto_load_shared_libs()
 
         # Relocating stuff, resolving exports, etc. is done here
-        self.__perform_reloc()
+        self._perform_reloc()
 
         # IDA backed stuff is not kept in sync with cle's mem, and the
         # relocations most likely altered it
@@ -200,20 +200,20 @@ class Ld(object):
         else:
             return "MSB"
 
-    def __perform_reloc(self):
+    def _perform_reloc(self):
         # Main binary
-        self.__perform_reloc_stub(self.main_bin)
+        self._perform_reloc_stub(self.main_bin)
 
         l.info("TODO: relocations in custom loaded shared objects")
         # Libraries
         for obj in self.shared_objects:
-            self.__perform_reloc_stub(obj)
+            self._perform_reloc_stub(obj)
 
             # Again, MIPS is a pain...
             if "mips" in obj.arch and isinstance(obj, Elf):
                 obj.relocate_mips_jmprel()
 
-    def __perform_reloc_stub(self, binary):
+    def _perform_reloc_stub(self, binary):
         """ This performs dynamic linking of all objects, i.e., calculate
             addresses of relocated symbols and resolve imports for each object.
             When using CLE without IDA, the rebasing and relocations are done by
@@ -222,10 +222,10 @@ class Ld(object):
             relocations of symbols are done by CLE using the IDA API.
         """
         if isinstance(binary, IdaBin):
-            self.__resolve_imports_ida(binary)
+            self._resolve_imports_ida(binary)
             # Once everything is relocated, we can copy IDA's memory to Ld
         else:
-            self.__reloc(binary)
+            self._reloc(binary)
 
     def ida_sync_mem(self):
         """
@@ -240,7 +240,7 @@ class Ld(object):
 
         for o in objs:
             l.info("**SLOW**: Copy IDA's memory to Ld's memory (%s)" % o.binary)
-            self.__copy_mem(o, update=True)
+            self._copy_mem(o, update=True)
 
     def mem_range(self, a_from, a_to):
         arr = []
@@ -301,7 +301,7 @@ class Ld(object):
 
         return m1
 
-    def __reloc(self, obj):
+    def _reloc(self, obj):
         """ Perform relocations of external references """
 
         l.debug("[Performing relocations of %s]" % obj.binary)
@@ -309,7 +309,7 @@ class Ld(object):
         # MIPS local GOT entries need relocation too (except for the main
         # binary as we don't relocate it).
         if "mips" in self.main_bin.arch and obj != self.main_bin:
-            self.__reloc_mips_local(obj)
+            self._reloc_mips_local(obj)
 
         # Now let's update GOT entries for PLT jumps
         for symb, got_addr in obj.jmprel.iteritems():
@@ -325,14 +325,14 @@ class Ld(object):
                                                                      uaddr,
                                                                      got_addr))
 
-                baddr = self.__addr_to_bytes(uaddr)
+                baddr = self._addr_to_bytes(uaddr)
                 for i in range(0, len(baddr)):
                     self.memory[got_addr + i] = baddr[i]
 
             else:
                 l.warning("\t--> [U] Cannot locate symbol \"%s\" from SOs" % symb)
 
-    def __reloc_mips_local(self, obj):
+    def _reloc_mips_local(self, obj):
         """ MIPS local relocations (yes, GOT entries for local symbols also need
         relocation) """
 
@@ -356,16 +356,16 @@ class Ld(object):
         # Local entries reside in the first part of the GOT
         for i in range(0, obj.mips_local_gotno): # 0 to number of local symb
             got_slot = obj.gotaddr + obj.rebase_addr + (i * got_entry_size)
-            addr = self.__bytes_to_addr(self.__read_got_slot(got_slot))
+            addr = self._bytes_to_addr(self._read_got_slot(got_slot))
             if (addr == 0):
                 l.error("Address in GOT at 0x%x is 0" % got_slot)
             else:
                 newaddr = addr + delta
                 l.debug("\t-->Relocating MIPS local GOT entry @ slot 0x%x from 0x%x"
                         " to 0x%x" % (got_slot, addr, newaddr))
-                self.__override_got_slot(got_slot, newaddr)
+                self._override_got_slot(got_slot, newaddr)
 
-    def __addr_to_bytes(self, addr):
+    def _addr_to_bytes(self, addr):
         """ This splits an address into n bytes
         @addr is the address to split
         """
@@ -391,7 +391,7 @@ class Ld(object):
 
         return h_bytes
 
-    def __bytes_to_addr(self, addr):
+    def _bytes_to_addr(self, addr):
         """ Expects an array of bytes and returns an int"""
         sz = self.main_bin.bits_per_addr / 8
 
@@ -411,7 +411,7 @@ class Ld(object):
             shift = shift + 8 # We shit by a byte everytime...
         return res
 
-    def __read_got_slot(self, got_slot):
+    def _read_got_slot(self, got_slot):
         """ Reads the content of a GOT slot @ address got_slot """
         n_bytes = self.main_bin.bits_per_addr / 8
         s = []
@@ -419,10 +419,10 @@ class Ld(object):
             s.append(self.memory[got_slot + i])
         return s
 
-    def __override_got_slot(self, got_slot, newaddr):
+    def _override_got_slot(self, got_slot, newaddr):
         """ This overrides the got slot starting at address @got_slot with
         address @newaddr """
-        split_addr = self.__addr_to_bytes(newaddr)
+        split_addr = self._addr_to_bytes(newaddr)
 
         for i in range(0, len(split_addr)):
             self.memory[got_slot + i] = split_addr[i]
@@ -439,7 +439,7 @@ class Ld(object):
                     "found in GOT" % symbol)
             return False
 
-        self.__override_got_slot(got[symbol], newaddr)
+        self._override_got_slot(got[symbol], newaddr)
 
         return True
 
@@ -483,7 +483,7 @@ class Ld(object):
             if symbol in self.main_bin.jmprel:
                 return self.main_bin.jmprel[symbol]
 
-    def __load_exe(self, path, main_binary_ops):
+    def _load_exe(self, path, main_binary_ops):
         """ Instanciate and load exe into "main memory
         """
         # Warning: when using IDA, the relocations will be performed in its own
@@ -515,22 +515,22 @@ class Ld(object):
             self.ida_main = True
             # If we use IDA, it needs a directory where it has permissions
             self.original_path = self.path
-            path = self.__copy_obj(self.path)
+            path = self._copy_obj(self.path)
             self.path = path
 
         # The backend defaults to Elf
-        self.main_bin = self.__instanciate_binary(path, main_binary_ops)
+        self.main_bin = self._instanciate_binary(path, main_binary_ops)
 
         # Copy mem from object's private memory to Ld's address space
-        self.__copy_mem(self.main_bin)
+        self._copy_mem(self.main_bin)
 
-    def __make_custom_lib(self, path, ops):
+    def _make_custom_lib(self, path, ops):
         """
         Instanciate custom library (i.e., manyally specified lib) as opposed to auto-loading)
         Returns: nothing, it only appends the new binary to the custom shared objects dict
         """
 
-        obj = self.__instanciate_binary(path, ops)
+        obj = self._instanciate_binary(path, ops)
         self._custom_shared_objects.append(obj)
 
         # What library is that ? If nothing was specified, we use the filename
@@ -541,20 +541,20 @@ class Ld(object):
 
         self._custom_dependencies[dep] = obj.custom_base_addr if obj.custom_base_addr else 0
 
-    def __manual_load(self, obj):
+    def _manual_load(self, obj):
         """
         Manual loading stub.
         """
         # If no base address was specified, let's find one
         if obj.custom_base_addr is None:
-            base = self.__get_safe_rebase_addr()
+            base = self._get_safe_rebase_addr()
             obj.rebase_addr = base
         else:
             obj.rebase_addr = obj.custom_rebase_addr
-        self.__copy_mem(obj, obj.rebase_addr)
+        self._copy_mem(obj, obj.rebase_addr)
 
 
-    def __instanciate_binary(self, path, ops):
+    def _instanciate_binary(self, path, ops):
         """
         Simple stub function to instanciate the right type given the backend name
         """
@@ -586,7 +586,7 @@ class Ld(object):
 
         return obj
 
-    def __copy_mem(self, obj, rebase_addr = None, update = False):
+    def _copy_mem(self, obj, rebase_addr = None, update = False):
         """ Copies private memory of obj to Ld's memory (the one we work with)
             if @rebase_addr is specified, all memory addresses of obj will be
             translated by @rebase_addr in memory.
@@ -602,7 +602,7 @@ class Ld(object):
             else:
                 self.memory[addr] = val
 
-    def __auto_load_shared_libs(self):
+    def _auto_load_shared_libs(self):
         """ Load and rebase shared objects """
         # shared_libs = self.main_bin.deps
         shared_libs = self.dependencies
@@ -620,12 +620,12 @@ class Ld(object):
             # If we haven't determined any base address yet (probably because
             # LD_AUDIT failed)
             if addr == 0:
-                addr = self.__get_safe_rebase_addr()
+                addr = self._get_safe_rebase_addr()
 
             if self.ida_main == True:
-                so = self.__auto_load_so_ida(name)
+                so = self._auto_load_so_ida(name)
             else:
-                so = self.__auto_load_so_cle(name)
+                so = self._auto_load_so_cle(name)
 
             if so is None :
                 if fname in self.skip_libs:
@@ -654,9 +654,9 @@ class Ld(object):
         else:
             l.info("[Rebasing %s @0x%x]" % (os.path.basename(so.binary), base))
 
-        self.__copy_mem(so, base)
+        self._copy_mem(so, base)
 
-    def __get_safe_rebase_addr(self):
+    def _get_safe_rebase_addr(self):
         """
         Get a "safe" rebase addr, i.e., that won't overlap with already loaded stuff.
         This is used as a fallback when we cannot use LD to tell use where to load
@@ -667,7 +667,7 @@ class Ld(object):
         base = self.max_addr() + (granularity - self.max_addr() % granularity)
         return base
 
-    def __same_dir_shared_objects(self):
+    def _same_dir_shared_objects(self):
         """
         Returns the list of *.so found in the same directory as the main binary
         """
@@ -678,7 +678,7 @@ class Ld(object):
                 so[f] = 0
         return so
 
-    def __ld_so_addr(self):
+    def _ld_so_addr(self):
         """ Use LD_AUDIT to find object dependencies and relocation addresses"""
 
         qemu = self.main_bin.archinfo.get_qemu_cmd()
@@ -763,7 +763,7 @@ class Ld(object):
         """
 
         # Let's work on a copy of the main binary
-        copy = self.__copy_obj(path, suffix="screwed")
+        copy = self._copy_obj(path, suffix="screwed")
         f = open(copy, 'r+')
 
         # Looking at elf.h, we can see that the the entry point's
@@ -779,9 +779,9 @@ class Ld(object):
         f.close()
         return copy
 
-    def __ld_so_addr_fallback(self):
+    def _ld_so_addr_fallback(self):
         """
-        Sometimes, __ld_so_addr fails, because it relies on LD_AUDIT, and that
+        Sometimes, _ld_so_addr fails, because it relies on LD_AUDIT, and that
         won't work for binaries that have been compiled for a different ABI.
         In this case, we only extract the DT_NEEDED field of Elf binaries, and
         set 0 as the load address for SOs.
@@ -802,7 +802,7 @@ class Ld(object):
             load[i] = 0
         return load
 
-    def __auto_load_so_ida(self, soname, base_addr = None):
+    def _auto_load_so_ida(self, soname, base_addr = None):
         """Ida cannot use system libraries because it needs write access to the
            same location to write its #@! db files.
         """
@@ -813,37 +813,37 @@ class Ld(object):
         sopath = os.path.join(dname,lib)
 
         # Otherwise, create cle's tmp dir and try to find the lib somewhere else
-        if not os.path.exists(sopath) or not self.__check_arch(sopath):
-            self.__make_tmp_dir()
+        if not os.path.exists(sopath) or not self._check_arch(sopath):
+            self._make_tmp_dir()
 
             # Look in the same dir as the main binary
             orig_dname = os.path.dirname(self.original_path)
             so_orig = os.path.join(orig_dname, lib)
 
-            if os.path.exists(so_orig) and self.__check_arch(so_orig):
-                sopath = self.__copy_obj(so_orig)
+            if os.path.exists(so_orig) and self._check_arch(so_orig):
+                sopath = self._copy_obj(so_orig)
 
             # finally let's find it somewhere in the system
             else:
-                so_system = self.__search_so(soname)
+                so_system = self._search_so(soname)
                 # If found, we make a copy of it in our tmpdir
                 if so_system is not None:
-                    sopath = self.__copy_obj(so_system)
+                    sopath = self._copy_obj(so_system)
                 else:
                     return None
 
         obj = IdaBin(sopath, base_addr)
         return obj
 
-    def __make_tmp_dir(self):
+    def _make_tmp_dir(self):
         """ Create CLE's tmp directory if it does not exists """
         if not os.path.exists(self.tmp_dir):
             os.mkdir(self.tmp_dir)
 
 
-    def __copy_obj(self, path, suffix=None):
+    def _copy_obj(self, path, suffix=None):
         """ Makes a copy of obj into CLE's tmp directory """
-        self.__make_tmp_dir()
+        self._make_tmp_dir()
         if os.path.exists(path):
             if suffix is None:
                 bn = os.path.basename(path)
@@ -857,27 +857,27 @@ class Ld(object):
                               " path is correct" % path)
         return dest
 
-    def __auto_load_so_cle(self, soname):
+    def _auto_load_so_cle(self, soname):
         # Soname can be a path or just the name if the library, in which case we
         # search for it in known paths.
 
         if (os.path.exists(soname)):
             path = soname
         else:
-            path = self.__search_so(soname)
+            path = self._search_so(soname)
 
         if path is not None:
             so = Elf(path)
             return so
 
-    def __check_arch(self, objpath):
+    def _check_arch(self, objpath):
         """ Is obj the same architecture as our main binary ? """
 
         arch = ArchInfo(objpath)
         #The architectures are exactly the same
         return self.main_bin.archinfo.compatible_with(arch)
 
-    def __search_so(self, soname):
+    def _search_so(self, soname):
         """ Looks for a shared object given its filename"""
 
         # Normally we should not need this as LD knows everything already. But
@@ -900,13 +900,13 @@ class Ld(object):
                 sopath = os.path.join(s_path,libname)
                 if os.path.exists(sopath):
                     l.debug("\t--> Trying %s" % sopath)
-                    if self.__check_arch(sopath) == False:
+                    if self._check_arch(sopath) == False:
                         l.debug("\t\t -> has wrong architecture")
                     else:
                         l.debug("-->Found %s" % sopath)
                         return sopath
 
-    def __all_so_exports(self):
+    def _all_so_exports(self):
         exports = {}
         for i in self.shared_objects:
             if len(i.exports) == 0:
@@ -917,7 +917,7 @@ class Ld(object):
                 #l.debug("%s has export %s@%x" % (i.binary, symb, addr))
         return exports
 
-    def __so_name_from_symbol(self, symb):
+    def _so_name_from_symbol(self, symb):
         """ Which shared object exports the symbol @symb ?
             Returns the first match
         """
@@ -925,11 +925,11 @@ class Ld(object):
             if symb in i.exports:
                 return os.path.basename(i.path)
 
-    def __resolve_imports_ida(self, b):
+    def _resolve_imports_ida(self, b):
         """ Resolve imports using IDA.
             @b is the main binary
         """
-        so_exports = self.__all_so_exports()
+        so_exports = self._all_so_exports()
 
         imports = b.imports
         for name, ea in imports.iteritems():
@@ -958,8 +958,8 @@ class Ld(object):
 
     # Test cases
     def test_end_conversion(self):
-        x = self.__addr_to_bytes(int("0xc4f2", 16))
-        y = self.__bytes_to_addr(x)
+        x = self._addr_to_bytes(int("0xc4f2", 16))
+        y = self._bytes_to_addr(x)
 
         print x
         print y

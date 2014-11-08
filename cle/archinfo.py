@@ -3,7 +3,7 @@ from ctypes import *
 import logging
 import subprocess
 import simuvex
-import pdb
+import struct
 from .clexception import CLException
 
 l = logging.getLogger("cle.archinfo")
@@ -255,3 +255,17 @@ class ArchInfo(object):
             s = 'H'
         return c + s
 
+    def addr_to_bytes(self, addr):
+        """
+        Conversion of an address to an array of bytes valid for the current
+        architecture.
+        """
+        fmt = self.get_struct_fmt()
+        return list(struct.pack(fmt, addr))
+
+    def bytes_to_addr(self, data):
+        """
+        Conversion of an array of bytes into an address.
+        """
+        fmt = self.get_struct_fmt()
+        return struct.unpack(fmt, ''.join(data))[0]

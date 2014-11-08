@@ -2,6 +2,7 @@ import os
 import struct
 from .clexception import CLException
 from .archinfo import ArchInfo
+from .memory import Clemory
 from abc import ABCMeta
 
 
@@ -25,7 +26,7 @@ class AbsObj(object):
 
         self.binary = args[0]
         self.segments = [] # List of segments
-        self.memory = {} # Private virtual address space, without relocations
+        self.memory = Clemory() # Private virtual address space, without relocations
         self.symbols = None # Object's symbols
 
         # These are set by cle, and should not be overriden manually
