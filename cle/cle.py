@@ -93,6 +93,7 @@ class Ld(object):
         self.custom_ld_path = None # Extra location to look for libraries
         self.ignore_imports = []  # Imports we don't want to resolve
         self.ld_failed = None # Whether using LD auditing interface failed
+        self.ld_missing_libs=[] # missing libs that LD complains about
 
 
         main_binary = str(main_binary)
@@ -714,6 +715,19 @@ class Ld(object):
         cmd = [qemu, "-strace", "-L", cross_libs, "-E", var, binary]
         s = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE)
+
+        # Check stderr for library loading issues
+        err = s.stderr.readlines()
+        msg = "cannot open shared object file"
+        for dep in self.main_bin.deps:
+            for str_e in err:
+                if dep in str_e and msg in str_e:
+                    l.error("LD could not find dependency %s." % dep)
+                    l.error("GNU LD will stop looking for libraries to load if "
+                            "it doesn't find one of them.")
+                    self.ld_missing_libs.append(dep)
+                    break
+
         s.communicate()
 
         # Our LD_AUDIT library is supposed to generate a log file.
