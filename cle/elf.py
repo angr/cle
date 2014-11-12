@@ -569,6 +569,18 @@ class Elf(AbsObj):
 
         return local_symbols
 
+    def get_global_symbols(self):
+        """
+        These are (non-functions) global symbols exposed in the symbol table,
+        such as stderr, __progname and stuff
+        """
+        glob={}
+        for e in self.symbols:
+            if e['binding'] == 'STB_GLOBAL' and e['type'] == 'STT_OBJECT':
+                name = e['name']
+                glob[name] = e['addr']
+        return glob
+
     def function_name(self, addr):
         """
         Try to guess whether @addr is inside the code of a local function.
