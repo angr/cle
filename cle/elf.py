@@ -58,6 +58,8 @@ class Elf(AbsObj):
         ##
 
         self.symbols = self.__get_symbols(info)
+        self.strtab = self.__get_strtab(info)
+        self.strtab_vaddr = self.__get_strtab_vaddr(info)
         self.imports = self.__get_imports(self.symbols)
         self.entry_point = self.__get_entry_point(info)
         self.linking = self.__get_linking_type(info)
@@ -230,6 +232,34 @@ class Elf(AbsObj):
             if i[0] == "symtab":
                 symb.append(i)
         return symb
+
+    def __strtab(self, data):
+        """ Extract symbol table info from Clextract """
+        strtab = []
+        for i in data:
+            if i[0] == "strtab":
+                strtab.append(i)
+        return strtab
+
+    def __get_strtab(self, data):
+        """
+        Returns {offset_in_string_table : string}
+        """
+        strtab = {}
+        for i in self.__strtab(data):
+            offset = i[1].strip()
+            name = i[2].strip()
+            strtab[offset] = name
+        return strtab
+
+    def __get_strtab_vaddr(self, data):
+        """
+        Returns the virtual address of the strtab.
+        On PIE binaries, you might want to add the base address to it (TODO: check that)
+        """
+        for i in data:
+            if i[0] == "strtab_size":
+                return int(i[1].strip())
 
     def __get_jmprel(self, data):
         """ Get the location of the GOT slots corresponding to the addresses of

@@ -439,7 +439,7 @@ void print_strtab(ElfW(Dyn) *dynamic, struct segment *s)
             if (eos == 0)
             {
                 eos=1;
-                printf("\nstrtab, 0x%x ", i);
+                printf("\nstrtab, 0x%x, ", i);
             }
             else
                 continue;
@@ -699,6 +699,11 @@ int main(int argc, char *argv[])
         print_mips_reloc(dynamic,text);
 
         printf("gotaddr,0x%x\n", get_dyn_val(dynamic, DT_PLTGOT));
+#ifdef ELF64
+		printf("strtab_addr, 0x%lx\n", _get_strtab_vaddr(dynamic));
+#else
+		printf("strtab_addr, 0x%x\n", _get_strtab_vaddr(dynamic));
+#endif
 
         free_segment(&data);
         free_segment(&text);
