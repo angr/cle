@@ -700,9 +700,9 @@ int main(int argc, char *argv[])
 
         printf("gotaddr,0x%x\n", get_dyn_val(dynamic, DT_PLTGOT));
 #ifdef ELF64
-		printf("strtab_addr, 0x%lx\n", _get_strtab_vaddr(dynamic));
+		printf("strtab_vaddr, 0x%lx\n", _get_strtab_vaddr(dynamic));
 #else
-		printf("strtab_addr, 0x%x\n", _get_strtab_vaddr(dynamic));
+		printf("strtab_vaddr, 0x%x\n", _get_strtab_vaddr(dynamic));
 #endif
 
         free_segment(&data);

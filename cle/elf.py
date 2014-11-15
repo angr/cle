@@ -258,8 +258,8 @@ class Elf(AbsObj):
         On PIE binaries, you might want to add the base address to it (TODO: check that)
         """
         for i in data:
-            if i[0] == "strtab_size":
-                return int(i[1].strip())
+            if i[0] == "strtab_vaddr":
+                return int(i[1].strip(),16)
 
     def __get_jmprel(self, data):
         """ Get the location of the GOT slots corresponding to the addresses of
