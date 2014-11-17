@@ -50,31 +50,31 @@ class Elf(AbsObj):
         self.mips_symtabno = None
         #self.segments = None # Loaded segments
 
-        info = self.__call_clextract(self.binary)
+        info = self._call_clextract(self.binary)
 
         # TODO: fix this
-        self.elfflags = self.__get_elf_flags(info)
+        self.elfflags = self._get_elf_flags(info)
         self.archinfo.elfflags = self.elfflags
         ##
 
-        self.symbols = self.__get_symbols(info)
-        self.strtab = self.__get_strtab(info)
-        self.strtab_vaddr = self.__get_strtab_vaddr(info)
-        self.imports = self.__get_imports(self.symbols)
-        self.entry_point = self.__get_entry_point(info)
-        self.linking = self.__get_linking_type(info)
-        self.phdr = self.__get_phdr(info)
-        self.deps = self.__get_lib_names(info)
-        self.dynamic = self.__get_dynamic(info)
-        self.__mips_specifics() # Set MIPS properties
-        self.endianness = self.__get_endianness(info)
+        self.symbols = self._get_symbols(info)
+        self.strtab = self._get_strtab(info)
+        self.strtab_vaddr = self._get_strtab_vaddr(info)
+        self.imports = self._get_imports(self.symbols)
+        self.entry_point = self._get_entry_point(info)
+        self.linking = self._get_linking_type(info)
+        self.phdr = self._get_phdr(info)
+        self.deps = self._get_lib_names(info)
+        self.dynamic = self._get_dynamic(info)
+        self._mips_specifics() # Set MIPS properties
+        self.endianness = self._get_endianness(info)
         self.resolved_imports = [] # Imports successfully resolved, i.e. GOT slot updated
         self.object_type = self.get_object_type(info)
 
         # Stuff static binaries don't have
         if self.linking == "dynamic":
-            self.gotaddr = self.__get_gotaddr(self.dynamic) # Add rebase_addr if relocated
-            self.jmprel = self.__get_jmprel(info)
+            self.gotaddr = self._get_gotaddr(self.dynamic) # Add rebase_addr if relocated
+            self.jmprel = self._get_jmprel(info)
 
         if load is True:
             self.load()
@@ -127,7 +127,7 @@ class Elf(AbsObj):
             return m1
         return m2
 
-    def __get_phdr(self, data):
+    def _get_phdr(self, data):
         """ Get program header table """
         phdr = []
         int_fields = ["offset", "vaddr", "filesz", "memsz", "align"]
@@ -146,7 +146,7 @@ class Elf(AbsObj):
                 phdr.append(h)
         return phdr
 
-    def __get_shdr(self, data):
+    def _get_shdr(self, data):
         """ Get section header table if present """
         shdr = []
         for i in data:
@@ -155,7 +155,7 @@ class Elf(AbsObj):
                 shdr.append(i)
         return shdr
 
-    def __get_dynamic(self, data):
+    def _get_dynamic(self, data):
         """ Get the dynamic section """
         dyn = []
         for i in data:
@@ -167,13 +167,13 @@ class Elf(AbsObj):
                 dyn.append(ent)
         return dyn
 
-    def __get_entry_point(self, data):
+    def _get_entry_point(self, data):
         """ Get entry point """
         for i in data:
             if i[0] == "Entry point":
                 return int(i[1].strip(), 16)
 
-    def __get_gotaddr(self, dyn):
+    def _get_gotaddr(self, dyn):
         """ Address of GOT """
         for i in dyn:
             if i["tag"] == "DT_PLTGOT":
@@ -193,12 +193,12 @@ class Elf(AbsObj):
         # Set a custom entry point
         self.custom_entry_point = entry_point
 
-    def __get_endianness(self, data):
+    def _get_endianness(self, data):
         for i in data:
             if i[0] == "Endianness":
                 return i[1].strip()
 
-    def __get_elf_flags(self, data):
+    def _get_elf_flags(self, data):
         for i in data:
             if i[0] == "Flags":
                 return int(i[1].strip(), 16)
@@ -209,10 +209,10 @@ class Elf(AbsObj):
             if i[0] == "Object type":
                 return i[1].strip()
 
-    def __get_symbols(self, data):
+    def _get_symbols(self, data):
         """ Get symbols addresses """
         symbols = []
-        symb = self.__symb(data)
+        symb = self._symb(data)
         for i in symb:
             s = {}
             s["addr"] = int(i[1].strip(), 16)
@@ -225,7 +225,7 @@ class Elf(AbsObj):
 
         return symbols
 
-    def __symb(self, data):
+    def _symb(self, data):
         """ Extract symbol table entries from Clextract"""
         symb = []
         for i in data:
@@ -234,7 +234,7 @@ class Elf(AbsObj):
                 symb.append(i)
         return symb
 
-    def __strtab(self, data):
+    def _strtab(self, data):
         """ Extract symbol table info from Clextract """
         strtab = []
         for i in data:
@@ -242,18 +242,18 @@ class Elf(AbsObj):
                 strtab.append(i)
         return strtab
 
-    def __get_strtab(self, data):
+    def _get_strtab(self, data):
         """
         Returns {offset_in_string_table : string}
         """
         strtab = {}
-        for i in self.__strtab(data):
+        for i in self._strtab(data):
             offset = i[1].strip()
             name = i[2].strip()
             strtab[offset] = name
         return strtab
 
-    def __get_strtab_vaddr(self, data):
+    def _get_strtab_vaddr(self, data):
         """
         Returns the virtual address of the strtab.
         On PIE binaries, you might want to add the base address to it (TODO: check that)
@@ -262,7 +262,7 @@ class Elf(AbsObj):
             if i[0] == "strtab_vaddr":
                 return int(i[1].strip(),16)
 
-    def __get_jmprel(self, data):
+    def _get_jmprel(self, data):
         """ Get the location of the GOT slots corresponding to the addresses of
         relocated symbols (jump targets of the (PLT).
         The story:
@@ -274,7 +274,7 @@ class Elf(AbsObj):
 
         # MIPS does not support this so we need a workaround
         if "mips" in self.arch:
-            return self.__get_mips_jmprel()
+            return self._get_mips_jmprel()
 
         for i in data:
             if i[0].strip() == "jmprel":
@@ -283,7 +283,7 @@ class Elf(AbsObj):
                 got[i[3].strip()] = int(i[1].strip(), 16)
         return got
 
-    def __get_mips_jmprel(self):
+    def _get_mips_jmprel(self):
         """
         What are the external symbols to relocate on MIPS ? And what are their GOT
         entries ? There is no DT_JMPREL on mips, so let's emulate one
@@ -307,7 +307,7 @@ class Elf(AbsObj):
             jmprel[sym["name"]] = got_slot
         return jmprel
 
-    def __get_linking_type(self, data):
+    def _get_linking_type(self, data):
         for i in data:
             if i[0] == "Linking":
                 return i[1].strip()
@@ -367,7 +367,7 @@ class Elf(AbsObj):
         # Return the segment with the highest vaddr
         return load[0] if load[0]["vaddr"] > load[1]["vaddr"] else load[1]
 
-    def __get_imports(self, symbols):
+    def _get_imports(self, symbols):
         """ Get imports from symbol table """
         imports = {}
         for i in symbols:
@@ -401,7 +401,7 @@ class Elf(AbsObj):
                     exports[name] = addr
         return exports
 
-    def __get_lib_names(self, data):
+    def _get_lib_names(self, data):
         """ What are the dependencies of the binary ?
         This gets the names of the libraries we should load as well, from the
         dynamic segment """
@@ -416,7 +416,7 @@ class Elf(AbsObj):
         l.debug("\t--> binary depends on %s" % repr(deps))
         return deps
 
-    def __call_clextract(self, binary):
+    def _call_clextract(self, binary):
         """ Get information from the binary using clextract """
         qemu = self.archinfo.get_qemu_cmd()
         arch = self.archinfo.get_unique_name()
@@ -463,15 +463,15 @@ class Elf(AbsObj):
 
         text = self.get_text_phdr_ent()
         data = self.get_data_phdr_ent()
-        self.__load(text, "text")
+        self._load(text, "text")
         if data is not None:
-            self.__load(data, "data")
+            self._load(data, "data")
             # The data segment is also supposed to contain the BSS section
-            self.__load_bss(data)
+            self._load_bss(data)
         else:
             l.warning("There is NO data segment in this binary !")
 
-    def __load_bss(self, data_hdr):
+    def _load_bss(self, data_hdr):
         """ The BSS section does not appear in the binary file, but its size is
         the difference between the binary size and the process memory image size
         """
@@ -480,7 +480,7 @@ class Elf(AbsObj):
         for i in range(off, off + size):
             self.memory[i] = "\x00"
 
-    def __load(self, hdrinfo, name):
+    def _load(self, hdrinfo, name):
         """ Stub to load the text segment """
         if not hdrinfo:
             raise CLException("No program header entry for the %s segment was"
@@ -552,7 +552,7 @@ class Elf(AbsObj):
         self.segments.append(seg)
         l.debug("\t--> Loaded segment %s @0x%x with size:0x%x" % (name, vaddr,
                                                                 size))
-    def __mips_specifics(self):
+    def _mips_specifics(self):
         """ These are specific mips entries of the dynamic table """
         for i in self.dynamic:
             # How many local references in the GOT

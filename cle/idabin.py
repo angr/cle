@@ -38,11 +38,11 @@ class IdaBin(AbsObj):
        # else:
        #     self.rebase_addr = 0
 
-        self.imports = self.__get_imports()
+        self.imports = self._get_imports()
         self.linking = self._get_linking_type()
 
-        self.exports = self.__get_exports()
-        self.entry_point = self.__get_entry_point()
+        self.exports = self._get_exports()
+        self.entry_point = self._get_entry_point()
 
         self._ppc64_abiv1_entry_fix()
 
@@ -59,10 +59,10 @@ class IdaBin(AbsObj):
                 raise CLException("Rebasing of %s failed!", self.binary)
             self.ida.remake_mem()
             self.rebase_addr = base_addr
-            #self.__rebase_exports(base_addr)
+            #self._rebase_exports(base_addr)
 
             # We also need to update the exports' addresses
-            self.exports = self.__get_exports()
+            self.exports = self._get_exports()
 
     def in_which_segment(self, addr):
         """ Return the segment name at address @addr (IDA)"""
@@ -71,7 +71,7 @@ class IdaBin(AbsObj):
             seg = "unknown"
         return seg
 
-    def __find_got(self):
+    def _find_got(self):
         """ Locate the section (e.g., .got) that should be updated when
         relocating functions (that's where we want to write absolute addresses).
         """
@@ -92,7 +92,7 @@ class IdaBin(AbsObj):
             return False
         return True
 
-    def __in_proper_section(self, addr):
+    def _in_proper_section(self, addr):
         """ Is @addr in the proper section for this architecture ?"""
         return (addr > self.got_begin and addr < self.got_end)
 
@@ -103,7 +103,7 @@ class IdaBin(AbsObj):
             name = "UNKNOWN"
         return name
 
-    def __lookup_symbols(self, symbols):
+    def _lookup_symbols(self, symbols):
         """ Resolves a bunch of symbols denoted by the list @symbols
             Returns: a dict of the form {symb:addr}"""
         addrs = {}
@@ -126,7 +126,7 @@ class IdaBin(AbsObj):
             addr = None
         return addr
 
-    def __get_exports(self):
+    def _get_exports(self):
         """ Get binary's exports names from IDA and return a list"""
         exports = {}
         for item in list(self.ida.idautils.Entries()):
@@ -138,7 +138,7 @@ class IdaBin(AbsObj):
             #l.debug("\t export %s 0x@%x" % (name, ea))
         return exports
 
-    def __get_ida_imports(self):
+    def _get_ida_imports(self):
         """ Extract imports from binary (IDA)"""
         import_modules_count = self.ida.idaapi.get_import_module_qty()
         self.raw_imports = {}
@@ -146,20 +146,20 @@ class IdaBin(AbsObj):
         for i in xrange(0, import_modules_count):
             self.current_module_name = self.ida.idaapi.get_import_module_name(
                 i)
-            self.ida.idaapi.enum_import_names(i, self.__import_entry_callback)
+            self.ida.idaapi.enum_import_names(i, self._import_entry_callback)
 
-    def __import_entry_callback(self, ea, name, entry_ord):
+    def _import_entry_callback(self, ea, name, entry_ord):
         """ Callback function for IDA's enum_import_names"""
         self.raw_imports[name] = ea
         return True
 
-    def __get_imports(self):
+    def _get_imports(self):
         """ Extract imports from the binary. This uses the exports we get from IDA,
         and then tries to find the GOT entries related to them.
         It returns a dict {import:got_address}
         """
         # Get the list of imports from IDA
-        self.__get_ida_imports()
+        self._get_ida_imports()
 
         # Static binary
         if len(self.raw_imports) == 0:
@@ -168,7 +168,7 @@ class IdaBin(AbsObj):
 
         # Locate the GOT on this architecture. If we can't, let's just default
         # to IDA's imports (which gives stub addresses instead).
-        if not self.__find_got():
+        if not self._find_got():
             l.warning("We could not identify the GOT section. This looks like a stripped binary. IDA'll probably give us PLT stubs instead, so keep in mind that Ld.find_symbol_got_entry() and friends won't work with actual GOT addresses. If that's a problem, use the ELF backend instead.")
             return self.raw_imports
 
@@ -183,7 +183,7 @@ class IdaBin(AbsObj):
                 lst = list(self.ida.idautils.DataRefsTo(ea))
 
             for addr in lst:
-                if self.__in_proper_section(addr) and addr != self.badaddr:
+                if self._in_proper_section(addr) and addr != self.badaddr:
                     imports[name] = addr
                     l.debug("\t -> has import %s - GOT entry @ 0x%x" % (name, addr))
         return imports
@@ -208,7 +208,7 @@ class IdaBin(AbsObj):
         else:
             return nm
 
-    def __get_entry_point(self):
+    def _get_entry_point(self):
         """ Get the entry point of the binary (from IDA)"""
         if self.custom_entry_point is not None:
             return self.custom_entry_point
