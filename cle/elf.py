@@ -118,10 +118,10 @@ class Elf(AbsObj):
 
         # if there is no data segment
         if data is None:
-            return text["vaddr"] + text["memsz"] + self.rebase_addr
+            return text["vaddr"] + text["memsz"] + self.rebase_addr -1
 
-        m1 = text["vaddr"] + text["memsz"] + self.rebase_addr
-        m2 = data["vaddr"] + data["memsz"] + self.rebase_addr
+        m1 = text["vaddr"] + text["memsz"] + self.rebase_addr -1
+        m2 = data["vaddr"] + data["memsz"] + self.rebase_addr -1
 
         if m1 > m2:
             return m1
