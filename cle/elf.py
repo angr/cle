@@ -69,6 +69,7 @@ class Elf(AbsObj):
         self.__mips_specifics() # Set MIPS properties
         self.endianness = self.__get_endianness(info)
         self.resolved_imports = [] # Imports successfully resolved, i.e. GOT slot updated
+        self.object_type = self.get_object_type(info)
 
         # Stuff static binaries don't have
         if self.linking == "dynamic":
@@ -205,8 +206,8 @@ class Elf(AbsObj):
     def get_object_type(self, data):
         """ Get ELF type """
         for i in data:
-            if i[0] == "Object_type":
-                return i[1]
+            if i[0] == "Object type":
+                return i[1].strip()
 
     def __get_symbols(self, data):
         """ Get symbols addresses """
@@ -287,6 +288,9 @@ class Elf(AbsObj):
         What are the external symbols to relocate on MIPS ? And what are their GOT
         entries ? There is no DT_JMPREL on mips, so let's emulate one
         """
+
+        if len(self.symbols) == 0:
+            return []
 
         symtab_base_idx = self.mips_gotsym # First symbol of symtab that has a GOT entry
         got_base_idx = self.mips_local_gotno  # Index of first global entry in GOT
@@ -439,7 +443,7 @@ class Elf(AbsObj):
         # We want to make sure qemu returns correctly before we interpret
         # the output. TODO: we should also get clextract's return code (maybe
         # through an ENV variable ?)
-        if (err != 0 and err !=1): # For some reasons, it returns 1 sometimes on success
+        if (err != 0):
             raise CLException("Qemu returned error %d while running %s :("
                               % (err, " ".join(cmd)))
 

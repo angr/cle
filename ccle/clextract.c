@@ -68,7 +68,7 @@ void print_basic_info(ElfW(Ehdr ehdr))
     printf("Entry point, 0x%x\n", ehdr.e_entry);
 #endif
     printf("Machine type, %s\n", _get_arch(ehdr));
-    printf("Object type, %s\n", _get_type(ehdr));
+    printf("Object type, %s, 0x%x\n", _get_type(ehdr), ehdr.e_type);
     printf("Endianness, %s\n", ei_data_tostr(ehdr.e_ident[EI_DATA]));
     printf("Flags, 0x%x\n", ehdr.e_flags);
 }
@@ -681,14 +681,16 @@ int main(int argc, char *argv[])
         text = malloc(sizeof(struct segment));
 
         if(!data || !text)
+		{
+			printf("\n***\nERROR, cannot malloc()\n***\n");
             exit(EXIT_FAILURE);
+		}
 
         if (load_text(ehdr, phdr, text, f) != 0)
             exit(EXIT_FAILURE);
 
         if (load_data(ehdr, phdr, data, f) != 0)
-            exit(EXIT_FAILURE);
-
+			printf("\n***\nWARNING, no data segment\n***\n");
 
         print_symtab(dynamic, text);
 	    print_strtab(dynamic, text);
@@ -705,7 +707,8 @@ int main(int argc, char *argv[])
 		printf("strtab_vaddr, 0x%x\n", _get_strtab_vaddr(dynamic));
 #endif
 
-        free_segment(&data);
+		if (data)
+			free_segment(&data);
         free_segment(&text);
     }
 
