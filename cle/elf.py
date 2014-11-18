@@ -662,8 +662,22 @@ class Elf(AbsObj):
         """
         addr = self.archinfo.bytes_to_addr(fetch)
 
+        if "mips" in self.archinfo.name:
+            return addr
+
         if self.archinfo.name == "i386:x86-64":
             # 0x6 is the size of the plt's jmpq instruction in x86_64
             return addr - 0x6
         else:
             raise CLException("Not implemented yet.")
+
+    def get_call_stub_addr(self, name):
+        """
+        Usually, the PLT stub is called when jumping to an external function.
+        But on e.g., MIPS, the GOT is used instead, and the PLT stub is only
+        called if the GOT points to it.
+        """
+        if "mips" in self.archinfo.name:
+            return self.jmprel[name]
+        else:
+            return self.get_plt_stub_addr(self, name)
