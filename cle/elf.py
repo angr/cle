@@ -279,8 +279,8 @@ class Elf(AbsObj):
         for i in data:
             if i[0].strip() == "jmprel":
                 # See the output of clextract:
-                # i[3] is the symbol name, i[1] is the GOT location
-                got[i[3].strip()] = int(i[1].strip(), 16)
+                # i[2] is the symbol name, i[1] is the GOT location
+                got[i[2].strip()] = int(i[1].strip(), 16)
         return got
 
     def _get_mips_jmprel(self):
