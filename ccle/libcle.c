@@ -145,8 +145,10 @@ ElfW(Off) addr_offset_from_segment(ElfW(Addr) addr, struct segment *segment)
 }
 
 /* Get a string from the string table at a given index*/
-char *__get_str(char* strtab, int idx)
+char *get_str(char* strtab, int idx)
 {
+	if (strtab == NULL)
+		return NULL;
     char *str = &strtab[idx];
     return str;
 }
@@ -176,6 +178,64 @@ ElfW(Addr) get_dyn_ptr_addr(ElfW(Dyn) *dynamic, ElfW(Sword) d_tag)
         if (dynamic[i].d_tag == d_tag)
             return dynamic[i].d_un.d_ptr;
     return (ElfW(Addr)) -ENODATA; // unsigned
+}
+
+
+/* Print the rela entry @rela 
+ * @label is a label to print first (e.g., jmprel, or reloc)
+ * */
+void print_rela_ent(ElfW(Rela) rela, ElfW(Sym) *symtab, char *strtab, const char *label)
+{
+	int symidx, stridx;
+	char *name;
+	unsigned char rtype;
+
+	if (strtab == NULL || symtab == NULL)
+	{
+		name = "CLE_ERROR";
+		rtype = 0;
+	}
+	else
+	{
+		symidx = (int) ELF_R_SYM(rela.r_info);
+		stridx = symtab[symidx].st_name;
+		name = &strtab[stridx];
+		rtype = ELF_R_TYPE(rela.r_info);
+	}
+
+#ifdef ELF64
+	printf("%s, 0x%lx, %s, 0x%lx, %d\n", label, rela.r_offset, name,
+			rela.r_addend, rtype);
+#else
+	printf("%s, 0x%x, %s, 0x%x, %d\n", label, rela.r_offset, name,
+			rela.r_addend, rtype);
+#endif
+}
+
+void print_rel_ent(ElfW(Rel) rel, ElfW(Sym) *symtab, char *strtab, const char *label)
+{
+	int symidx, stridx;
+	char *name;
+	unsigned char rtype;
+
+	if (strtab == NULL || symtab == NULL)
+	{
+		name = "CLE_ERROR";
+		rtype = 0;
+	}
+	else
+	{
+		symidx = (int) ELF_R_SYM(rel.r_info);
+		stridx = symtab[symidx].st_name;
+		name = &strtab[stridx];
+		rtype = ELF_R_TYPE(rel.r_info);
+	}
+
+#ifdef ELF64
+	printf("%s, 0x%lx, %s, %d\n", label, rel.r_offset, name, rtype);
+#else
+	printf("%s, 0x%x, %s, %d\n", label, rel.r_offset, name, rtype);
+#endif
 }
 
 

@@ -296,20 +296,8 @@ void print_jmprel(ElfW(Dyn) *dynamic, struct segment *s)
        rela = (ElfW(Rela)*) addr;
        count = pltrelsz / sizeof(ElfW(Rela));
 
-       for(i=0; i<count; i++){
-           symidx = (int) ELF_R_SYM(rela[i].r_info);
-           stridx = symtab[symidx].st_name;
-           name = &strtab[stridx];
-
-           rtype = ELF_R_TYPE(rela[i].r_info);
-           //str = reloc_type_tostr(rtype);
-#ifdef ELF64
-           printf("jmprel, 0x%lx, 0x%x, %s\n", rela[i].r_offset, rtype, name);
-#else
-           printf("jmprel, 0x%x, 0x%x, %s\n", rela[i].r_offset, rtype, name);
-#endif
-
-       }
+       for(i=0; i<count; i++)
+		   print_rela_ent(rela[i], symtab, strtab, "jmprel");
    }
 
    else if (relatype == DT_REL)
@@ -317,35 +305,81 @@ void print_jmprel(ElfW(Dyn) *dynamic, struct segment *s)
        rel = (ElfW(Rel)*) addr;
        count = pltrelsz / sizeof(ElfW(Rel));
 
-       for(i=0; i<count; i++){
-           symidx = (int) ELF_R_SYM(rel[i].r_info);
-           stridx = symtab[symidx].st_name;
-           name = &strtab[stridx];
-
-           rtype = ELF_R_TYPE(rel[i].r_info);
-           //str = reloc_type_tostr(rtype);
-#ifdef ELF64
-           printf("jmprel, 0x%lx, 0x%x, %s\n", rel[i].r_offset, rtype, name);
-#else
-           printf("jmprel, 0x%x, 0x%x, %s\n", rel[i].r_offset, rtype, name);
-#endif
-       }
+       for(i=0; i<count; i++)
+		   print_rel_ent(rel[i], symtab, strtab, "jmprel");
    }
 }
 
+void _print_reloc_rela(ElfW(Dyn) *dynamic, struct segment *s)
+{
+	char *strtab;
+	ElfW(Sym) *symtab;
+	ElfW(Word) relaent, relasz;
+	ElfW(Rela) *rela = NULL;
+	char *name;
+	unsigned char rtype;
+	int i, size;
+
+	if (!dynamic || !s)
+		return;
+
+	printf("\n\n***\nPLTREL is of type DT_RELA\n***\n");
+
+	relaent = get_dyn_val(dynamic, DT_RELAENT);
+	relasz = get_dyn_val(dynamic, DT_RELASZ);
+	rela = get_rela_ptr(dynamic, s);
+	size = relasz / relaent;
+
+
+	if (!rela)
+		return;
+
+	symtab = get_symtab_ptr(dynamic, s);
+	strtab = get_strtab_ptr(dynamic, s);
+
+	printf ("\nRELOC, OFFSET, NAME, ADDEND, TYPE\n---\n");
+	for(i=0 ;i<size; i++)
+		print_rela_ent(rela[i], symtab, strtab, "reloc");
+}
+
+void _print_reloc_rel(ElfW(Dyn) *dynamic, struct segment *s)
+{
+	char *strtab;
+    ElfW(Rel) *rel = NULL;
+	ElfW(Sym) *symtab;
+	ElfW(Word) relent, relsz;
+	unsigned char rtype;
+	char *name;
+	int i, size;
+
+	printf("\n\n***\nPLTREL is of type DT_REL\n***\n");
+
+	relent = get_dyn_val(dynamic, DT_RELENT);
+	relsz = get_dyn_val(dynamic, DT_RELSZ);
+	rel = get_rel_ptr(dynamic, s);
+	size = relsz / relent;
+
+	if (!rel)
+		return;
+
+	symtab = get_symtab_ptr(dynamic, s);
+	strtab = get_strtab_ptr(dynamic, s);
+
+	printf ("\n RELOC, OFFSET, NAME, TYPE\n---\n");
+
+    /* Size of the table / size of individual entries */
+    size = relsz / relent;
+
+    /* Print either rel or rela, depending on whichever is set */
+    for(i=0 ;i<size; i++)
+		print_rel_ent(rel[i], symtab, strtab, "reloc");
+}
 
 /* Print relocation table */
-void print_rela(ElfW(Dyn) *dynamic, struct segment *s)
+void print_reloc(ElfW(Dyn) *dynamic, struct segment *s)
 {
-    ElfW(Rela) *rela = NULL;
-    ElfW(Rel) *rel = NULL;
-    ElfW(Sym) *symtab;
-	char *name, *strtab;
-	unsigned char rtype;
-    size_t size;
-    int i;
 
-    ElfW(Word) relaent, relasz, pltrel;
+    ElfW(Word) pltrel;
 
     if (!dynamic || !s)
         return;
@@ -353,52 +387,12 @@ void print_rela(ElfW(Dyn) *dynamic, struct segment *s)
     /* Relocation entries can be ElfW(Rela) of ElfW(Rel) structures*/
     pltrel = get_dyn_val(dynamic, DT_PLTREL);
 
-    if (pltrel == DT_RELA){
-        printf("PLTREL is of type DT_RELA\n");
-        relaent = get_dyn_val(dynamic, DT_RELENT);
-        relasz = get_dyn_val(dynamic, DT_RELSZ);
-        rela = get_rela_ptr(dynamic, s);
-		printf ("\nRELOC, OFFSET, NAME, ADDEND, TYPE\n---\n");
-    }
-
-    else if (pltrel == DT_REL){
-        printf("PLTREL is of type DT_REL\n");
-        relaent = get_dyn_val(dynamic, DT_RELAENT);
-        relasz = get_dyn_val(dynamic, DT_RELASZ);
-        rel = get_rel_ptr(dynamic, s);
-		printf ("\n RELOC, OFFSET, NAME, TYPE\n---\n");
-    }
-
-    /* Size of the table / size of individual entries */
-    size = relasz / relaent;
-
-    symtab = get_symtab_ptr(dynamic, s);
-    strtab = get_strtab_ptr(dynamic, s);
-    /* Print either rel or rela, depending on whichever is set */
-    for(i=0 ;i<size; i++)
-		if (rela)
-		{
-			name = &strtab[symtab[rela[i].r_info].st_name];
-			rtype = ELF_R_TYPE(rela[i].r_info);
-		}
-		else
-		{
-			name = &strtab[symtab[rel[i].r_info].st_name];
-			rtype = ELF_R_TYPE(rel[i].r_info);
-		}
-#ifdef ELF64
-        if (rela)
-            printf("reloc, 0x%lx, %s, 0x%lx, %d\n", rela[i].r_offset, name,
-                    rela[i].r_addend, rtype);
-        else if (rel)
-            printf("reloc, 0x%lx, %s, %d\n", rel[i].r_offset, name, rtype);
-#else
-        if (rela)
-        printf("reloc, 0x%x, %s, 0x%x, %d\n", rela[i].r_offset, name,
-                rela[i].r_addend, rtype);
-        else if (rel)
-            printf("reloc, 0x%x, %s, %d\n", rel[i].r_offset, name, rtype);
-#endif
+    if (pltrel == DT_RELA)
+		return _print_reloc_rela(dynamic, s);
+	else if (pltrel == DT_REL)
+		return _print_reloc_rel(dynamic,s);
+	else
+		printf("CLE Error: unknown REL type\n");
 }
 
 
@@ -713,7 +707,7 @@ int main(int argc, char *argv[])
 
         print_symtab(dynamic, text);
 	    print_strtab(dynamic, text);
-        print_rela(dynamic, text);
+        print_reloc(dynamic, text);
         print_jmprel(dynamic, text);
 		
 		printf("\nMISC\n---\n");
