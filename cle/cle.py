@@ -243,7 +243,10 @@ class Ld(object):
             l.info("**SLOW**: Copy IDA's memory to Ld's memory (%s)" % o.binary)
             self._copy_mem(o, update=True)
 
-    def mem_range(self, a_from, a_to):
+    def read_mem_range(self, a_from, a_to):
+        """
+        Returns the content of memory from @a_from to @a_to
+        """
         arr = []
         for addr in range(a_from, a_to):
             arr.append(self.memory[addr])
@@ -265,11 +268,17 @@ class Ld(object):
             if (addr >= min and addr <= max):
                 return so
 
-    def is_ida_mapped(self, addr):
+    def addr_is_ida_mapped(self, addr):
         """
             Is the object mapping @addr an instance of IdaBin ?
         """
         return isinstance(IdaBin, self.addr_belongs_to_object(addr))
+
+    def addr_is_mapped(self, addr):
+        """
+        Is addr mapped at all ?
+        """
+        return self.addr_belongs_to_object(addr) is not None
 
     def min_addr(self):
         """ The minimum base address of any loaded object """
@@ -964,6 +973,7 @@ class Ld(object):
 
     def read_bytes(self, addr, n):
         """ Read @n bytes at address @addr in memory and return an array of bytes
+            See also read_mem_range()
         """
         bytes = []
         for i in range(addr, addr+n):
