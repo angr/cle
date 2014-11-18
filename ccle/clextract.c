@@ -391,13 +391,13 @@ void print_rela(ElfW(Dyn) *dynamic, struct segment *s)
             printf("reloc, 0x%lx, %s, 0x%lx, %d\n", rela[i].r_offset, name,
                     rela[i].r_addend, rtype);
         else if (rel)
-            printf("reloc, 0x%lx, 0x%lx, %d\n", rel[i].r_offset, name, rtype);
+            printf("reloc, 0x%lx, %s, %d\n", rel[i].r_offset, name, rtype);
 #else
         if (rela)
-        printf("reloc, 0x%x, 0x%x, 0x%x, %d\n", rela[i].r_offset, name,
+        printf("reloc, 0x%x, %s, 0x%x, %d\n", rela[i].r_offset, name,
                 rela[i].r_addend, rtype);
         else if (rel)
-            printf("reloc, 0x%x, 0x%x, %d\n", rel[i].r_offset, name, rtype);
+            printf("reloc, 0x%x, %s, %d\n", rel[i].r_offset, name, rtype);
 #endif
 }
 
