@@ -70,6 +70,7 @@ class Elf(AbsObj):
         self.endianness = self._get_endianness(info)
         self.resolved_imports = [] # Imports successfully resolved, i.e. GOT slot updated
         self.object_type = self.get_object_type(info)
+        self.reloc = self._get_reloc(info)
 
         # Stuff static binaries don't have
         if self.linking == "dynamic":
@@ -276,12 +277,42 @@ class Elf(AbsObj):
         if "mips" in self.arch:
             return self._get_mips_jmprel()
 
+        index = 0
         for i in data:
             if i[0].strip() == "jmprel":
                 # See the output of clextract:
                 # i[2] is the symbol name, i[1] is the GOT location
-                got[i[2].strip()] = int(i[1].strip(), 16)
+                name = i[2].strip()
+                if name == '':
+                    name = "CLE_JMP_UNKN_" + str(index)
+                    index = index + 1
+                got[name] = int(i[1].strip(), 16)
         return got
+
+    def _get_reloc(self, data):
+        """
+        Get dynamic relocation information.
+        """
+        reloc = {}
+        index = 0
+        for i in data:
+            if i[0].strip() == "reloc":
+                name = i[2].strip()
+                if name == '':
+                    name = "CLE_RELOC_UNKN_" + str(index)
+                    index = index + 1
+                reloc[name] = int(i[1].strip(), 16)
+        return reloc
+
+    def known_reloc(self):
+        """
+        Filter relocations to show only those which names are known
+        """
+        res = {}
+        for k, v in self.reloc.iteritems():
+            if not "CLE_RELOC_UNKN" in k:
+                res[k] = v
+        return res
 
     def _get_mips_jmprel(self):
         """
