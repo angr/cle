@@ -615,6 +615,14 @@ class Elf(AbsObj):
                 glob[name] = e['addr']
         return glob
 
+    def get_undef_symbols(self):
+        undef = {}
+        for e in self.symbols:
+            if e['sh_info'] == 'SHN_UNDEF' and e['type'] == 'STT_OBJECT':
+                name = e['name']
+                undef[name] = e['addr']
+                return undef
+
     def function_name(self, addr):
         """
         Try to guess whether @addr is inside the code of a local function.

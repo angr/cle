@@ -289,6 +289,7 @@ void print_jmprel(ElfW(Dyn) *dynamic, struct segment *s)
    if (!addr || !s)
        return;
 
+   printf("\nJMPREL, OFFSET, TYPE, NAME\n---\n");
    /* The following depends on the type of relocation entries */
    if (relatype == DT_RELA)
    {
@@ -338,8 +339,12 @@ void print_rela(ElfW(Dyn) *dynamic, struct segment *s)
 {
     ElfW(Rela) *rela = NULL;
     ElfW(Rel) *rel = NULL;
+    ElfW(Sym) *symtab;
+	char *name, *strtab;
+	unsigned char rtype;
     size_t size;
     int i;
+
     ElfW(Word) relaent, relasz, pltrel;
 
     if (!dynamic || !s)
@@ -349,36 +354,50 @@ void print_rela(ElfW(Dyn) *dynamic, struct segment *s)
     pltrel = get_dyn_val(dynamic, DT_PLTREL);
 
     if (pltrel == DT_RELA){
-        printf("PLTREL is of type DT_REL\n");
+        printf("PLTREL is of type DT_RELA\n");
         relaent = get_dyn_val(dynamic, DT_RELENT);
         relasz = get_dyn_val(dynamic, DT_RELSZ);
         rela = get_rela_ptr(dynamic, s);
+		printf ("\nRELOC, OFFSET, NAME, ADDEND, TYPE\n---\n");
     }
 
     else if (pltrel == DT_REL){
-        printf("PLTREL is of type DT_RELA\n");
+        printf("PLTREL is of type DT_REL\n");
         relaent = get_dyn_val(dynamic, DT_RELAENT);
         relasz = get_dyn_val(dynamic, DT_RELASZ);
         rel = get_rel_ptr(dynamic, s);
+		printf ("\n RELOC, OFFSET, NAME, TYPE\n---\n");
     }
 
     /* Size of the table / size of individual entries */
     size = relasz / relaent;
 
+    symtab = get_symtab_ptr(dynamic, s);
+    strtab = get_strtab_ptr(dynamic, s);
     /* Print either rel or rela, depending on whichever is set */
     for(i=0 ;i<size; i++)
+		if (rela)
+		{
+			name = &strtab[symtab[rela[i].r_info].st_name];
+			rtype = ELF_R_TYPE(rela[i].r_info);
+		}
+		else
+		{
+			name = &strtab[symtab[rel[i].r_info].st_name];
+			rtype = ELF_R_TYPE(rel[i].r_info);
+		}
 #ifdef ELF64
         if (rela)
-            printf("reloc, 0x%lx, 0x%lx, 0x%lx\n", rela[i].r_offset, rela[i].r_info,
-                    rela[i].r_addend);
+            printf("reloc, 0x%lx, %s, 0x%lx, %d\n", rela[i].r_offset, name,
+                    rela[i].r_addend, rtype);
         else if (rel)
-            printf("reloc, 0x%lx, 0x%lx\n", rel[i].r_offset, rel[i].r_info);
+            printf("reloc, 0x%lx, 0x%lx, %d\n", rel[i].r_offset, name, rtype);
 #else
         if (rela)
-        printf("reloc, 0x%x, 0x%x, 0x%x\n", rela[i].r_offset, rela[i].r_info,
-                rela[i].r_addend);
+        printf("reloc, 0x%x, 0x%x, 0x%x, %d\n", rela[i].r_offset, name,
+                rela[i].r_addend, rtype);
         else if (rel)
-            printf("reloc, 0x%x, 0x%x\n", rel[i].r_offset, rel[i].r_info);
+            printf("reloc, 0x%x, 0x%x, %d\n", rel[i].r_offset, name, rtype);
 #endif
 }
 
@@ -696,6 +715,8 @@ int main(int argc, char *argv[])
 	    print_strtab(dynamic, text);
         print_rela(dynamic, text);
         print_jmprel(dynamic, text);
+		
+		printf("\nMISC\n---\n");
         print_needed(dynamic, text);
         print_rpath(dynamic, text);
         print_mips_reloc(dynamic,text);
