@@ -323,7 +323,7 @@ void _print_reloc_rela(ElfW(Dyn) *dynamic, struct segment *s)
 	if (!dynamic || !s)
 		return;
 
-	printf("\n\n***\nPLTREL is of type DT_RELA\n***\n");
+	printf("\nrela_type, DT_RELA\n");
 
 	relaent = get_dyn_val(dynamic, DT_RELAENT);
 	relasz = get_dyn_val(dynamic, DT_RELASZ);
@@ -352,7 +352,7 @@ void _print_reloc_rel(ElfW(Dyn) *dynamic, struct segment *s)
 	char *name;
 	int i, size;
 
-	printf("\n\n***\nPLTREL is of type DT_REL\n***\n");
+	printf("\nrela_type, DT_REL\n");
 
 	relent = get_dyn_val(dynamic, DT_RELENT);
 	relsz = get_dyn_val(dynamic, DT_RELSZ);

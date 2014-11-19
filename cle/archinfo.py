@@ -269,3 +269,20 @@ class ArchInfo(object):
         """
         fmt = self.get_struct_fmt()
         return struct.unpack(fmt, ''.join(data))[0]
+
+    def get_global_reloc_type(self):
+        if self.name == "i386:x86-64":
+            return 6 #R_X86_64_GLOB_DAT
+        elif self.name == "i386":
+            return 6 # R386_GLOB_DAT
+        else:
+            raise CLException("Not implemented")
+
+    def get_relative_reloc_type(self):
+        if self.name == "i386:x86-64":
+            return 8 #R_X86_64_RELATIVE
+        elif self.name == "i386":
+            return 8 # R386_RELATIVE
+        else:
+            raise CLException("Not implemented")
+

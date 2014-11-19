@@ -70,7 +70,8 @@ class Elf(AbsObj):
         self.endianness = self._get_endianness(info)
         self.resolved_imports = [] # Imports successfully resolved, i.e. GOT slot updated
         self.object_type = self.get_object_type(info)
-        self.reloc = self._get_reloc(info)
+        self.global_reloc = self._get_global_reloc(info)
+        self.relative_reloc = self._get_relative_reloc(info)
 
         # Stuff static binaries don't have
         if self.linking == "dynamic":
@@ -289,30 +290,62 @@ class Elf(AbsObj):
                 got[name] = int(i[1].strip(), 16)
         return got
 
-    def _get_reloc(self, data):
-        """
-        Get dynamic relocation information.
-        """
-        reloc = {}
-        index = 0
+    def _get_raw_reloc(self, data):
+        reloc = []
         for i in data:
             if i[0].strip() == "reloc":
-                name = i[2].strip()
-                if name == '':
-                    name = "CLE_RELOC_UNKN_" + str(index)
-                    index = index + 1
-                reloc[name] = int(i[1].strip(), 16)
+                # (offset, name, reloc_type)
+                if self.get_rela_type(data) == "DT_RELA":
+                    reloc.append( (i[2].strip(), i[1].strip(), int(i[4].strip(),10)))
+                elif self.get_rela_type(data) == "DT_REL":
+                    reloc.append( (i[2].strip(), i[1].strip(), int(i[3].strip(),10)))
         return reloc
 
-    def known_reloc(self):
+    def get_rela_type(self, data):
         """
-        Filter relocations to show only those which names are known
+        Elf relocation structure type, DT_RELA or DT_REL
+        DT_RELA has extra information (addend)
         """
-        res = {}
-        for k, v in self.reloc.iteritems():
-            if not "CLE_RELOC_UNKN" in k:
-                res[k] = v
-        return res
+        for i in data:
+            if i[0].strip() == "rela_type":
+                return i[1].strip()
+
+    def _get_global_reloc(self, data):
+        """
+        Get dynamic relocation information for global data.
+        Returns: a dict {name:offset}
+        """
+        reloc = {}
+
+        # 6 : R386_GLOB_DAT - these are GOT entries to update
+
+        raw_reloc = self._get_raw_reloc(data)
+
+        for t in raw_reloc:
+            # (offset, name, reloc_type)
+            if t[2] == self.archinfo.get_global_reloc_type():
+                reloc[t[0]] = int(t[1],16)
+                if t[0] == '':
+                    raise CLException("Empty name in global data reloc, this is a bug\n");
+        return reloc
+
+    def _get_relative_reloc(self, data):
+        """
+        Get dynamic relative relocation information.
+        We typically don't have these guys' names.
+        Returns: a list of tuples (offset, name)
+        """
+        reloc = []
+
+        # 8 : R_386_RELATIVE - We need to add the load address to the offset
+        # when relocating
+
+        raw_reloc = self._get_raw_reloc(data)
+        for t in raw_reloc:
+            # (offset, name, reloc_type)
+            if t[2] == self.archinfo.get_relative_reloc_type():
+                reloc.append((t[0], t[1]))
+        return reloc
 
     def _get_mips_jmprel(self):
         """
@@ -486,7 +519,7 @@ class Elf(AbsObj):
             # All the fields are separated by commas, see clextract.c
             s = []
             for i in data:
-                s.append(i.split(","))
+                s.append(i.split(','))
             return s
 
     def load(self):

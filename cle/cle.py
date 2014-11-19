@@ -321,8 +321,15 @@ class Ld(object):
         if "mips" in self.main_bin.arch and obj != self.main_bin:
             self._reloc_mips_local(obj)
 
-        # Now let's update GOT entries for PLT jumps
-        for symb, got_addr in obj.jmprel.iteritems():
+        """
+        We need to update GOT entries of external symbols.
+        These may be of type jmprel (jump type relocations,
+        i.e., functions) or rela/rel for non functions.
+        """
+
+        # Now let's update GOT entries for both PLT jumps and global data
+        ext = dict(obj.jmprel.items() + obj.global_reloc.items())
+        for symb, got_addr in ext.iteritems():
             # We don't resolve ignored functions
             if symb in self.ignore_imports:
                 continue
@@ -331,10 +338,11 @@ class Ld(object):
                 # We resolved this symbol
                 obj.resolved_imports.append(symb)
                 uaddr = uaddr + obj.rebase_addr
-                l.info("\t--> [R] Relocation of %s -> 0x%x [stub@0x%x]" % (symb,
-                                                                     uaddr,
-                                                                     got_addr))
 
+                stype = "function" if symb in obj.jmprel else "global data ref"
+                l.info("\t--> [R] Relocation of %s %s -> 0x%x [stub@0x%x]" % (stype, symb,
+                                                                                uaddr,
+                                                                                got_addr))
                 baddr = self._addr_to_bytes(uaddr)
                 for i in range(0, len(baddr)):
                     self.memory[got_addr + i] = baddr[i]
