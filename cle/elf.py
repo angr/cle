@@ -752,4 +752,4 @@ class Elf(AbsObj):
         if "mips" in self.archinfo.name:
             return self.jmprel[name]
         else:
-            return self.get_plt_stub_addr(self, name)
+            return self.get_plt_stub_addr(name)
