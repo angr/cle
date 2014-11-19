@@ -267,6 +267,7 @@ class Ld(object):
                                   "updated", os.path.basename(so.binary))
             if (addr >= min and addr <= max):
                 return so
+        return None
 
     def addr_is_ida_mapped(self, addr):
         """
@@ -333,11 +334,15 @@ class Ld(object):
             # We don't resolve ignored functions
             if symb in self.ignore_imports:
                 continue
+
+            # We take the GOT from ELF file, that's not rebased yet
+            got_addr = got_addr + obj.rebase_addr
+
+            # However, find_symbol_addr() takes care of rebasing
             uaddr = self.find_symbol_addr(symb)
             if (uaddr):
                 # We resolved this symbol
                 obj.resolved_imports.append(symb)
-                uaddr = uaddr + obj.rebase_addr
 
                 stype = "function" if symb in obj.jmprel else "global data ref"
                 l.info("\t--> [R] Relocation of %s %s -> 0x%x [stub@0x%x]" % (stype, symb,
@@ -988,6 +993,9 @@ class Ld(object):
             bytes.append(self.memory[i])
         return bytes
 
+    def read_addr_at(self, addr):
+        return self.main_bin.archinfo.bytes_to_addr(''.join(self.read_bytes(addr,
+                                                                   self.main_bin.archinfo.bits/8)))
     # Test cases
     def test_end_conversion(self):
         x = self._addr_to_bytes(int("0xc4f2", 16))
