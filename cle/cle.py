@@ -639,6 +639,10 @@ class Ld(object):
             if name in self.skip_libs:
                 continue
 
+            if len(name) == 0:
+                l.warning("***Library with no name at 0x%x. You are probably trying to load a shared object as the main library. If that's the case, its base address will be 0 instead of 0x%x. If that's not the case, this is probably a bug.***" % (addr, addr))
+                continue
+
             fname = os.path.basename(name)
             # If we haven't determined any base address yet (probably because
             # LD_AUDIT failed)
@@ -934,7 +938,7 @@ class Ld(object):
             #if not ld_path: continue
             for s_path, s_dir, s_file in os.walk(ld_path, followlinks=True):
                 sopath = os.path.join(s_path,libname)
-                if os.path.exists(sopath):
+                if os.path.exists(sopath) and os.path.isfile(sopath):
                     l.debug("\t--> Trying %s" % sopath)
                     if self._check_arch(sopath) == False:
                         l.debug("\t\t -> has wrong architecture")
