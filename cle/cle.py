@@ -30,7 +30,9 @@ FIXME list
 class Ld(object):
     """ CLE ELF loader
     The loader loads all the objects and exports an abstraction of the memory of
-    the process.
+    the process. What you see here is an address space with loaded and rebased
+    binaries.  We try to use the same addresses as GNU Ld would use whenever we
+    can, but it's not always possible.
     """
     def __init__(self, main_binary, cle_ops):
         """
@@ -195,12 +197,6 @@ class Ld(object):
         if (self.ida_main is True):
             self.ida_sync_mem()
 
-    def host_endianness(self):
-        if (sys.byteorder == "little"):
-            return "LSB"
-        else:
-            return "MSB"
-
     def _perform_reloc(self):
         # Main binary
         self._perform_reloc_stub(self.main_bin)
@@ -242,15 +238,6 @@ class Ld(object):
         for o in objs:
             l.info("**SLOW**: Copy IDA's memory to Ld's memory (%s)" % o.binary)
             self._copy_mem(o, update=True)
-
-    def read_mem_range(self, a_from, a_to):
-        """
-        Returns the content of memory from @a_from to @a_to
-        """
-        arr = []
-        for addr in range(a_from, a_to):
-            arr.append(self.memory[addr])
-        return "".join(arr)
 
     def addr_belongs_to_object(self, addr):
         max = self.main_bin.get_max_addr()
@@ -348,12 +335,25 @@ class Ld(object):
                 l.info("\t--> [R] Relocation of %s %s -> 0x%x [stub@0x%x]" % (stype, symb,
                                                                                 uaddr,
                                                                                 got_addr))
-                baddr = self._addr_to_bytes(uaddr)
+                baddr = self.main_bin.archinfo.addr_to_bytes(uaddr)
                 for i in range(0, len(baddr)):
                     self.memory[got_addr + i] = baddr[i]
 
             else:
                 l.warning("\t--> [U] Cannot locate symbol \"%s\" from SOs" % symb)
+
+    def _reloc_relative(self, obj):
+        """
+        This is dealing with relative relocations, e.g., R_386_RELATIVE
+        """
+
+        # This is an array of tuples
+        for t in obj.relative_reloc.items():
+            offset = t[0] # Offset in the binary where the address to relocate is stored
+            vaddr = offset + obj.rebase_addr # Where that is in memory as we loaded it
+            rela = self.memory.read_addr_at(vaddr, self.main_bin.archinfo)
+            rela_updated = rela + obj.rebase_addr
+            self.memory.write_addr_at(vaddr, rela_updated, self.main_bin.archinfo)
 
     def _reloc_mips_local(self, obj):
         """ MIPS local relocations (yes, GOT entries for local symbols also need
@@ -379,76 +379,14 @@ class Ld(object):
         # Local entries reside in the first part of the GOT
         for i in range(0, obj.mips_local_gotno): # 0 to number of local symb
             got_slot = obj.gotaddr + obj.rebase_addr + (i * got_entry_size)
-            addr = self._bytes_to_addr(self._read_got_slot(got_slot))
+            addr = self.memory.read_addr_at(got_slot, self.main_bin.archinfo)
             if (addr == 0):
                 l.error("Address in GOT at 0x%x is 0" % got_slot)
             else:
                 newaddr = addr + delta
                 l.debug("\t-->Relocating MIPS local GOT entry @ slot 0x%x from 0x%x"
                         " to 0x%x" % (got_slot, addr, newaddr))
-                self._override_got_slot(got_slot, newaddr)
-
-    def _addr_to_bytes(self, addr):
-        """ This splits an address into n bytes
-        @addr is the address to split
-        """
-
-        # Craft format string of the right length
-        hex_digits = self.main_bin.bits_per_addr / 4
-        fmt = "0%dX" % hex_digits
-        fmt = '%' + fmt
-
-        # Convert addr to hex string
-        hx = fmt % addr
-        h_bytes = []
-
-        # Split hex addr in bytes
-        for i in range(0, len(hx), 2):
-            val = int(hx[0:2],16)
-            h = chr(val)
-            h_bytes.append(h)
-            hx = hx[2:]
-
-        if self.main_bin.endianness == "LSB":
-            h_bytes.reverse()
-
-        return h_bytes
-
-    def _bytes_to_addr(self, addr):
-        """ Expects an array of bytes and returns an int"""
-        sz = self.main_bin.bits_per_addr / 8
-
-        if len(addr) != sz:  # Is it a proper address ?
-            raise CLException("Address of size %d, was expecting %d" %
-                              (len(addr), sz))
-
-        # We are starting the conversion from the least significant byte
-        if self.main_bin.endianness == "LSB":
-            addr.reverse()
-
-        res = 0
-        shift = 0
-        for i in addr:
-            x = ord(i) << shift
-            res = res + x
-            shift = shift + 8 # We shit by a byte everytime...
-        return res
-
-    def _read_got_slot(self, got_slot):
-        """ Reads the content of a GOT slot @ address got_slot """
-        n_bytes = self.main_bin.bits_per_addr / 8
-        s = []
-        for i in range(0, n_bytes):
-            s.append(self.memory[got_slot + i])
-        return s
-
-    def _override_got_slot(self, got_slot, newaddr):
-        """ This overrides the got slot starting at address @got_slot with
-        address @newaddr """
-        split_addr = self._addr_to_bytes(newaddr)
-
-        for i in range(0, len(split_addr)):
-            self.memory[got_slot + i] = split_addr[i]
+                self.memory.write_addr_at(got_slot, newaddr, self.main_bin.archinfo)
 
     def override_got_entry(self, symbol, newaddr, obj):
         """ This overrides the address of the function defined by @symbol with
@@ -462,9 +400,12 @@ class Ld(object):
                     "found in GOT" % symbol)
             return False
 
-        self._override_got_slot(got[symbol], newaddr)
-
+        self.memory.write_addr_at(got[symbol], newaddr, self.main_bin.archinfo)
         return True
+
+    """
+    Search functions
+    """
 
     def find_symbol_addr(self, symbol):
         """ Try to get a symbol's address from the exports of shared objects """
@@ -987,24 +928,3 @@ class Ld(object):
 
             l.info("[R] %s -> at 0x%08x (IDA)", name, newaddr)
             b.update_addrs([ea], newaddr)
-
-    def read_bytes(self, addr, n):
-        """ Read @n bytes at address @addr in memory and return an array of bytes
-            See also read_mem_range()
-        """
-        bytes = []
-        for i in range(addr, addr+n):
-            bytes.append(self.memory[i])
-        return bytes
-
-    def read_addr_at(self, addr):
-        return self.main_bin.archinfo.bytes_to_addr(''.join(self.read_bytes(addr,
-                                                                   self.main_bin.archinfo.bits/8)))
-    # Test cases
-    def test_end_conversion(self):
-        x = self._addr_to_bytes(int("0xc4f2", 16))
-        y = self._bytes_to_addr(x)
-
-        print x
-        print y
-

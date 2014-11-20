@@ -29,7 +29,14 @@ class Segment(object):
 
 
 class Elf(AbsObj):
-    """ Representation of loaded Elf binaries """
+    """
+    Representation of loaded (but NOT rebased) Elf binaries
+    For shared objects with a base address (aka shared libraries) as well as PIE
+    binaries, any address you see here means an offset in the binary, as opposed
+    to the actual virtual addresses where it's going to be loaded at.
+
+    If you want to deal with virtual addresses, use cle.Ld.
+    """
 
     def __init__(self, *args, **kwargs):
         """ Initialization of the Elf object.
