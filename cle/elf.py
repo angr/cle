@@ -81,15 +81,16 @@ class Elf(AbsObj):
         self.deps = self._get_lib_names(info)
         self.dynamic = self._get_dynamic(info)
         self._mips_specifics() # Set MIPS properties
+
         self.endianness = self._get_endianness(info)
         self.resolved_imports = [] # Imports successfully resolved, i.e. GOT slot updated
         self.object_type = self.get_object_type(info)
-        self.global_reloc = self._get_global_reloc(info)
-        self.relative_reloc = self._get_relative_reloc(info)
 
         # Stuff static binaries don't have
         if self.linking == "dynamic":
             self.gotaddr = self._get_gotaddr(self.dynamic) # Add rebase_addr if relocated
+            self.global_reloc = self._get_global_reloc(info)
+            self.relative_reloc = self._get_relative_reloc(info)
             self.jmprel = self._get_jmprel(info)
 
         if load is True:
@@ -329,6 +330,9 @@ class Elf(AbsObj):
         Get dynamic relocation information for global data.
         Returns: a dict {name:offset}
         """
+
+        if "mips" in self.archinfo.name:
+            return self._get_mips_global_reloc()
         reloc = {}
 
         # 6 : R386_GLOB_DAT - these are GOT entries to update
@@ -393,10 +397,19 @@ class Elf(AbsObj):
         relocs = self._get_mips_external_reloc()
         jmprel = {}
         for k,v in relocs.iteritems():
-            for i in self.symbols:
-                if i["name"] == k and i["type"] == "STT_FUNC" and i["sh_info"] == "SHN_UNDEF":
-                    jmprel[k] = v
+            if k in self.imports.keys():
+                jmprel[k] = v
         return jmprel
+
+    def _get_mips_global_reloc(self):
+        """
+        Mips specific crap
+        """
+        reloc = {}
+        for k,v in self._get_mips_external_reloc().iteritems():
+            if k in self.get_global_symbols().keys():
+                reloc[k] = v
+        return reloc
 
     def _get_linking_type(self, data):
         for i in data:
