@@ -198,6 +198,7 @@ class ArchInfo(object):
         """ Returns the name of the section that holds absolute addresses of
             functions, that is, what we want to update after relocation.
             It varies with the architecture.
+            We need this function for the IDA backend.
         """
         # MIPS: .got (normal names) (PS: .extern has crappy @@names)
         # ARM : .got (_ptr name)

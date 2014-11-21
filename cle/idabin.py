@@ -142,7 +142,7 @@ class IdaBin(AbsObj):
 
     def _get_ida_imports(self):
         """ Extract imports from binary (IDA)"""
-        l.warning("TODO: are globals part of it ? We only want functions here")
+        l.warning("TODO: improve this: IDA mixes functions and global data in exports, this will cause issues."
         import_modules_count = self.ida.idaapi.get_import_module_qty()
         self.raw_imports = {}
 

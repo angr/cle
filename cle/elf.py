@@ -120,14 +120,9 @@ class Elf(AbsObj):
 
     def get_max_addr(self):
         """ This returns the highest virtual address contained in any loaded
-        segment of the binary
+        segment of the binary, BEFORE rebasing.
 
-        NOTE: relocation is taken into consideration, if it exists. By default,
-        rebase_addr is zero.
-        When this is called by Cle's loader (Ld), relocations are already in place.
-        When this function is called directly, the behavior w.r.t relocation is
-        undefined, and depends on whether the caller set rebase_addr to any
-        value.
+        NOTE: relocation is taken into consideration by ld, not here.
         """
 
         text = self.get_text_phdr_ent()
@@ -135,10 +130,10 @@ class Elf(AbsObj):
 
         # if there is no data segment
         if data is None:
-            return text["vaddr"] + text["memsz"] + self.rebase_addr -1
+            return text["vaddr"] + text["memsz"] -1
 
-        m1 = text["vaddr"] + text["memsz"] + self.rebase_addr -1
-        m2 = data["vaddr"] + data["memsz"] + self.rebase_addr -1
+        m1 = text["vaddr"] + text["memsz"] -1
+        m2 = data["vaddr"] + data["memsz"] -1
 
         if m1 > m2:
             return m1

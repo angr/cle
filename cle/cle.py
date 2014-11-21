@@ -247,7 +247,7 @@ class Ld(object):
             return self.main_bin
 
         for so in self.shared_objects:
-            max = so.get_max_addr()
+            max = so.get_max_addr() + so.rebase_addr
             min = so.rebase_addr
             if min == 0:
                 raise CLException("Rebase address of object %s is 0, should be "
@@ -287,15 +287,17 @@ class Ld(object):
         return base
 
     def max_addr(self):
-        """ The maximum address loaded as part of any loaded object """
+        """
+        The maximum address loaded as part of any loaded object (i.e., the whole address space)
+        """
 
         m1 = self.main_bin.get_max_addr()
 
         for i in self.shared_objects:
-            m1 = max(m1, i.get_max_addr())
+            m1 = max(m1, i.get_max_addr() + i.rebase_addr)
 
         for i in self._custom_shared_objects:
-            m1 = max(m1, i.get_max_addr())
+            m1 = max(m1, i.get_max_addr() + i.rebase_addr)
 
         return m1
 
