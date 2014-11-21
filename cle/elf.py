@@ -75,6 +75,7 @@ class Elf(AbsObj):
         self.strtab = self._get_strtab(info)
         self.strtab_vaddr = self._get_strtab_vaddr(info)
         self.imports = self._get_imports(self.symbols)
+        self.exports = self._get_exports()
         self.entry_point = self._get_entry_point(info)
         self.linking = self._get_linking_type(info)
         self.phdr = self._get_phdr(info)
@@ -463,7 +464,7 @@ class Elf(AbsObj):
                 imports[name] = int(addr)
         return imports
 
-    def get_exports(self):
+    def _get_exports(self):
         """ Symbol defined with an address and with STB_GLOBAL or STB_WEAK
         binding are exports.
         """

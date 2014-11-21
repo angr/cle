@@ -29,7 +29,7 @@ class IdaBin(AbsObj):
                                    processor_type=processor_type, pull = False)
 
         self.badaddr = self.ida.idc.BADADDR
-        self.memory = self.ida.mem
+        self._memory = self.ida.mem
 
         # This flag defines whether synchronization with Ld is needed
         self.mem_needs_sync = False
@@ -142,7 +142,7 @@ class IdaBin(AbsObj):
 
     def _get_ida_imports(self):
         """ Extract imports from binary (IDA)"""
-        l.warning("TODO: improve this: IDA mixes functions and global data in exports, this will cause issues."
+        l.warning("TODO: improve this: IDA mixes functions and global data in exports, this will cause issues.")
         import_modules_count = self.ida.idaapi.get_import_module_qty()
         self.raw_imports = {}
 

@@ -250,8 +250,8 @@ class Ld(object):
             max = so.get_max_addr() + so.rebase_addr
             min = so.rebase_addr
             if min == 0:
-                raise CLException("Rebase address of object %s is 0, should be "
-                                  "updated", os.path.basename(so.binary))
+                raise CLException("Rebase address of object %s is 0, it should have been "
+                                  "updated already", os.path.basename(so.binary))
             if (addr >= min and addr <= max):
                 return so
         return None
@@ -441,7 +441,7 @@ class Ld(object):
     def find_symbol_addr(self, symbol):
         """ Try to get a symbol's address from the exports of shared objects """
         for so in self.shared_objects:
-            ex = so.get_exports()
+            ex = so.exports
             if symbol in ex:
                 return ex[symbol] + so.rebase_addr
 
