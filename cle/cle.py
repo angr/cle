@@ -676,10 +676,13 @@ class Ld(object):
         return so
 
     def _get_static_deps(self, obj):
+        """
+        Static deps because we statically read it from the Elf file (as opposed to ask GNU ld)
+        """
         if type(obj) is Elf:
             return obj.deps
         elif type(obj) is IdaBin:
-            elf_b = Elf(self.binary, load=False)  # Use Elf to determine needed libs
+            elf_b = Elf(self.path, load=False)  # Use Elf to determine needed libs
             return elf_b.deps
         else:
             raise CLException("I don't know how to get deps for this type of binary")

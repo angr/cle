@@ -40,6 +40,7 @@ class IdaBin(AbsObj):
        #     self.rebase_addr = 0
 
         self.imports = self._get_imports()
+        self.resolved_imports = []
         self.linking = self._get_linking_type()
 
         self.exports = self._get_exports()
