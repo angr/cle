@@ -675,6 +675,15 @@ class Ld(object):
                 so[f] = 0
         return so
 
+    def _get_static_deps(self, obj):
+        if type(obj) is Elf:
+            return obj.deps
+        elif type(obj) is IdaBin:
+            elf_b = Elf(self.binary, load=False)  # Use Elf to determine needed libs
+            return elf_b.deps
+        else:
+            raise CLException("I don't know how to get deps for this type of binary")
+
     def _ld_so_addr(self):
         """ Use LD_AUDIT to find object dependencies and relocation addresses"""
 
@@ -715,7 +724,10 @@ class Ld(object):
         # Check stderr for library loading issues
         err = s.stderr.readlines()
         msg = "cannot open shared object file"
-        for dep in self.main_bin.deps:
+
+        deps = self._get_static_deps(self.main_bin)
+
+        for dep in deps:
             for str_e in err:
                 if dep in str_e and msg in str_e:
                     l.error("LD could not find dependency %s." % dep)
@@ -797,13 +809,7 @@ class Ld(object):
         set 0 as the load address for SOs.
         """
 
-        # This is hackish, but I haven't found a way to get extract DT_NEEDED
-        # entries from the dynamic table using IDA
-        if self.ida_main == True:
-            elf_b = Elf(self.path, load=False)  # Use Elf to determine needed libs
-            deps = elf_b.deps
-        else:
-            deps = self.main_bin.deps
+        deps = self._get_static_deps(self.main_bin)
         if deps is None:
             raise CLException("Could not find any dependencies for this binary,"
                               " this is most likely a bug")

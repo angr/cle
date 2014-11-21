@@ -1,5 +1,6 @@
 import logging
 from .clexception import CLException
+from .elf import Elf
 import idalink
 import os
 import struct
@@ -140,6 +141,7 @@ class IdaBin(AbsObj):
 
     def _get_ida_imports(self):
         """ Extract imports from binary (IDA)"""
+        l.warning("TODO: are globals part of it ? We only want functions here")
         import_modules_count = self.ida.idaapi.get_import_module_qty()
         self.raw_imports = {}
 

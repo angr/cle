@@ -453,7 +453,8 @@ class Elf(AbsObj):
         return load[0] if load[0]["vaddr"] > load[1]["vaddr"] else load[1]
 
     def _get_imports(self, symbols):
-        """ Get imports from symbol table """
+        """ Get function imports from symbol table. Note that the address here might have
+        different meanings depending on the architecture."""
         imports = {}
         for i in symbols:
         # Imports are symbols with type SHN_UNDEF in the symbol table
@@ -461,8 +462,9 @@ class Elf(AbsObj):
             addr = i["addr"]
             s_info = i["sh_info"]
             binding = i["binding"]
+            stype = i["type"]
             if ((s_info == "SHN_UNDEF") and (binding == "STB_GLOBAL" or binding
-                                             == "STB_WEAK")):
+                                             == "STB_WEAK") and stype == "STT_FUNC"):
                 imports[name] = int(addr)
         return imports
 
