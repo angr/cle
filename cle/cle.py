@@ -322,8 +322,12 @@ class Ld(object):
             if symb in self.ignore_imports:
                 continue
 
+            if "mips" in self.main_bin.archinfo.name:
+                delta = obj.rebase_addr - obj.mips_static_base_addr
+                got_addr = got_addr + delta
+            else:
             # We take the GOT from ELF file, that's not rebased yet
-            got_addr = got_addr + obj.rebase_addr
+                got_addr = got_addr + obj.rebase_addr
 
             # However, find_symbol_addr() takes care of rebasing
             uaddr = self.find_symbol_addr(symb)
@@ -393,6 +397,8 @@ class Ld(object):
         to relocate its GOT addresses relatively to its static base address.
         Note: according to the Elf specification, this ONLY applies to shared objects
         """
+
+        l.warning("This function is deprecated and should not be used.")
 
         jmprel = {}
         # This should not be called for non rebased binaries (i.e., main
