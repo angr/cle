@@ -26,7 +26,7 @@ class AbsObj(object):
 
         self.binary = args[0]
         self.segments = [] # List of segments
-        self.memory = Clemory() # Private virtual address space, without relocations
+        self._memory = Clemory() # Private virtual address space, without relocations
         self.symbols = None # Object's symbols
 
         # These are set by cle, and should not be overriden manually

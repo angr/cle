@@ -30,12 +30,19 @@ class Segment(object):
 
 class Elf(AbsObj):
     """
-    Representation of loaded (but NOT rebased) Elf binaries
+    Representation of loaded (but NOT rebased) Elf binaries. What you see here
+    is what we get from the Elf file.
+
     For shared objects with a base address (aka shared libraries) as well as PIE
     binaries, any address you see here means an offset in the binary, as opposed
-    to the actual virtual addresses where it's going to be loaded at.
+    to the actual virtual addresses where it's going to be loaded at once
+    rebased. In other words, the base address is always 0.
 
-    If you want to deal with virtual addresses, use cle.Ld.
+    For non PIE executables (i.e., non libraries), addresses you see are the
+    default virtual addresses where stuff is loaded by the loader.
+
+    Other than that, if you want to deal with a full address space, and with
+    rebased and relocated addresses, use cle.Ld.
     """
 
     def __init__(self, *args, **kwargs):
@@ -354,10 +361,12 @@ class Elf(AbsObj):
                 reloc.append((t[0], t[1]))
         return reloc
 
-    def _get_mips_jmprel(self):
+    def _get_mips_external_reloc(self):
         """
         What are the external symbols to relocate on MIPS ? And what are their GOT
-        entries ? There is no DT_JMPREL on mips, so let's emulate one
+        entries ? Those can be jmp or global data relocations. In fact, these
+        are all the GOT entries corresponding to external symbols (note that, on
+        MIPS, there are also GOT entries for local symbols).
         """
 
         if len(self.symbols) == 0:
@@ -368,14 +377,25 @@ class Elf(AbsObj):
         gotaddr = self.gotaddr
         got_entry_size = self.bits_per_addr / 8 # How many bytes per slot ?
 
-        jmprel = {}
+        rel = {}
 
         count = self.mips_symtabno - self.mips_gotsym # Number of got mapped symbols
         for i in range(0, count):
             sym = self.symbols[symtab_base_idx + i]
             got_idx = got_base_idx + i
             got_slot = gotaddr + (got_idx) * got_entry_size
-            jmprel[sym["name"]] = got_slot
+            rel[sym["name"]] = got_slot
+        return rel
+
+    def _get_mips_jmprel(self):
+        """There is no DT_JMPREL on mips, so let's emulate one """
+
+        relocs = self._get_mips_external_reloc()
+        jmprel = {}
+        for k,v in relocs.iteritems():
+            for i in self.symbols:
+                if i["name"] == k and i["type"] == "STT_FUNC" and i["sh_info"] == "SHN_UNDEF":
+                    jmprel[k] = v
         return jmprel
 
     def _get_linking_type(self, data):
@@ -385,25 +405,6 @@ class Elf(AbsObj):
         raise CLException("We could not get any linking information from the "
                           "binary, this should not happen")
 
-    def relocate_mips_jmprel(self):
-        """ After we relocate an ELF object, we also need, in the case of MIPS,
-        to relocate its GOT addresses relatively to its static base address.
-        Note: according to the Elf specification, this ONLY applies to shared objects
-        """
-
-        # This should not be called for non rebased binaries (i.e., main
-        # binaries)
-        if self.rebase_addr == 0:
-            raise CLException("Attempting MIPS relocation with rebase_addr = 0")
-
-        # Here, we shift all GOT addresses (the slots, not what they contain)
-        # by a delta. This is because the MIPS compiler expected us to load the
-        # binary at self.mips_static_base_addr)
-        delta = self.rebase_addr - self.mips_static_base_addr
-        l.info("Relocating MIPS GOT entries - static base addr is 0%x, acutal "
-               "base addr is 0x%x" % (self.mips_static_base_addr, self.rebase_addr))
-        for i,v in self.jmprel.iteritems():
-            self.jmprel[i] = v + delta
 
     def _get_load_phdr_ent(self):
         """ Get entries of the program header table that correspond to PT_LOAD
@@ -549,7 +550,7 @@ class Elf(AbsObj):
         size = data_hdr["memsz"] - data_hdr["filesz"]
         off = data_hdr["vaddr"] + data_hdr["filesz"]
         for i in range(off, off + size):
-            self.memory[i] = "\x00"
+            self._memory[i] = "\x00"
 
     def _load(self, hdrinfo, name):
         """ Stub to load the text segment """
@@ -613,10 +614,10 @@ class Elf(AbsObj):
         # Fill the memory dict with addr:value
         for i in range(vaddr, vaddr + size):
             # Is something else already loaded at this address ?
-            if i in self.memory:
+            if i in self._memory:
                 raise CLException("WTF?? @0x%x Segments overlaping in memory",
                                   i)
-            self.memory[i] = f.read(1)
+            self._memory[i] = f.read(1)
 
         # Add the segment to the list of loaded segments
         seg = Segment(name, vaddr, size, offset)
@@ -733,7 +734,7 @@ class Elf(AbsObj):
 
         # What's in the got slot for @name ?
         got = self.jmprel[name]
-        fetch = self.memory.read_bytes(got, self.archinfo.bits/8)
+        fetch = self._memory.read_bytes(got, self.archinfo.bits/8)
 
         """
         This is the address of the next second instruction in the PLT stub

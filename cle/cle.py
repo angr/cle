@@ -207,8 +207,8 @@ class Ld(object):
             self._perform_reloc_stub(obj)
 
             # Again, MIPS is a pain...
-            if "mips" in obj.arch and isinstance(obj, Elf):
-                obj.relocate_mips_jmprel()
+         #   if "mips" in obj.arch and isinstance(obj, Elf):
+         #       obj.relocate_mips_jmprel()
 
     def _perform_reloc_stub(self, binary):
         """ This performs dynamic linking of all objects, i.e., calculate
@@ -388,6 +388,29 @@ class Ld(object):
                         " to 0x%x" % (got_slot, addr, newaddr))
                 self.memory.write_addr_at(got_slot, newaddr, self.main_bin.archinfo)
 
+    def get_relocated_mips_jmprel(self, obj):
+        """ After we relocate an ELF object, we also need, in the case of MIPS,
+        to relocate its GOT addresses relatively to its static base address.
+        Note: according to the Elf specification, this ONLY applies to shared objects
+        """
+
+        jmprel = {}
+        # This should not be called for non rebased binaries (i.e., main
+        # binaries)
+        if obj.rebase_addr == 0:
+            raise CLException("Attempting MIPS relocation with rebase_addr = 0")
+
+        # Here, we shift all GOT addresses (the slots, not what they contain)
+        # by a delta. This is because the MIPS compiler expected us to load the
+        # binary at self.mips_static_base_addr)
+        delta = obj.rebase_addr - obj.mips_static_base_addr
+        l.info("Relocating MIPS GOT entries - static base addr is 0%x, acutal "
+               "base addr is 0x%x" % (obj.mips_static_base_addr, obj.rebase_addr))
+        for i,v in obj.get_mips_jmprel().iteritems():
+            jmprel[i] = v + delta
+
+        return jmprel
+
     def override_got_entry(self, symbol, newaddr, obj):
         """ This overrides the address of the function defined by @symbol with
         the new address @newaddr, inside the GOT of object @obj.
@@ -558,7 +581,7 @@ class Ld(object):
             raise an exception if it has to overwrite something, unless @update
             is set to True
         """
-        for addr, val in obj.memory.iteritems():
+        for addr, val in obj._memory.iteritems():
             if (rebase_addr is not None):
                 addr = addr + rebase_addr
             if addr in self.memory and not update:
