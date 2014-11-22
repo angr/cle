@@ -324,7 +324,7 @@ class Ld(object):
             if symb in self.ignore_imports:
                 continue
 
-            if "mips" in self.main_bin.archinfo.name:
+            if "mips" in self.main_bin.archinfo.name and obj != self.main_bin:
                 delta = obj.rebase_addr - obj.mips_static_base_addr
                 got_addr = got_addr + delta
             else:

@@ -301,4 +301,3 @@ class IdaBin(AbsObj):
             return "static"
         else:
             return "dynamic"
-
