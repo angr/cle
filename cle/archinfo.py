@@ -279,6 +279,12 @@ class ArchInfo(object):
         else:
             raise CLException("Not implemented")
 
+    def get_weird_reloc_type(self):
+        if self.name == "i386":
+            return 1
+        else:
+            return None
+
     def get_relative_reloc_type(self):
         if self.name == "i386:x86-64":
             return 8 #R_X86_64_RELATIVE

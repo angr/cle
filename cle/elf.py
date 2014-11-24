@@ -86,11 +86,13 @@ class Elf(AbsObj):
         self.endianness = self._get_endianness(info)
         self.resolved_imports = [] # Imports successfully resolved, i.e. GOT slot updated
         self.object_type = self.get_object_type(info)
+        self._raw_reloc = None
 
         # Stuff static binaries don't have
         if self.linking == "dynamic":
             self.gotaddr = self._get_gotaddr(self.dynamic) # Add rebase_addr if relocated
             self.global_reloc = self._get_global_reloc(info)
+            self.odd32_reloc = self._get_32_reloc(info)
             self.relative_reloc = self._get_relative_reloc(info)
             self.jmprel = self._get_jmprel(info)
 
@@ -302,6 +304,8 @@ class Elf(AbsObj):
         return got
 
     def _get_raw_reloc(self, data):
+        if self._raw_reloc is not None:
+            return self._raw_reloc
         reloc = []
         for i in data:
             if i[0].strip() == "reloc":
@@ -310,6 +314,7 @@ class Elf(AbsObj):
                     reloc.append( (i[2].strip(), i[1].strip(), int(i[4].strip(),10)))
                 elif self.get_rela_type(data) == "DT_REL":
                     reloc.append( (i[2].strip(), i[1].strip(), int(i[3].strip(),10)))
+        self._raw_reloc = reloc
         return reloc
 
     def get_rela_type(self, data):
@@ -331,7 +336,7 @@ class Elf(AbsObj):
             return self._get_mips_global_reloc()
         reloc = {}
 
-        # 6 : R386_GLOB_DAT - these are GOT entries to update
+        # 6 : R_386_GLOB_DAT - these are GOT entries to update
 
         raw_reloc = self._get_raw_reloc(data)
 
@@ -340,7 +345,27 @@ class Elf(AbsObj):
             if t[2] == self.archinfo.get_global_reloc_type():
                 reloc[t[0]] = int(t[1],16)
                 if t[0] == '':
-                    raise CLException("Empty name in global data reloc, this is a bug\n");
+                    raise CLException("Empty name in global data reloc, this is a bug\n")
+        return reloc
+
+    def _get_32_reloc(self, data):
+        """
+        Get dynamic relocation information for relocation type R_386_32.
+        Returns: a dict {name:offset}
+        """
+
+        raw_reloc = self._get_raw_reloc(data)
+        reloc_type = self.archinfo.get_weird_reloc_type()
+        if reloc_type is None:
+            return {}
+
+        reloc = {}
+        for t in raw_reloc:
+            # (offset, name, reloc_type)
+            if t[2] == reloc_type:
+                reloc[t[0]] = int(t[1],16)
+                if t[0] == '':
+                    raise CLException("Empty name in '32' data reloc, this is a bug\n")
         return reloc
 
     def _get_relative_reloc(self, data):

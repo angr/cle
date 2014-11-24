@@ -318,7 +318,7 @@ class Ld(object):
         """
 
         # Now let's update GOT entries for both PLT jumps and global data
-        ext = dict(obj.jmprel.items() + obj.global_reloc.items())
+        ext = dict(obj.jmprel.items() + obj.global_reloc.items() + obj.odd32_reloc.items())
         for symb, got_addr in ext.iteritems():
             # We don't resolve ignored functions
             if symb in self.ignore_imports:
@@ -354,7 +354,7 @@ class Ld(object):
         """
 
         # This is an array of tuples
-        for t in obj.relative_reloc.items():
+        for t in obj.relative_reloc.iteritems():
             offset = t[0] # Offset in the binary where the address to relocate is stored
             vaddr = offset + obj.rebase_addr # Where that is in memory as we loaded it
             rela = self.memory.read_addr_at(vaddr, self.main_bin.archinfo)
