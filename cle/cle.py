@@ -222,7 +222,7 @@ class Ld(object):
             self._resolve_imports_ida(binary)
             # Once everything is relocated, we can copy IDA's memory to Ld
         else:
-            self._reloc_external(binary)
+            self._reloc_got(binary)
             self._reloc_absolute(binary)
             self._reloc_relative(binary)
 
@@ -303,10 +303,10 @@ class Ld(object):
 
         return m1
 
-    def _reloc_external(self, obj):
-        """ Perform relocations of external references """
+    def _reloc_got(self, obj):
+        """ Perform relocations of GOT entries"""
 
-        l.info("[Performing external relocations of %s]" % obj.binary)
+        l.info("[Performing GOT relocations of %s]" % obj.binary)
 
         # MIPS local GOT entries need relocation too (except for the main
         # binary as we don't relocate it).
@@ -322,10 +322,6 @@ class Ld(object):
         # Now let's update GOT entries for both PLT jumps and global data
         ext = dict(obj.jmprel.items() + obj.global_reloc.items())
         for symb, got_addr in ext.iteritems():
-            # If this happens, it means this is a global relocation that is
-            # local to this module.
-            if symb in obj.exports:
-                l.warning("Note: this global reloc is actually local and not external:")
 
             # We don't resolve ignored functions
             if symb in self.ignore_imports:
@@ -338,15 +334,22 @@ class Ld(object):
             # We take the GOT from ELF file, that's not rebased yet
                 got_addr = got_addr + obj.rebase_addr
 
-            # However, find_symbol_addr() takes care of rebasing
-            uaddr = self.find_symbol_addr(symb)
+            # We first look locally inside the current object
+            if symb in obj.exports:
+                loc = "(local)"
+                uaddr = obj.exports[symb]
+            else:
+                loc = "(external)"
+                # Find_symbol_addr() already takes care of rebasing
+                uaddr = self.find_symbol_addr(symb)
+
             if (uaddr):
                 self.memory.write_addr_at(got_addr, uaddr, self.main_bin.archinfo)
                 # We resolved this symbol
                 obj.resolved_imports.append(symb)
 
                 stype = "function" if symb in obj.jmprel else "global data ref"
-                l.debug("\t--> [R] External Relocation of %s %s -> 0x%x [stub@0x%x]" % (stype, symb,
+                l.debug("\t--> [R] %s Relocation of %s %s -> 0x%x [stub@0x%x]" % (loc, stype, symb,
                                                                                 uaddr,
                                                                                 got_addr))
 
@@ -363,7 +366,7 @@ class Ld(object):
         for name, off in obj.odd32_reloc:
             off = off + obj.rebase_addr
             #if name in obj.resolved_imports:
-                # Those relocations should be exported by the local module
+            # Those relocations should be exported by the local module
             addr = obj.exports[name] + obj.rebase_addr
             self.memory.write_addr_at(off, addr, self.main_bin.archinfo)
             l.debug("\t-->[R] ABS relocation of %s -> 0x%x [at 0x%x]" % (name, addr, off))
