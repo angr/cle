@@ -222,7 +222,9 @@ class Ld(object):
             self._resolve_imports_ida(binary)
             # Once everything is relocated, we can copy IDA's memory to Ld
         else:
-            self._reloc(binary)
+            self._reloc_external(binary)
+            self._reloc_absolute(binary)
+            self._reloc_relative(binary)
 
     def ida_sync_mem(self):
         """
@@ -301,10 +303,10 @@ class Ld(object):
 
         return m1
 
-    def _reloc(self, obj):
+    def _reloc_external(self, obj):
         """ Perform relocations of external references """
 
-        l.debug("[Performing relocations of %s]" % obj.binary)
+        l.info("[Performing external relocations of %s]" % obj.binary)
 
         # MIPS local GOT entries need relocation too (except for the main
         # binary as we don't relocate it).
@@ -318,8 +320,13 @@ class Ld(object):
         """
 
         # Now let's update GOT entries for both PLT jumps and global data
-        ext = dict(obj.jmprel.items() + obj.global_reloc.items() + obj.odd32_reloc.items())
+        ext = dict(obj.jmprel.items() + obj.global_reloc.items())
         for symb, got_addr in ext.iteritems():
+            # If this happens, it means this is a global relocation that is
+            # local to this module.
+            if symb in obj.exports:
+                l.warning("Note: this global reloc is actually local and not external:")
+
             # We don't resolve ignored functions
             if symb in self.ignore_imports:
                 continue
@@ -334,32 +341,47 @@ class Ld(object):
             # However, find_symbol_addr() takes care of rebasing
             uaddr = self.find_symbol_addr(symb)
             if (uaddr):
+                self.memory.write_addr_at(got_addr, uaddr, self.main_bin.archinfo)
                 # We resolved this symbol
                 obj.resolved_imports.append(symb)
 
                 stype = "function" if symb in obj.jmprel else "global data ref"
-                l.info("\t--> [R] Relocation of %s %s -> 0x%x [stub@0x%x]" % (stype, symb,
+                l.debug("\t--> [R] External Relocation of %s %s -> 0x%x [stub@0x%x]" % (stype, symb,
                                                                                 uaddr,
                                                                                 got_addr))
-                baddr = self.main_bin.archinfo.addr_to_bytes(uaddr)
-                for i in range(0, len(baddr)):
-                    self.memory[got_addr + i] = baddr[i]
 
             else:
                 l.warning("\t--> [U] Cannot locate symbol \"%s\" from SOs" % symb)
+
+    def _reloc_absolute(self, obj):
+        """
+        This is dealing with absolute relocations within the same module, as
+        opposed to external references. In practice, this is R_386_32 and friends
+        """
+
+        l.info("[Performing absolute relocations of %s]" % obj.binary)
+        for name, off in obj.odd32_reloc.items():
+            off = off + obj.rebase_addr
+            if name in obj.resolved_imports:
+                # Those relocations should be exported by the local module
+                addr = obj.exports[name] + obj.rebase_addr
+                self.memory.write_addr_at(off, addr, self.main_bin.archinfo)
+                l.debug("\t-->[R] ABS relocation of %s -> 0x%x [at 0x%x]" % (name, addr, off))
 
     def _reloc_relative(self, obj):
         """
         This is dealing with relative relocations, e.g., R_386_RELATIVE
         """
 
+        l.info("[Performing relative relocations of %s]" % obj.binary)
         # This is an array of tuples
-        for t in obj.relative_reloc.iteritems():
-            offset = t[0] # Offset in the binary where the address to relocate is stored
+        for t in obj.relative_reloc:
+            offset = int(t[1],16) # Offset in the binary where the address to relocate is stored
             vaddr = offset + obj.rebase_addr # Where that is in memory as we loaded it
             rela = self.memory.read_addr_at(vaddr, self.main_bin.archinfo)
             rela_updated = rela + obj.rebase_addr
             self.memory.write_addr_at(vaddr, rela_updated, self.main_bin.archinfo)
+            l.debug("\t-->[R] Relative relocation, 0x%x [at 0x%x]" % (rela_updated, vaddr))
 
     def _reloc_mips_local(self, obj):
         """ MIPS local relocations (yes, GOT entries for local symbols also need
@@ -439,11 +461,25 @@ class Ld(object):
     """
 
     def find_symbol_addr(self, symbol):
-        """ Try to get a symbol's address from the exports of shared objects """
-        for so in self.shared_objects:
+        """ Try to find the address of @symbol, if it is exported by any of the
+        libraries or the main binary. We give priority to symbols with
+        STB_GLOBAL binding, i.e., it takes precedence other any other symbol
+        with binding STB_WEAK.
+        """
+
+        found = None
+        for so in [self.main_bin] + self.shared_objects:
             ex = so.exports
             if symbol in ex:
-                return ex[symbol] + so.rebase_addr
+                for i in so.symbols:
+                    if i["name"] == symbol:
+                        binding = i["binding"] # weak or global symbol ?
+                        # We prefer STB_GLOBAL
+                        if binding == "STB_GLOBAL" and ex[symbol] != 0:
+                            return ex[symbol] + so.rebase_addr
+                        else:
+                            found = ex[symbol] + so.rebase_addr
+        return found if found !=0 else None
 
     def find_symbol_name(self, addr):
         """ Return the name of the function starting at addr.  Note: we are not
