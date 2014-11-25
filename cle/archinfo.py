@@ -276,20 +276,32 @@ class ArchInfo(object):
             return 6 #R_X86_64_GLOB_DAT
         elif self.name == "i386":
             return 6 # R386_GLOB_DAT
+        elif self.name in self.ppc_names:
+            return 20 #R_PPC_GLOB_DAT
         else:
-            raise CLException("Not implemented")
+            l.warning("Not implemented for this architecture")
+            return None
 
     def get_weird_reloc_type(self):
-        if self.name == "i386":
+        """
+        That's for non-relative R_386_32 and R_X86_64_64
+        """
+        if self.name == "i386" or self.name == "i386:x86-64":
+            return 1
+        # R_PPC_ADDR32
+        if self.name in self.ppc_names:
             return 1
         else:
+            l.warning("Not implemented for this architecture")
             return None
 
     def get_relative_reloc_type(self):
         if self.name == "i386:x86-64":
             return 8 #R_X86_64_RELATIVE
         elif self.name == "i386":
-            return 8 # R386_RELATIVE
+            return 8 # R_386_RELATIVE
+        elif self.name in self.ppc_names:
+            return 22 # R_PPC_RELATIVE
         else:
-            raise CLException("Not implemented")
-
+            l.warning("Not implemented for this architecture")
+            return None
