@@ -357,13 +357,13 @@ class Elf(AbsObj):
         raw_reloc = self._get_raw_reloc(data)
         reloc_type = self.archinfo.get_weird_reloc_type()
         if reloc_type is None:
-            return {}
+            return []
 
-        reloc = {}
+        reloc = []
         for t in raw_reloc:
             # (offset, name, reloc_type)
             if t[2] == reloc_type:
-                reloc[t[0]] = int(t[1],16)
+                reloc.append((t[0], int(t[1],16)))
                 if t[0] == '':
                     raise CLException("Empty name in '32' data reloc, this is a bug\n")
         return reloc

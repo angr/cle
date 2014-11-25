@@ -360,13 +360,13 @@ class Ld(object):
         """
 
         l.info("[Performing absolute relocations of %s]" % obj.binary)
-        for name, off in obj.odd32_reloc.items():
+        for name, off in obj.odd32_reloc:
             off = off + obj.rebase_addr
-            if name in obj.resolved_imports:
+            #if name in obj.resolved_imports:
                 # Those relocations should be exported by the local module
-                addr = obj.exports[name] + obj.rebase_addr
-                self.memory.write_addr_at(off, addr, self.main_bin.archinfo)
-                l.debug("\t-->[R] ABS relocation of %s -> 0x%x [at 0x%x]" % (name, addr, off))
+            addr = obj.exports[name] + obj.rebase_addr
+            self.memory.write_addr_at(off, addr, self.main_bin.archinfo)
+            l.debug("\t-->[R] ABS relocation of %s -> 0x%x [at 0x%x]" % (name, addr, off))
 
     def _reloc_relative(self, obj):
         """
