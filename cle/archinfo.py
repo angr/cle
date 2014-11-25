@@ -278,6 +278,8 @@ class ArchInfo(object):
             return 6 # R386_GLOB_DAT
         elif self.name in self.ppc_names:
             return 20 #R_PPC_GLOB_DAT
+        elif self.name in self.arm_names:
+            return 21 #R_ARM_GLOB_DAT
         else:
             l.warning("Not implemented for this architecture")
             return None
