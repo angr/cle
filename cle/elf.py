@@ -392,7 +392,7 @@ class Elf(AbsObj):
                     reloc.append((t[0], t[3]))
                 else:
                     #(offset)
-                    reloc.append( (t[0]) )
+                    reloc.append((t[0],)) # Tuples need a comma
         return reloc
 
     def _get_mips_external_reloc(self):
