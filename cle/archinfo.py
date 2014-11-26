@@ -310,16 +310,62 @@ class ArchInfo(object):
 
 
     """
-    TODO: We may need a complete list in the future, for each architecture and
-    by relocation type.
+    From tests on Debian in /lib/xxx and /usr/blah/lib for cross stuff, we can
+    see that the following types of relocations actually show up in the dynamic
+    section, intended for the dynamic linker.
 
-    amd64 needs types [1, 5, 6, 8, 16, 17, 18]
+    amd64 needs types [1, 5, 6, 8, 16, 17, 18]:
+        R_X86_64_64         S+A but the is always 0
+        R_X86_64_COPY       NONE (seems like S from the description)
+        R_X86_64_GLOB_DAT   S
+        R_X86_64_RELATIVE   B+A
+        R_X86_64_DTPMOD64   ELF spec says "described in TLS spec"
+        R_X86_64_DTPOFF64   -
+        R_X86_64_TPOFF64    -
+
     i386 needs relocation types [1, 6, 8, 14, 35, 36]
+        R_386_32            S+A, but A is always 0
+        R_386_GLOB_DAT      S
+        R_386_RELATIVE      B+A
+        R_386_TLS_TPOFF     doesn't exist in ELF spec but present in TLS supplement
+        R_386_TLS_DTPMOD32  -
+        R_386_TLS_DTPOFF32  -
+
     ppc needs relocation types [1, 20, 21, 22, 68, 73, 78]
+        R_PPC_ADDR32        S+A (but same bullshit as x86, A is always 0)
+        R_PPC_GLOB_DAT      S+A (A is always 0 too...)
+        R_PPC_JMP_SLOT      the spec redirects to a description saying that it's
+                            the address of the external function (the spec of
+                            other architectures call that S)...
+        R_PPC_RELATIVE      B+A
+        R_PPC_DTPMOD32      doesn't exist in ELF spec, TLS stuff
+        R_PPC_TPREL32       -
+        R_PPC_DTPREL32      -
+
     armel needs relocation types [2, 17, 18, 19, 21, 23]
+        The ELF spec says the dynamic linker should only consider relocation
+        types 17 to 23. What we get in practice differs...
+
+        Note: T is 1 if the target symbol S has type STT_FUNC and the symbol
+        addresses a Thumb instruction; it is 0 otherwise.
+
+        R_ARM_ABS32         S+A|T
+        R_ARM_TLS_DTPMOD32  - TLS stuff
+        R_ARM_TLS_DTPOFF32  -
+        R_ARM_TLS_TPOFF32   -
+        R_ARM_GLOB_DAT      "resolves to the address of the specified symbol"
+        R_ARM_RELATIVE      -
+
     armhf needs relocation types [2, 17, 18, 19, 21, 23, 160]
-    ppc64 ?
-    mips handles relocations differently
+        Same as armel but 160 is R_ARM_IRELATIVE, and the spec says "Unallocated"
+
+    ppc64: TODO
+
+    mips handles relocations differently, and we already support them.
+
+    According to this, apart from the TLS stuff, we have S and B+A in practice.
+    In case of S+A where A!=0, we should raise an exception, as in practice, I
+    doesn't make any sense.
     """
 
 
@@ -331,54 +377,19 @@ class ArchInfo(object):
             # R_X86_64_64, R_X86_64_32, R_X86_64_32S, R_X86_64_16, R_X86_64_8
             return [ 1, 10, 11, 12, 14 ]
 
-    def reloc_s_a_p(self):
+    def reloc_b_a(self):
         """
-        S+A-P
+        B+A
         """
         if self.name == "i386:x86_64":
             #R_X86_64_PC32, R_X86_64_PC16, R_X86_64_PC8, R_X86_64_PC64
             return [2, 13, 15, 24]
 
-    def reloc_g_a(self):
+    def reloc_s(self):
         """
-        G+A
+        S
         """
         if self.name == "i386:x86_64":
             #R_X86_64_GOT32
             return [3]
 
-    def reloc_l_a_p(self):
-        """
-        L+A-P
-        """
-        pass
-
-    def reloc_s(self):
-        """
-        S
-        """
-        pass
-
-    def reloc_b_a(self):
-        """
-        B+A
-        """
-        pass
-
-    def reloc_g_got_a_p(self):
-        """
-        G + GOT + A - P
-        """
-        pass
-
-    def reloc_s_a_got(self):
-        """
-        S + A - GOT
-        """
-        pass
-
-    def reloc_z_a(self):
-        """
-        Z + A
-        """
-        pass
