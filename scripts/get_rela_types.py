@@ -29,7 +29,7 @@ if __name__ == "__main__":
         except:
             print "%s failed, it's probably not a binary file" % b
             continue
-        rel = e._raw_reloc
+        rel = e.raw_reloc
         for r in rel:
             rtypes.append(r[2])
         rtypes = list(set(rtypes))

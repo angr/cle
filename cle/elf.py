@@ -86,13 +86,14 @@ class Elf(AbsObj):
         self.endianness = self._get_endianness(info)
         self.resolved_imports = [] # Imports successfully resolved, i.e. GOT slot updated
         self.object_type = self.get_object_type(info)
-        self._raw_reloc = None
+        self.raw_reloc = []
 
         # Stuff static binaries don't have
         # TODO: some static binaries may have relocations
         if self.linking == "dynamic":
             l.debug("TODO: check status of relocations on static libc")
             self.rela_type = self._get_rela_type(info)
+            self.raw_reloc = self._get_raw_reloc(info)
             self.gotaddr = self._get_gotaddr(self.dynamic) # Add rebase_addr if relocated
             self.global_reloc = self._get_global_reloc(info)
             self.odd32_reloc = self._get_32_reloc(info)
@@ -307,8 +308,6 @@ class Elf(AbsObj):
         return got
 
     def _get_raw_reloc(self, data):
-        if self._raw_reloc is not None:
-            return self._raw_reloc
         reloc = []
         for i in data:
             if i[0].strip() == "reloc":
@@ -318,7 +317,6 @@ class Elf(AbsObj):
                 elif self._get_rela_type(data) == "DT_REL":
                     # (offset, name, reloc_type)
                     reloc.append( (int(i[1].strip(), 16), i[2].strip(), int(i[3].strip(),10)))
-        self._raw_reloc = reloc
         return reloc
 
     def _get_rela_type(self, data):
@@ -342,7 +340,7 @@ class Elf(AbsObj):
 
         # 6 : R_386_GLOB_DAT - these are GOT entries to update
 
-        raw_reloc = self._get_raw_reloc(data)
+        raw_reloc = self.raw_reloc
 
         # raw reloc: (offset, name, reloc_type)
         for t in raw_reloc:
@@ -358,7 +356,7 @@ class Elf(AbsObj):
         Returns: a dict {name:offset}
         """
 
-        raw_reloc = self._get_raw_reloc(data)
+        raw_reloc = self.raw_reloc
         reloc_type = self.archinfo.get_weird_reloc_type()
         if reloc_type is None:
             return []
@@ -384,7 +382,7 @@ class Elf(AbsObj):
         # 8 : R_386_RELATIVE - We need to add the load address to the offset
         # when relocating
 
-        raw_reloc = self._get_raw_reloc(data)
+        raw_reloc = self.raw_reloc
         for t in raw_reloc:
             if t[2] == self.archinfo.get_relative_reloc_type():
                 if self.rela_type == "DT_RELA":
