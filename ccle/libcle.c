@@ -204,11 +204,11 @@ void print_rela_ent(ElfW(Rela) rela, ElfW(Sym) *symtab, char *strtab, const char
 	}
 
 #ifdef ELF64
-	printf("%s, 0x%lx, %s, 0x%lx, %d\n", label, rela.r_offset, name,
-			rela.r_addend, rtype);
+	printf("%s, 0x%lx, %s, %d, 0x%lx\n", label, rela.r_offset, name,
+			rtype, rela.r_addend);
 #else
-	printf("%s, 0x%x, %s, 0x%x, %d\n", label, rela.r_offset, name,
-			rela.r_addend, rtype);
+	printf("%s, 0x%x, %s, %d, 0x%x\n", label, rela.r_offset, name,
+			rtype, rela.r_addend);
 #endif
 }
 

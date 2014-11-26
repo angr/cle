@@ -307,3 +307,78 @@ class ArchInfo(object):
         else:
             l.warning("Not implemented for this architecture")
             return None
+
+
+    """
+    TODO: We may need a complete list in the future, for each architecture and
+    by relocation type.
+
+    amd64 needs types [1, 5, 6, 8, 16, 17, 18]
+    i386 needs relocation types [1, 6, 8, 14, 35, 36]
+    ppc needs relocation types [1, 20, 21, 22, 68, 73, 78]
+    armel needs relocation types [2, 17, 18, 19, 21, 23]
+    armhf needs relocation types [2, 17, 18, 19, 21, 23, 160]
+    ppc64 ?
+    mips handles relocations differently
+    """
+
+
+    def reloc_s_a(self):
+        """
+        S+A
+        """
+        if self.name == "i386:x86_64":
+            # R_X86_64_64, R_X86_64_32, R_X86_64_32S, R_X86_64_16, R_X86_64_8
+            return [ 1, 10, 11, 12, 14 ]
+
+    def reloc_s_a_p(self):
+        """
+        S+A-P
+        """
+        if self.name == "i386:x86_64":
+            #R_X86_64_PC32, R_X86_64_PC16, R_X86_64_PC8, R_X86_64_PC64
+            return [2, 13, 15, 24]
+
+    def reloc_g_a(self):
+        """
+        G+A
+        """
+        if self.name == "i386:x86_64":
+            #R_X86_64_GOT32
+            return [3]
+
+    def reloc_l_a_p(self):
+        """
+        L+A-P
+        """
+        pass
+
+    def reloc_s(self):
+        """
+        S
+        """
+        pass
+
+    def reloc_b_a(self):
+        """
+        B+A
+        """
+        pass
+
+    def reloc_g_got_a_p(self):
+        """
+        G + GOT + A - P
+        """
+        pass
+
+    def reloc_s_a_got(self):
+        """
+        S + A - GOT
+        """
+        pass
+
+    def reloc_z_a(self):
+        """
+        Z + A
+        """
+        pass

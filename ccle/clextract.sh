@@ -13,18 +13,28 @@ fi
 
 arch=$1
 bin=$2
+
 qemu="qemu-${arch}"
 ldpath="${PWD}/${arch}/"
 
 # Try to find stuff automatically
-lib=$(ls /usr | grep ${arch}-)
+lib=$(ls /usr | grep ${arch}- | sed 's/\n//')
 
 # Exceptions
 if [ "${arch}" = "i386" ] ; then
     inc="/lib32"
 
+elif [ "${arch}" = "armhf" ] ; then
+    inc="/usr/arm-linux-gnueabihf"
+	qemu="qemu-arm"
+
+elif [ "${arch}" = "armel" ] ; then
+    inc="/usr/arm-linux-gnueabi"
+	qemu="qemu-arm"
+
 elif [ "${arch}" = "ppc" ] ; then
     inc="/usr/powerpc-linux-gnu"
+
 else
     inc="/usr/$lib/"
 fi

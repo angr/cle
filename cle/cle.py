@@ -360,6 +360,7 @@ class Ld(object):
         """
         This is dealing with absolute relocations within the same module, as
         opposed to external references. In practice, this is R_386_32 and friends
+        The relocation is S (we just update the value in the slot)
         """
 
         l.info("[Performing absolute relocations of %s]" % obj.binary)
@@ -374,15 +375,24 @@ class Ld(object):
     def _reloc_relative(self, obj):
         """
         This is dealing with relative relocations, e.g., R_386_RELATIVE
+        The relocation is B + A (base address + addend).
         """
 
         l.info("[Performing relative relocations of %s]" % obj.binary)
         # This is an array of tuples
         for t in obj.relative_reloc:
-            offset = int(t[1],16) # Offset in the binary where the address to relocate is stored
+            offset = t[0] # Offset in the binary where the address to relocate is stored
+
             vaddr = offset + obj.rebase_addr # Where that is in memory as we loaded it
-            rela = self.memory.read_addr_at(vaddr, self.main_bin.archinfo)
-            rela_updated = rela + obj.rebase_addr
+
+            if obj.rela_type == "DT_RELA":
+                # DT_RELA specifies the addend explicitely
+                addend = t[1]
+            else:
+                # DT_REL stores the addend in the memory location to be updated
+                addend = self.memory.read_addr_at(vaddr, self.main_bin.archinfo)
+
+            rela_updated = addend + obj.rebase_addr
             self.memory.write_addr_at(vaddr, rela_updated, self.main_bin.archinfo)
             l.debug("\t-->[R] Relative relocation, 0x%x [at 0x%x]" % (rela_updated, vaddr))
 

@@ -289,13 +289,13 @@ void print_jmprel(ElfW(Dyn) *dynamic, struct segment *s)
    if (!addr || !s)
        return;
 
-   printf("\nJMPREL, OFFSET, TYPE, NAME\n---\n");
    /* The following depends on the type of relocation entries */
    if (relatype == DT_RELA)
    {
        rela = (ElfW(Rela)*) addr;
        count = pltrelsz / sizeof(ElfW(Rela));
 
+	   printf("\nJMPREL, OFFSET, NAME, TYPE, ADDEND\n---\n");
        for(i=0; i<count; i++)
 		   print_rela_ent(rela[i], symtab, strtab, "jmprel");
    }
@@ -305,6 +305,7 @@ void print_jmprel(ElfW(Dyn) *dynamic, struct segment *s)
        rel = (ElfW(Rel)*) addr;
        count = pltrelsz / sizeof(ElfW(Rel));
 
+	   printf("\nJMPREL, OFFSET, NAME, TYPE\n---\n");
        for(i=0; i<count; i++)
 		   print_rel_ent(rel[i], symtab, strtab, "jmprel");
    }
@@ -337,7 +338,7 @@ void _print_reloc_rela(ElfW(Dyn) *dynamic, struct segment *s)
 	symtab = get_symtab_ptr(dynamic, s);
 	strtab = get_strtab_ptr(dynamic, s);
 
-	printf ("\nRELOC, OFFSET, NAME, ADDEND, TYPE\n---\n");
+	printf ("\nRELOC, OFFSET, NAME, TYPE, ADDEND\n---\n");
 	for(i=0 ;i<size; i++)
 		print_rela_ent(rela[i], symtab, strtab, "reloc");
 }

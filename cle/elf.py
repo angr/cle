@@ -89,7 +89,10 @@ class Elf(AbsObj):
         self._raw_reloc = None
 
         # Stuff static binaries don't have
+        # TODO: some static binaries may have relocations
         if self.linking == "dynamic":
+            l.debug("TODO: check status of relocations on static libc")
+            self.rela_type = self._get_rela_type(info)
             self.gotaddr = self._get_gotaddr(self.dynamic) # Add rebase_addr if relocated
             self.global_reloc = self._get_global_reloc(info)
             self.odd32_reloc = self._get_32_reloc(info)
@@ -309,15 +312,16 @@ class Elf(AbsObj):
         reloc = []
         for i in data:
             if i[0].strip() == "reloc":
-                # (offset, name, reloc_type)
-                if self.get_rela_type(data) == "DT_RELA":
-                    reloc.append( (i[2].strip(), i[1].strip(), int(i[4].strip(),10)))
-                elif self.get_rela_type(data) == "DT_REL":
-                    reloc.append( (i[2].strip(), i[1].strip(), int(i[3].strip(),10)))
+                if self._get_rela_type(data) == "DT_RELA":
+                    # (offset, name, reloc_type, addend)
+                    reloc.append( (int(i[1].strip(), 16), i[2].strip(), int(i[3].strip(),10), int(i[4].strip(),16) ) )
+                elif self._get_rela_type(data) == "DT_REL":
+                    # (offset, name, reloc_type)
+                    reloc.append( (int(i[1].strip(), 16), i[2].strip(), int(i[3].strip(),10)))
         self._raw_reloc = reloc
         return reloc
 
-    def get_rela_type(self, data):
+    def _get_rela_type(self, data):
         """
         Elf relocation structure type, DT_RELA or DT_REL
         DT_RELA has extra information (addend)
@@ -340,11 +344,11 @@ class Elf(AbsObj):
 
         raw_reloc = self._get_raw_reloc(data)
 
+        # raw reloc: (offset, name, reloc_type)
         for t in raw_reloc:
-            # (offset, name, reloc_type)
             if t[2] == self.archinfo.get_global_reloc_type():
-                reloc[t[0]] = int(t[1],16)
-                if t[0] == '':
+                reloc[t[1]] = t[0]
+                if t[1] == '':
                     raise CLException("Empty name in global data reloc, this is a bug\n")
         return reloc
 
@@ -360,11 +364,12 @@ class Elf(AbsObj):
             return []
 
         reloc = []
+        # raw reloc: (offset, name, reloc_type)
         for t in raw_reloc:
-            # (offset, name, reloc_type)
             if t[2] == reloc_type:
-                reloc.append((t[0], int(t[1],16)))
-                if t[0] == '':
+                # Tuple (name, offset)
+                reloc.append((t[1], t[0]))
+                if t[1] == '':
                     raise CLException("Empty name in '32' data reloc, this is a bug\n")
         return reloc
 
@@ -381,9 +386,13 @@ class Elf(AbsObj):
 
         raw_reloc = self._get_raw_reloc(data)
         for t in raw_reloc:
-            # (offset, name, reloc_type)
             if t[2] == self.archinfo.get_relative_reloc_type():
-                reloc.append((t[0], t[1]))
+                if self.rela_type == "DT_RELA":
+                    #(offset, addend)
+                    reloc.append((t[0], t[3]))
+                else:
+                    #(offset)
+                    reloc.append( (t[0]) )
         return reloc
 
     def _get_mips_external_reloc(self):
