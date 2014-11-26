@@ -96,7 +96,7 @@ class Elf(AbsObj):
             self.raw_reloc = self._get_raw_reloc(info)
             self.gotaddr = self._get_gotaddr(self.dynamic) # Add rebase_addr if relocated
             self.global_reloc = self._get_global_reloc(info)
-            self.odd32_reloc = self._get_32_reloc(info)
+            self.s_a_reloc = self._get_s_a_reloc(info)
             self.relative_reloc = self._get_relative_reloc(info)
             self.jmprel = self._get_jmprel(info)
 
@@ -344,29 +344,33 @@ class Elf(AbsObj):
 
         # raw reloc: (offset, name, reloc_type)
         for t in raw_reloc:
-            if t[2] == self.archinfo.get_global_reloc_type():
+            if t[2] in self.archinfo.get_global_reloc_type():
                 reloc[t[1]] = t[0]
                 if t[1] == '':
                     raise CLException("Empty name in global data reloc, this is a bug\n")
         return reloc
 
-    def _get_32_reloc(self, data):
+    def _get_s_a_reloc(self, data):
         """
-        Get dynamic relocation information for relocation type R_386_32.
+        Get dynamic relocation information for relocation type S+A (see Archinfo).
         Returns: a dict {name:offset}
         """
 
         raw_reloc = self.raw_reloc
-        reloc_type = self.archinfo.get_weird_reloc_type()
+        reloc_type = self.archinfo.get_s_a_reloc_type()
         if reloc_type is None:
             return []
 
         reloc = []
         # raw reloc: (offset, name, reloc_type)
         for t in raw_reloc:
-            if t[2] == reloc_type:
-                # Tuple (name, offset)
-                reloc.append((t[1], t[0]))
+            if t[2] in reloc_type:
+                if self.rela_type == "DT_RELA":
+                # Tuple (name, offset, addend)
+                    reloc.append((t[1], t[0], t[3]))
+                else:
+                    reloc.append((t[1], t[0]))
+
                 if t[1] == '':
                     raise CLException("Empty name in '32' data reloc, this is a bug\n")
         return reloc
@@ -384,7 +388,7 @@ class Elf(AbsObj):
 
         raw_reloc = self.raw_reloc
         for t in raw_reloc:
-            if t[2] == self.archinfo.get_relative_reloc_type():
+            if t[2] in self.archinfo.get_relative_reloc_type():
                 if self.rela_type == "DT_RELA":
                     #(offset, addend)
                     reloc.append((t[0], t[3]))

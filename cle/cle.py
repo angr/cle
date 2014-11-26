@@ -304,7 +304,10 @@ class Ld(object):
         return m1
 
     def _reloc_got(self, obj):
-        """ Perform relocations of GOT entries"""
+        """
+        Perform relocations of jump slots (in practice, GOT entries)
+        Type S
+        """
 
         l.info("[Performing GOT relocations of %s]" % obj.binary)
 
@@ -358,16 +361,23 @@ class Ld(object):
 
     def _reloc_absolute(self, obj):
         """
-        This is dealing with absolute relocations within the same module, as
-        opposed to external references. In practice, this is R_386_32 and friends
-        The relocation is S (we just update the value in the slot)
+        Type S+A
         """
 
         l.info("[Performing absolute relocations of %s]" % obj.binary)
-        for name, off in obj.odd32_reloc:
+        for t in obj.s_a_reloc:
+            name = t[0]
+            off = t[1]
             off = off + obj.rebase_addr
             #if name in obj.resolved_imports:
             # Those relocations should be exported by the local module
+            if obj.rela_type == "DT_RELA":
+                addend = t[3]
+            else:
+                addend = self.memory.read_addr_at(off, self.main_bin.archinfo)
+
+            if addend != 0:
+                raise CLException("S+A reloc with an actual addend, what should we do with it ??")
             addr = obj.exports[name] + obj.rebase_addr
             self.memory.write_addr_at(off, addr, self.main_bin.archinfo)
             l.debug("\t-->[R] ABS relocation of %s -> 0x%x [at 0x%x]" % (name, addr, off))

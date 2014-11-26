@@ -272,42 +272,13 @@ class ArchInfo(object):
         return struct.unpack(fmt, ''.join(data))[0]
 
     def get_global_reloc_type(self):
-        if self.name == "i386:x86-64":
-            return 6 #R_X86_64_GLOB_DAT
-        elif self.name == "i386":
-            return 6 # R386_GLOB_DAT
-        elif self.name in self.ppc_names:
-            return 20 #R_PPC_GLOB_DAT
-        elif self.name in self.arm_names:
-            return 21 #R_ARM_GLOB_DAT
-        else:
-            l.warning("Not implemented for this architecture")
-            return None
+        return self._reloc_s()
 
-    def get_weird_reloc_type(self):
-        """
-        That's for non-relative R_386_32 and R_X86_64_64
-        """
-        if self.name == "i386" or self.name == "i386:x86-64":
-            return 1
-        # R_PPC_ADDR32
-        if self.name in self.ppc_names:
-            return 1
-        else:
-            l.warning("Not implemented for this architecture")
-            return None
+    def get_s_a_reloc_type(self):
+        return self._reloc_s_a()
 
     def get_relative_reloc_type(self):
-        if self.name == "i386:x86-64":
-            return 8 #R_X86_64_RELATIVE
-        elif self.name == "i386":
-            return 8 # R_386_RELATIVE
-        elif self.name in self.ppc_names:
-            return 22 # R_PPC_RELATIVE
-        else:
-            l.warning("Not implemented for this architecture")
-            return None
-
+        return self._reloc_b_a()
 
     """
     From tests on Debian in /lib/xxx and /usr/blah/lib for cross stuff, we can
@@ -369,27 +340,52 @@ class ArchInfo(object):
     """
 
 
-    def reloc_s_a(self):
+    def _reloc_s_a(self):
         """
-        S+A
+        S+A - update a jump slot with an addend. In practice, we've never seen
+        the difference with S.
         """
         if self.name == "i386:x86_64":
             # R_X86_64_64, R_X86_64_32, R_X86_64_32S, R_X86_64_16, R_X86_64_8
+            # Thought we've seen only the first one on Linux
             return [ 1, 10, 11, 12, 14 ]
 
-    def reloc_b_a(self):
+        elif self.name == "i386":
+            return [1]
+
+        elif "powerpc" in self.name:
+            return [1,20]
+
+        elif "arm" in self.name:
+            return [2]
+
+    def _reloc_b_a(self):
         """
-        B+A
+        B+A - rebase an address
         """
         if self.name == "i386:x86_64":
             #R_X86_64_PC32, R_X86_64_PC16, R_X86_64_PC8, R_X86_64_PC64
-            return [2, 13, 15, 24]
+            return [8]
 
-    def reloc_s(self):
+        elif self.name == "i386":
+            return [8]
+
+        elif "powerpc" in self.name:
+            return [22]
+
+    def _reloc_s(self):
         """
-        S
+        S - update a jump slot with the address of the matching symbol
         """
         if self.name == "i386:x86_64":
             #R_X86_64_GOT32
-            return [3]
+            return [3, 5, 6]
 
+        elif self.name == "i386":
+            return [6]
+
+        elif "powerpc" in self.name:
+            return [21]
+
+        elif "arm" in self.name:
+            return [21]
