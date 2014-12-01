@@ -359,6 +359,9 @@ class ArchInfo(object):
         elif "arm" in self.name:
             return [2]
 
+        else:
+            return []
+
     def _reloc_b_a(self):
         """
         B+A - rebase an address
@@ -372,6 +375,9 @@ class ArchInfo(object):
 
         elif "powerpc" in self.name:
             return [22]
+
+        else:
+            return []
 
     def _reloc_s(self):
         """
@@ -389,3 +395,6 @@ class ArchInfo(object):
 
         elif "arm" in self.name:
             return [21]
+
+        else:
+            return []

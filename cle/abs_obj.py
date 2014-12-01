@@ -82,10 +82,10 @@ class AbsObj(object):
             ep_offset = self.entry_point - self.rebase_addr
             fmt = '<Q' if self.endianness == 'LSB' else '>Q'
 
-            ep_bitstring = ''.join(self.memory[ep_offset + i] for i in xrange(8))
+            ep_bitstring = ''.join(self._memory[ep_offset + i] for i in xrange(8))
             self.entry_point = struct.unpack(fmt, ep_bitstring)[0]
 
-            rtoc_bitstring = ''.join(self.memory[ep_offset + i + 8] for i in xrange(8))
+            rtoc_bitstring = ''.join(self._memory[ep_offset + i + 8] for i in xrange(8))
             self.ppc64_initial_rtoc = struct.unpack(fmt, rtoc_bitstring)[0]
         else:
             pass
