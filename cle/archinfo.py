@@ -345,7 +345,7 @@ class ArchInfo(object):
         S+A - update a jump slot with an addend. In practice, we've never seen
         the difference with S.
         """
-        if self.name == "i386:x86_64":
+        if self.name == "i386:x86-64":
             # R_X86_64_64, R_X86_64_32, R_X86_64_32S, R_X86_64_16, R_X86_64_8
             # Thought we've seen only the first one on Linux
             return [ 1, 10, 11, 12, 14 ]
@@ -366,7 +366,7 @@ class ArchInfo(object):
         """
         B+A - rebase an address
         """
-        if self.name == "i386:x86_64":
+        if self.name == "i386:x86-64":
             #R_X86_64_PC32, R_X86_64_PC16, R_X86_64_PC8, R_X86_64_PC64
             return [8]
 
@@ -383,7 +383,7 @@ class ArchInfo(object):
         """
         S - update a jump slot with the address of the matching symbol
         """
-        if self.name == "i386:x86_64":
+        if self.name == "i386:x86-64":
             #R_X86_64_GOT32
             return [3, 5, 6]
 

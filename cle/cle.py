@@ -774,7 +774,7 @@ class Ld(object):
 
         # Make LD look for custom libraries in the right place
         if self.custom_ld_path is not None:
-            ld_path = ld_path + ":" + self.custom_ld_path
+            ld_path = self.custom_ld_path + ":" + ld_path
 
         var = "LD_LIBRARY_PATH=%s,LD_AUDIT=%s,LD_BIND_NOW=yes" % (ld_path, ld_audit_obj)
 
