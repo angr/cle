@@ -763,6 +763,8 @@ class Ld(object):
         elif type(obj) is IdaBin:
             elf_b = Elf(self.path, load=False)  # Use Elf to determine needed libs
             return elf_b.deps
+        elif type(obj) is Blob:
+            return []
         else:
             raise CLException("I don't know how to get deps for this type of binary")
 

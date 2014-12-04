@@ -1,6 +1,7 @@
 from .clexception import CLException
 from .abs_obj import AbsObj
 import logging
+import os
 
 l = logging.getLogger("cle.blob")
 
@@ -29,3 +30,30 @@ class Blob(AbsObj):
 
         kwargs['blob'] = True
         super(Blob, self).__init__(*args, **kwargs)
+
+        self.custom_offset = kwargs['custom_offset']
+        self.custom_base_addr = kwargs['custom_base_addr']
+        self.custom_entry_point = kwargs['custom_entry_point']
+
+        self.load(self.custom_offset)
+
+    def get_min_addr(self):
+        return self.custom_base_addr
+
+    def get_max_addr(self):
+        return max(self._memory.keys())
+
+    def load(self, offset, size=0):
+        """ Load a segment into memory """
+        try:
+            f = open(self.binary, 'r')
+            f.seek(offset)
+        except IOError:
+            print("\tFile does not exist", self.binary)
+
+        if size == 0:
+            size = os.path.getsize(self.binary)
+
+        # Fill the memory dict with addr:value
+        for i in range(offset, size):
+            self._memory[i] = f.read(1)

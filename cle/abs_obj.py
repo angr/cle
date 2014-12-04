@@ -26,6 +26,7 @@ class AbsObj(object):
 
         self.binary = args[0]
         self.segments = [] # List of segments
+        self.imports = {}
         self._memory = Clemory() # Private virtual address space, without relocations
         self.symbols = None # Object's symbols
 
@@ -49,9 +50,10 @@ class AbsObj(object):
 
         if 'blob' in kwargs.keys():
             if 'custom_arch' in kwargs.keys():
-                archinfo = Arch(simarch=kwargs['custom_arch'])
+                self.archinfo = Arch(simarch=kwargs['custom_arch'])
+                self.simarch = kwargs['custom_arch']
             else:
-                archinfo = None
+                self.archinfo = None
 
         else:
             archinfo = ArchInfo(self.binary)
