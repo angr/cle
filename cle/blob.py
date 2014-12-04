@@ -56,4 +56,4 @@ class Blob(AbsObj):
 
         # Fill the memory dict with addr:value
         for i in range(offset, size):
-            self._memory[i] = f.read(1)
+            self._memory[i + self.custom_base_addr] = f.read(1)
