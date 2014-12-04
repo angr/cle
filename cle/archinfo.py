@@ -8,7 +8,8 @@ from .clexception import CLException
 
 l = logging.getLogger("cle.archinfo")
 
-class ArchInfo(object):
+
+class Arch(object):
     """ This class extracts architecture information from ELF binaries using the
         cle_bfd library.
     """
@@ -18,40 +19,19 @@ class ArchInfo(object):
     ppc_names = ["powerpc:common", "powerpc:common64"]
     arm_names = ["arm", "armv4t", "armv5t"]
 
-    def __init__(self, binary):
-        """ Getarchitecture information from the binary file @binary using
-        ctypes and cle_bfd.so """
-        env_p = os.getenv("VIRTUAL_ENV", "/")
-        lib_p = "lib"
-        lib = os.path.join(env_p, lib_p, "cle_bfd.so")
 
-        if not os.path.exists(lib):
-            raise CLException("Cannot load cle_bfd.so, invalid path:%s" % lib)
-        if not os.path.exists(binary):
-            raise CLException("Binary %s does not exist" % binary)
-
-        self.lib = cdll.LoadLibrary(lib)
-        self.lib.get_bfd_arch_pname.restype = c_char_p
-        self.lib.get_arch_byte_order.restype = c_char_p
-
-        self.name = self.lib.get_bfd_arch_pname(binary)
-
-        if self.name == "ERROR":
-            raise CLException("This doesn't look like an ELF File. Unsupported"
-                              " format or architecture")
-        elif self.name == "unknown":
-            raise CLException("Dude, your libbfd doesn't seem to know this architecture.")
-
-        self.bits = self.lib.get_bits_per_addr(binary)
-        self.arch_size = self.lib.get_arch_size(binary)
-        self.byte_order = self.lib.get_arch_byte_order(binary)
-
-        self.qemu_arch = self.to_qemu_arch(self.name)
-        self.simuvex_arch = self.to_simuvex_arch(self.name)
-        self.ida_arch = self.to_ida_arch(self.name)
-        self.elfflags = 0
-
-        self.path = binary
+    def __init__(self, name=None, bits=None, arch_size=None, byte_order=None, simarch=None):
+        if simarch is None:
+            self.name = name
+            self.bits = bits
+            self.arch_size = arch_size
+            self.byte_order = byte_order
+        else:
+            s=simuvex.Architectures[simarch]()
+            self.name = s.name
+            self.bits = s.bits
+            self.arch_size = self.bits
+            self.byte_order = "LSB" if s.memory_endness == "Iend_LE" else "MSB"
 
 
     def to_qemu_arch(self, arch):
@@ -398,3 +378,40 @@ class ArchInfo(object):
 
         else:
             return []
+
+
+class ArchInfo(Arch):
+
+    def __init__(self, binary):
+        """ Getarchitecture information from the binary file @binary using
+        ctypes and cle_bfd.so """
+        env_p = os.getenv("VIRTUAL_ENV", "/")
+        lib_p = "lib"
+        lib = os.path.join(env_p, lib_p, "cle_bfd.so")
+
+        if not os.path.exists(lib):
+            raise CLException("Cannot load cle_bfd.so, invalid path:%s" % lib)
+        if not os.path.exists(binary):
+            raise CLException("Binary %s does not exist" % binary)
+
+        self.lib = cdll.LoadLibrary(lib)
+        self.lib.get_bfd_arch_pname.restype = c_char_p
+        self.lib.get_arch_byte_order.restype = c_char_p
+
+        self.name = self.lib.get_bfd_arch_pname(binary)
+
+        if self.name == "ERROR":
+            raise CLException("This doesn't look like an ELF File. Unsupported"
+                              " format or architecture")
+        elif self.name == "unknown":
+            raise CLException("Dude, your libbfd doesn't seem to know this architecture.")
+
+        self.bits = self.lib.get_bits_per_addr(binary)
+        self.arch_size = self.lib.get_arch_size(binary)
+        self.byte_order = self.lib.get_arch_byte_order(binary)
+
+        self.qemu_arch = self.to_qemu_arch(self.name)
+        self.simuvex_arch = self.to_simuvex_arch(self.name)
+        self.ida_arch = self.to_ida_arch(self.name)
+        self.elfflags = 0
+

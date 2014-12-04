@@ -546,8 +546,15 @@ class Ld(object):
         # Warning: when using IDA, the relocations will be performed in its own
         # memory, which we'll have to sync later with Ld's memory
         self.path = path
-        arch = ArchInfo(self.path).name
-        self.tmp_dir = "/tmp/cle_" + os.path.basename(self.path) + "_" + arch
+        if main_binary_ops['backend'] == "blob":
+            try:
+                arch = main_binary_ops['archinfo']
+            except:
+                l.debug("No archinfo instance passed to Cle for blob")
+                pass
+        else:
+            arch = ArchInfo(self.path).name
+            self.tmp_dir = "/tmp/cle_" + os.path.basename(self.path) + "_" + arch
 
         if 'skip_libs' in main_binary_ops:
             self.skip_libs = main_binary_ops['skip_libs']
@@ -624,7 +631,15 @@ class Ld(object):
             obj = IdaBin(path)
 
         elif backend == 'blob':
-            obj = Blob(path)
+            if 'custom_base_addr' not in ops.keys() \
+                or 'custom_entry_point' not in ops.keys() \
+                    or 'custom_arch' not in ops.keys():
+                raise CLException("Blob needs a custom_entry_point, custom_"
+                                  "base_addr and custom_arch passed as cle options")
+
+            obj = Blob(path, custom_entry_point=ops['custom_entry_point'],
+                       custom_base_addr=ops['custom_base_addr'],
+                       custom_offset=ops['custom_offset'], custom_arch=ops['custom_arch'])
 
         else:
             raise CLException("Unknown backend %s" % backend)

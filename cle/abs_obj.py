@@ -1,7 +1,7 @@
 import os
 import struct
 from .clexception import CLException
-from .archinfo import ArchInfo
+from .archinfo import ArchInfo, Arch
 from .memory import Clemory
 from abc import ABCMeta
 
@@ -47,14 +47,22 @@ class AbsObj(object):
             raise CLException("The binary file \"%s\" does not exist :(" %
                               self.binary)
 
-        archinfo = ArchInfo(self.binary)
-        self.archinfo = archinfo
-        arch_name = archinfo.name
-        self.bits_per_addr = archinfo.bits
+        if 'blob' in kwargs.keys():
+            if 'custom_arch' in kwargs.keys():
+                archinfo = Arch(simarch=kwargs['custom_arch'])
+            else:
+                archinfo = None
 
-        # We use qemu's convention for arch names
-        self.arch = archinfo.to_qemu_arch(arch_name)
-        self.simarch = archinfo.to_simuvex_arch(arch_name)
+        else:
+            archinfo = ArchInfo(self.binary)
+
+            self.archinfo = archinfo
+            arch_name = archinfo.name
+            self.bits_per_addr = archinfo.bits
+
+            # We use qemu's convention for arch names
+            self.arch = archinfo.to_qemu_arch(arch_name)
+            self.simarch = archinfo.to_simuvex_arch(arch_name)
 
 
     def get_vex_ir_endness(self):
