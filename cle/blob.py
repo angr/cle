@@ -70,3 +70,9 @@ class Blob(AbsObj):
         min_addr = self.get_min_addr()
 
         return (addr >= min_addr and addr <= max_addr)
+
+    def in_which_segment(self, addr):
+        '''
+        Blobs don't support segments.
+        '''
+        return None
