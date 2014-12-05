@@ -44,6 +44,8 @@ class AbsObj(object):
         self.custom_offset = None
         self.provides = None
 
+        self.ppc64_initial_rtoc = None
+
         if not os.path.exists(self.binary):
             raise CLException("The binary file \"%s\" does not exist :(" %
                               self.binary)
