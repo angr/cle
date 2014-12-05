@@ -38,11 +38,13 @@ class Blob(AbsObj):
 
         self.load(self.custom_offset)
 
+        self._max_addr = max(self._memory.keys())
+
     def get_min_addr(self):
         return self.custom_base_addr
 
     def get_max_addr(self):
-        return max(self._memory.keys())
+        return self._max_addr
 
     def load(self, offset, size=0):
         """ Load a segment into memory """
