@@ -1,7 +1,7 @@
 import logging
 from .clexception import CLException
 from .elf import Elf
-import idalink
+from idalink import idalink
 import os
 import struct
 from .abs_obj import AbsObj
@@ -25,11 +25,11 @@ class IdaBin(AbsObj):
         processor_type = self.archinfo.ida_arch
 
         l.debug("Loading binary %s using IDA with arch %s" % (self.binary, processor_type))
-        self.ida = idalink.IDALink(self.binary, ida_prog=ida_prog,
-                                   processor_type=processor_type, pull = False)
+        self.ida = idalink(self.binary, ida_prog=ida_prog,
+                                   processor_type=processor_type).link
 
         self.badaddr = self.ida.idc.BADADDR
-        self._memory = self.ida.mem
+        self._memory = self.ida.memory
 
         # This flag defines whether synchronization with Ld is needed
         self.mem_needs_sync = False
