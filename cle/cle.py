@@ -337,14 +337,9 @@ class Ld(object):
             # We take the GOT from ELF file, that's not rebased yet
                 got_addr = got_addr + obj.rebase_addr
 
-            # We first look locally inside the current object
-            if symb in obj.exports:
-                loc = "(local)"
-                uaddr = obj.exports[symb]
-            else:
-                loc = "(external)"
-                # Find_symbol_addr() already takes care of rebasing
-                uaddr = self.find_symbol_addr(symb)
+            loc = "(external)"
+            # Find_symbol_addr() already takes care of rebasing
+            uaddr = self.find_symbol_addr(symb)
 
             if (uaddr):
                 self.memory.write_addr_at(got_addr, uaddr, self.main_bin.archinfo)
@@ -494,7 +489,7 @@ class Ld(object):
         """
 
         found = None
-        for so in [self.main_bin] + self.shared_objects:
+        for so in self.shared_objects + [self.main_bin]:
             ex = so.exports
             if symbol in ex:
                 for i in so.symbols:
