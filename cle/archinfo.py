@@ -365,7 +365,7 @@ class Arch(object):
         """
         if self.name == "i386:x86-64":
             #R_X86_64_GOT32
-            return [3, 5, 6]
+            return [3, 6]
 
         elif self.name == "i386":
             return [6]
@@ -376,6 +376,15 @@ class Arch(object):
         elif "arm" in self.name:
             return [21]
 
+        else:
+            return []
+
+    def _reloc_copy(self):
+        """
+        Like S, but copy the actual value of the symbol instead of its addr
+        """
+        if self.name == "i386:x86-64" or self.name == "i386":
+            return [5]
         else:
             return []
 

@@ -98,6 +98,7 @@ class Elf(AbsObj):
             self.global_reloc = self._get_global_reloc(info)
             self.s_a_reloc = self._get_s_a_reloc(info)
             self.relative_reloc = self._get_relative_reloc(info)
+            self.copy_reloc = self._get_copy_reloc(info)
             self.jmprel = self._get_jmprel(info)
 
         if load is True:
@@ -396,6 +397,20 @@ class Elf(AbsObj):
                     #(offset)
                     reloc.append((t[0],)) # Tuples need a comma
         return reloc
+
+    def _get_copy_reloc(self, data):
+        """
+        Copy actual data instead of its address when relocating.
+        """
+
+        reloc =[]
+
+        raw_reloc = self.raw_reloc
+        for t in raw_reloc:
+            if t[2] in self.archinfo._reloc_copy():
+                    reloc.append((t[0], t[1]))
+        return reloc
+
 
     def _get_mips_external_reloc(self):
         """
@@ -808,3 +823,8 @@ class Elf(AbsObj):
             return self.jmprel[name]
         else:
             return self.get_plt_stub_addr(name)
+
+    def symbol_info(self, symbol):
+        for si in self.symbols:
+            if si["name"] == symbol:
+                return si

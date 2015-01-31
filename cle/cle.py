@@ -198,14 +198,14 @@ class Ld(object):
             self.ida_sync_mem()
 
     def _perform_reloc(self):
-        # Main binary
-        self._perform_reloc_stub(self.main_bin)
 
         l.info("TODO: relocations in custom loaded shared objects")
         # Libraries
         for obj in self.shared_objects:
             self._perform_reloc_stub(obj)
 
+        # Main binary
+        self._perform_reloc_stub(self.main_bin)
             # Again, MIPS is a pain...
          #   if "mips" in obj.arch and isinstance(obj, Elf):
          #       obj.relocate_mips_jmprel()
@@ -225,6 +225,7 @@ class Ld(object):
             self._reloc_got(binary)
             self._reloc_absolute(binary)
             self._reloc_relative(binary)
+            self._reloc_global_copy(binary)
 
     def ida_sync_mem(self):
         """
@@ -302,6 +303,18 @@ class Ld(object):
             m1 = max(m1, i.get_max_addr() + i.rebase_addr)
 
         return m1
+
+
+    def _reloc_global_copy(self, obj):
+        """
+        Type 5 on amd64 - copy the value of the resolved symbol instead of its
+        address
+        """
+        for got_addr, symb in obj.copy_reloc:
+            addr = self.find_symbol_addr(symb)
+            val = self.memory.read_addr_at(addr, obj.archinfo)
+            got_addr = got_addr + obj.rebase_addr
+            self.memory.write_addr_at(got_addr, val, obj.archinfo)
 
     def _reloc_got(self, obj):
         """
@@ -498,7 +511,7 @@ class Ld(object):
                         # We prefer STB_GLOBAL
                         if binding == "STB_GLOBAL" and ex[symbol] != 0:
                             return ex[symbol] + so.rebase_addr
-                        else:
+                        elif binding == "STB_WEAK" and ex[symbol] !=0:
                             found = ex[symbol] + so.rebase_addr
         return found if found !=0 else None
 
