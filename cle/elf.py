@@ -198,6 +198,7 @@ class Elf(AbsObj):
             if i["tag"] == "DT_PLTGOT":
                 return int(i["val"], 16)
 
+    @property
     def entry(self):
         """ This function mimicks the behavior of the initial Binary class in
         Angr. TODO: abstract things away"""
