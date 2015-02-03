@@ -38,9 +38,9 @@ libcle_static-x86_64: libcle_static.c
 	$(cc_x64) -c -fpic libcle_static.c -o x86_64/libcle_static.o
 	$(cc_x64) -shared x86_64/libcle_static.o -o x86_64/libcle_static.so
 
-cle-x86_64: cle.c
-	$(cc_x64) -c cle.c -o x86_64/cle.o
-	$(cc_x64) -L$(LIB)/x86_64 -Wall x86_64/cle.o -o x86_64/cle -lcle -lcle_static
+cle-x86_64: ccle.c
+	$(cc_x64) -c ccle.c -o x86_64/ccle.o
+	$(cc_x64) -L$(LIB)/x86_64 -Wall x86_64/ccle.o -o x86_64/ccle -lcle -lcle_static
 
 libcle-i386: libcle.c
 	mkdir -p i386
@@ -52,9 +52,9 @@ libcle_static-i386: libcle_static.c
 	$(cc_x86) -c -fpic libcle_static.c -o i386/libcle_static.o
 	$(cc_x86) -shared i386/libcle_static.o -o i386/libcle_static.so
 
-cle-i386: cle.c
-	$(cc_x86) -c cle.c -o i386/cle.o
-	$(cc_x86) -L$(LIB)/i386 -Wall i386/cle.o -o i386/cle -lcle -lcle_static
+cle-i386: ccle.c
+	$(cc_x86) -c ccle.c -o i386/ccle.o
+	$(cc_x86) -L$(LIB)/i386 -Wall i386/ccle.o -o i386/ccle -lcle -lcle_static
 
 libcle-mips: libcle.c
 ifeq (,$(shell which $(cc_mips)))
@@ -74,12 +74,12 @@ else
 	$(cc_mips) -shared mips/libcle_static.o -o mips/libcle_static.so
 endif
 
-cle-mips: cle.c
+cle-mips: ccle.c
 ifeq (,$(shell which $(cc_mips)))
 	@echo "CLE: MIPS Compiler not present, ignoring target"
 else
-	$(cc_mips) -c cle.c -o mips/cle.o
-	$(cc_mips) -L$(LIB)/mips -Wall mips/cle.o -o mips/cle -lcle -lcle_static
+	$(cc_mips) -c ccle.c -o mips/ccle.o
+	$(cc_mips) -L$(LIB)/mips -Wall mips/ccle.o -o mips/ccle -lcle -lcle_static
 endif
 
 libcle-mipsel: libcle.c
@@ -100,12 +100,12 @@ else
 	$(cc_mipsel) -shared mipsel/libcle_static.o -o mipsel/libcle_static.so
 endif
 
-cle-mipsel: cle.c
+cle-mipsel: ccle.c
 ifeq (,$(shell which $(cc_mipsel)))
 	@echo "CLE: MIPS LSB Compiler not present, ignoring target"
 else
-	$(cc_mipsel) -c cle.c -o mipsel/cle.o
-	$(cc_mipsel) -L$(LIB)/mipsel -Wall mipsel/cle.o -o mipsel/cle -lcle -lcle_static
+	$(cc_mipsel) -c ccle.c -o mipsel/ccle.o
+	$(cc_mipsel) -L$(LIB)/mipsel -Wall mipsel/ccle.o -o mipsel/ccle -lcle -lcle_static
 endif
 
 libcle-ppc: libcle.c
@@ -126,12 +126,12 @@ else
 	$(cc_ppc) -shared ppc/libcle_static.o -o ppc/libcle_static.so
 endif
 
-cle-ppc: cle.c
+cle-ppc: ccle.c
 ifeq (,$(shell which $(cc_ppc)))
 	echo "CLE: no powerpc compiler"
 else
-	$(cc_ppc) -c cle.c -o ppc/cle.o
-	$(cc_ppc) -L$(LIB)/ppc -Wall ppc/cle.o -o ppc/cle -lcle -lcle_static
+	$(cc_ppc) -c ccle.c -o ppc/ccle.o
+	$(cc_ppc) -L$(LIB)/ppc -Wall ppc/ccle.o -o ppc/ccle -lcle -lcle_static
 endif
 
 libcle-ppc64: libcle.c
@@ -160,13 +160,13 @@ else
 endif
 endif
 
-cle-ppc64: cle.c
+cle-ppc64: ccle.c
 ifeq (,$(shell which $(cc_ppc64)))
 	echo "CLE: no powerpc64 compiler"
 else
 ifneq (, $(shell $(cc_ppc64) --version | egrep -o '4\.[5-9]\.[0-9]'))
-	$(cc_ppc64) $(cflags_ppc64) -c cle.c -o ppc64/cle.o
-	$(cc_ppc64) $(cflags_ppc64) -L$(LIB)/ppc64 -Wall ppc64/cle.o -o ppc64/cle -lcle -lcle_static
+	$(cc_ppc64) $(cflags_ppc64) -c ccle.c -o ppc64/ccle.o
+	$(cc_ppc64) $(cflags_ppc64) -L$(LIB)/ppc64 -Wall ppc64/ccle.o -o ppc64/ccle -lcle -lcle_static
 else
 	echo "CLE: Your gcc version does not support ppc64, ignoring target"
 endif
@@ -182,9 +182,9 @@ libcle_static-armel: libcle_static.c
 	$(cc_armel) -c -fpic libcle_static.c -o armel/libcle_static.o
 	$(cc_armel) -shared armel/libcle_static.o -o armel/libcle_static.so
 
-cle-armel: cle.c
-	$(cc_armel) -c cle.c -o armel/cle.o
-	$(cc_armel) -L$(LIB)/armel -Wall armel/cle.o -o armel/cle -lcle -lcle_static
+cle-armel: ccle.c
+	$(cc_armel) -c ccle.c -o armel/ccle.o
+	$(cc_armel) -L$(LIB)/armel -Wall armel/ccle.o -o armel/ccle -lcle -lcle_static
 
 libcle-armhf: libcle.c
 ifeq (,$(shell which $(cc_armhf)))
@@ -204,12 +204,12 @@ else
 	$(cc_armhf) -shared armhf/libcle_static.o -o armhf/libcle_static.so
 endif
 
-cle-armhf: cle.c
+cle-armhf: ccle.c
 ifeq (,$(shell which $(cc_armhf)))
 	@echo "CLE: MIPS LSB Compiler not present, ignoring target"
 else
-	$(cc_armhf) -c cle.c -o armhf/cle.o
-	$(cc_armhf) -L$(LIB)/armhf -Wall armhf/cle.o -o armhf/cle -lcle
+	$(cc_armhf) -c ccle.c -o armhf/ccle.o
+	$(cc_armhf) -L$(LIB)/armhf -Wall armhf/ccle.o -o armhf/ccle -lcle -lcle_static
 endif
 
 install:
@@ -217,15 +217,16 @@ install:
 		mkdir -p $(BINDIR)/$$arch; \
 		mkdir -p $(LIBDIR)/$$arch; \
 		cp $$arch/libcle.so $(LIBDIR)/$$arch; \
-		cp $$arch/cle $(BINDIR)/$$arch; \
+		cp $$arch/libcle_static.so $(LIBDIR)/$$arch; \
+		cp $$arch/ccle $(BINDIR)/$$arch; \
 	done
 
 clean:
-	 rm -f x86_64/*.so x86_64/*.o x86_64/cle 
-	 rm -f i386/*.so i386/*.o i386/cle 
-	 rm -f armel/*.so armel/*.o armel/cle 
-	 rm -f armhf/*.so armhf/*.o armhf/cle 
-	 rm -f mips/*.so mips/*.o mips/cle 
-	 rm -f mipsel/*.so mipsel/*.o mipsel/cle 
-	 rm -f ppc/*.so ppc/*.o ppc/cle 
-	 rm -f ppc64/*.so ppc64/*.o ppc64/cle 
+	 rm -f x86_64/*.so x86_64/*.o x86_64/ccle 
+	 rm -f i386/*.so i386/*.o i386/ccle 
+	 rm -f armel/*.so armel/*.o armel/ccle 
+	 rm -f armhf/*.so armhf/*.o armhf/ccle 
+	 rm -f mips/*.so mips/*.o mips/ccle 
+	 rm -f mipsel/*.so mipsel/*.o mipsel/ccle 
+	 rm -f ppc/*.so ppc/*.o ppc/ccle 
+	 rm -f ppc64/*.so ppc64/*.o ppc64/ccle 

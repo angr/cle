@@ -1,5 +1,5 @@
 #!/bin/sh
-#Usage: cle <architecture> <bin>
+#Usage: ccle <architecture> <bin>
 # It assumes you have qemu-user installed and the right libc6-cross for the
 # architecture.
 
@@ -7,7 +7,7 @@
 # binary.
 
 if [ -z $1 ] || [ -z $2 ]  ; then
-    echo "Usage: cle <architecture> <bin>"
+    echo "Usage: ccle <architecture> <bin>"
     exit 1
 fi
 
@@ -45,5 +45,5 @@ if ! [ -d "$inc" ] ; then
     exit 2
 fi
 
-${qemu} -L ${inc} -E LD_LIBRARY_PATH=${ldpath}:/lib ${arch}/cle ${bin}
+${qemu} -L ${inc} -E LD_LIBRARY_PATH=${ldpath}:/lib ${arch}/ccle ${bin}
 
