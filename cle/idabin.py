@@ -211,6 +211,10 @@ class IdaBin(AbsObj):
         else:
             return nm
 
+    @property
+    def entry(self):
+        return self._get_entry_point()
+
     def _get_entry_point(self):
         """ Get the entry point of the binary (from IDA)"""
         if self.custom_entry_point is not None:
