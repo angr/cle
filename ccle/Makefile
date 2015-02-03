@@ -5,26 +5,28 @@ LIBDIR=$(VIRTUAL_ENV)/local/lib
 cflags=-Wall -fstack-protector -fdiagnostics-color=auto
 cflags_ppc64=-I/cross/ppc/usr/include/powerpc-linux-gnu/
 mips_cflags=-Wall
+ppc_cflags=-Wall
+arm_cflags=-Wall
 
 cc_x64=x86_64-linux-gnu-gcc $(cflags)
 cc_mips=mips-linux-gnu-gcc $(mips_cflags) 
 cc_mipsel=mipsel-linux-gnu-gcc $(mips_cflags) 
-cc_ppc=powerpc-linux-gnu-gcc $(cflags)
-cc_ppc64=powerpc-linux-gnu-gcc -m64 $(cflags)
-cc_armel=arm-linux-gnueabi-gcc $(cflags)
-cc_armhf=arm-linux-gnueabihf-gcc $(cflags)
+cc_ppc=powerpc-linux-gnu-gcc $(ppc_cflags)
+cc_ppc64=powerpc-linux-gnu-gcc -m64 $(ppc_cflags)
+cc_armel=arm-linux-gnueabi-gcc $(arm_cflags)
+cc_armhf=arm-linux-gnueabihf-gcc $(arm_cflags)
 cc_x86= gcc -m32 $(cflags)
 
 all: x86_64 mips mipsel ppc armel armhf i386 ppc64
 
 x86_64: libcle-x86_64 libcle_static-x86_64 cle-x86_64
-mips: libcle-mips libcle_static cle-mips
-mipsel: libcle-mipsel lible_static cle-mipsel
-ppc: libcle-ppc libcle_static cle-ppc
-ppc64: libcle-ppc64 libcle_static cle-ppc64
-armel: libcle-armel libcle_static cle-armel
-armhf: libcle-armhf libcle_static cle-armhf
-i386: libcle-i386 libcle_static cle-i386
+mips: libcle-mips libcle_static-mips cle-mips
+mipsel: libcle-mipsel libcle_static-mipsel cle-mipsel
+ppc: libcle-ppc libcle_static-ppc cle-ppc
+ppc64: libcle-ppc64 libcle_static-ppc64 cle-ppc64
+armel: libcle-armel libcle_static-armel cle-armel
+armhf: libcle-armhf libcle_static-armhf cle-armhf
+i386: libcle-i386 libcle_static-i386 cle-i386
 
 libcle-x86_64: libcle.c
 	mkdir -p x86_64
@@ -108,16 +110,16 @@ endif
 
 libcle-ppc: libcle.c
 ifeq (,$(shell which $(cc_ppc)))
-	echo "CLE: no powerpc64 compiler"
+	echo "CLE: no powerpc compiler"
 else
 	mkdir -p ppc
 	$(cc_ppc) -c -fpic libcle.c -o ppc/libcle.o
 	$(cc_ppc) -shared ppc/libcle.o -o ppc/libcle.so
 endif
 
-libcle-ppc_static: libcle_static.c
+libcle_static-ppc: libcle_static.c
 ifeq (,$(shell which $(cc_ppc)))
-	echo "CLE: no powerpc64 compiler"
+	echo "CLE: no powerpc compiler"
 else
 	mkdir -p ppc
 	$(cc_ppc) -c -fpic libcle_static.c -o ppc/libcle_static.o
@@ -126,7 +128,7 @@ endif
 
 cle-ppc: cle.c
 ifeq (,$(shell which $(cc_ppc)))
-	echo "CLE: no powerpc64 compiler"
+	echo "CLE: no powerpc compiler"
 else
 	$(cc_ppc) -c cle.c -o ppc/cle.o
 	$(cc_ppc) -L$(LIB)/ppc -Wall ppc/cle.o -o ppc/cle -lcle -lcle_static
@@ -201,7 +203,6 @@ else
 	$(cc_armhf) -c -fpic libcle_static.c -o armhf/libcle_static.o
 	$(cc_armhf) -shared armhf/libcle_static.o -o armhf/libcle_static.so
 endif
-
 
 cle-armhf: cle.c
 ifeq (,$(shell which $(cc_armhf)))

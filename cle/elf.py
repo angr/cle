@@ -101,6 +101,8 @@ class Elf(AbsObj):
             self.copy_reloc = self._get_copy_reloc(info)
             self.jmprel = self._get_jmprel(info)
 
+        self.sections = self._get_static_sections(info)
+
         if load is True:
             self.load()
 
@@ -475,6 +477,24 @@ class Elf(AbsObj):
             if i["type"] == "PT_LOAD":
                 loadable.append(i)
         return loadable
+
+    def _get_static_sections(self, data):
+        """
+        Get information from Elf sections (as opposed to segments).
+        Sections are used by the static linker, and are not required by the
+        loader nor the dynamic linker. There is no guarantee that such sections
+        are present in the binary, those can be stripped.
+        """
+        sections={}
+        for i in data:
+            if i[0].strip() == "shdr":
+                sections["name"] = i[1]
+                sections["f_offset"] = i[2]
+                sections["addr"] = i[3]
+                sections["size"] = i[4]
+                sections["type"] = i[5]
+
+        return sections
 
     def get_text_phdr_ent(self):
         """ Return the entry of the program header table corresponding to the
