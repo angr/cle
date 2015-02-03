@@ -1,13 +1,13 @@
 #!/bin/sh
-#Usage: clextract <architecture> <bin>
+#Usage: cle <architecture> <bin>
 # It assumes you have qemu-user installed and the right libc6-cross for the
 # architecture.
 
-# This runs clextract for the provided architecture against the provided
+# This runs cle for the provided architecture against the provided
 # binary.
 
 if [ -z $1 ] || [ -z $2 ]  ; then
-    echo "Usage: clextract <architecture> <bin>"
+    echo "Usage: cle <architecture> <bin>"
     exit 1
 fi
 
@@ -45,5 +45,5 @@ if ! [ -d "$inc" ] ; then
     exit 2
 fi
 
-${qemu} -L ${inc} -E LD_LIBRARY_PATH=${ldpath}:/lib ${arch}/clextract ${bin}
+${qemu} -L ${inc} -E LD_LIBRARY_PATH=${ldpath}:/lib ${arch}/cle ${bin}
 
