@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include "cle.h"
 #include "libcle_static.h"
+#include "libcle.h"
 
 
 /* Cle_static: get information from Elf sections (as opposed to Elf segments)
@@ -15,7 +16,10 @@
  *	@Ehdr: the Elf header
  *	@shdr: a pointer to the section header table
 	@f: the elf file's descriptor
-*/
+
+	Note: this is the only strtab that is generally not part of the address
+	space of the process (at least to what I've seen in practice. The Elf spec
+	doesn't say anything about it*/
 
 char* alloc_load_sht_strtab(ElfW(Ehdr) ehdr, ElfW(Shdr) *shdr, FILE *f)
 {
@@ -47,6 +51,156 @@ char* alloc_load_sht_strtab(ElfW(Ehdr) ehdr, ElfW(Shdr) *shdr, FILE *f)
 	return sh_strtab;
 }
 
+/* SHT_SYMTAB is the symbol table we get from sections, which is not part of
+ * the memory of the process (but is present in the file when it is not stripped) */
+ElfW(Sym)* alloc_load_sht_symtab(ElfW(Shdr) *shdr, size_t sh_size, FILE *f)
+{
+	int i, rd;
+	ElfW(Sym)* symtab;
+
+	// Get the symtab index
+	for (i=0; i<sh_size; i++)
+		if (shdr[i].sh_type == SHT_SYMTAB)
+			break;
+
+	symtab = malloc(shdr[i].sh_size * sizeof(ElfW(Sym)));
+	if (!symtab){
+		printf("Could not allocate memory (%s)\n", __func__);
+		return NULL;
+	}
+
+	fseek(f, shdr[i].sh_offset, SEEK_SET);
+	rd = fread(symtab, shdr[i].sh_size, 1, f);
+	if (rd == 0)
+	{
+		printf("Error %d while reading file descriptor (%s)\n", rd, __func__);
+		return NULL;
+	}
+	return symtab;
+}
+
+/* Simply print strings of @strtab 
+ * TODO: put that somewhere else
+ * */
+void print_strtab(const char*name, char* strtab, size_t strsz)
+{
+	int i, eos;
+
+	printf("STRTAB, OFFSET, STR\n---\n");
+	for(i=0; i<strsz; i++)
+	{
+		if (strtab[i] == '\0')
+		{
+			if (eos == 0)
+			{
+				eos=1;
+				printf("\n%s, 0x%x, ", name, i);
+			}
+			else
+				continue;
+		}
+		else
+		{
+			printf("%c", strtab[i]);
+			eos=0;
+		}
+	}
+	printf("\n");
+}
+
+
+/* As there might be multiple string tables into the same binary, we scan for
+ * such entries in the section headers, and print the according tables when
+ * found. To distinguish between tables, we name them strtab%d where %d is the
+ * index in the section headers */
+void print_static_strtabs(ElfW(Shdr) *shdr, int sh_size, struct segment *text, struct segment *data)
+{
+	int i;
+	size_t size;
+	char *ptr;
+	char *name;
+	const char *base = "s_strtab";
+
+	name = malloc(sizeof(char) * 10);
+
+	for(i=0; i<sh_size; i++)
+	{
+		if (shdr[i].sh_type == SHT_STRTAB)
+		{
+			ptr = (char*) get_ptr(shdr[i].sh_addr, text, data);
+			size = shdr[i].sh_size;
+			if (ptr)
+			{
+				sprintf(name, "%s%d", base, i);
+#ifdef ELF64
+				printf("\nStatic strtab @0x%lx\n", shdr[i].sh_addr);
+#else
+				printf("\nStatic strtab @0x%x\n", (unsigned int) shdr[i].sh_addr);
+#endif
+				print_strtab(name, ptr, size);
+			}
+		}
+	}
+
+	free(name);
+}
+
+void print_static_symtab(ElfW(Shdr) *shdr, int sh_size, ElfW(Sym) *symtab, FILE *f)
+{
+	int i, lastindex, strindex;
+	char *strtab;
+
+	/* Find out symbol table index*/
+	for(i=0; i<sh_size; i++)
+		if (shdr[i].sh_type == SHT_SYMTAB)
+			break;
+
+	/* Get the last index of local symbol*/
+	lastindex = shdr[i].sh_info;
+
+	/* Index of the associated string table */
+	strindex = shdr[i].sh_link;
+
+	strtab = (char *) alloc_load_static_section(shdr, strindex, f);
+	_print_symtab(symtab, lastindex, strtab);
+
+}
+
+
+/* Generic print symtab - local to this module 
+ * TODO: use in dynamic related code
+ * */
+void _print_symtab(ElfW(Sym) *symtab, int lastindex, char *strtab)
+{
+	int i;
+    unsigned char type_v, bind_v;
+    const char *type_s, *bind_s, *shn_type, *name;
+
+    printf("\nSYMTAB, VALUE, SIZE, BIND, TYPE, SHTYPE, NAME\n---\n");
+	for (i=0; i<lastindex; i++)
+	{
+
+		type_v = ST_TYPE(symtab[i].st_info);
+		bind_v = ST_BIND(symtab[i].st_info);
+
+
+		bind_s = symb_bind_tostr(bind_v);
+		type_s = symb_type_tostr(type_v);
+
+		shn_type = sh_index_tostr(symtab[i].st_shndx);
+
+		name = &strtab[symtab[i].st_name];
+
+#ifdef ELF64
+		printf("symtab, 0x%lx, 0x%lx, %s, %s, %s, %s\n", symtab[i].st_value,
+				symtab[i].st_size, bind_s, type_s, shn_type, name);
+#else
+		printf("symtab, 0x%x, 0x%x, %s, %s, %s, %s\n", (unsigned int) symtab[i].st_value,
+				(unsigned int) symtab[i].st_size, bind_s, type_s, shn_type, name);
+#endif
+	}
+
+}
 
 /* Get the section header table */
 ElfW(Shdr) *get_shdr(ElfW(Ehdr) ehdr, FILE *f)
@@ -99,6 +253,61 @@ void print_shdr(ElfW(Shdr) *shdr, int shdr_size, char* sht_strtab)
 #endif
 
     }
+}
+
+
+/* Get a pointer to the location of vaddr in the corresponding segment, where
+ * we loaded it in memory (which doesn't correspond to the actual vaddresses,
+ * those are real addresses in our mallocated stuff TODO: put that somewhere
+ * else, and refactor dynamic related stuff
+ * */
+void *get_ptr(ElfW(Addr) vaddr, struct segment *text, struct segment *data)
+{
+	struct segment *s;
+	ElfW(Off) off;
+
+	if(vaddr == 0)
+		return NULL;
+
+	if (addr_belongs_to_segment(vaddr, text))
+		s = text;
+	else if (addr_belongs_to_segment(vaddr, data))
+		s = data;
+	else
+		return NULL;
+
+	off = addr_offset_from_segment(vaddr, s);
+
+	if(off == 0)
+		return NULL;
+
+	return s->img + off;
+}
+
+/* This allocates memory and loads the given section into memory 
+ * @ shdr: the section header table
+ * @index: the index in the section headers table
+ * f: the file descriptor of the Elf file
+ * */
+void *alloc_load_static_section (ElfW(Shdr) *shdr, size_t index, FILE *f)
+{
+	int rd;
+	void *ptr;
+
+	ptr = malloc(shdr[index].sh_size);
+	if (!ptr){
+		printf("Could not allocate memory (%s)\n", __func__);
+		return NULL;
+	}
+
+	fseek(f, shdr[index].sh_offset, SEEK_SET);
+	rd = fread(ptr, shdr[index].sh_size, 1, f);
+	if (rd == 0)
+	{
+		printf("Error %d while reading file descriptor (%s)\n", rd, __func__);
+		return NULL;
+	}
+	return ptr;
 }
 
 
