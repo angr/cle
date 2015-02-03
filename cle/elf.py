@@ -76,7 +76,7 @@ class Elf(AbsObj):
         self.strtab_vaddr = self._get_strtab_vaddr(info)
         self.imports = self._get_imports(self.symbols)
         self.exports = self._get_exports()
-        self.entry_point = self._get_entry_point(info)
+        self._elf_entry = self._get_entry_point(info) # Elf entry point
         self.linking = self._get_linking_type(info)
         self.phdr = self._get_phdr(info)
         self.deps = self._get_lib_names(info)
@@ -208,7 +208,7 @@ class Elf(AbsObj):
         if self.custom_entry_point is not None:
             return self.custom_entry_point
         else:
-            return self.entry_point
+            return self._elf_entry
 
     def set_entry(self, entry_point):
         """ This function mimicks the behavior of the initial Binary class in
