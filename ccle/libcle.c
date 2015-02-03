@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <link.h>
 #include <string.h>
+#include "cle.h"
 #include "libcle.h"
 
 
@@ -121,7 +122,7 @@ ElfW(Addr) _get_symtab_vaddr(ElfW(Dyn) *dynamic)
 /* Does @vaddr1 belong to the memory zone defined by vaddr2 -> vaddr2 + size */
 int addr_belongs_to_mem(ElfW(Addr) vaddr1, ElfW(Addr) vaddr2, ElfW(Word) size)
 {
-    return ((vaddr1 > vaddr2) && (vaddr1 < vaddr2 + size));
+    return ((vaddr1 >= vaddr2) && (vaddr1 <= vaddr2 + size));
 }
 
 int addr_belongs_to_segment(ElfW(Addr) addr, struct segment *segment)
@@ -140,17 +141,8 @@ ElfW(Off) addr_offset_from_segment(ElfW(Addr) addr, struct segment *segment)
 
     if (addr_belongs_to_mem(addr, segment->vaddr, segment->memsz))
         return (addr - segment->vaddr);
-    else
-        return 0;
-}
 
-/* Get a string from the string table at a given index*/
-char *get_str(char* strtab, int idx)
-{
-	if (strtab == NULL)
-		return NULL;
-    char *str = &strtab[idx];
-    return str;
+	return 0;
 }
 
 /* This function gets the value associated with the dynamic section
@@ -207,8 +199,8 @@ void print_rela_ent(ElfW(Rela) rela, ElfW(Sym) *symtab, char *strtab, const char
 	printf("%s, 0x%lx, %s, %d, 0x%lx\n", label, rela.r_offset, name,
 			rtype, rela.r_addend);
 #else
-	printf("%s, 0x%x, %s, %d, 0x%x\n", label, rela.r_offset, name,
-			rtype, rela.r_addend);
+	printf("%s, 0x%x, %s, %d, 0x%x\n", label, (unsigned int) rela.r_offset, name,
+			rtype, (unsigned int) rela.r_addend);
 #endif
 }
 
@@ -234,7 +226,7 @@ void print_rel_ent(ElfW(Rel) rel, ElfW(Sym) *symtab, char *strtab, const char *l
 #ifdef ELF64
 	printf("%s, 0x%lx, %s, %d\n", label, rel.r_offset, name, rtype);
 #else
-	printf("%s, 0x%x, %s, %d\n", label, rel.r_offset, name, rtype);
+	printf("%s, 0x%x, %s, %d\n", label, (unsigned int) rel.r_offset, name, rtype);
 #endif
 }
 
@@ -703,116 +695,6 @@ const char* d_tag_tostr(ElfW(Sword) d_tag)
             break;
     }
 }
-
-const char *sh_type_tostr(ElfW(Word) sh_type)
-{
-    switch(sh_type)
-    {
-        case SHT_NULL:
-            return "SHT_NULL";
-            break;
-        case SHT_PROGBITS:
-            return "SHT_PROGBITS";
-            break;
-        case SHT_SYMTAB:
-            return "SHT_SYMTAB";
-            break;
-        case SHT_STRTAB:
-            return "SHT_STRTAB";
-            break;
-        case SHT_RELA:
-            return "SHT_RELA";
-            break;
-        case SHT_HASH:
-            return "SHT_HASH";
-            break;
-        case SHT_DYNAMIC:
-            return "SHT_DYNAMIC";
-            break;
-        case SHT_NOTE:
-            return "SHT_NOTE";
-            break;
-        case SHT_NOBITS:
-            return "SHT_NOBITS";
-            break;
-        case SHT_REL:
-            return "SHT_REL";
-            break;
-        case SHT_SHLIB:
-            return "SHT_SHLIB";
-            break;
-        case SHT_DYNSYM:
-            return "SHT_DYNSYM";
-            break;
-        case SHT_INIT_ARRAY:
-            return "SHT_INIT_ARRAY";
-            break;
-        case SHT_FINI_ARRAY:
-            return "SHT_FINI_ARRAY";
-            break;
-        case SHT_PREINIT_ARRAY:
-            return "SHT_PREINIT_ARRAY";
-            break;
-        case SHT_GROUP:
-            return "SHT_GROUP";
-            break;
-        case SHT_SYMTAB_SHNDX:
-            return "SHT_SYMTAB_SHNDX";
-            break;
-        case SHT_LOOS:
-            return "SHT_LOOS";
-            break;
-        case SHT_HIOS:
-            return "SHT_HIOS";
-            break;
-        case SHT_LOPROC:
-            return "SHT_LOPROC";
-            break;
-        case SHT_HIPROC:
-            return "SHT_HIPROC";
-            break;
-        case SHT_LOUSER:
-            return "SHT_LOUSER";
-            break;
-        case SHT_HIUSER:
-            return "SHT_HIUSER";
-            break;
-        case SHT_GNU_ATTRIBUTES:
-            return "SHT_GNU_ATTRIBUTES";
-            break;
-        case SHT_GNU_HASH:
-            return "SHT_GNU_HASH";
-            break;
-        case SHT_GNU_LIBLIST:
-            return "SHT_GNU_LIBLIST";
-            break;
-        case SHT_GNU_verdef:
-            return "SHT_GNU_verdef";
-            break;
-        case SHT_GNU_verneed:
-            return "SHT_GNU_verneed";
-            break;
-        case SHT_ARM_EXIDX:
-            return "SHT_ARM_EXIDX";
-            break;
-        case SHT_ARM_PREEMPTMAP:
-            return "SHT_ARM_PREEMPTMAP";
-            break;
-        case SHT_ARM_ATTRIBUTES:
-            return "SHT_ARM_ATTRIBUTES";
-            break;
-        case SHT_MIPS_REGINFO:
-            return "SHT_MIPS_REGINFO";
-            break;
-        case SHT_MIPS_OPTIONS:
-            return "SHT_MIPS_OPTIONS";
-            break;
-        default:
-            return "CLE_UNK";
-            break;
-    }
-}
-
 
 /* Symbol table : special section index values */
 const char *sh_index_tostr(ElfW(Half) ndx)
@@ -1283,3 +1165,8 @@ char *ei_data_tostr(unsigned char val)
             break;
     }
 }
+
+
+/* Section related stuff */
+
+

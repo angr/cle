@@ -64,7 +64,7 @@ class Elf(AbsObj):
         self.mips_symtabno = None
         #self.segments = None # Loaded segments
 
-        info = self._call_clextract(self.binary)
+        info = self._call_ccle(self.binary)
 
         # TODO: fix this
         self.elfflags = self._get_elf_flags(info)
@@ -100,6 +100,8 @@ class Elf(AbsObj):
             self.relative_reloc = self._get_relative_reloc(info)
             self.copy_reloc = self._get_copy_reloc(info)
             self.jmprel = self._get_jmprel(info)
+
+        self.sections = self._get_static_sections(info)
 
         if load is True:
             self.load()
@@ -247,7 +249,7 @@ class Elf(AbsObj):
         return symbols
 
     def _symb(self, data):
-        """ Extract symbol table entries from Clextract"""
+        """ Extract symbol table entries from ccle"""
         symb = []
         for i in data:
             # Symbols table
@@ -256,7 +258,7 @@ class Elf(AbsObj):
         return symb
 
     def _strtab(self, data):
-        """ Extract symbol table info from Clextract """
+        """ Extract symbol table info from ccle """
         strtab = []
         for i in data:
             if i[0] == "strtab":
@@ -300,7 +302,7 @@ class Elf(AbsObj):
         index = 0
         for i in data:
             if i[0].strip() == "jmprel":
-                # See the output of clextract:
+                # See the output of ccle:
                 # i[2] is the symbol name, i[1] is the GOT location
                 name = i[2].strip()
                 if name == '':
@@ -477,6 +479,26 @@ class Elf(AbsObj):
                 loadable.append(i)
         return loadable
 
+    def _get_static_sections(self, data):
+        """
+        Get information from Elf sections (as opposed to segments).
+        Sections are used by the static linker, and are not required by the
+        loader nor the dynamic linker. There is no guarantee that such sections
+        are present in the binary, those can be stripped.
+        """
+        sections={}
+        for i in data:
+            if i[0].strip() == "shdr":
+                name = i[1].strip()
+                s={}
+                s["f_offset"] = int(i[2].strip(),16)
+                s["addr"] = int(i[3].strip(), 16)
+                s["size"] = int(i[4].strip(), 16)
+                s["type"] = i[5].strip()
+                sections[name] = s
+
+        return sections
+
     def get_text_phdr_ent(self):
         """ Return the entry of the program header table corresponding to the
         text segment. This is the first PT_LOAD segment we encounter"""
@@ -551,21 +573,21 @@ class Elf(AbsObj):
         l.debug("\t--> binary depends on %s" % repr(deps))
         return deps
 
-    def _call_clextract(self, binary):
-        """ Get information from the binary using clextract """
+    def _call_ccle(self, binary):
+        """ Get information from the binary using ccle """
         qemu = self.archinfo.get_qemu_cmd()
         arch = self.archinfo.get_unique_name()
         env_p = os.getenv("VIRTUAL_ENV", "/")
         bin_p = "local/bin/%s" % arch
         lib_p = "local/lib/%s" % arch
-        cle = os.path.join(env_p, bin_p, "clextract")
+        cle = os.path.join(env_p, bin_p, "ccle")
 
         if (not os.path.exists(cle)):
-            raise CLException("Cannot find clextract binary at %s" % cle)
+            raise CLException("Cannot find ccle binary at %s" % cle)
 
         crosslibs = self.archinfo.get_cross_library_path()
         ld_libs = self.archinfo.get_cross_ld_path()
-        # clextract needs libcle which resides in arch/ for each arch
+        # ccle needs libcle which resides in arch/ for each arch
         cmd = [qemu, "-L", crosslibs, "-E", "LD_LIBRARY_PATH=" +
                os.path.join(env_p, lib_p) + ":" + ld_libs
                , cle, self.binary]
@@ -576,7 +598,7 @@ class Elf(AbsObj):
         err = s.returncode
 
         # We want to make sure qemu returns correctly before we interpret
-        # the output. TODO: we should also get clextract's return code (maybe
+        # the output. TODO: we should also get ccle's return code (maybe
         # through an ENV variable ?)
         if (err != 0):
             raise CLException("Qemu returned error %d while running %s :("
@@ -587,7 +609,7 @@ class Elf(AbsObj):
             # For some reason all the relevant output resides in out[0]
             data = out[0].splitlines()
 
-            # All the fields are separated by commas, see clextract.c
+            # All the fields are separated by commas, see ccle.c
             s = []
             for i in data:
                 s.append(i.split(','))

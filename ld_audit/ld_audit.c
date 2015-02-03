@@ -110,6 +110,8 @@ unsigned int la_objopen(struct link_map *map, Lmid_t lmid, uintptr_t *cookie)
          if (dyn->d_tag == DT_DEBUG)
              r_debug = (struct r_debug *) dyn->d_un.d_ptr;
 
+	printf("r_debug:0x%lx\n", (unsigned long) r_debug);
+
     return LA_FLG_BINDTO | LA_FLG_BINDFROM;
 }
 

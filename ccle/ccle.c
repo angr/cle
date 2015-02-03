@@ -4,7 +4,9 @@
 #include <errno.h>
 #include <link.h>
 #include <string.h>
+#include "cle.h"
 #include "libcle.h"
+#include "libcle_static.h"
 
 #if __ELF_NATIVE_CLASS == 32
     #define ELF32
@@ -12,51 +14,7 @@
     #define ELF64
 #endif
 
-
-/* Get the section header table */
-ElfW(Shdr) *get_shdr(ElfW(Ehdr) ehdr, FILE *f)
-{
-    int i;
-    ElfW(Shdr) *shdr;
-
-    if (ehdr.e_shnum == 0)
-        return NULL;
-
-    /* Read the section header table*/
-    shdr = malloc(ehdr.e_shentsize * ehdr.e_shnum);
-    if (!shdr)
-        return NULL;
-
-    for (i = 0; i < ehdr.e_shnum; i++)
-    {
-        fseek(f, ehdr.e_shoff + (i * ehdr.e_shentsize), SEEK_SET);
-        fread(&shdr[i], ehdr.e_shentsize, 1, f);
-    }
-
-    return shdr;
-}
-
-
-/* Print the section header table if it is there */
-void print_shdr(ElfW(Shdr) *shdr, size_t size)
-{
-    int i;
-
-    printf("\nSHDR, OFFSET, ADDR, SIZE, TYPE\n---\n");
-    for (i = 0; i < size; i++)
-    {
-#ifdef ELF64
-        printf("shdr, 0x%lx, 0x%lx, 0x%lx, %s\n", shdr[i].sh_offset,
-                shdr[i].sh_addr, shdr[i].sh_size,
-                sh_type_tostr(shdr[i].sh_type)); 
-#else
-        printf("shdr, 0x%x, 0x%x, 0x%x, %s\n", shdr[i].sh_offset,
-                shdr[i].sh_addr, shdr[i].sh_size,
-                sh_type_tostr(shdr[i].sh_type)); 
-#endif
-
-    }
-}
+char *get_str(char*, int);
 
 
 /* Display basic info contained in the ELF header*/
@@ -72,7 +30,6 @@ void print_basic_info(ElfW(Ehdr ehdr))
     printf("Endianness, %s\n", ei_data_tostr(ehdr.e_ident[EI_DATA]));
     printf("Flags, 0x%x\n", ehdr.e_flags);
 }
-
 
 
 /* Print the program header table */
@@ -99,6 +56,7 @@ void print_phdr (ElfW(Phdr) *phdr, size_t size)
 #endif
     }
 }
+
 
 
 /* Print the dynamic section */
@@ -173,6 +131,7 @@ char* get_strtab_ptr(ElfW(Dyn) *dynamic, struct segment *s)
     }
     return (char*) (s->img + offset);
 }
+
 
 
 ElfW(Word) *get_hashtab_ptr(ElfW(Dyn) *dynamic, struct segment *s)
@@ -261,14 +220,14 @@ void print_jmprel(ElfW(Dyn) *dynamic, struct segment *s)
 {
    ElfW(Addr) *addr;
    ElfW(Word) pltrelsz, relatype;
-   int count, i, symidx, stridx;
+   int count, i; // symidx, stridx;
    ElfW(Rela) *rela;
    ElfW(Rel) *rel;
    //ElfW(Word) symtab_off;
    ElfW(Sym) *symtab;
    char *strtab;
-   unsigned char rtype;
-   char *name;
+   //unsigned char rtype;
+   //char *name;
 
    if (!dynamic || !s)
        return;
@@ -317,8 +276,8 @@ void _print_reloc_rela(ElfW(Dyn) *dynamic, struct segment *s)
 	ElfW(Sym) *symtab;
 	ElfW(Word) relaent, relasz;
 	ElfW(Rela) *rela = NULL;
-	char *name;
-	unsigned char rtype;
+	//char *name;
+	//unsigned char rtype;
 	int i, size;
 
 	if (!dynamic || !s)
@@ -349,8 +308,8 @@ void _print_reloc_rel(ElfW(Dyn) *dynamic, struct segment *s)
     ElfW(Rel) *rel = NULL;
 	ElfW(Sym) *symtab;
 	ElfW(Word) relent, relsz;
-	unsigned char rtype;
-	char *name;
+	//unsigned char rtype;
+	//char *name;
 	int i, size;
 
 	printf("\nrela_type, DT_REL\n");
@@ -469,7 +428,7 @@ void print_strtab(ElfW(Dyn) *dynamic, struct segment *s)
 /* Print the symbol table */
 void print_symtab(ElfW(Dyn) *dynamic, struct segment *s)
 {
-    size_t sz, strsz;
+    //size_t sz, strsz;
     int i;
     ElfW(Sym) *symtab;
     const char *type_s, *bind_s, *shn_type, *strtab, *name;
@@ -485,9 +444,9 @@ void print_symtab(ElfW(Dyn) *dynamic, struct segment *s)
     if (!symtab)
         return;
 
-    sz = get_symtab_syment(dynamic);
+    //sz = get_symtab_syment(dynamic);
     strtab = get_strtab_ptr(dynamic, s);
-    strsz = _get_strtab_sz(dynamic);
+    //strsz = _get_strtab_sz(dynamic);
     hash = get_hashtab_ptr(dynamic, s);
 
     /* The second value of the hash table is the size of the chain array, and
@@ -634,6 +593,33 @@ int load_data(ElfW(Ehdr) ehdr, ElfW(Phdr) *phdr, struct segment *s, FILE *f)
     return load_stub(phdr, pt_index, s, f);
 }
 
+/* Output dynamic information */
+void dynamic_info(ElfW(Dyn) *dynamic, struct segment *text)
+{
+
+	printf("Linking, dynamic\n");
+	print_dynamic(dynamic);
+
+
+	print_symtab(dynamic, text);
+	print_strtab(dynamic, text);
+	print_reloc(dynamic, text);
+	print_jmprel(dynamic, text);
+
+	printf("\nMISC\n---\n");
+	print_needed(dynamic, text);
+	print_rpath(dynamic, text);
+	print_mips_reloc(dynamic,text);
+
+	printf("gotaddr,0x%x\n", get_dyn_val(dynamic, DT_PLTGOT));
+
+#ifdef ELF64
+	printf("strtab_vaddr, 0x%lx\n", _get_strtab_vaddr(dynamic));
+#else
+	printf("strtab_vaddr, 0x%x\n", _get_strtab_vaddr(dynamic));
+#endif
+
+}
 
 int main(int argc, char *argv[])
 {
@@ -643,6 +629,7 @@ int main(int argc, char *argv[])
     ElfW(Dyn) *dynamic;
     FILE *f;
     const char *binfile;
+	char *sht_strtab; // Section header table's string table
     //char *filename;
     struct segment *data, *text;
 
@@ -672,68 +659,54 @@ int main(int argc, char *argv[])
     rewind(f);
     fread(&ehdr, sizeof(ElfW(Ehdr)), 1, f);
     print_basic_info(ehdr);
+    printf("Ehdr Flags: 0x%x\n", ehdr.e_flags);
 
     /* Get program header table*/
     phdr = get_phdr(ehdr, f);
     print_phdr(phdr, ehdr.e_phnum);
 
-    /* Get section headers */
-    shdr = get_shdr(ehdr, f);
-    print_shdr(shdr, ehdr.e_shnum);
-
+    
     dynamic = get_dynamic(phdr, ehdr.e_phnum, f);
 
-    if (!dynamic)
-        printf("Linking, static\n");
-    else
-    {
-        printf("Linking, dynamic\n");
+	/* Load text and data segments*/
+	data = malloc(sizeof(struct segment));
+	text = malloc(sizeof(struct segment));
 
-        print_dynamic(dynamic);
+	if(!data || !text)
+	{
+		printf("\n***\nERROR, cannot malloc()\n***\n");
+		exit(EXIT_FAILURE);
+	}
 
-        data = malloc(sizeof(struct segment));
-        text = malloc(sizeof(struct segment));
+	if (load_text(ehdr, phdr, text, f) != 0)
+		exit(EXIT_FAILURE);
 
-        if(!data || !text)
-		{
-			printf("\n***\nERROR, cannot malloc()\n***\n");
-            exit(EXIT_FAILURE);
-		}
+	if (load_data(ehdr, phdr, data, f) != 0)
+	{
+		printf("\n***\nWARNING, no data segment\n***\n");
+		data = NULL;
+	}
 
-        if (load_text(ehdr, phdr, text, f) != 0)
-            exit(EXIT_FAILURE);
+	/* Statically linked binary */
+	if (dynamic)
+		dynamic_info(dynamic, text);
+	else
+		printf("Linking, static\n");
 
-        if (load_data(ehdr, phdr, data, f) != 0)
-			printf("\n***\nWARNING, no data segment\n***\n");
+	/* Section info, if present */
+	shdr = get_shdr(ehdr, f);
+	sht_strtab = alloc_load_sht_strtab(ehdr, shdr, f);
+	print_shdr(shdr, ehdr.e_shnum, sht_strtab);
 
-        print_symtab(dynamic, text);
-	    print_strtab(dynamic, text);
-        print_reloc(dynamic, text);
-        print_jmprel(dynamic, text);
-		
-		printf("\nMISC\n---\n");
-        print_needed(dynamic, text);
-        print_rpath(dynamic, text);
-        print_mips_reloc(dynamic,text);
 
-        printf("gotaddr,0x%x\n", get_dyn_val(dynamic, DT_PLTGOT));
-#ifdef ELF64
-		printf("strtab_vaddr, 0x%lx\n", _get_strtab_vaddr(dynamic));
-#else
-		printf("strtab_vaddr, 0x%x\n", _get_strtab_vaddr(dynamic));
-#endif
-
-		if (data)
-			free_segment(&data);
-        free_segment(&text);
-    }
-
-    printf("Ehdr Flags: 0x%x\n", ehdr.e_flags);
-
+	if (data)
+		free_segment(&data);
+	free_segment(&text);
 
     fclose(f);
     free(phdr);
     free(shdr);
+	free(sht_strtab);
     
     return 0;
 }
