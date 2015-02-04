@@ -63,9 +63,12 @@ ElfW(Sym)* alloc_load_sht_symtab(ElfW(Shdr) *shdr, size_t sh_size, FILE *f)
 		if (shdr[i].sh_type == SHT_SYMTAB)
 			break;
 
+	if(shdr[i].sh_size == 0)
+		return NULL;
+
 	symtab = malloc(shdr[i].sh_size * sizeof(ElfW(Sym)));
 	if (!symtab){
-		printf("Could not allocate memory (%s)\n", __func__);
+		printf("Could not allocate memory [size: %ld] (%s)\n", shdr[i].sh_size, __func__);
 		return NULL;
 	}
 
@@ -85,6 +88,12 @@ ElfW(Sym)* alloc_load_sht_symtab(ElfW(Shdr) *shdr, size_t sh_size, FILE *f)
 void print_strtab(const char*name, char* strtab, size_t strsz)
 {
 	int i, eos;
+
+	if(!strtab)
+	{
+		printf("No strtab :( (%s)\n", __func__);
+		return;
+	}
 
 	printf("STRTAB, OFFSET, STR\n---\n");
 	for(i=0; i<strsz; i++)
@@ -151,6 +160,11 @@ void print_static_symtab(ElfW(Shdr) *shdr, int sh_size, ElfW(Sym) *symtab, FILE 
 	//int lastlocal;
 	char *strtab;
 
+	if(!symtab)
+	{
+		printf("No static symtab :( (%s)\n", __func__);
+		return;
+	}
 	/* Find out symbol table index*/
 	for(i=0; i<sh_size; i++)
 		if (shdr[i].sh_type == SHT_SYMTAB)
@@ -179,6 +193,13 @@ void _print_symtab(ElfW(Sym) *symtab, int lastindex, char *strtab)
 	int i;
     unsigned char type_v, bind_v;
     const char *type_s, *bind_s, *shn_type, *name;
+
+	if(!strtab || !symtab)
+	{
+		printf("No strtab or symtab :( (%s)\n", __func__);
+		return;
+	}
+
 
     printf("\nSYMTAB, VALUE, SIZE, BIND, TYPE, SHTYPE, NAME\n---\n");
 	for (i=0; i<lastindex; i++)
