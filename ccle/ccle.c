@@ -702,7 +702,7 @@ int main(int argc, char *argv[])
 	print_static_strtabs(shdr, ehdr.e_shnum, text, data);
 
 	sht_symtab = alloc_load_sht_symtab(shdr, ehdr.e_shnum, f);
-	print_static_symtab(shdr, ehdr.e_shnum, sht_symtab, text, data);
+	print_static_symtab(shdr, ehdr.e_shnum, sht_symtab, f);
 
 	if (data)
 		free_segment(&data);

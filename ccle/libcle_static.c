@@ -147,7 +147,8 @@ void print_static_strtabs(ElfW(Shdr) *shdr, int sh_size, struct segment *text, s
 
 void print_static_symtab(ElfW(Shdr) *shdr, int sh_size, ElfW(Sym) *symtab, FILE *f)
 {
-	int i, lastindex, strindex;
+	int i, lastindex,strindex;
+	//int lastlocal;
 	char *strtab;
 
 	/* Find out symbol table index*/
@@ -156,12 +157,15 @@ void print_static_symtab(ElfW(Shdr) *shdr, int sh_size, ElfW(Sym) *symtab, FILE 
 			break;
 
 	/* Get the last index of local symbol*/
-	lastindex = shdr[i].sh_info;
+	//lastlocal = shdr[i].sh_info;
+
+	/* End of the symbol table*/
+	lastindex = shdr[i].sh_size / sizeof(ElfW(Sym));
 
 	/* Index of the associated string table */
 	strindex = shdr[i].sh_link;
 
-	strtab = (char *) alloc_load_static_section(shdr, strindex, f);
+	strtab = (char *)alloc_load_static_section(shdr, strindex, f);
 	_print_symtab(symtab, lastindex, strtab);
 
 }
@@ -192,10 +196,10 @@ void _print_symtab(ElfW(Sym) *symtab, int lastindex, char *strtab)
 		name = &strtab[symtab[i].st_name];
 
 #ifdef ELF64
-		printf("symtab, 0x%lx, 0x%lx, %s, %s, %s, %s\n", symtab[i].st_value,
+		printf("sh_symtab, 0x%lx, 0x%lx, %s, %s, %s, %s\n", symtab[i].st_value,
 				symtab[i].st_size, bind_s, type_s, shn_type, name);
 #else
-		printf("symtab, 0x%x, 0x%x, %s, %s, %s, %s\n", (unsigned int) symtab[i].st_value,
+		printf("sh_symtab, 0x%x, 0x%x, %s, %s, %s, %s\n", (unsigned int) symtab[i].st_value,
 				(unsigned int) symtab[i].st_size, bind_s, type_s, shn_type, name);
 #endif
 	}

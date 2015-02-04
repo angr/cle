@@ -8,5 +8,6 @@ void print_shdr(ElfW(Shdr) *shdr, int shdr_size, char* sht_strtab);
 void *get_ptr(ElfW(Addr) vaddr, struct segment *text, struct segment *data);
 void print_static_strtabs(ElfW(Shdr) *shdr, int sh_size, struct segment *text, struct segment *data);
 void _print_symtab(ElfW(Sym) *symtab, int lastindex, char* strtab);
-void print_static_symtab(ElfW(Shdr) *shdr, int sh_size, ElfW(Sym) *symtab, struct segment *text, struct segment *data);
+void print_static_symtab(ElfW(Shdr) *shdr, int sh_size, ElfW(Sym) *symtab, FILE *f);
 ElfW(Sym)* alloc_load_sht_symtab(ElfW(Shdr) *shdr, size_t sh_size, FILE *f);
+void *alloc_load_static_section (ElfW(Shdr) *shdr, size_t index, FILE *f);
