@@ -442,7 +442,7 @@ class Ld(object):
 
         # Local entries reside in the first part of the GOT
         for i in range(0, obj.mips_local_gotno):  # 0 to number of local symb
-            got_slot = obj.gotaddr + obj.rebase_addr + (i * got_entry_size)
+            got_slot = obj.pltgotaddr + obj.rebase_addr + (i * got_entry_size)
             addr = self.memory.read_addr_at(got_slot, self.main_bin.archinfo)
             if (addr == 0):
                 l.error("Address in GOT at 0x%x is 0" % got_slot)

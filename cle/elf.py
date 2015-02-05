@@ -94,12 +94,14 @@ class Elf(AbsObj):
             l.debug("TODO: check status of relocations on static libc")
             self.rela_type = self._get_rela_type(info)
             self.raw_reloc = self._get_raw_reloc(info)
-            self.gotaddr = self._get_gotaddr(self.dynamic) # Add rebase_addr if relocated
+            self._dyn_gotaddr = self._get_gotaddr(self.dynamic) # Add rebase_addr if relocated
             self.global_reloc = self._get_global_reloc(info)
             self.s_a_reloc = self._get_s_a_reloc(info)
             self.relative_reloc = self._get_relative_reloc(info)
             self.copy_reloc = self._get_copy_reloc(info)
             self.jmprel = self._get_jmprel(info)
+        else:
+            self._dyn_gotaddr = None
 
         self.sections = self._get_static_sections(info)
 
@@ -851,3 +853,53 @@ class Elf(AbsObj):
         for si in self.symbols:
             if si["name"] == symbol:
                 return si
+
+    @property
+    def gotaddr(self):
+        """
+        Notes:
+        On x86, x86_64 DT_PLTGOT is equal to .got.plt, but different from .got
+        On PPC, PPC64 DT_PLTGOT is equal to .plt, but different from .got
+        """
+        if "mips" in self.archinfo.name or "arm" in self.archinfo.name:
+            # Dynamically-linked
+            if self._dyn_gotaddr is not None: #DT_PLTGOT
+                return self._dyn_gotaddr
+
+        # Stripped binaries
+        if len(self.sections) is None:
+            return None
+
+        if '.got' in self.sections.keys():
+            return self.sections['.got']['addr']
+
+
+    @property
+    def pltgotaddr(self):
+        """
+        Returns the addr of the jump (plt) section of the GOT, either from the
+        dynamic section if there is any, or from the static sections otherwise.
+        Same as .got on MIPS and ARM.
+        On other architectures, this is a subset of the GOT referring to
+        absolute addresses figuring in the PLT.
+        """
+
+        # On MIPS and ARM, DT_PLTGOT is equal to .got (and there is no .got.plt)
+        if "mips" in self.archinfo.name or "arm" in self.archinfo.name:
+            return self.gotaddr
+
+        # Other arch, dynamically-linked
+        if self._dyn_gotaddr is not None: #DT_PLTGOT
+            return self._dyn_gotaddr
+
+        # Stripped binaries
+        if len(self.sections) is None:
+            return None
+
+        if "powerpc" in self.archinfo.name:
+            if '.plt' in self.sections.keys():
+                return self.sections['.plt']['addr']
+
+        # Other arch
+        if '.got.plt' in self.sections.keys():
+            return self.sections['.got.plt']['addr']
