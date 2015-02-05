@@ -687,7 +687,7 @@ class Ld(object):
             else:
                 self.memory[addr] = val
 
-    def _auto_load_shared_libs(self, blacklist=[]):
+    def _auto_load_shared_libs(self):
         """ Load and rebase shared objects """
         # shared_libs = self.main_bin.deps
         shared_libs = self.dependencies
