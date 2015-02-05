@@ -394,7 +394,7 @@ int guess_symtab_sz(ElfW(Dyn) *dynamic, struct segment *s)
 
 
 /* Print the string table */
-void print_strtab(ElfW(Dyn) *dynamic, struct segment *s)
+void print_dyn_strtab(ElfW(Dyn) *dynamic, struct segment *s)
 {
     char *strtab;
     size_t strsz;
@@ -424,6 +424,7 @@ void print_strtab(ElfW(Dyn) *dynamic, struct segment *s)
         }
     }
 }
+
 
 /* Print the symbol table */
 void print_symtab(ElfW(Dyn) *dynamic, struct segment *s)
@@ -602,7 +603,7 @@ void dynamic_info(ElfW(Dyn) *dynamic, struct segment *text)
 
 
 	print_symtab(dynamic, text);
-	print_strtab(dynamic, text);
+	print_dyn_strtab(dynamic, text);
 	print_reloc(dynamic, text);
 	print_jmprel(dynamic, text);
 
@@ -627,9 +628,10 @@ int main(int argc, char *argv[])
     ElfW(Phdr) *phdr; // Program header table
     ElfW(Shdr) *shdr; // Section header
     ElfW(Dyn) *dynamic;
+	ElfW(Sym) *sht_symtab = NULL;
     FILE *f;
     const char *binfile;
-	char *sht_strtab; // Section header table's string table
+	char *sht_strtab = NULL; // Section header table's string table
     //char *filename;
     struct segment *data, *text;
 
@@ -697,7 +699,10 @@ int main(int argc, char *argv[])
 	shdr = get_shdr(ehdr, f);
 	sht_strtab = alloc_load_sht_strtab(ehdr, shdr, f);
 	print_shdr(shdr, ehdr.e_shnum, sht_strtab);
+	print_static_strtabs(shdr, ehdr.e_shnum, text, data);
 
+	sht_symtab = alloc_load_sht_symtab(shdr, ehdr.e_shnum, f);
+	print_static_symtab(shdr, ehdr.e_shnum, sht_symtab, f);
 
 	if (data)
 		free_segment(&data);
@@ -706,7 +711,10 @@ int main(int argc, char *argv[])
     fclose(f);
     free(phdr);
     free(shdr);
-	free(sht_strtab);
+	if (sht_strtab)
+		free(sht_strtab);
+	if (sht_symtab)
+		free(sht_symtab);
     
     return 0;
 }

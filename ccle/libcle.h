@@ -33,3 +33,4 @@ char *_get_type(ElfW(Ehdr) ehdr);
 char *ei_data_tostr(unsigned char val);
 void print_rela_ent(ElfW(Rela) rela, ElfW(Sym) *symtab, char *strtab, const char *label);
 void print_rel_ent(ElfW(Rel) rel, ElfW(Sym) *symtab, char *strtab, const char *label);
+int addr_belongs_to_segment(ElfW(Addr) addr, struct segment *segment);
