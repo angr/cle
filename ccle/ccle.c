@@ -628,10 +628,10 @@ int main(int argc, char *argv[])
     ElfW(Phdr) *phdr; // Program header table
     ElfW(Shdr) *shdr; // Section header
     ElfW(Dyn) *dynamic;
-	ElfW(Sym) *sht_symtab;
+	ElfW(Sym) *sht_symtab = NULL;
     FILE *f;
     const char *binfile;
-	char *sht_strtab; // Section header table's string table
+	char *sht_strtab = NULL; // Section header table's string table
     //char *filename;
     struct segment *data, *text;
 
@@ -711,8 +711,10 @@ int main(int argc, char *argv[])
     fclose(f);
     free(phdr);
     free(shdr);
-	free(sht_strtab);
-	free(sht_symtab);
+	if (sht_strtab)
+		free(sht_strtab);
+	if (sht_symtab)
+		free(sht_symtab);
     
     return 0;
 }

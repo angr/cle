@@ -53,7 +53,7 @@ char* alloc_load_sht_strtab(ElfW(Ehdr) ehdr, ElfW(Shdr) *shdr, FILE *f)
 
 /* SHT_SYMTAB is the symbol table we get from sections, which is not part of
  * the memory of the process (but is present in the file when it is not stripped) */
-ElfW(Sym)* alloc_load_sht_symtab(ElfW(Shdr) *shdr, size_t sh_size, FILE *f)
+ElfW(Sym)* alloc_load_sht_symtab(ElfW(Shdr) *shdr, ElfW(Half) sh_size, FILE *f)
 {
 	int i, rd;
 	ElfW(Sym)* symtab;
@@ -63,12 +63,18 @@ ElfW(Sym)* alloc_load_sht_symtab(ElfW(Shdr) *shdr, size_t sh_size, FILE *f)
 		if (shdr[i].sh_type == SHT_SYMTAB)
 			break;
 
+	if (shdr[i].sh_type != SHT_SYMTAB)
+	{
+		printf("No sht_symtab in this binary. Stripped ?\n");
+		return NULL;
+	}
+
 	if(shdr[i].sh_size == 0)
 		return NULL;
 
-	symtab = malloc(shdr[i].sh_size * sizeof(ElfW(Sym)));
+	symtab = malloc(shdr[i].sh_size);
 	if (!symtab){
-		printf("Could not allocate memory [size: %ld] (%s)\n", shdr[i].sh_size, __func__);
+		printf("Could not allocate memory (%s)\n", __func__);
 		return NULL;
 	}
 
@@ -77,6 +83,7 @@ ElfW(Sym)* alloc_load_sht_symtab(ElfW(Shdr) *shdr, size_t sh_size, FILE *f)
 	if (rd == 0)
 	{
 		printf("Error %d while reading file descriptor (%s)\n", rd, __func__);
+		free(symtab);
 		return NULL;
 	}
 	return symtab;
@@ -162,7 +169,7 @@ void print_static_symtab(ElfW(Shdr) *shdr, int sh_size, ElfW(Sym) *symtab, FILE 
 
 	if(!symtab)
 	{
-		printf("No static symtab :( (%s)\n", __func__);
+		printf("No symtab to print (%s)\n", __func__);
 		return;
 	}
 	/* Find out symbol table index*/
@@ -217,10 +224,10 @@ void _print_symtab(ElfW(Sym) *symtab, int lastindex, char *strtab)
 		name = &strtab[symtab[i].st_name];
 
 #ifdef ELF64
-		printf("sh_symtab, 0x%lx, 0x%lx, %s, %s, %s, %s\n", symtab[i].st_value,
+		printf("s_symtab, 0x%lx, 0x%lx, %s, %s, %s, %s\n", symtab[i].st_value,
 				symtab[i].st_size, bind_s, type_s, shn_type, name);
 #else
-		printf("sh_symtab, 0x%x, 0x%x, %s, %s, %s, %s\n", (unsigned int) symtab[i].st_value,
+		printf("s_symtab, 0x%x, 0x%x, %s, %s, %s, %s\n", (unsigned int) symtab[i].st_value,
 				(unsigned int) symtab[i].st_size, bind_s, type_s, shn_type, name);
 #endif
 	}
@@ -259,6 +266,9 @@ void print_shdr(ElfW(Shdr) *shdr, int shdr_size, char* sht_strtab)
 {
 
 	int i;
+
+	if(!sht_strtab)
+		printf("No section header strtab :( (%s)\n", __func__);
 
     printf("\nSHDR, NAME, OFFSET, ADDR, SIZE, TYPE\n---\n");
 
