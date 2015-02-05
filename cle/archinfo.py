@@ -4,7 +4,7 @@ import logging
 import subprocess
 import simuvex
 import struct
-from .clexception import CLException
+from .clexception import CLException, UnknownFormatException
 
 l = logging.getLogger("cle.archinfo")
 
@@ -410,10 +410,9 @@ class ArchInfo(Arch):
         self.name = self.lib.get_bfd_arch_pname(binary)
 
         if self.name == "ERROR":
-            raise CLException("This doesn't look like an ELF File. Unsupported"
-                              " format or architecture")
+            raise UnknownFormatException("%s doesn't look like an ELF File. Unsupported format or architecture" % binary)
         elif self.name == "unknown":
-            raise CLException("Dude, your libbfd doesn't seem to know this architecture.")
+            raise CLException("Dude, your libbfd doesn't seem to know the architecture of %s." % binary)
 
         self.bits = self.lib.get_bits_per_addr(binary)
         self.arch_size = self.lib.get_arch_size(binary)

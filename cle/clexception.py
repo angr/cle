@@ -6,3 +6,5 @@ class CLException(Exception):
         return repr(self.val)
 
 
+class UnknownFormatException(CLException):
+    pass
