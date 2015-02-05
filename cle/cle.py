@@ -10,7 +10,7 @@ from .elf import Elf
 from .idabin import IdaBin
 from .blob import Blob
 from .archinfo import ArchInfo
-from .clexception import CLException
+from .clexception import CLException, UnknownFormatException
 from .memory import Clemory
 import sys
 
@@ -687,7 +687,7 @@ class Ld(object):
             else:
                 self.memory[addr] = val
 
-    def _auto_load_shared_libs(self):
+    def _auto_load_shared_libs(self, blacklist=[]):
         """ Load and rebase shared objects """
         # shared_libs = self.main_bin.deps
         shared_libs = self.dependencies
@@ -991,17 +991,20 @@ class Ld(object):
         """ Is obj the same architecture as our main binary ? """
 
         arch = ArchInfo(objpath)
-        #The architectures are exactly the same
+        # The architectures are exactly the same
         return self.main_bin.archinfo.compatible_with(arch)
 
     def _check_lib(self, sopath):
-        if os.path.isfile(sopath):
-            l.debug("\t--> Trying %s" % sopath)
-            if not self._check_arch(sopath):
-                l.debug("\t\t -> has wrong architecture")
-            else:
-                l.debug("-->Found %s" % sopath)
-                return True
+        try:
+            if os.path.isfile(sopath):
+                l.debug("\t--> Trying %s" % sopath)
+                if not self._check_arch(sopath):
+                    l.debug("\t\t -> has wrong architecture")
+                else:
+                    l.debug("-->Found %s" % sopath)
+                    return True
+        except UnknownFormatException, ex:
+            l.info("Binary with unknown format ignored: %s", sopath)
         return False
 
     def _search_so(self, soname):
