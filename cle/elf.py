@@ -903,3 +903,33 @@ class Elf(AbsObj):
         # Other arch
         if '.got.plt' in self.sections.keys():
             return self.sections['.got.plt']['addr']
+
+    @property
+    def gotsz(self):
+        """
+        TODO: infer that from dynamic info where possible
+        """
+        # Stripped binaries
+        if len(self.sections) is None:
+            return None
+
+        return self.sections['.got']['size']
+
+    @property
+    def pltgotsz(self):
+        if "mips" in self.archinfo.name or "arm" in self.archinfo.name:
+            return self.gotsz
+
+        if "powerpc" in self.archinfo.name:
+            if '.plt' in self.sections.keys():
+                return self.sections['.plt']['size']
+
+        # Other arch
+        if '.got.plt' in self.sections.keys():
+            return self.sections['.got.plt']['size']
+
+
+
+
+
+
