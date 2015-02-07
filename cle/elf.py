@@ -273,7 +273,7 @@ class Elf(AbsObj):
         """
         strtab = {}
         for i in self._strtab(data):
-            offset = i[1].strip()
+            offset = int(i[1].strip(), 16)
             name = i[2].strip()
             strtab[offset] = name
         return strtab
