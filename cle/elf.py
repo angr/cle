@@ -742,7 +742,7 @@ class Elf(AbsObj):
         If it is 00, then ARM. Check page 16 of this document for details:
         http://infocenter.arm.com/help/topic/com.arm.doc.ihi0044e/IHI0044E_aaelf.pdf
         """
-        if addr == self.entry_point:
+        if addr == self.entry:
             return (addr & 1) == 1
         else:
             raise CLException("Runtime thumb mode detection not implemented")
