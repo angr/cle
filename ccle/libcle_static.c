@@ -28,6 +28,12 @@ char* alloc_load_sht_strtab(ElfW(Ehdr) ehdr, ElfW(Shdr) *shdr, FILE *f)
 	int shstrndx, rd;
 	char * sh_strtab;
 
+	if(!shdr)
+	{
+		printf("Error: NULL section header\n");
+		return NULL;
+	}
+
 	shstrndx = ehdr.e_shstrndx;
 	offset = shdr[shstrndx].sh_offset;
 	size = shdr[shstrndx].sh_size;

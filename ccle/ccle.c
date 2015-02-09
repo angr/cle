@@ -697,12 +697,15 @@ int main(int argc, char *argv[])
 
 	/* Section info, if present */
 	shdr = get_shdr(ehdr, f);
-	sht_strtab = alloc_load_sht_strtab(ehdr, shdr, f);
-	print_shdr(shdr, ehdr.e_shnum, sht_strtab);
-	print_static_strtabs(shdr, ehdr.e_shnum, text, data);
+	if (shdr)
+	{
+		sht_strtab = alloc_load_sht_strtab(ehdr, shdr, f);
+		print_shdr(shdr, ehdr.e_shnum, sht_strtab);
+		print_static_strtabs(shdr, ehdr.e_shnum, text, data);
 
-	sht_symtab = alloc_load_sht_symtab(shdr, ehdr.e_shnum, f);
-	print_static_symtab(shdr, ehdr.e_shnum, sht_symtab, f);
+		sht_symtab = alloc_load_sht_symtab(shdr, ehdr.e_shnum, f);
+		print_static_symtab(shdr, ehdr.e_shnum, sht_symtab, f);
+	}
 
 	if (data)
 		free_segment(&data);
