@@ -8,3 +8,6 @@ class CLException(Exception):
 
 class UnknownFormatException(CLException):
     pass
+
+class CLEAddrException(CLException):
+    pass

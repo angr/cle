@@ -1,7 +1,7 @@
 import os
 import logging
 import subprocess
-from .clexception import CLException
+from .clexception import CLException, CLEAddrException
 from .abs_obj import AbsObj
 
 l = logging.getLogger("cle.elf")
@@ -72,6 +72,7 @@ class Elf(AbsObj):
         ##
 
         self.symbols = self._get_symbols(info)
+        self.s_symbols = self._get_symbols(info, static=True)
         self.strtab = self._get_strtab(info)
         self.strtab_vaddr = self._get_strtab_vaddr(info)
         self.imports = self._get_imports(self.symbols)
@@ -234,10 +235,10 @@ class Elf(AbsObj):
             if i[0] == "Object type":
                 return i[1].strip()
 
-    def _get_symbols(self, data):
+    def _get_symbols(self, data, static=False):
         """ Get symbols addresses """
         symbols = []
-        symb = self._symb(data)
+        symb = self._symb(data, static=static)
         for i in symb:
             s = {}
             s["addr"] = int(i[1].strip(), 16)
@@ -250,12 +251,17 @@ class Elf(AbsObj):
 
         return symbols
 
-    def _symb(self, data):
+    def _symb(self, data, static=False):
         """ Extract symbol table entries from ccle"""
         symb = []
+        if static:
+            ln = "s_symtab"
+        else:
+            ln = "symtab"
+
         for i in data:
             # Symbols table
-            if i[0] == "symtab":
+            if i[0] == ln:
                 symb.append(i)
         return symb
 
@@ -747,18 +753,28 @@ class Elf(AbsObj):
         else:
             raise CLException("Runtime thumb mode detection not implemented")
 
-    def get_local_functions(self):
+    @property
+    def local_functions(self):
         """
         We consider local functions those that are not SHN_UNDEF in the symbol table,
         and that have an address inside the binary.
         This returns a dict indexed by *addresses*
         """
         local_symbols={}
-        for e in self.symbols:
-            if e['sh_info'] != 'SHN_UNDEF':
+        if len(self.s_symbols) > 0:
+            symbs = self.s_symbols
+        elif len(self.symbols) > 0:
+            symbs = self.symbols
+        else:
+            return {}
+
+        for e in symbs:
+            if e['sh_info'] != 'SHN_UNDEF' and e['type'] == 'STT_FUNC':
                 if self.contains_addr(e['addr']):
                     addr = e['addr']
                     local_symbols[addr] = e['name']
+                else:
+                    raise CLEAddrException("Function addr outside the binary")
 
         return local_symbols
 
@@ -793,7 +809,7 @@ class Elf(AbsObj):
         if not self.contains_addr(addr):
             return None
 
-        local = self.get_local_functions()
+        local = self.local_functions
         if len(local) == 0:
             return None
 
