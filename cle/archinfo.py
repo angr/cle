@@ -394,14 +394,16 @@ class ArchInfo(Arch):
     def __init__(self, binary):
         """ Getarchitecture information from the binary file @binary using
         ctypes and cle_bfd.so """
+        binary = str(binary)  # Would segfault if utf8
+
         env_p = os.getenv("VIRTUAL_ENV", "/")
         lib_p = "lib"
         lib = os.path.join(env_p, lib_p, "cle_bfd.so")
 
         if not os.path.exists(lib):
             raise CLException("Cannot load cle_bfd.so, invalid path:%s" % lib)
-        if not os.path.exists(binary):
-            raise CLException("Binary %s does not exist" % binary)
+        if not os.path.isfile(binary):
+            raise CLException("%s is no file or cannot be found" % binary)
 
         self.lib = cdll.LoadLibrary(lib)
         self.lib.get_bfd_arch_pname.restype = c_char_p
