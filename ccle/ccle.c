@@ -404,6 +404,11 @@ void print_dyn_strtab(ElfW(Dyn) *dynamic, struct segment *s)
     strtab = get_strtab_ptr(dynamic, s);
     strsz = _get_strtab_sz(dynamic);
 
+	if(strsz <=0)
+		return;
+
+	printf("strtabsz, %zu\n", strsz);
+
     printf("\nSTRTAB, OFFSET, STR\n---");
     for(i=0; i<strsz; i++)
     {

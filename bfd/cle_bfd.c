@@ -2,6 +2,7 @@
 #include <bfd.h>
 #include <elf.h>
 #include <stdio.h>
+#include <errno.h>
 
 /* These are a bunch of simple Ctypes friendly functions using the BFD library
  * to recover information that is needed by Clé */
@@ -28,7 +29,7 @@ int get_bfd_file_flags(const char* filename)
 
     bfd = open_bfd(filename);
     if (!bfd)
-        return "ERROR";
+        return -EINVAL;
 
 
     return bfd_get_file_flags(bfd);

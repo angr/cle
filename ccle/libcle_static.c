@@ -38,6 +38,11 @@ char* alloc_load_sht_strtab(ElfW(Ehdr) ehdr, ElfW(Shdr) *shdr, FILE *f)
 	offset = shdr[shstrndx].sh_offset;
 	size = shdr[shstrndx].sh_size;
 
+	if (size <= 0)
+		return NULL;
+
+	printf("s_sstrtabsz, %d\n", size);
+
 	sh_strtab = malloc(size * sizeof(char));
 	if (!sh_strtab)
 	{
