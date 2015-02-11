@@ -865,7 +865,7 @@ class Elf(AbsObj):
         else:
             return self.get_plt_stub_addr(name)
 
-    def symbol_info(self, symbol):
+    def symbol(self, symbol):
         for si in self.symbols:
             if si["name"] == symbol:
                 return si
