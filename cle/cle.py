@@ -7,6 +7,7 @@ import shutil
 import subprocess
 
 from .elf import Elf
+from .pe import Pe
 from .idabin import IdaBin
 from .blob import Blob
 from .archinfo import ArchInfo
@@ -222,6 +223,8 @@ class Ld(object):
         if isinstance(binary, IdaBin):
             self._resolve_imports_ida(binary)
             # Once everything is relocated, we can copy IDA's memory to Ld
+        elif isinstance(binary, Pe):
+            pass
         else:
             self._reloc_got(binary)
             self._reloc_absolute(binary)
@@ -640,6 +643,9 @@ class Ld(object):
         if backend == 'elf':
             obj = Elf(path)
 
+        elif backend == 'pe':
+            obj = Pe(path)
+
         elif backend == 'ida':
             obj = IdaBin(path)
 
@@ -780,6 +786,8 @@ class Ld(object):
         elif type(obj) is IdaBin:
             elf_b = Elf(self.path, load=False)  # Use Elf to determine needed libs
             return elf_b.deps
+        elif type(obj) is Pe:
+            return obj.deps
         elif type(obj) is Blob:
             return []
         else:
