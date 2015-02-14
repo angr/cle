@@ -15,7 +15,7 @@ from .memory import Clemory
 import sys
 
 # import platform
-#import binascii
+# import binascii
 
 l = logging.getLogger("cle.ld")
 
@@ -26,7 +26,6 @@ FIXME list
     2)  Smart fallback: if no backend was specified and it the binary is NOT
         elf, fall back to blob
 """
-
 
 class Ld(object):
     """ CLE ELF loader
@@ -207,9 +206,9 @@ class Ld(object):
 
         # Main binary
         self._perform_reloc_stub(self.main_bin)
-            # Again, MIPS is a pain...
-            #   if "mips" in obj.arch and isinstance(obj, Elf):
-            #       obj.relocate_mips_jmprel()
+        # Again, MIPS is a pain...
+        #   if "mips" in obj.arch and isinstance(obj, Elf):
+        #       obj.relocate_mips_jmprel()
 
     def _perform_reloc_stub(self, binary):
         """ This performs dynamic linking of all objects, i.e., calculate
@@ -513,7 +512,7 @@ class Ld(object):
                         # We prefer STB_GLOBAL
                         if binding == "STB_GLOBAL" and ex[symbol] != 0:
                             return ex[symbol] + so.rebase_addr
-                        elif binding == "STB_WEAK" and ex[symbol] !=0:
+                        elif binding == "STB_WEAK" and ex[symbol] != 0:
                             found = ex[symbol] + so.rebase_addr
         return found if found != 0 else None
 
