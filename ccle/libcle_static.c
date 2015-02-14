@@ -41,7 +41,7 @@ char* alloc_load_sht_strtab(ElfW(Ehdr) ehdr, ElfW(Shdr) *shdr, FILE *f)
 	if (size <= 0)
 		return NULL;
 
-	printf("s_sstrtabsz, %d\n", size);
+	printf("sht_strtabsz, %d\n", size);
 
 	sh_strtab = malloc(size * sizeof(char));
 	if (!sh_strtab)
@@ -159,11 +159,10 @@ void print_static_strtabs(ElfW(Shdr) *shdr, int sh_size, struct segment *text, s
 			if (ptr)
 			{
 				sprintf(name, "%s%d", base, i);
-#ifdef ELF64
-				printf("\nStatic strtab @0x%lx\n", shdr[i].sh_addr);
-#else
-				printf("\nStatic strtab @0x%x\n", (unsigned int) shdr[i].sh_addr);
-#endif
+				printf("\n---\nMISC\n---\n");
+				printf("s_strtab_vaddr, 0x%zx\n", shdr[i].sh_addr);
+				printf("s_strtab_sz, 0x%zx\n", shdr[i].sh_size);
+				printf("---\n\n");
 				print_strtab(name, ptr, size);
 			}
 		}

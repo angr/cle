@@ -518,15 +518,27 @@ class Ld(object):
         return found if found != 0 else None
 
     def find_symbol_name(self, addr):
-        """ Return the name of the function starting at addr.  Note: we are not
-        trying to be smart and guess function boundaries here, we just look at
-        GOT values.
+        """ Return the name of the function starting at addr.
         """
         objs = [self.main_bin]
         objs = objs + self.shared_objects
 
         for o in objs:
-            name = o.function_name(addr)
+            name = o.guess_function_name(addr)
+            if name is not None:
+                return name
+
+    def guess_function_name(self, addr):
+        """
+        Try to guess the name of the function at @addr
+        WARNING: this is approximate
+        """
+
+        objs = [self.main_bin]
+        objs = objs + self.shared_objects
+
+        for o in objs:
+            name = o.guess_function_name(addr)
             if name is not None:
                 return name
 
