@@ -1001,11 +1001,11 @@ class Elf(AbsObj):
                 return name
 
         # Then in the local symbols
-        for addr, name in self.local_functions().iteritems():
+        for addr, name in self.local_functions.iteritems():
             if addr == where:
                 return name
 
-        for addr, name in self.local_symbols().iteritems():
+        for addr, name in self.local_symbols.iteritems():
             if addr == where:
                 return name
 
@@ -1015,9 +1015,9 @@ class Elf(AbsObj):
                 return name
 
         # Static symbol table
-        for name, addr in self.s_symbols.iteritems():
-            if where == addr:
-                return name
+        for symb in self.s_symbols:
+            if where == symb['addr']:
+                return symb['name']
 
         str = self.strtab_value(addr)
         if str is not None:
@@ -1029,6 +1029,6 @@ class Elf(AbsObj):
         Is @addr corresponding to a strtab symbol ?
         """
         # Dynamic
-        for off, val in self.strtab:
+        for off, val in self.strtab.iteritems():
             if off + self.strtab_vaddr == addr:
                 return "String in strtab: %s " % repr(val)
