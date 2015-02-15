@@ -972,7 +972,7 @@ class Elf(AbsObj):
         TODO: infer that from dynamic info where possible
         """
         # Stripped binaries
-        if len(self.sections) is None:
+        if len(self.sections) == 0:
             return None
 
         return self.sections['.got']['size']

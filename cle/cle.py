@@ -523,7 +523,7 @@ class Ld(object):
         objs = objs + self.shared_objects
 
         for o in objs:
-            name = o.guess_function_name(addr)
+            name = o.whatis(addr)
             if name is not None:
                 return name
 
