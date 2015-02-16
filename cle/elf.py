@@ -809,8 +809,8 @@ class Elf(AbsObj):
             if e['type'] == 'STT_FUNC' and e['sh_info'] != 'SHN_UNDEF':
                 if e['addr'] == 0:
                     raise CLException("Local symbol with address 0")
-            name = e['name']
-            loc[name] = e['addr']
+                name = e['name']
+                loc[name] = e['addr']
         return loc
 
 
