@@ -412,6 +412,8 @@ class ArchInfo(Arch):
 
         if not os.path.isfile(binary):
             raise CLException("%s is no file or cannot be found" % binary)
+        if not os.access(binary, os.R_OK):
+            raise CLException("Insufficient permissions to read file %s" % binary)
 
         self.name = self.lib.get_bfd_arch_pname(binary)
 
