@@ -51,14 +51,15 @@ class Clemory(dict):
 
                 bytes += mem[pos]
             else:
-                # Create the tuple and save it
-                tpl = (start_, end_, bytes)
-                strides.append(tpl)
+                if len(bytes):
+                    # Create the tuple and save it
+                    tpl = (start_, end_, bytes)
+                    strides.append(tpl)
 
-                # Initialize the data structure
-                start_ = None
-                end_ = None
-                bytes = ""
+                    # Initialize the data structure
+                    start_ = None
+                    end_ = None
+                    bytes = ""
 
         if start_ is not None:
             tpl = (start_, end_, bytes)
