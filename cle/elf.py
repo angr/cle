@@ -894,9 +894,10 @@ class Elf(AbsObj):
         if "mips" in self.archinfo.name:
             return addr
 
-        if self.archinfo.name == "i386:x86-64":
+        if self.archinfo.name in ["i386:x86-64", "i386"]:
             # 0x6 is the size of the plt's jmpq instruction in x86_64
             return addr - 0x6
+
         else:
             raise CLException("Not implemented yet.")
 
