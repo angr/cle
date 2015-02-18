@@ -2,3 +2,12 @@
 *.so
 *.pyc
 build
+
+ccle/armel
+ccle/armhf
+ccle/i386
+ccle/mips
+ccle/mipsel
+ccle/ppc
+ccle/ppc64
+ccle/x86_64
