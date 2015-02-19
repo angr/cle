@@ -388,6 +388,32 @@ class Arch(object):
         else:
             return []
 
+    def _reloc_tls_mod_id(self):
+        """
+        The "module ID" that is passed to __tls_get_addr
+        """
+        if self.name == "i386:x86-64":
+            return [16] # R_X86_64_DTPMOD64
+        elif self.name == "i386":
+            return [35] # R_386_TLS_DTPMOD32
+        elif "arm" in self.name:
+            return [17] # R_ARM_TLS_DTPMOD32
+        else:
+            return []
+
+    def _reloc_tls_offset(self):
+        """
+        The offset into a TLS block that is passed to __tls_get_addr
+        """
+        if self.name == "i386:x86-64":
+            return [17, 18] # R_X86_64_DTPOFF64, R_X86_64_TPOFF64
+        elif self.name == "i386":
+            return [36, 37] # R_386_TLS_DTPOFF32, R_386_TLS_TPOFF32
+        elif "arm" in self.name:
+            return [18, 19] # R_ARM_TLS_DTPOFF32, R_ARM_TLS_TPOFF32
+        else:
+            return []
+
 
 class ArchInfo(Arch):
 

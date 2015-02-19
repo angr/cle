@@ -80,6 +80,7 @@ class Elf(AbsObj):
         self._elf_entry = self._get_entry_point(info) # Elf entry point
         self.linking = self._get_linking_type(info)
         self.phdr = self._get_phdr(info)
+        self.tdata, self.tbss = self._get_tls_addresses()
         self.deps = self._get_lib_names(info)
         self.dynamic = self._get_dynamic(info)
         self._mips_specifics() # Set MIPS properties
@@ -100,6 +101,8 @@ class Elf(AbsObj):
             self.s_a_reloc = self._get_s_a_reloc(info)
             self.relative_reloc = self._get_relative_reloc(info)
             self.copy_reloc = self._get_copy_reloc(info)
+            self.tls_mod_reloc = self._get_tls_mod_reloc()
+            self.tls_offset_reloc = self._get_tls_offset_reloc()
             self.jmprel = self._get_jmprel(info)
         else:
             self._dyn_gotaddr = None
@@ -375,6 +378,7 @@ class Elf(AbsObj):
 
         reloc = []
         # raw reloc: (offset, name, reloc_type)
+        print [r for r in raw_reloc if r[2] in (17, 18)]
         for t in raw_reloc:
             if t[2] in reloc_type:
                 if self.rela_type == "DT_RELA":
@@ -422,6 +426,21 @@ class Elf(AbsObj):
                     reloc.append((t[0], t[1]))
         return reloc
 
+    def _get_tls_mod_reloc(self):
+        """
+        Find relocs for the TLS "module ID".
+        returns: a list of offsets
+        """
+        tls_mod_relocs = self.archinfo._reloc_tls_mod_id()
+        return [t[0] for t in self.raw_reloc if t[2] in tls_mod_relocs]
+
+    def _get_tls_offset_reloc(self):
+        """
+        Find relocs for offsets into each TLS block.
+        returns: a dict {offset_into_obj: offset_into_tls_block}
+        """
+        tls_offset_relocs = self.archinfo._reloc_tls_offset()
+        return {t[0]: t[3] for t in self.raw_reloc if t[2] in tls_offset_relocs}
 
     def _get_mips_external_reloc(self):
         """
@@ -477,6 +496,12 @@ class Elf(AbsObj):
                           "binary, this should not happen")
 
 
+    def _get_tls_addresses(self):
+        for e in self.phdr:
+            if e['type'] == 'PT_TLS':
+                return int(e['vaddr']), int(e['vaddr']) + int(e['filesz'])
+        return None, None
+
     def _get_load_phdr_ent(self):
         """ Get entries of the program header table that correspond to PT_LOAD
         segments
@@ -529,6 +554,14 @@ class Elf(AbsObj):
 
         # Return the segment with the highest vaddr
         return load[0] if load[0]["vaddr"] > load[1]["vaddr"] else load[1]
+
+    def get_tls_phdr_ent(self):
+        """ Return the entry of the program header table corresponding to the
+        TLS segment. Returns None if not found. """
+        for e in self.phdr:
+            if e['type'] == 'PT_TLS':
+                return e
+        return None
 
     def _get_imports(self, symbols):
         """ Get function imports from symbol table. Note that the address here might have
@@ -628,6 +661,8 @@ class Elf(AbsObj):
 
         text = self.get_text_phdr_ent()
         data = self.get_data_phdr_ent()
+        tls = self.get_tls_phdr_ent()
+
         self._load(text, "text")
         if data is not None:
             self._load(data, "data")
@@ -635,6 +670,11 @@ class Elf(AbsObj):
             self._load_bss(data)
         else:
             l.warning("There is NO data segment in this binary !")
+
+        if tls is not None:
+            self._load_tls(tls)
+        else:
+            self.tls_init_image = ""
 
     def _load_bss(self, data_hdr):
         """ The BSS section does not appear in the binary file, but its size is
@@ -652,6 +692,13 @@ class Elf(AbsObj):
                                " found :(" % name)
         self.load_segment(hdrinfo["offset"], hdrinfo["filesz"],
                           hdrinfo["vaddr"], name)
+
+    def _load_tls(self, hdrinfo):
+        with open(self.binary, 'rb') as f:
+            f.seek(hdrinfo['offset'])
+
+            bss_size = hdrinfo['memsz'] - hdrinfo['filesz']
+            self.tls_init_image = f.read(hdrinfo['filesz']) + '\x00'*bss_size
 
     def contains_addr(self, addr):
         """ Is @vaddr in one of the binary's segments we have loaded ?
@@ -708,8 +755,7 @@ class Elf(AbsObj):
         for i in range(vaddr, vaddr + size):
             # Is something else already loaded at this address ?
             if i in self._memory:
-                raise CLException("WTF?? @0x%x Segments overlaping in memory",
-                                  i)
+                raise CLException("WTF?? @0x%x Segments overlaping in memory" % i)
             self._memory[i] = f.read(1)
 
         # Add the segment to the list of loaded segments
