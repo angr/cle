@@ -1,4 +1,7 @@
-import pefile
+try:
+    import pefile
+except ImportError:
+    pass # please install this soon
 from .abs_obj import AbsObj
 
 class Pe(AbsObj):
