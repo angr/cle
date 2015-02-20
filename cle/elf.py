@@ -991,11 +991,11 @@ class Elf(AbsObj):
         """
         TODO: infer that from dynamic info where possible
         """
-        # Stripped binaries
-        if len(self.sections) == 0:
+        try:
+            return self.sections['.got']['size']
+        except:
+            l.info("This binary seems to be stripped")
             return None
-
-        return self.sections['.got']['size']
 
     @property
     def pltgotsz(self):
