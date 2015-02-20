@@ -379,7 +379,6 @@ class Elf(AbsObj):
 
         reloc = []
         # raw reloc: (offset, name, reloc_type)
-        print [r for r in raw_reloc if r[2] in (17, 18)]
         for t in raw_reloc:
             if t[2] in reloc_type:
                 if self.rela_type == "DT_RELA":

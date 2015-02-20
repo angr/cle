@@ -502,7 +502,6 @@ class Ld(object):
             return False
 
         self.memory.write_addr_at(obj.rebase_addr + got[symbol], newaddr, self.main_bin.archinfo)
-        print "writing 0x{:x} at 0x{:x}".format(newaddr, obj.rebase_addr + got[symbol])
         return True
 
     """
