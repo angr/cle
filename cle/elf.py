@@ -110,6 +110,7 @@ class Elf(AbsObj):
         if load is True:
             self.load()
 
+        self.plt = self._load_plt()
         self._ppc64_abiv1_entry_fix()
 
     def get_min_addr(self):
@@ -872,10 +873,26 @@ class Elf(AbsObj):
                 r = addrs[i]
                 return local[r]
 
-    def get_plt_stub_addr(self, name):
+    def _load_plt(self):
+        plt={}
+
+        if "arm" in self.archinfo.name:
+            return plt
+
+        for name in self.jmprel.keys():
+            addr = self._get_plt_stub_addr(name)
+            plt[name] = addr
+        return plt
+
+    def _get_plt_stub_addr(self, name):
         """
-        Get the address of the PLT stub for function @name.
+        Guess the address of the PLT stub for function @name.
         Functions must have a know GOT entry in self.jmprel
+
+        NOTE: you probably want to call get_call_stub_addr() instead.
+        TODO: sections fallback for statically linked binaries
+        WARNING: call this after loading the binary image, but *before* resolving
+        SimProcedures.
         """
         if name not in self.jmprel.keys():
             return None
@@ -883,34 +900,36 @@ class Elf(AbsObj):
 
         # What's in the got slot for @name ?
         got = self.jmprel[name]
-        fetch = self._memory.read_bytes(got, self.archinfo.bits/8)
+        addr = self._memory.read_addr_at(got, self.archinfo)
 
         """
         This is the address of the next second instruction in the PLT stub
         This is hackish but it works
         """
-        addr = self.archinfo.bytes_to_addr(fetch)
-
-        if "mips" in self.archinfo.name:
-            return addr
 
         if self.archinfo.name in ["i386:x86-64", "i386"]:
             # 0x6 is the size of the plt's jmpq instruction in x86_64
             return addr - 0x6
 
-        else:
-            raise CLException("Not implemented yet.")
+        elif "arm" in self.archinfo.name:
+            return addr
+
+        elif "powerpc" in self.archinfo.name:
+            return got
+
+        elif "mips" in self.archinfo.name:
+            return addr
 
     def get_call_stub_addr(self, name):
         """
         Usually, the PLT stub is called when jumping to an external function.
-        But on e.g., MIPS, the GOT is used instead, and the PLT stub is only
-        called if the GOT points to it.
         """
-        if "mips" in self.archinfo.name:
-            return self.jmprel[name]
-        else:
-            return self.get_plt_stub_addr(name)
+        # FIXME: this doesn't work on PPC. It will return .plt address of the
+        # function, but it is not what is called in practice...
+        if "powerpc" in self.archinfo.name:
+            raise CLException("FXIME: on PPC, this address is NOT what you want")
+
+        return self.plt[name]
 
     def symbol(self, symbol):
         for si in self.symbols:
