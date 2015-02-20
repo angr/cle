@@ -31,3 +31,38 @@ class Clemory(dict):
         """
         by = archinfo.addr_to_bytes(addr)
         self.write_bytes(where, by)
+
+    @property
+    def stride_repr(self):
+        # We save tuples of (start, end, bytes) in the list `strides`
+        strides = [ ]
+
+        start_ = None
+        end_ = None
+        bytes = ""
+
+        mem = self
+
+        for pos in xrange(min(self.keys()), max(self.keys())):
+            if pos in mem:
+                if start_ is None:
+                    start_ = pos
+                end_ = pos
+
+                bytes += mem[pos]
+            else:
+                if len(bytes):
+                    # Create the tuple and save it
+                    tpl = (start_, end_, bytes)
+                    strides.append(tpl)
+
+                    # Initialize the data structure
+                    start_ = None
+                    end_ = None
+                    bytes = ""
+
+        if start_ is not None:
+            tpl = (start_, end_, bytes)
+            strides.append(tpl)
+
+        return strides

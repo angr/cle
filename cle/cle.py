@@ -16,7 +16,7 @@ from .memory import Clemory
 import sys
 
 # import platform
-#import binascii
+# import binascii
 
 l = logging.getLogger("cle.ld")
 
@@ -27,7 +27,6 @@ FIXME list
     2)  Smart fallback: if no backend was specified and it the binary is NOT
         elf, fall back to blob
 """
-
 
 class Ld(object):
     """ CLE ELF loader
@@ -208,9 +207,9 @@ class Ld(object):
 
         # Main binary
         self._perform_reloc_stub(self.main_bin)
-            # Again, MIPS is a pain...
-            #   if "mips" in obj.arch and isinstance(obj, Elf):
-            #       obj.relocate_mips_jmprel()
+        # Again, MIPS is a pain...
+        #   if "mips" in obj.arch and isinstance(obj, Elf):
+        #       obj.relocate_mips_jmprel()
 
     def _perform_reloc_stub(self, binary, tls_module_id=None):
         """ This performs dynamic linking of all objects, i.e., calculate
@@ -318,6 +317,8 @@ class Ld(object):
         """
         for got_addr, symb in obj.copy_reloc:
             addr = self.find_symbol_addr(symb)
+            if addr is None:
+                raise CLException("Could not find address for symbol %s" % symb)
             val = self.memory.read_addr_at(addr, obj.archinfo)
             got_addr = got_addr + obj.rebase_addr
             self.memory.write_addr_at(got_addr, val, obj.archinfo)
@@ -515,8 +516,8 @@ class Ld(object):
         with binding STB_WEAK.
         """
 
-        found = None
-        for so in self.shared_objects + [self.main_bin]:
+        found = 0
+        for so in set(self.shared_objects + [self.main_bin]):
             ex = so.exports
             if symbol in ex:
                 for i in so.symbols:
@@ -525,20 +526,40 @@ class Ld(object):
                         # We prefer STB_GLOBAL
                         if binding == "STB_GLOBAL" and ex[symbol] != 0:
                             return ex[symbol] + so.rebase_addr
-                        elif binding == "STB_WEAK" and ex[symbol] !=0:
+                        elif binding == "STB_WEAK" and ex[symbol] != 0:
                             found = ex[symbol] + so.rebase_addr
-        return found if found != 0 else None
+        if found != 0:
+            return found
+
+        # If that doesn't do it, we also look into local symbols
+        for so in set(self.shared_objects + [self.main_bin]):
+            sb = so.symbol(symbol)
+            if sb is not None:
+                if sb['addr'] != 0:
+                    return sb['addr']
 
     def find_symbol_name(self, addr):
-        """ Return the name of the function starting at addr.  Note: we are not
-        trying to be smart and guess function boundaries here, we just look at
-        GOT values.
+        """ Return the name of the function starting at addr.
         """
         objs = [self.main_bin]
         objs = objs + self.shared_objects
 
         for o in objs:
-            name = o.function_name(addr)
+            name = o.whatis(addr)
+            if name is not None:
+                return name
+
+    def guess_function_name(self, addr):
+        """
+        Try to guess the name of the function at @addr
+        WARNING: this is approximate
+        """
+
+        objs = [self.main_bin]
+        objs = objs + self.shared_objects
+
+        for o in objs:
+            name = o.guess_function_name(addr)
             if name is not None:
                 return name
 

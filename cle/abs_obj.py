@@ -32,7 +32,6 @@ class AbsObj(object):
 
         # These are set by cle, and should not be overriden manually
         self.rebase_addr = 0 # not to be set manually - used by CLE
-        self.entry_point = None # The entry point defined by CLE
 
         self.object_type = None
         self.deps = None # Needed shared objects (libraries dependencies)
@@ -91,11 +90,11 @@ class AbsObj(object):
         self.ppc64_initial_rtoc = None
         if self.archinfo.qemu_arch != 'ppc64': return
         if self.elfflags & 3 < 2:
-            ep_offset = self.entry_point - self.rebase_addr
+            ep_offset = self._elf_entry - self.rebase_addr
             fmt = '<Q' if self.endianness == 'LSB' else '>Q'
 
             ep_bitstring = ''.join(self._memory[ep_offset + i] for i in xrange(8))
-            self.entry_point = struct.unpack(fmt, ep_bitstring)[0]
+            self._elf_entry = struct.unpack(fmt, ep_bitstring)[0]
 
             rtoc_bitstring = ''.join(self._memory[ep_offset + i + 8] for i in xrange(8))
             self.ppc64_initial_rtoc = struct.unpack(fmt, rtoc_bitstring)[0]

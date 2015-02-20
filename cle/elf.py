@@ -89,6 +89,7 @@ class Elf(AbsObj):
         self.resolved_imports = [] # Imports successfully resolved, i.e. GOT slot updated
         self.object_type = self.get_object_type(info)
         self.raw_reloc = []
+        self.jmprel={}
 
         # Stuff static binaries don't have
         # TODO: some static binaries may have relocations
@@ -484,7 +485,7 @@ class Elf(AbsObj):
         """
         reloc = {}
         for k,v in self._get_mips_external_reloc().iteritems():
-            if k in self.get_global_symbols().keys():
+            if k in self.global_symbols.keys():
                 reloc[k] = v
         return reloc
 
@@ -799,8 +800,6 @@ class Elf(AbsObj):
         else:
             raise CLException("Runtime thumb mode detection not implemented")
 
-    @property
-    def local_functions(self):
         """
         We consider local functions those that are not SHN_UNDEF in the symbol table,
         and that have an address inside the binary.
@@ -824,19 +823,64 @@ class Elf(AbsObj):
 
         return local_symbols
 
-    def get_global_symbols(self):
+    def _global_symbols(self, symbols):
         """
         These are (non-functions) global symbols exposed in the symbol table,
         such as stderr, __progname and stuff
         """
-        glob={}
-        for e in self.symbols:
+        glob = {}
+
+        for e in symbols:
             if e['binding'] == 'STB_GLOBAL' and e['type'] == 'STT_OBJECT':
                 name = e['name']
                 glob[name] = e['addr']
         return glob
 
-    def get_undef_symbols(self):
+    def _local_symbols(self, symbols):
+        """
+        These are (non-functions) global symbols exposed in the symbol table,
+        such as stderr, __progname and stuff
+        """
+        loc = {}
+
+        for e in symbols:
+            if e['binding'] == 'STB_LOCAL' and e['type'] == 'STT_OBJECT':
+                name = e['name']
+                loc[name] = e['addr']
+        return loc
+
+    def _local_functions(self, symbols):
+        loc={}
+        for e in self.symbols:
+            if e['type'] == 'STT_FUNC' and e['sh_info'] != 'SHN_UNDEF':
+                if e['addr'] == 0:
+                    raise CLException("Local symbol with address 0")
+                name = e['name']
+                loc[name] = e['addr']
+        return loc
+
+
+
+    @property
+    def local_functions(self):
+        dyna = self._local_functions(self.symbols)
+        static= self._local_functions(self.s_symbols)
+        return dict(dyna.items() + static.items())
+
+    @property
+    def local_symbols(self):
+        dyna = self._local_symbols(self.symbols)
+        static = self._local_symbols(self.s_symbols)
+        return dict(dyna.items() + static.items())
+
+    @property
+    def global_symbols(self):
+        dyna = self._global_symbols(self.symbols)
+        static = self._global_symbols(self.s_symbols)
+        return dict(dyna.items() + static.items())
+
+    @property
+    def undef_symbols(self):
         undef = {}
         for e in self.symbols:
             if e['sh_info'] == 'SHN_UNDEF' and e['type'] == 'STT_OBJECT':
@@ -844,9 +888,10 @@ class Elf(AbsObj):
                 undef[name] = e['addr']
                 return undef
 
-    def function_name(self, addr):
+    def guess_function_name(self, addr):
         """
         Try to guess whether @addr is inside the code of a local function.
+        Warning: is is approximate.
         """
 
         # The Elf class works with static non relocated addresses
@@ -879,7 +924,8 @@ class Elf(AbsObj):
         Functions must have a know GOT entry in self.jmprel
         """
         if name not in self.jmprel.keys():
-            raise CLException("%s does not figure in the GOT")
+            return None
+            #raise CLException("%s does not figure in the GOT")
 
         # What's in the got slot for @name ?
         got = self.jmprel[name]
@@ -894,9 +940,10 @@ class Elf(AbsObj):
         if "mips" in self.archinfo.name:
             return addr
 
-        if self.archinfo.name == "i386:x86-64":
+        if self.archinfo.name in ["i386:x86-64", "i386"]:
             # 0x6 is the size of the plt's jmpq instruction in x86_64
             return addr - 0x6
+
         else:
             raise CLException("Not implemented yet.")
 
@@ -972,7 +1019,7 @@ class Elf(AbsObj):
         TODO: infer that from dynamic info where possible
         """
         # Stripped binaries
-        if len(self.sections) is None:
+        if len(self.sections) == 0:
             return None
 
         return self.sections['.got']['size']
@@ -990,8 +1037,45 @@ class Elf(AbsObj):
         if '.got.plt' in self.sections.keys():
             return self.sections['.got.plt']['size']
 
+    def whatis(self, where):
+        """
+        Tells you what is at @addr
+        """
+
+        # Fist look in the GOT addresses of imports
+        for name, addr in self.jmprel.iteritems():
+            if where == addr:
+                return name
+
+        # Then in the local symbols
+        for addr, name in self.local_functions.iteritems():
+            if addr == where:
+                return name
+
+        for addr, name in self.local_symbols.iteritems():
+            if addr == where:
+                return name
+
+        # Look into global reloactions
+        for name, addr in self.global_reloc.iteritems():
+            if where == addr:
+                return name
+
+        # Static symbol table
+        for symb in self.s_symbols:
+            if where == symb['addr']:
+                return symb['name']
+
+        str = self.strtab_value(addr)
+        if str is not None:
+            return str
 
 
-
-
-
+    def strtab_value(self, addr):
+        """
+        Is @addr corresponding to a strtab symbol ?
+        """
+        # Dynamic
+        for off, val in self.strtab.iteritems():
+            if off + self.strtab_vaddr == addr:
+                return "String in strtab: %s " % repr(val)
