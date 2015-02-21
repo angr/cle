@@ -104,6 +104,12 @@ class Elf(AbsObj):
             self.jmprel = self._get_jmprel(info)
         else:
             self._dyn_gotaddr = None
+            self.rela_type = None
+            self._dyn_gotaddr = None
+            self.global_reloc = { }
+            self.s_a_reloc = [ ]
+            self.relative_reloc = [ ]
+            self.copy_reloc = [ ]
 
         self.sections = self._get_static_sections(info)
 
@@ -1014,6 +1020,7 @@ class Elf(AbsObj):
         """
         Tells you what is at @addr
         """
+        addr = None
 
         # Fist look in the GOT addresses of imports
         for name, addr in self.jmprel.iteritems():
