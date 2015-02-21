@@ -926,10 +926,11 @@ class Elf(AbsObj):
         """
         # FIXME: this doesn't work on PPC. It will return .plt address of the
         # function, but it is not what is called in practice...
-        if "powerpc" in self.archinfo.name:
-            raise CLException("FXIME: on PPC, this address is NOT what you want")
+        if "powerpc" in self.archinfo.name or "arm" in self.archinfo.name:
+            raise CLException("FXIME: this doesn't work on PPC/ARM")
 
-        return self.plt[name]
+        if name in self.plt.keys():
+            return self.plt[name]
 
     def symbol(self, symbol):
         for si in self.symbols:
