@@ -849,6 +849,16 @@ class Elf(AbsObj):
                 undef[name] = e['addr']
                 return undef
 
+    @property
+    def ifuncs(self):
+        ifuncs={}
+        for e in self.symbols:
+            if e['type'] == 'STT_GNU_IFUNC':
+                name = e['name']
+                addr = e['addr']
+                ifuncs[name] = addr
+        return ifuncs
+
     def guess_function_name(self, addr):
         """
         Try to guess whether @addr is inside the code of a local function.
