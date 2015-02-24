@@ -382,6 +382,7 @@ class Ld(object):
             off = off + obj.rebase_addr
             #if name in obj.resolved_imports:
             # Those relocations should be exported by the local module
+            # BUT they can also be exported by other modules (e.g., PPC type 20)
             if obj.rela_type == "DT_RELA":
                 addend = t[2]
             else:
@@ -389,12 +390,12 @@ class Ld(object):
 
             if addend != 0:
                 raise CLException("S+A reloc with an actual addend, what should we do with it ??")
-            if name in obj.exports:
-                addr = obj.exports[name] + obj.rebase_addr
+            addr = self.find_symbol_addr(name)
+            if addr is not None:
                 self.memory.write_addr_at(off, addr, self.main_bin.archinfo)
                 l.debug("\t-->[R] ABS relocation of %s -> 0x%x [at 0x%x]" % (name, addr, off))
             else:
-                l.warning('[R] "%s" not in local exports [at 0x%x]' % (name, off))
+                l.warning('[U] "%s" not relocated [instance at 0x%x]' % (name, off))
 
     def _reloc_relative(self, obj):
         """
