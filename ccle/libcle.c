@@ -816,6 +816,9 @@ const char* symb_type_tostr(int type)
         case STT_HIPROC:
             return "STT_HIPROC";
             break;
+		case STT_GNU_IFUNC:
+			return "STT_GNU_IFUNC";
+			break;
         default:
             return "CLE_UNK";
             break;
