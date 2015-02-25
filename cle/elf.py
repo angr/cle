@@ -450,6 +450,7 @@ class Elf(AbsObj):
         rel = {}
 
         count = self.mips_symtabno - self.mips_gotsym # Number of got mapped symbols
+        l.debug("Relocating %d external GOT entries" % count)
         for i in range(0, count):
             sym = self.symbols[symtab_base_idx + i]
             got_idx = got_base_idx + i
@@ -473,7 +474,7 @@ class Elf(AbsObj):
         """
         reloc = {}
         for k,v in self._get_mips_external_reloc().iteritems():
-            if k in self.global_symbols.keys():
+            if k in self.global_symbols.keys() or k in self.global_functions.keys():
                 reloc[k] = v
         return reloc
 
@@ -820,6 +821,21 @@ class Elf(AbsObj):
                 loc[name] = e['addr']
         return loc
 
+    def _global_functions(self, symbols):
+        """
+        Global functions that are defined in the binary
+        We use it to relocate MIPS stuff while making sure it doesn't interfer with JMPREL
+        """
+        loc={}
+        for e in self.symbols:
+            if e['type'] == 'STT_FUNC' and e['binding'] == 'STB_GLOBAL' and\
+            e['sh_info'] != 'SHN_UNDEF':
+                if e['addr'] == 0:
+                    raise CLException("Local symbol with address 0")
+                name = e['name']
+                loc[name] = e['addr']
+        return loc
+
 
 
     @property
@@ -839,6 +855,14 @@ class Elf(AbsObj):
         dyna = self._global_symbols(self.symbols)
         static = self._global_symbols(self.s_symbols)
         return dict(dyna.items() + static.items())
+
+    @property
+    def global_functions(self):
+        dyna = self._global_functions(self.symbols)
+        static = self._global_functions(self.s_symbols)
+        return dict(dyna.items() + static.items())
+
+
 
     @property
     def undef_symbols(self):
