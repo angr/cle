@@ -356,6 +356,8 @@ class Arch(object):
         elif "powerpc" in self.name:
             return [22]
 
+        elif "mips" in self.name:
+            return [3]
         else:
             return []
 

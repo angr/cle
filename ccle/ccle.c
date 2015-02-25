@@ -352,10 +352,10 @@ void print_reloc(ElfW(Dyn) *dynamic, struct segment *s)
     /* Relocation entries can be ElfW(Rela) of ElfW(Rel) structures*/
     pltrel = get_dyn_val(dynamic, DT_PLTREL);
 
-    if (pltrel == DT_RELA)
-		return _print_reloc_rela(dynamic, s);
-	else if (pltrel == DT_REL)
-		return _print_reloc_rel(dynamic,s);
+    if (pltrel == DT_REL)
+		return _print_reloc_rel(dynamic, s);
+	else if (pltrel == DT_RELA)
+		return _print_reloc_rela(dynamic,s);
 	else
 		/* We reach this point if we could not determine the type of reloc.
 		 * This happens on MIPS */
