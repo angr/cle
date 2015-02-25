@@ -96,7 +96,7 @@ ElfW(Sym) *get_symtab_ptr(ElfW(Dyn) *dynamic, struct segment *s)
 
     if (!dynamic || !s)
     {
-        printf("Error, null values for dynamic or segment\n");
+        printf("ERR, null values for dynamic or segment\n");
         return NULL;
     }
 
@@ -281,7 +281,10 @@ void _print_reloc_rela(ElfW(Dyn) *dynamic, struct segment *s)
 	int i, size;
 
 	if (!dynamic || !s)
+	{
+		printf("No dynamic relocations for this binary\n");
 		return;
+	}
 
 	printf("\nrela_type, DT_RELA\n");
 
@@ -339,10 +342,12 @@ void _print_reloc_rel(ElfW(Dyn) *dynamic, struct segment *s)
 void print_reloc(ElfW(Dyn) *dynamic, struct segment *s)
 {
 
-    ElfW(Word) pltrel;
+    ElfW(Word) pltrel, rel;
 
     if (!dynamic || !s)
         return;
+
+	printf("\n---\nReloc stuff\n---\n");
 
     /* Relocation entries can be ElfW(Rela) of ElfW(Rel) structures*/
     pltrel = get_dyn_val(dynamic, DT_PLTREL);
@@ -352,7 +357,18 @@ void print_reloc(ElfW(Dyn) *dynamic, struct segment *s)
 	else if (pltrel == DT_REL)
 		return _print_reloc_rel(dynamic,s);
 	else
-		printf("CLE Error: unknown REL type\n");
+		/* We reach this point if we could not determine the type of reloc.
+		 * This happens on MIPS */
+	{
+		if ((rel = get_dyn_val(dynamic, DT_REL)) != -ENODATA)
+			return _print_reloc_rel(dynamic, s);
+
+		else if ((rel = get_dyn_val(dynamic, DT_RELA)) != -ENODATA)
+			return _print_reloc_rela(dynamic, s);
+
+		else
+			printf("ERR, no relocation information\n");
+	}
 }
 
 
@@ -428,6 +444,7 @@ void print_dyn_strtab(ElfW(Dyn) *dynamic, struct segment *s)
             eos=0;
         }
     }
+	printf("\n");
 }
 
 
@@ -681,7 +698,7 @@ int main(int argc, char *argv[])
 
 	if(!data || !text)
 	{
-		printf("\n***\nERROR, cannot malloc()\n***\n");
+		printf("\n***\nERR, cannot malloc()\n***\n");
 		exit(EXIT_FAILURE);
 	}
 

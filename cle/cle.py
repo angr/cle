@@ -437,7 +437,7 @@ class Ld(object):
             return
 
         elif (delta < 0):
-            l.error("We are relocating a MIPS object at a lower address than"
+            raise CLException("We are relocating a MIPS object at a lower address than"
                     " its static base address. This is weird.")
 
         got_entry_size = obj.bits_per_addr / 8  # How many bytes per slot ?
