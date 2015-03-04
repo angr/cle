@@ -7,6 +7,7 @@ import shutil
 import subprocess
 
 from .elf import Elf
+from .pe import Pe
 from .idabin import IdaBin
 from .blob import Blob
 from .archinfo import ArchInfo
@@ -201,8 +202,8 @@ class Ld(object):
 
         l.info("TODO: relocations in custom loaded shared objects")
         # Libraries
-        for obj in self.shared_objects:
-            self._perform_reloc_stub(obj)
+        for i, obj in enumerate(self.shared_objects):
+            self._perform_reloc_stub(obj, i)
 
         # Main binary
         self._perform_reloc_stub(self.main_bin)
@@ -210,7 +211,7 @@ class Ld(object):
         #   if "mips" in obj.arch and isinstance(obj, Elf):
         #       obj.relocate_mips_jmprel()
 
-    def _perform_reloc_stub(self, binary):
+    def _perform_reloc_stub(self, binary, tls_module_id=None):
         """ This performs dynamic linking of all objects, i.e., calculate
             addresses of relocated symbols and resolve imports for each object.
             When using CLE without IDA, the rebasing and relocations are done by
@@ -221,11 +222,14 @@ class Ld(object):
         if isinstance(binary, IdaBin):
             self._resolve_imports_ida(binary)
             # Once everything is relocated, we can copy IDA's memory to Ld
+        elif isinstance(binary, Pe):
+            pass
         else:
             self._reloc_got(binary)
             self._reloc_absolute(binary)
             self._reloc_relative(binary)
             self._reloc_global_copy(binary)
+            self._reloc_tls(binary, tls_module_id)
 
     def ida_sync_mem(self):
         """
@@ -318,6 +322,13 @@ class Ld(object):
             val = self.memory.read_addr_at(addr, obj.archinfo)
             got_addr = got_addr + obj.rebase_addr
             self.memory.write_addr_at(got_addr, val, obj.archinfo)
+
+    def _reloc_tls(self, obj, module_id):
+        for addr in obj.tls_mod_reloc:
+            self.memory.write_addr_at(obj.rebase_addr + addr, module_id, obj.archinfo)
+
+        for addr_offset, tls_offset in obj.tls_offset_reloc.iteritems():
+            self.memory.write_addr_at(obj.rebase_addr + addr_offset, tls_offset, obj.archinfo)
 
     def _reloc_got(self, obj):
         """
@@ -491,7 +502,7 @@ class Ld(object):
                     "found in GOT" % symbol)
             return False
 
-        self.memory.write_addr_at(got[symbol], newaddr, self.main_bin.archinfo)
+        self.memory.write_addr_at(obj.rebase_addr + got[symbol], newaddr, self.main_bin.archinfo)
         return True
 
     """
@@ -662,6 +673,9 @@ class Ld(object):
         if backend == 'elf':
             obj = Elf(path)
 
+        elif backend == 'pe':
+            obj = Pe(path)
+
         elif backend == 'ida':
             obj = IdaBin(path)
 
@@ -802,6 +816,8 @@ class Ld(object):
         elif type(obj) is IdaBin:
             elf_b = Elf(self.path, load=False)  # Use Elf to determine needed libs
             return elf_b.deps
+        elif type(obj) is Pe:
+            return obj.deps
         elif type(obj) is Blob:
             return []
         else:
