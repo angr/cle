@@ -27,11 +27,11 @@ class Clemory(collections.MutableMapping):
         return k in self._storage
 
     def __getstate__(self):
-        return { k:int(v) for k,v in self._storage.iteritems() }
+        return { k:ord(v) for k,v in self._storage.iteritems() }
 
     def __setstate__(self, s):
         for k,v in s.iteritems():
-            self._storage[k] = ord(v)
+            self._storage[k] = chr(v)
 
     def read_bytes(self, addr, n):
         """ Read @n bytes at address @addr in memory and return an array of bytes
