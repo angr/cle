@@ -1,4 +1,37 @@
-class Clemory(dict):
+import collections
+
+class Clemory(collections.MutableMapping):
+    def __init__(self):
+        self._storage = { }
+
+    #
+    # Methods for the collection
+    #
+
+    def __getitem__(self, k):
+        return self._storage[k]
+
+    def __setitem__(self, k, v):
+        self._storage[k] = v
+
+    def __delitem__(self, k):
+        del self._storage[k]
+
+    def __iter__(self):
+        return iter(self._storage)
+
+    def __len__(self):
+        return len(self._storage)
+
+    def __contains__(self, k):
+        return k in self._storage
+
+    def __getstate__(self):
+        return { k:ord(v) for k,v in self._storage.iteritems() }
+
+    def __setstate__(self, s):
+        for k,v in s.iteritems():
+            self._storage[k] = chr(v)
 
     def read_bytes(self, addr, n):
         """ Read @n bytes at address @addr in memory and return an array of bytes
