@@ -1108,7 +1108,7 @@ class Elf(AbsObj):
                 return name
 
         # Then in the local symbols
-        for addr, name in self.local_functions.iteritems():
+        for name, addr in self.local_functions.iteritems():
             if addr == where:
                 return name
 
