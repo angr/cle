@@ -44,24 +44,24 @@ x86_64/ccle.o: ccle.c
 i386: i386/libcle.so i386/libcle_static.so i386/ccle
 
 i386/libcle.so: i386/libcle.o
-	$(cc_x64) -shared $^ -o $@
+	$(cc_x86) -shared $^ -o $@
 
 i386/libcle.o: libcle.c
 	mkdir -p i386
-	$(cc_x64) -c -fpic $^ -o $@
+	$(cc_x86) -c -fpic $^ -o $@
 
 i386/libcle_static.so: i386/libcle_static.o
-	$(cc_x64) -shared $^ -o $@
+	$(cc_x86) -shared $^ -o $@
 
 i386/libcle_static.o: libcle_static.c
 	mkdir -p i386
-	$(cc_x64) -c -fpic $^ -o $@
+	$(cc_x86) -c -fpic $^ -o $@
 
 i386/ccle: i386/ccle.o
-	$(cc_x64) -L$(LIB)/i386 -Wall $^ -o $@ -lcle -lcle_static
+	$(cc_x86) -L$(LIB)/i386 -Wall $^ -o $@ -lcle -lcle_static
 
 i386/ccle.o: ccle.c
-	$(cc_x64) -c $^ -o $@
+	$(cc_x86) -c $^ -o $@
 
 mips: mips/libcle.so mips/libcle_static.so mips/ccle
 
