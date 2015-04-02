@@ -7,9 +7,9 @@ cc = gcc $(cflags)
 # libbfd-multiarch and libbfd-multiarch-dev first !
 
 
-all: cle_bfd
+all: cle_bfd.so
 
-cle_bfd: cle_bfd.c
+cle_bfd.so: cle_bfd.c
 	$(cc) -c -fpic cle_bfd.c -o cle_bfd.o
 	$(cc) -shared cle_bfd.o -o cle_bfd.so -lbfd-multiarch
 
@@ -17,6 +17,7 @@ test: cle_bfd.c test.c
 	gcc -shared cle_bfd.o -o libcle_bfd.so -lbfd-multiarch
 	gcc -Wall -L$(PWD) test.c -o test -lcle_bfd
 
+.PHONY: install clean
 install: 
 	cp cle_bfd.so $(DESTDIR)
 

@@ -14,11 +14,20 @@ cc_x86= gcc -m32 $(cflags)
 
 all: ld_amd64 ld_armel ld_armhf ld_ppc ld_ppc64 ld_mips ld_mipsel ld_i386
 
-ld_armel: ld_audit.c
+ld_amd64: x86_64/cle_ld_audit.so
+ld_i386: i386/cle_ld_audit.so
+ld_armel: armel/cle_ld_audit.so
+ld_armhf: armhf/cle_ld_audit.so
+ld_ppc: ppc/cle_ld_audit.so
+ld_ppc64: ppc64/cle_ld_audit.so
+ld_mips: mips/cle_ld_audit.so
+ld_mipsel: mipsel/cle_ld_audit.so
+
+armel/cle_ld_audit.so: ld_audit.c
 	mkdir -p armel
 	$(cc_armel) -o armel/cle_ld_audit.so ld_audit.c -fpic --shared
 
-ld_armhf: ld_audit.c
+armhf/cle_ld_audit.so: ld_audit.c
 ifeq (,$(shell which $(cc_armhf)))
 	echo "CLE: no powerpc64 compiler"
 else
@@ -26,11 +35,11 @@ else
 	$(cc_armhf) -o armhf/cle_ld_audit.so ld_audit.c -fpic --shared
 endif
 
-ld_ppc: ld_audit.c
+ppc/cle_ld_audit.so: ld_audit.c
 	mkdir -p ppc
 	$(cc_ppc) -o ppc/cle_ld_audit.so ld_audit.c -fpic --shared
 
-ld_ppc64: ld_audit.c
+ppc64/cle_ld_audit.so: ld_audit.c
 ifeq (,$(shell which $(cc_ppc64)))
 	echo "CLE: no powerpc64 compiler"
 else
@@ -42,15 +51,15 @@ else
 endif
 endif
 
-ld_amd64: ld_audit.c
+x86_64/cle_ld_audit.so: ld_audit.c
 	mkdir -p x86_64
 	$(cc_x64) -o x86_64/cle_ld_audit.so ld_audit.c -fpic --shared
 
-ld_i386: ld_audit.c
+i386/cle_ld_audit.so: ld_audit.c
 	mkdir -p i386
 	$(cc_x86) -o i386/cle_ld_audit.so ld_audit.c -fpic --shared
 
-ld_mips: ld_audit.c
+mips/cle_ld_audit.so: ld_audit.c
 ifeq (,$(shell which $(cc_mips)))
 	@echo "CLE: MIPS Compiler not present, ignoring target"
 else
@@ -58,7 +67,7 @@ else
 	$(cc_mips) -o mips/cle_ld_audit.so ld_audit.c -fpic --shared
 endif
 
-ld_mipsel: ld_audit.c
+mipsel/cle_ld_audit.so: ld_audit.c
 ifeq (,$(shell which $(cc_mipsel)))
 	@echo "CLE: MIPS LSB Compiler not present, ignoring target"
 else
@@ -66,6 +75,7 @@ else
 	$(cc_mipsel) -o mipsel/cle_ld_audit.so ld_audit.c -fpic --shared
 endif
 
+.PHONY: clean install
 clean:
 	rm -f */*.so
 
