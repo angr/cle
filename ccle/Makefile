@@ -19,199 +19,333 @@ cc_x86= gcc -m32 $(cflags)
 
 all: x86_64 mips mipsel ppc armel armhf i386 ppc64
 
-x86_64: libcle-x86_64 libcle_static-x86_64 cle-x86_64
-mips: libcle-mips libcle_static-mips cle-mips
-mipsel: libcle-mipsel libcle_static-mipsel cle-mipsel
-ppc: libcle-ppc libcle_static-ppc cle-ppc
-ppc64: libcle-ppc64 libcle_static-ppc64 cle-ppc64
-armel: libcle-armel libcle_static-armel cle-armel
-armhf: libcle-armhf libcle_static-armhf cle-armhf
-i386: libcle-i386 libcle_static-i386 cle-i386
+x86_64: x86_64/libcle.so x86_64/libcle_static.so x86_64/ccle
 
-libcle-x86_64: libcle.c
+x86_64/libcle.so: x86_64/libcle.o
+	$(cc_x64) -shared $^ -o $@
+
+x86_64/libcle.o: libcle.c
 	mkdir -p x86_64
-	$(cc_x64) -c -fpic libcle.c -o x86_64/libcle.o
-	$(cc_x64) -shared x86_64/libcle.o -o x86_64/libcle.so
+	$(cc_x64) -c -fpic $^ -o $@
 
-libcle_static-x86_64: libcle_static.c
+x86_64/libcle_static.so: x86_64/libcle_static.o
+	$(cc_x64) -shared $^ -o $@
+
+x86_64/libcle_static.o: libcle_static.c
 	mkdir -p x86_64
-	$(cc_x64) -c -fpic libcle_static.c -o x86_64/libcle_static.o
-	$(cc_x64) -shared x86_64/libcle_static.o -o x86_64/libcle_static.so
+	$(cc_x64) -c -fpic $^ -o $@
 
-cle-x86_64: ccle.c
-	$(cc_x64) -c ccle.c -o x86_64/ccle.o
-	$(cc_x64) -L$(LIB)/x86_64 -Wall x86_64/ccle.o -o x86_64/ccle -lcle -lcle_static
+x86_64/ccle: x86_64/ccle.o
+	$(cc_x64) -L$(LIB)/x86_64 -Wall $^ -o $@ -lcle -lcle_static
 
-libcle-i386: libcle.c
+x86_64/ccle.o: ccle.c
+	$(cc_x64) -c $^ -o $@
+
+i386: i386/libcle.so i386/libcle_static.so i386/ccle
+
+i386/libcle.so: i386/libcle.o
+	$(cc_x64) -shared $^ -o $@
+
+i386/libcle.o: libcle.c
 	mkdir -p i386
-	$(cc_x86) -c -fpic libcle.c -o i386/libcle.o
-	$(cc_x86) -shared i386/libcle.o -o i386/libcle.so
+	$(cc_x64) -c -fpic $^ -o $@
 
-libcle_static-i386: libcle_static.c
+i386/libcle_static.so: i386/libcle_static.o
+	$(cc_x64) -shared $^ -o $@
+
+i386/libcle_static.o: libcle_static.c
 	mkdir -p i386
-	$(cc_x86) -c -fpic libcle_static.c -o i386/libcle_static.o
-	$(cc_x86) -shared i386/libcle_static.o -o i386/libcle_static.so
+	$(cc_x64) -c -fpic $^ -o $@
 
-cle-i386: ccle.c
-	$(cc_x86) -c ccle.c -o i386/ccle.o
-	$(cc_x86) -L$(LIB)/i386 -Wall i386/ccle.o -o i386/ccle -lcle -lcle_static
+i386/ccle: i386/ccle.o
+	$(cc_x64) -L$(LIB)/i386 -Wall $^ -o $@ -lcle -lcle_static
 
-libcle-mips: libcle.c
+i386/ccle.o: ccle.c
+	$(cc_x64) -c $^ -o $@
+
+mips: mips/libcle.so mips/libcle_static.so mips/ccle
+
+mips/libcle.so: mips/libcle.o
+ifeq (,$(shell which $(cc_mips)))
+	@echo "CLE: MIPS Compiler not present, ignoring target"
+else
+	$(cc_mips) -shared $^ -o $@
+endif
+
+mips/libcle.o: libcle.c
 ifeq (,$(shell which $(cc_mips)))
 	@echo "CLE: MIPS Compiler not present, ignoring target"
 else
 	mkdir -p mips
-	$(cc_mips) -c -fpic libcle.c -o mips/libcle.o
-	$(cc_mips) -shared mips/libcle.o -o mips/libcle.so
+	$(cc_mips) -c -fpic $^ -o $@
 endif
 
-libcle_static-mips: libcle_static.c
+mips/libcle_static.so: mips/libcle_static.o
+ifeq (,$(shell which $(cc_mips)))
+	@echo "CLE: MIPS Compiler not present, ignoring target"
+else
+	$(cc_mips) -shared $^ -o $@
+endif
+
+mips/libcle_static.o: libcle_static.c
 ifeq (,$(shell which $(cc_mips)))
 	@echo "CLE: MIPS Compiler not present, ignoring target"
 else
 	mkdir -p mips
-	$(cc_mips) -c -fpic libcle_static.c -o mips/libcle_static.o
-	$(cc_mips) -shared mips/libcle_static.o -o mips/libcle_static.so
+	$(cc_mips) -c -fpic $^ -o $@
 endif
 
-cle-mips: ccle.c
+mips/ccle: mips/ccle.o
 ifeq (,$(shell which $(cc_mips)))
 	@echo "CLE: MIPS Compiler not present, ignoring target"
 else
-	$(cc_mips) -c ccle.c -o mips/ccle.o
-	$(cc_mips) -L$(LIB)/mips -Wall mips/ccle.o -o mips/ccle -lcle -lcle_static
+	$(cc_mips) -L$(LIB)/mips -Wall $^ -o $@ -lcle -lcle_static
 endif
 
-libcle-mipsel: libcle.c
+mips/ccle.o: ccle.c
+ifeq (,$(shell which $(cc_mips)))
+	@echo "CLE: MIPS Compiler not present, ignoring target"
+else
+	mkdir -p mips
+	$(cc_mips) -c $^ -o $@
+endif
+
+mipsel: mipsel/libcle.so mipsel/libcle_static.so mipsel/ccle
+
+mipsel/libcle.so: mipsel/libcle.o
+ifeq (,$(shell which $(cc_mipsel)))
+	@echo "CLE: MIPS LSB Compiler not present, ignoring target"
+else
+	$(cc_mipsel) -shared $^ -o $@
+endif
+
+mipsel/libcle.o: libcle.c
 ifeq (,$(shell which $(cc_mipsel)))
 	@echo "CLE: MIPS LSB Compiler not present, ignoring target"
 else
 	mkdir -p mipsel
-	$(cc_mipsel) -c -fpic libcle.c -o mipsel/libcle.o
-	$(cc_mipsel) -shared mipsel/libcle.o -o mipsel/libcle.so
+	$(cc_mipsel) -c -fpic $^ -o $@
 endif
 
-libcle_static-mipsel: libcle_static.c
+mipsel/libcle_static.so: mipsel/libcle_static.o
+ifeq (,$(shell which $(cc_mipsel)))
+	@echo "CLE: MIPS LSB Compiler not present, ignoring target"
+else
+	$(cc_mipsel) -shared $^ -o $@
+endif
+
+mipsel/libcle_static.o: libcle_static.c
 ifeq (,$(shell which $(cc_mipsel)))
 	@echo "CLE: MIPS LSB Compiler not present, ignoring target"
 else
 	mkdir -p mipsel
-	$(cc_mipsel) -c -fpic libcle_static.c -o mipsel/libcle_static.o
-	$(cc_mipsel) -shared mipsel/libcle_static.o -o mipsel/libcle_static.so
+	$(cc_mipsel) -c -fpic $^ -o $@
 endif
 
-cle-mipsel: ccle.c
+mipsel/ccle: mipsel/ccle.o
 ifeq (,$(shell which $(cc_mipsel)))
 	@echo "CLE: MIPS LSB Compiler not present, ignoring target"
 else
 	$(cc_mipsel) -c ccle.c -o mipsel/ccle.o
-	$(cc_mipsel) -L$(LIB)/mipsel -Wall mipsel/ccle.o -o mipsel/ccle -lcle -lcle_static
+	$(cc_mipsel) -L$(LIB)/mipsel -Wall $^ -o $@ -lcle -lcle_static
 endif
 
-libcle-ppc: libcle.c
+mipsel/ccle.o: ccle.c
+ifeq (,$(shell which $(cc_mipsel)))
+	@echo "CLE: MIPS LSB Compiler not present, ignoring target"
+else
+	$(cc_mipsel) -c $^ -o $@
+endif
+
+ppc: ppc/libcle.so ppc/libcle_static.so ppc/ccle
+
+ppc/libcle.so: ppc/libcle.o
+ifeq (,$(shell which $(cc_ppc)))
+	echo "CLE: no powerpc compiler"
+else
+	$(cc_ppc) -shared $^ -o $@
+endif
+
+ppc/libcle.o: libcle.c
 ifeq (,$(shell which $(cc_ppc)))
 	echo "CLE: no powerpc compiler"
 else
 	mkdir -p ppc
-	$(cc_ppc) -c -fpic libcle.c -o ppc/libcle.o
-	$(cc_ppc) -shared ppc/libcle.o -o ppc/libcle.so
+	$(cc_ppc) -c -fpic $^ -o $@
 endif
 
-libcle_static-ppc: libcle_static.c
+ppc/libcle_static.so: ppc/libcle_static.o
+ifeq (,$(shell which $(cc_ppc)))
+	echo "CLE: no powerpc compiler"
+else
+	$(cc_ppc) -shared $^ -o $@
+endif
+
+ppc/libcle_static.o: libcle_static.c
 ifeq (,$(shell which $(cc_ppc)))
 	echo "CLE: no powerpc compiler"
 else
 	mkdir -p ppc
-	$(cc_ppc) -c -fpic libcle_static.c -o ppc/libcle_static.o
-	$(cc_ppc) -shared ppc/libcle_static.o -o ppc/libcle_static.so
+	$(cc_ppc) -c -fpic $^ -o $@
 endif
 
-cle-ppc: ccle.c
+ppc/ccle: ppc/ccle.o
 ifeq (,$(shell which $(cc_ppc)))
 	echo "CLE: no powerpc compiler"
 else
-	$(cc_ppc) -c ccle.c -o ppc/ccle.o
-	$(cc_ppc) -L$(LIB)/ppc -Wall ppc/ccle.o -o ppc/ccle -lcle -lcle_static
+	$(cc_ppc) -L$(LIB)/ppc -Wall $^ -o $@ -lcle -lcle_static
 endif
 
-libcle-ppc64: libcle.c
+ppc/ccle.o: ccle.c
+ifeq (,$(shell which $(cc_ppc)))
+	echo "CLE: no powerpc compiler"
+else
+	mkdir -p ppc
+	$(cc_ppc) -c $^ -o $@
+endif
+
+ppc64: ppc64/libcle.so ppc64/libcle_static.so ppc64/ccle
+
+ppc64/libcle.so: ppc64/libcle.o
+ifeq (,$(shell which $(cc_ppc64)))
+	echo "CLE: no powerpc64 compiler"
+else
+ifneq (, $(shell $(cc_ppc64) --version | egrep -o '4\.[5-9]\.[0-9]'))
+	$(cc_ppc64) $(cflags_ppc64) -shared $^ -o $@
+else
+	echo "CLE: Your gcc version does not support ppc64, ignoring target"
+endif
+endif
+
+ppc64/libcle.o: libcle.c
 ifeq (,$(shell which $(cc_ppc64)))
 	echo "CLE: no powerpc64 compiler"
 else
 ifneq (, $(shell $(cc_ppc64) --version | egrep -o '4\.[5-9]\.[0-9]'))
 	mkdir -p ppc64
-	$(cc_ppc64) $(cflags_ppc64) -c -fpic libcle.c -o ppc64/libcle.o
-	$(cc_ppc64) $(cflags_ppc64) -shared ppc64/libcle.o -o ppc64/libcle.so
+	$(cc_ppc64) $(cflags_ppc64) -c -fpic $^ -o $@
 else
 	echo "CLE: Your gcc version does not support ppc64, ignoring target"
 endif
 endif
 
-libcle_static-ppc64: libcle_static.c
+ppc64/libcle_static.so: ppc64/libcle_static.o
+ifeq (,$(shell which $(cc_ppc64)))
+	echo "CLE: no powerpc64 compiler"
+else
+ifneq (, $(shell $(cc_ppc64) --version | egrep -o '4\.[5-9]\.[0-9]'))
+	$(cc_ppc64) $(cflags_ppc64) -shared $^ -o $@
+else
+	echo "CLE: Your gcc version does not support ppc64, ignoring target"
+endif
+endif
+
+ppc64/libcle_static.o: libcle_static.c
 ifeq (,$(shell which $(cc_ppc64)))
 	echo "CLE: no powerpc64 compiler"
 else
 ifneq (, $(shell $(cc_ppc64) --version | egrep -o '4\.[5-9]\.[0-9]'))
 	mkdir -p ppc64
-	$(cc_ppc64) $(cflags_ppc64) -c -fpic libcle_static.c -o ppc64/libcle_static.o
-	$(cc_ppc64) $(cflags_ppc64) -shared ppc64/libcle_static.o -o ppc64/libcle_static.so
+	$(cc_ppc64) $(cflags_ppc64) -c -fpic $^ -o $@
 else
 	echo "CLE: Your gcc version does not support ppc64, ignoring target"
 endif
 endif
 
-cle-ppc64: ccle.c
+ppc64/ccle: ppc64/ccle.o
 ifeq (,$(shell which $(cc_ppc64)))
 	echo "CLE: no powerpc64 compiler"
 else
 ifneq (, $(shell $(cc_ppc64) --version | egrep -o '4\.[5-9]\.[0-9]'))
-	$(cc_ppc64) $(cflags_ppc64) -c ccle.c -o ppc64/ccle.o
-	$(cc_ppc64) $(cflags_ppc64) -L$(LIB)/ppc64 -Wall ppc64/ccle.o -o ppc64/ccle -lcle -lcle_static
+	$(cc_ppc64) $(cflags_ppc64) -L$(LIB)/ppc64 -Wall $^ -o $@ -lcle -lcle_static
 else
 	echo "CLE: Your gcc version does not support ppc64, ignoring target"
 endif
 endif
 
-libcle-armel: libcle.c
+ppc64/ccle.o: ccle.c
+ifeq (,$(shell which $(cc_ppc64)))
+	echo "CLE: no powerpc64 compiler"
+else
+ifneq (, $(shell $(cc_ppc64) --version | egrep -o '4\.[5-9]\.[0-9]'))
+	mkdir -p ppc64
+	$(cc_ppc64) $(cflags_ppc64) -c $^ -o $@
+else
+	echo "CLE: Your gcc version does not support ppc64, ignoring target"
+endif
+endif
+
+armel: armel/libcle.so armel/libcle_static.so armel/ccle
+
+armel/libcle.so: armel/libcle.o
+	$(cc_armel) -shared $^ -o $@
+
+armel/libcle.o: libcle.c
 	mkdir -p armel
-	$(cc_armel) -c -fpic libcle.c -o armel/libcle.o
-	$(cc_armel) -shared armel/libcle.o -o armel/libcle.so
+	$(cc_armel) -c -fpic $^ -o $@
 
-libcle_static-armel: libcle_static.c
+armel/libcle_static.so: armel/libcle_static.o
+	$(cc_armel) -shared $^ -o $@
+
+armel/libcle_static.o: libcle_static.c
 	mkdir -p armel
-	$(cc_armel) -c -fpic libcle_static.c -o armel/libcle_static.o
-	$(cc_armel) -shared armel/libcle_static.o -o armel/libcle_static.so
+	$(cc_armel) -c -fpic $^ -o $@
 
-cle-armel: ccle.c
-	$(cc_armel) -c ccle.c -o armel/ccle.o
-	$(cc_armel) -L$(LIB)/armel -Wall armel/ccle.o -o armel/ccle -lcle -lcle_static
+armel/ccle: armel/ccle.o
+	mkdir -p armel
+	$(cc_armel) -L$(LIB)/armel -Wall $^ -o $@ -lcle -lcle_static
 
-libcle-armhf: libcle.c
+armel/ccle.o: ccle.c
+	$(cc_armel) -c $^ -o $@
+
+armhf: armhf/libcle.so armhf/libcle_static.so armhf/ccle
+
+armhf/libcle.so: armhf/libcle.o
+ifeq (,$(shell which $(cc_armhf)))
+	@echo "CLE: MIPS LSB Compiler not present, ignoring target"
+else
+	$(cc_armhf) -shared $^ -o $@
+endif
+
+armhf/libcle.o: libcle.c
 ifeq (,$(shell which $(cc_armhf)))
 	@echo "CLE: MIPS LSB Compiler not present, ignoring target"
 else
 	mkdir -p armhf
-	$(cc_armhf) -c -fpic libcle.c -o armhf/libcle.o
-	$(cc_armhf) -shared armhf/libcle.o -o armhf/libcle.so
+	$(cc_armhf) -c -fpic $^ -o $@
 endif
 
-libcle_static-armhf: libcle_static.c
+armhf/libcle_static.so: armhf/libcle_static.o
+ifeq (,$(shell which $(cc_armhf)))
+	@echo "CLE: MIPS LSB Compiler not present, ignoring target"
+else
+	$(cc_armhf) -shared $^ -o $@
+endif
+
+armhf/libcle_static.o: libcle_static.c
 ifeq (,$(shell which $(cc_armhf)))
 	@echo "CLE: MIPS LSB Compiler not present, ignoring target"
 else
 	mkdir -p armhf
-	$(cc_armhf) -c -fpic libcle_static.c -o armhf/libcle_static.o
-	$(cc_armhf) -shared armhf/libcle_static.o -o armhf/libcle_static.so
+	$(cc_armhf) -c -fpic $^ -o $@
 endif
 
-cle-armhf: ccle.c
+armhf/ccle: armhf/ccle.o
 ifeq (,$(shell which $(cc_armhf)))
 	@echo "CLE: MIPS LSB Compiler not present, ignoring target"
 else
-	$(cc_armhf) -c ccle.c -o armhf/ccle.o
-	$(cc_armhf) -L$(LIB)/armhf -Wall armhf/ccle.o -o armhf/ccle -lcle -lcle_static
+	$(cc_armhf) -L$(LIB)/armhf -Wall $^ -o $@ -lcle -lcle_static
 endif
 
+armhf/ccle.o: ccle.c
+ifeq (,$(shell which $(cc_armhf)))
+	@echo "CLE: MIPS LSB Compiler not present, ignoring target"
+else
+	mkdir -p ccle
+	$(cc_armhf) -c $^ -o $@
+endif
+
+.PHONY: install clean
 install:
 	for arch in "x86_64" "mips" "mipsel" "ppc" "ppc64" "i386" "armel" "armhf" ; do \
 		mkdir -p $(BINDIR)/$$arch; \
