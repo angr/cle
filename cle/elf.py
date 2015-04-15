@@ -60,8 +60,8 @@ class Elf(AbsObj):
         self.mips_static_base_addr = None
         self.mips_local_gotno = None
         self.mips_unreftextno = None
-        self.mips_gotsym = None
-        self.mips_symtabno = None
+        self.mips_gotsym = None # index of first entry of dynsym that is part of GOT
+        self.mips_symtabno = None # number of entries in the .dynsym section
         #self.segments = None # Loaded segments
 
         info = self._call_ccle(self.binary)
@@ -314,10 +314,6 @@ class Elf(AbsObj):
         """
         got = {}
 
-        # MIPS does not support this so we need a workaround
-        if "mips" in self.arch:
-            return self._get_mips_jmprel()
-
         index = 0
         for i in data:
             if i[0].strip() == "jmprel":
@@ -328,6 +324,13 @@ class Elf(AbsObj):
                     name = "CLE_JMP_UNKN_" + str(index)
                     index = index + 1
                 got[name] = int(i[1].strip(), 16)
+
+        # old MIPS ABIS don't not support jmprel so we need a workaround
+        #TODO: we should probably try to find out which versions of the MIPS ABI are affected
+        # as it might impact the behavior of other things...
+        if len(got) == 0 and "mips" in self.arch:
+           got = self._get_mips_jmprel()
+
         return got
 
     def _get_raw_reloc(self, data):
@@ -965,6 +968,7 @@ class Elf(AbsObj):
             return plt
 
         for name in self.jmprel.keys():
+            #FIXME: shouldn't we use get_call_stub_addr(name) instead ??
             addr = self._get_plt_stub_addr(name)
             plt[name] = addr
         return plt
