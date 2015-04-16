@@ -1120,17 +1120,18 @@ class Elf(AbsObj):
             if addr == where:
                 return name
 
-        # Look into global reloactions
-        for name, addr in self.global_reloc.iteritems():
-            if where == addr:
-                return name
+        if self.linking == 'dynamic':
+            # Look into global reloactions
+            for name, addr in self.global_reloc.iteritems():
+                if where == addr:
+                    return name
 
         # Static symbol table
         for symb in self.s_symbols:
             if where == symb['addr']:
                 return symb['name']
 
-        str = self.strtab_value(addr)
+        str = self.strtab_value(where)
         if str is not None:
             return str
 
