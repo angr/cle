@@ -1,5 +1,4 @@
 import os
-import struct
 from .clexception import CLException
 from .archinfo import ArchInfo, Arch
 from .memory import Clemory
@@ -27,7 +26,6 @@ class AbsObj(object):
         self.binary = args[0]
         self.segments = [] # List of segments
         self.imports = {}
-        self._memory = Clemory() # Private virtual address space, without relocations
         self.symbols = None # Object's symbols
 
         # These are set by cle, and should not be overriden manually
@@ -67,6 +65,8 @@ class AbsObj(object):
             self.arch = archinfo.to_qemu_arch(arch_name)
             self.simarch = archinfo.to_simuvex_arch(arch_name)
 
+        self._memory = Clemory(self.archinfo) # Private virtual address space, without relocations
+
 
     def get_vex_ir_endness(self):
         """
@@ -76,28 +76,4 @@ class AbsObj(object):
 
     def get_vex_endness(self):
         return 'VexEndnessLE' if self.archinfo.byte_order == 'LSB' else 'VexEndnessBE'
-
-    def _ppc64_abiv1_entry_fix(self):
-        """
-        On powerpc64, the e_flags elf header entry's lowest two bits determine
-        the ABI type. in ABIv1, the entry point given in the elf headers is not
-        actually the entry point, but rather the address in memory where there
-        exists a pointer to the entry point.
-
-        Utter bollocks, but this function should fix it.
-        """
-
-        self.ppc64_initial_rtoc = None
-        if self.archinfo.qemu_arch != 'ppc64': return
-        if self.elfflags & 3 < 2:
-            ep_offset = self._elf_entry - self.rebase_addr
-            fmt = '<Q' if self.endianness == 'LSB' else '>Q'
-
-            ep_bitstring = ''.join(self._memory[ep_offset + i] for i in xrange(8))
-            self._elf_entry = struct.unpack(fmt, ep_bitstring)[0]
-
-            rtoc_bitstring = ''.join(self._memory[ep_offset + i + 8] for i in xrange(8))
-            self.ppc64_initial_rtoc = struct.unpack(fmt, rtoc_bitstring)[0]
-        else:
-            pass
 

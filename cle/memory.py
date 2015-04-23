@@ -1,7 +1,8 @@
 import collections
 
 class Clemory(collections.MutableMapping):
-    def __init__(self):
+    def __init__(self, archinfo):
+        self._archinfo = archinfo
         self._storage = { }
 
     #
@@ -50,19 +51,19 @@ class Clemory(collections.MutableMapping):
             d[addr+i] = data[i]
         self.update(d) # This merges d into self
 
-    def read_addr_at(self, addr, archinfo):
+    def read_addr_at(self, addr):
         """
         Read addr stored in memory as a serie of bytes starting at @addr
         @archinfo is an cle.Archinfo instance
         """
-        return archinfo.bytes_to_addr(''.join(self.read_bytes(addr, archinfo.bits/8)))
+        return self._archinfo.bytes_to_addr(''.join(self.read_bytes(addr, self._archinfo.bits/8)))
 
-    def write_addr_at(self, where, addr, archinfo):
+    def write_addr_at(self, where, addr):
         """
         Writes @addr into a serie of bytes in memory at @where
         @archinfo is an cle.Archinfo instance
         """
-        by = archinfo.addr_to_bytes(addr)
+        by = self._archinfo.addr_to_bytes(addr)
         self.write_bytes(where, by)
 
     @property

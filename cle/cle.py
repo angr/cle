@@ -19,13 +19,11 @@ from .memory import Clemory
 
 l = logging.getLogger("cle.ld")
 
-"""
-FIXME list
-    1)  add support for per-library backend (right now, it all depends on the
-        global flag ida_main, i.e., the main binary's backend.
-    2)  Smart fallback: if no backend was specified and it the binary is NOT
-        elf, fall back to blob
-"""
+# FIXME list
+#     1)  add support for per-library backend (right now, it all depends on the
+#         global flag ida_main, i.e., the main binary's backend.
+#     2)  Smart fallback: if no backend was specified and it the binary is NOT
+#         elf, fall back to blob
 
 class Ld(object):
     """ CLE ELF loader
@@ -78,7 +76,7 @@ class Ld(object):
         # Please add new stuff here along with a description :)
 
         self.cle_ops = cle_ops  # Load options passed to Cle
-        self.memory = Clemory()  # Dictionary representation of the memory
+        self.memory = None
         self.shared_objects = []  # Contains autodetected libraries (CLE binaries)
         self.dependencies = {}  # {libname : vaddr} dict
         self._custom_dependencies = {}  # {libname : vaddr} dict
@@ -140,26 +138,24 @@ class Ld(object):
                 path = libs[i]
             self._make_custom_lib(path, libs_ops[i])
 
-        """
-        From here, we have a coupe of options:
+        # From here, we have a coupe of options:
 
-            1. The sole specified binary in an elf file: we autodetect
-            dependencies, and load them if auto_load_libs is True
+        #     1. The sole specified binary in an elf file: we autodetect
+        #     dependencies, and load them if auto_load_libs is True
 
-            2. The sole binary is a blob: we load it and exit.
+        #     2. The sole binary is a blob: we load it and exit.
 
-            3. All binaries are Elf files. We autodetect dependencies, and only
-            load those that are not already provided by one of the specified
-            binaries.  (See the provide option)
+        #     3. All binaries are Elf files. We autodetect dependencies, and only
+        #     load those that are not already provided by one of the specified
+        #     binaries.  (See the provide option)
 
-            4. The main binary is an Elf file, the rest is mixed:
-                - We apply 3, and blobs replace autodetected dependencies if
-                they provide the same library. Not sure how useful this is.
+        #     4. The main binary is an Elf file, the rest is mixed:
+        #         - We apply 3, and blobs replace autodetected dependencies if
+        #         they provide the same library. Not sure how useful this is.
 
-            5. The main binary is a blob. The rest is mixed:
-                - We don't try to autodetect anything, we just load everything
-                arbitrarily.
-        """
+        #     5. The main binary is a blob. The rest is mixed:
+        #         - We don't try to autodetect anything, we just load everything
+        #         arbitrarily.
 
         # Load custom binaries
         for o in self._custom_shared_objects:
@@ -318,16 +314,16 @@ class Ld(object):
             addr, _ = self.find_symbol(symb)
             if addr is None:
                 raise CLException("Could not find address for symbol %s" % symb)
-            val = self.memory.read_addr_at(addr, obj.archinfo)
+            val = self.memory.read_addr_at(addr)
             got_addr = got_addr + obj.rebase_addr
-            self.memory.write_addr_at(got_addr, val, obj.archinfo)
+            self.memory.write_addr_at(got_addr, val)
 
     def _reloc_tls(self, obj, module_id):
         for addr in obj.tls_mod_reloc:
-            self.memory.write_addr_at(obj.rebase_addr + addr, module_id, obj.archinfo)
+            self.memory.write_addr_at(obj.rebase_addr + addr, module_id)
 
         for addr_offset, tls_offset in obj.tls_offset_reloc.iteritems():
-            self.memory.write_addr_at(obj.rebase_addr + addr_offset, tls_offset, obj.archinfo)
+            self.memory.write_addr_at(obj.rebase_addr + addr_offset, tls_offset)
 
     def _reloc_got(self, obj):
         """
@@ -342,11 +338,9 @@ class Ld(object):
         if "mips" in self.main_bin.arch and obj != self.main_bin:
             self._reloc_mips_local(obj)
 
-        """
-        We need to update GOT entries of external symbols.
-        These may be of type jmprel (jump type relocations,
-        i.e., functions) or rela/rel for non functions.
-        """
+        # We need to update GOT entries of external symbols.
+        # These may be of type jmprel (jump type relocations,
+        # i.e., functions) or rela/rel for non functions.
 
         # Now let's update GOT entries for both PLT jumps and global data
         ext = dict(obj.jmprel.items() + obj.global_reloc.items())
@@ -368,7 +362,7 @@ class Ld(object):
             uaddr, so = self.find_symbol(symb)
 
             if uaddr:
-                self.memory.write_addr_at(got_addr, uaddr, self.main_bin.archinfo)
+                self.memory.write_addr_at(got_addr, uaddr)
                 # We resolved this symbol
                 obj.resolved_imports[symb] = so
 
@@ -395,13 +389,13 @@ class Ld(object):
             if obj.rela_type == "DT_RELA":
                 addend = t[2]
             else:
-                addend = self.memory.read_addr_at(off, self.main_bin.archinfo)
+                addend = self.memory.read_addr_at(off)
 
             if addend != 0:
                 raise CLException("S+A reloc with an actual addend, what should we do with it ??")
             addr, _ = self.find_symbol(name)
             if addr is not None:
-                self.memory.write_addr_at(off, addr, self.main_bin.archinfo)
+                self.memory.write_addr_at(off, addr)
                 l.debug("\t-->[R] ABS relocation of %s -> 0x%x [at 0x%x]", name, addr, off)
             else:
                 l.warning('[U] "%s" not relocated [instance at 0x%x]', name, off)
@@ -424,10 +418,10 @@ class Ld(object):
                 addend = t[1]
             else:
                 # DT_REL stores the addend in the memory location to be updated
-                addend = self.memory.read_addr_at(vaddr, self.main_bin.archinfo)
+                addend = self.memory.read_addr_at(vaddr)
 
             rela_updated = addend + obj.rebase_addr
-            self.memory.write_addr_at(vaddr, rela_updated, self.main_bin.archinfo)
+            self.memory.write_addr_at(vaddr, rela_updated)
             l.debug("\t-->[R] Relative relocation, 0x%x [at 0x%x]", rela_updated, vaddr)
 
     def _reloc_mips_local(self, obj):
@@ -454,14 +448,14 @@ class Ld(object):
         # Local entries reside in the first part of the GOT
         for i in range(0, obj.mips_local_gotno):  # 0 to number of local symb
             got_slot = obj.pltgotaddr + obj.rebase_addr + (i * got_entry_size)
-            addr = self.memory.read_addr_at(got_slot, self.main_bin.archinfo)
+            addr = self.memory.read_addr_at(got_slot)
             if addr == 0:
                 l.error("Address in GOT at 0x%x is 0", got_slot)
             else:
                 newaddr = addr + delta
                 l.debug("\t-->Relocating MIPS local GOT entry @ slot 0x%x from 0x%x"
                         " to 0x%x", got_slot, addr, newaddr)
-                self.memory.write_addr_at(got_slot, newaddr, self.main_bin.archinfo)
+                self.memory.write_addr_at(got_slot, newaddr)
 
     @staticmethod
     def get_relocated_mips_jmprel(obj):
@@ -501,12 +495,10 @@ class Ld(object):
                     "found in GOT", symbol)
             return False
 
-        self.memory.write_addr_at(obj.rebase_addr + got[symbol], newaddr, self.main_bin.archinfo)
+        self.memory.write_addr_at(obj.rebase_addr + got[symbol], newaddr)
         return True
 
-    """
-    Search functions
-    """
+    # Search functions
 
     def find_symbol(self, name):
         """ Try to find the address of @symbol, if it is exported by any of the
@@ -634,6 +626,7 @@ class Ld(object):
         self.main_bin = self._instanciate_binary(path, main_binary_ops)
 
         # Copy mem from object's private memory to Ld's address space
+        self.memory = Clemory(self.main_bin.archinfo)
         self._copy_mem(self.main_bin)
 
     def _make_custom_lib(self, path, ops):

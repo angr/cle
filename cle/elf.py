@@ -1,4 +1,5 @@
 import os
+import struct
 import logging
 import subprocess
 from .clexception import CLException, CLEAddrException
@@ -776,11 +777,11 @@ class Elf(AbsObj):
 
         try:
             f = open(self.binary, 'r')
-            f.seek(offset)
         except IOError:
             print("\tFile does not exist", self.binary)
 
         # Fill the memory dict with addr:value
+        f.seek(offset)
         for i in range(vaddr, vaddr + size):
             # Is something else already loaded at this address ?
             if i in self._memory:
@@ -817,21 +818,20 @@ class Elf(AbsObj):
         if not "arm" in self.arch:
             raise CLException("Dude, thumb mode is on ARM!")
 
-        """ Is the entry point in ARM or Thumb mode ?
-        If the first bit of the entry point's address is 1, then Thumb.
-        If it is 00, then ARM. Check page 16 of this document for details:
-        http://infocenter.arm.com/help/topic/com.arm.doc.ihi0044e/IHI0044E_aaelf.pdf
-        """
+        # Is the entry point in ARM or Thumb mode ?
+        # If the first bit of the entry point's address is 1, then Thumb.
+        # If it is 00, then ARM. Check page 16 of this document for details:
+        # http://infocenter.arm.com/help/topic/com.arm.doc.ihi0044e/IHI0044E_aaelf.pdf
+
         if addr == self.entry:
             return (addr & 1) == 1
         else:
             raise CLException("Runtime thumb mode detection not implemented")
 
-        """
-        We consider local functions those that are not SHN_UNDEF in the symbol table,
-        and that have an address inside the binary.
-        This returns a dict indexed by *addresses*
-        """
+        # We consider local functions those that are not SHN_UNDEF in the symbol table,
+        # and that have an address inside the binary.
+        # This returns a dict indexed by *addresses*
+
         local_symbols={}
         if len(self.s_symbols) > 0:
             symbs = self.s_symbols
@@ -1010,12 +1010,10 @@ class Elf(AbsObj):
 
         # What's in the got slot for @name ?
         got = self.jmprel[name]
-        addr = self._memory.read_addr_at(got, self.archinfo)
+        addr = self._memory.read_addr_at(got)
 
-        """
-        This is the address of the next second instruction in the PLT stub
-        This is hackish but it works
-        """
+        # This is the address of the next second instruction in the PLT stub
+        # This is hackish but it works
 
         if self.archinfo.name in ["i386:x86-64", "i386"]:
             # 0x6 is the size of the plt's jmpq instruction in x86_64
@@ -1165,3 +1163,28 @@ class Elf(AbsObj):
         for off, val in self.strtab.iteritems():
             if off + self.strtab_vaddr == addr:
                 return "String in strtab: %s " % repr(val)
+
+    def _ppc64_abiv1_entry_fix(self):
+        """
+        On powerpc64, the e_flags elf header entry's lowest two bits determine
+        the ABI type. in ABIv1, the entry point given in the elf headers is not
+        actually the entry point, but rather the address in memory where there
+        exists a pointer to the entry point.
+
+        Utter bollocks, but this function should fix it.
+        """
+
+        self.ppc64_initial_rtoc = None
+        if self.archinfo.qemu_arch != 'ppc64': return
+        if self.elfflags & 3 < 2:
+            ep_offset = self._elf_entry - self.rebase_addr
+            fmt = '<Q' if self.endianness == 'LSB' else '>Q'
+
+            ep_bitstring = ''.join(self._memory[ep_offset + i] for i in xrange(8))
+            self._elf_entry = struct.unpack(fmt, ep_bitstring)[0]
+
+            rtoc_bitstring = ''.join(self._memory[ep_offset + i + 8] for i in xrange(8))
+            self.ppc64_initial_rtoc = struct.unpack(fmt, rtoc_bitstring)[0]
+        else:
+            pass
+

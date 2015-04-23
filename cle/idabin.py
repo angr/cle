@@ -50,8 +50,6 @@ class IdaBin(AbsObj):
         self.exports = self._get_exports()
         self.entry_point = self._get_entry_point()
 
-        self._ppc64_abiv1_entry_fix()
-
     def rebase(self, base_addr):
         """ Rebase the binary at address @base_addr """
         l.debug("-> Rebasing %s to address 0x%x (IDA)",

@@ -50,7 +50,6 @@ class Blob(AbsObj):
         """ Load a segment into memory """
         try:
             f = open(self.binary, 'r')
-            f.seek(offset)
         except IOError:
             print("\tFile does not exist", self.binary)
 
@@ -58,6 +57,7 @@ class Blob(AbsObj):
             size = os.path.getsize(self.binary)
 
         # Fill the memory dict with addr:value
+        f.seek(offset)
         for i in range(offset, size):
             self._memory[i + self.custom_base_addr] = f.read(1)
 
