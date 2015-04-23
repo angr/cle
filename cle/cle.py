@@ -626,6 +626,9 @@ class Ld(object):
         self.main_bin = self._instanciate_binary(path, main_binary_ops)
 
         # Copy mem from object's private memory to Ld's address space
+        if self.memory is not None:
+            raise CLException("Attempting to reallocate ld's memory")
+
         self.memory = Clemory(self.main_bin.archinfo)
         self._copy_mem(self.main_bin)
 
