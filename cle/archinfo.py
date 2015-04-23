@@ -1,5 +1,5 @@
 import os
-from ctypes import *
+from ctypes import cdll, c_char_p
 import logging
 import subprocess
 import simuvex
@@ -21,6 +21,10 @@ class Arch(object):
 
 
     def __init__(self, name=None, bits=None, arch_size=None, byte_order=None, simarch=None):
+        self.elfflags = None
+        self.endianness = None
+        self.qemu_arch = None
+
         if simarch is None:
             self.name = name
             self.bits = bits
@@ -84,7 +88,8 @@ class Arch(object):
         else:
             raise CLException("Unknown architecture")
 
-    def to_ida_arch(self, arch):
+    @staticmethod
+    def to_ida_arch(arch):
         if "i386" in arch:
             return "metapc"
         elif "arm" in arch:
@@ -107,7 +112,7 @@ class Arch(object):
         err = s.returncode
 
         # Which returns 0 if the command exists
-        if (err != 0):
+        if err != 0:
             raise CLException("Cannot find \"%s\", it does not exist or is not"
                               " in PATH :: %s" % (cmd, out))
         else:
@@ -167,7 +172,7 @@ class Arch(object):
 
     def get_simuvex_obj(self):
         s_arch = self.to_simuvex_arch(self.name)
-        if type(s_arch) is str and s_arch in simuvex.Architectures.keys():
+        if isinstance(s_arch, str) and s_arch in simuvex.Architectures.keys():
             return simuvex.Architectures[s_arch]()
         else:
             raise Exception("cle.archinfo: architecture %s is not in"
@@ -214,7 +219,7 @@ class Arch(object):
         # ARM and MIPS have tons of names, so let's just pattern match
         for i in ["mips", "arm", "powerpc"]:
             if i in arch.name and i in self.name:
-                l.warning("Considering %s and %s compatible" % (self.name, arch.name))
+                l.warning("Considering %s and %s compatible", self.name, arch.name)
                 return True
 
         return False
@@ -435,6 +440,7 @@ class ArchInfo(Arch):
     def __init__(self, binary):
         """ Getarchitecture information from the binary file @binary using
         ctypes and cle_bfd.so """
+        super(ArchInfo, self).__init__(binary)
         ArchInfo._load_lib()
         binary = str(binary)  # Would segfault if utf8
 
@@ -454,8 +460,8 @@ class ArchInfo(Arch):
         self.arch_size = self.lib.get_arch_size(binary)
         self.byte_order = self.lib.get_arch_byte_order(binary)
 
+        self.elfflags = 0
         self.qemu_arch = self.to_qemu_arch(self.name)
         self.simuvex_arch = self.to_simuvex_arch(self.name)
         self.ida_arch = self.to_ida_arch(self.name)
-        self.elfflags = 0
 

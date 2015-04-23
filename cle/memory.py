@@ -72,7 +72,7 @@ class Clemory(collections.MutableMapping):
 
         start_ = None
         end_ = None
-        bytes = ""
+        bytestring = ""
 
         mem = self
 
@@ -82,20 +82,20 @@ class Clemory(collections.MutableMapping):
                     start_ = pos
                 end_ = pos
 
-                bytes += mem[pos]
+                bytestring += mem[pos]
             else:
-                if len(bytes):
+                if len(bytestring):
                     # Create the tuple and save it
-                    tpl = (start_, end_, bytes)
+                    tpl = (start_, end_, bytestring)
                     strides.append(tpl)
 
                     # Initialize the data structure
                     start_ = None
                     end_ = None
-                    bytes = ""
+                    bytestring = ""
 
         if start_ is not None:
-            tpl = (start_, end_, bytes)
+            tpl = (start_, end_, bytestring)
             strides.append(tpl)
 
         return strides

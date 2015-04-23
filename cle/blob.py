@@ -61,7 +61,7 @@ class Blob(AbsObj):
         for i in range(offset, size):
             self._memory[i + self.custom_base_addr] = f.read(1)
 
-    def function_name(self, addr):
+    def function_name(self, addr): #pylint: disable=unused-argument,no-self-use
         '''
         Blobs don't support function names.
         '''
@@ -71,9 +71,9 @@ class Blob(AbsObj):
         max_addr = self.get_max_addr()
         min_addr = self.get_min_addr()
 
-        return (addr >= min_addr and addr <= max_addr)
+        return min_addr <= addr <= max_addr
 
-    def in_which_segment(self, addr):
+    def in_which_segment(self, addr): #pylint: disable=unused-argument,no-self-use
         '''
         Blobs don't support segments.
         '''

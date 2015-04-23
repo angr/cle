@@ -21,7 +21,7 @@ class Pe(AbsObj):
         self.exports = self._get_exports()
         self.deps = [entry.dll for entry in self._pe.DIRECTORY_ENTRY_IMPORT]
         self.linking = 'dynamic'
-        self.resolved_imports = []
+        self.resolved_imports = {}
         self.jmprel = self._get_jmprel()
 
         for i, c in enumerate(self._pe.get_memory_mapped_image()):

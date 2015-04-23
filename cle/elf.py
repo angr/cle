@@ -16,10 +16,10 @@ class Segment(object):
         self.name = name
 
     def contains_addr(self, addr):
-            return ((addr >= self.vaddr) and (addr < self.vaddr + self.size))
+        return (addr >= self.vaddr) and (addr < self.vaddr + self.size)
 
     def contains_offset(self, offset):
-        return ((offset >= self.offset) and (offset < self.offset + self.size))
+        return (offset >= self.offset) and (offset < self.offset + self.size)
 
     def addr_to_offset(self, addr):
         return addr - self.vaddr + self.offset
@@ -64,7 +64,9 @@ class Elf(AbsObj):
         self.mips_symtabno = None # number of entries in the .dynsym section
         #self.segments = None # Loaded segments
 
-        info = self._call_ccle(self.binary)
+        self.tls_init_image = None
+
+        info = self._call_ccle()
 
         # TODO: fix this
         self.elfflags = self._get_elf_flags(info)
@@ -86,7 +88,7 @@ class Elf(AbsObj):
         self._mips_specifics() # Set MIPS properties
 
         self.endianness = self._get_endianness(info)
-        self.resolved_imports = [] # Imports successfully resolved, i.e. GOT slot updated
+        self.resolved_imports = {} # Imports successfully resolved, i.e. GOT slot updated
         self.object_type = self.get_object_type(info)
         self.raw_reloc = []
         self.jmprel={}
@@ -98,10 +100,10 @@ class Elf(AbsObj):
             self.rela_type = self._get_rela_type(info)
             self.raw_reloc = self._get_raw_reloc(info)
             self._dyn_gotaddr = self._get_gotaddr(self.dynamic) # Add rebase_addr if relocated
-            self.global_reloc = self._get_global_reloc(info)
-            self.s_a_reloc = self._get_s_a_reloc(info)
-            self.relative_reloc = self._get_relative_reloc(info)
-            self.copy_reloc = self._get_copy_reloc(info)
+            self.global_reloc = self._get_global_reloc()
+            self.s_a_reloc = self._get_s_a_reloc()
+            self.relative_reloc = self._get_relative_reloc()
+            self.copy_reloc = self._get_copy_reloc()
             self.tls_mod_reloc = self._get_tls_mod_reloc()
             self.tls_offset_reloc = self._get_tls_offset_reloc()
             self.jmprel = self._get_jmprel(info)
@@ -163,7 +165,8 @@ class Elf(AbsObj):
             return m1
         return m2
 
-    def _get_phdr(self, data):
+    @staticmethod
+    def _get_phdr(data):
         """ Get program header table """
         phdr = []
         int_fields = ["offset", "vaddr", "filesz", "memsz", "align"]
@@ -182,7 +185,8 @@ class Elf(AbsObj):
                 phdr.append(h)
         return phdr
 
-    def _get_shdr(self, data):
+    @staticmethod
+    def _get_shdr(data):
         """ Get section header table if present """
         shdr = []
         for i in data:
@@ -191,7 +195,8 @@ class Elf(AbsObj):
                 shdr.append(i)
         return shdr
 
-    def _get_dynamic(self, data):
+    @staticmethod
+    def _get_dynamic(data):
         """ Get the dynamic section """
         dyn = []
         for i in data:
@@ -203,13 +208,15 @@ class Elf(AbsObj):
                 dyn.append(ent)
         return dyn
 
-    def _get_entry_point(self, data):
+    @staticmethod
+    def _get_entry_point(data):
         """ Get entry point """
         for i in data:
             if i[0] == "Entry point":
                 return int(i[1].strip(), 16)
 
-    def _get_gotaddr(self, dyn):
+    @staticmethod
+    def _get_gotaddr(dyn):
         """ Address of GOT """
         for i in dyn:
             if i["tag"] == "DT_PLTGOT":
@@ -230,17 +237,20 @@ class Elf(AbsObj):
         # Set a custom entry point
         self.custom_entry_point = entry_point
 
-    def _get_endianness(self, data):
+    @staticmethod
+    def _get_endianness(data):
         for i in data:
             if i[0] == "Endianness":
                 return i[1].strip()
 
-    def _get_elf_flags(self, data):
+    @staticmethod
+    def _get_elf_flags(data):
         for i in data:
             if i[0] == "Flags":
                 return int(i[1].strip(), 16)
 
-    def get_object_type(self, data):
+    @staticmethod
+    def get_object_type(data):
         """ Get ELF type """
         for i in data:
             if i[0] == "Object type":
@@ -262,7 +272,8 @@ class Elf(AbsObj):
 
         return symbols
 
-    def _symb(self, data, static=False):
+    @staticmethod
+    def _symb(data, static=False):
         """ Extract symbol table entries from ccle"""
         symb = []
         if static:
@@ -276,7 +287,8 @@ class Elf(AbsObj):
                 symb.append(i)
         return symb
 
-    def _strtab(self, data):
+    @staticmethod
+    def _strtab(data):
         """ Extract symbol table info from ccle """
         strtab = []
         for i in data:
@@ -295,7 +307,8 @@ class Elf(AbsObj):
             strtab[offset] = name
         return strtab
 
-    def _get_strtab_vaddr(self, data):
+    @staticmethod
+    def _get_strtab_vaddr(data):
         """
         Returns the virtual address of the strtab.
         On PIE binaries, you might want to add the base address to it (TODO: check that)
@@ -345,7 +358,8 @@ class Elf(AbsObj):
                     reloc.append( (int(i[1].strip(), 16), i[2].strip(), int(i[3].strip(),10)))
         return reloc
 
-    def _get_rela_type(self, data):
+    @staticmethod
+    def _get_rela_type(data):
         """
         Elf relocation structure type, DT_RELA or DT_REL
         DT_RELA has extra information (addend)
@@ -354,7 +368,7 @@ class Elf(AbsObj):
             if i[0].strip() == "rela_type":
                 return i[1].strip()
 
-    def _get_global_reloc(self, data):
+    def _get_global_reloc(self):
         """
         Get dynamic relocation information for global data.
         Returns: a dict {name:offset}
@@ -376,7 +390,7 @@ class Elf(AbsObj):
                     raise CLException("Empty name in global data reloc, this is a bug\n")
         return reloc
 
-    def _get_s_a_reloc(self, data):
+    def _get_s_a_reloc(self):
         """
         Get dynamic relocation information for relocation type S+A (see Archinfo).
         Returns: a dict {name:offset}
@@ -401,7 +415,7 @@ class Elf(AbsObj):
                     raise CLException("Empty name in '32' data reloc, this is a bug\n")
         return reloc
 
-    def _get_relative_reloc(self, data):
+    def _get_relative_reloc(self):
         """
         Get dynamic relative relocation information.
         We typically don't have these guys' names.
@@ -423,7 +437,7 @@ class Elf(AbsObj):
                     reloc.append((t[0],)) # Tuples need a comma
         return reloc
 
-    def _get_copy_reloc(self, data):
+    def _get_copy_reloc(self):
         """
         Copy actual data instead of its address when relocating.
         """
@@ -471,7 +485,7 @@ class Elf(AbsObj):
         rel = {}
 
         count = self.mips_symtabno - self.mips_gotsym # Number of got mapped symbols
-        l.debug("Relocating %d external GOT entries" % count)
+        l.debug("Relocating %d external GOT entries", count)
         for i in range(0, count):
             sym = self.symbols[symtab_base_idx + i]
             got_idx = got_base_idx + i
@@ -499,7 +513,8 @@ class Elf(AbsObj):
                 reloc[k] = v
         return reloc
 
-    def _get_linking_type(self, data):
+    @staticmethod
+    def _get_linking_type(data):
         for i in data:
             if i[0] == "Linking":
                 return i[1].strip()
@@ -523,7 +538,8 @@ class Elf(AbsObj):
                 loadable.append(i)
         return loadable
 
-    def _get_static_sections(self, data):
+    @staticmethod
+    def _get_static_sections(data):
         """
         Get information from Elf sections (as opposed to segments).
         Sections are used by the static linker, and are not required by the
@@ -574,7 +590,8 @@ class Elf(AbsObj):
                 return e
         return None
 
-    def _get_imports(self, symbols):
+    @staticmethod
+    def _get_imports(symbols):
         """ Get function imports from symbol table. Note that the address here might have
         different meanings depending on the architecture."""
         imports = {}
@@ -602,15 +619,16 @@ class Elf(AbsObj):
             info = i["sh_info"]
 
             # Exports are defined symbols with STB_GLOBAL or STB_WEAK binding properties.
-            if (info != 'SHN_UNDEF'):
-                if (binding == "STB_GLOBAL" or binding == "STB_WEAK"):
+            if info != 'SHN_UNDEF':
+                if binding == "STB_GLOBAL" or binding == "STB_WEAK":
                     if name in self.imports:
                         raise CLException("Symbol %s at 0x%x is both in imports and "
                                       "exports, something is wrong :(", name, addr)
                     exports[name] = addr
         return exports
 
-    def _get_lib_names(self, data):
+    @staticmethod
+    def _get_lib_names(data):
         """ What are the dependencies of the binary ?
         This gets the names of the libraries we should load as well, from the
         dynamic segment """
@@ -622,10 +640,10 @@ class Elf(AbsObj):
                 for dep in i[1:]:
                     deps.append(dep.strip()) # Remove extra spaces
 
-        l.debug("\t--> binary depends on %s" % repr(deps))
+        l.debug("\t--> binary depends on %s", repr(deps))
         return deps
 
-    def _call_ccle(self, binary):
+    def _call_ccle(self):
         """ Get information from the binary using ccle """
         qemu = self.archinfo.get_qemu_cmd()
         arch = self.archinfo.get_unique_name()
@@ -634,7 +652,7 @@ class Elf(AbsObj):
         lib_p = "local/lib/%s" % arch
         cle = os.path.join(env_p, bin_p, "ccle")
 
-        if (not os.path.exists(cle)):
+        if not os.path.exists(cle):
             raise CLException("Cannot find ccle binary at %s" % cle)
 
         crosslibs = self.archinfo.get_cross_library_path()
@@ -652,7 +670,7 @@ class Elf(AbsObj):
         # We want to make sure qemu returns correctly before we interpret
         # the output. TODO: we should also get ccle's return code (maybe
         # through an ENV variable ?)
-        if (err != 0):
+        if err != 0:
             raise CLException("Qemu returned error %d while running %s :("
                               % (err, " ".join(cmd)))
 
@@ -772,27 +790,26 @@ class Elf(AbsObj):
         # Add the segment to the list of loaded segments
         seg = Segment(name, vaddr, size, offset)
         self.segments.append(seg)
-        l.debug("\t--> Loaded segment %s @0x%x with size:0x%x" % (name, vaddr,
-                                                                size))
+        l.debug("\t--> Loaded segment %s @0x%x with size:0x%x", name, vaddr, size)
     def _mips_specifics(self):
         """ These are specific mips entries of the dynamic table """
         for i in self.dynamic:
             # How many local references in the GOT
-            if(i["tag"] == "DT_MIPS_LOCAL_GOTNO"):
+            if i["tag"] == "DT_MIPS_LOCAL_GOTNO":
                 self.mips_local_gotno = int(i["val"].strip(), 16)
             # Index of first externel symbol in GOT
-            elif(i["tag"] == "DT_MIPS_UNREFEXTNO"):
+            elif i["tag"] == "DT_MIPS_UNREFEXTNO":
                 self.mips_unreftextno = int(i["val"].strip(), 16)
             # Static MIPS base address
-            elif(i["tag"] == "DT_MIPS_BASE_ADDRESS"):
+            elif i["tag"] == "DT_MIPS_BASE_ADDRESS":
                 self.mips_static_base_addr = int(i["val"].strip(), 16)
             # Index (in the symbol table) of the first symbol that has an
             # entry in the GOT
-            elif(i["tag"] == "DT_MIPS_GOTSYM"):
+            elif i["tag"] == "DT_MIPS_GOTSYM":
                 self.mips_gotsym = int(i["val"].strip(), 16)
 
             # How many elements in the symbol table
-            elif(i["tag"] == "DT_MIPS_SYMTABNO"):
+            elif i["tag"] == "DT_MIPS_SYMTABNO":
                 self.mips_symtabno = int(i["val"].strip(), 16)
 
     def is_thumb(self,addr):
@@ -833,7 +850,8 @@ class Elf(AbsObj):
 
         return local_symbols
 
-    def _global_symbols(self, symbols):
+    @staticmethod
+    def _global_symbols(symbols):
         """
         These are (non-functions) global symbols exposed in the symbol table,
         such as stderr, __progname and stuff
@@ -846,7 +864,8 @@ class Elf(AbsObj):
                 glob[name] = e['addr']
         return glob
 
-    def _local_symbols(self, symbols):
+    @staticmethod
+    def _local_symbols(symbols):
         """
         These are (non-functions) global symbols exposed in the symbol table,
         such as stderr, __progname and stuff
@@ -859,9 +878,10 @@ class Elf(AbsObj):
                 loc[name] = e['addr']
         return loc
 
-    def _local_functions(self, symbols):
+    @staticmethod
+    def _local_functions(symbols):
         loc={}
-        for e in self.symbols:
+        for e in symbols:
             if e['type'] == 'STT_FUNC' and e['sh_info'] != 'SHN_UNDEF':
                 if e['addr'] == 0:
                     raise CLException("Local symbol with address 0")
@@ -869,13 +889,14 @@ class Elf(AbsObj):
                 loc[name] = e['addr']
         return loc
 
-    def _global_functions(self, symbols):
+    @staticmethod
+    def _global_functions(symbols):
         """
         Global functions that are defined in the binary
         We use it to relocate MIPS stuff while making sure it doesn't interfer with JMPREL
         """
         loc={}
-        for e in self.symbols:
+        for e in symbols:
             if e['type'] == 'STT_FUNC' and e['binding'] == 'STB_GLOBAL' and\
             e['sh_info'] != 'SHN_UNDEF':
                 if e['addr'] == 0:
@@ -1083,7 +1104,7 @@ class Elf(AbsObj):
         """
         try:
             return self.sections['.got']['size']
-        except:
+        except KeyError:
             l.info("This binary seems to be stripped")
             return None
 
@@ -1131,9 +1152,9 @@ class Elf(AbsObj):
             if where == symb['addr']:
                 return symb['name']
 
-        str = self.strtab_value(where)
-        if str is not None:
-            return str
+        string = self.strtab_value(where)
+        if string is not None:
+            return string
 
 
     def strtab_value(self, addr):

@@ -1,6 +1,5 @@
 import logging
 from .clexception import CLException
-from .elf import Elf
 from idalink import idalink
 import os
 import struct
@@ -24,7 +23,7 @@ class IdaBin(AbsObj):
 
         processor_type = self.archinfo.ida_arch
 
-        l.debug("Loading binary %s using IDA with arch %s" % (self.binary, processor_type))
+        l.debug("Loading binary %s using IDA with arch %s", self.binary, processor_type)
         self.ida = idalink(self.binary, ida_prog=ida_prog,
                                    processor_type=processor_type).link
 
@@ -39,8 +38,13 @@ class IdaBin(AbsObj):
        # else:
        #     self.rebase_addr = 0
 
+        self.got_begin = None
+        self.got_end = None
+        self.raw_imports = {}
+        self.current_module_name = None
+
         self.imports = self._get_imports()
-        self.resolved_imports = []
+        self.resolved_imports = {}
         self.linking = self._get_linking_type()
 
         self.exports = self._get_exports()
@@ -50,8 +54,8 @@ class IdaBin(AbsObj):
 
     def rebase(self, base_addr):
         """ Rebase the binary at address @base_addr """
-        l.debug("-> Rebasing %s to address 0x%x (IDA)" %
-                (os.path.basename(self.binary), base_addr))
+        l.debug("-> Rebasing %s to address 0x%x (IDA)",
+                os.path.basename(self.binary), base_addr)
         if self.get_min_addr() >= base_addr:
             l.debug("It looks like the current idb is already rebased!")
         else:
@@ -59,7 +63,7 @@ class IdaBin(AbsObj):
                 base_addr, self.ida.idaapi.MSF_FIXONCE |
                 self.ida.idaapi.MSF_LDKEEP) != 0:
                 raise CLException("Rebasing of %s failed!", self.binary)
-            self.ida.remake_mem()
+            del self.ida.memory
             self.rebase_addr = base_addr
             #self._rebase_exports(base_addr)
 
@@ -90,13 +94,13 @@ class IdaBin(AbsObj):
         # If we reach this point, we should have the addresses
         if self.got_begin is None or self.got_end is None:
             #raise CLException("This architecture has no section %s :(" % sec_name)
-            l.warning("No section %s, is this a static binary ? (or stripped)"  % sec_name)
+            l.warning("No section %s, is this a static binary ? (or stripped)", sec_name)
             return False
         return True
 
     def _in_proper_section(self, addr):
         """ Is @addr in the proper section for this architecture ?"""
-        return (addr > self.got_begin and addr < self.got_end)
+        return self.got_begin < addr < self.got_end
 
     def function_name(self, addr):
         """ Return the function name at address @addr (IDA) """
@@ -113,7 +117,7 @@ class IdaBin(AbsObj):
         for sym in symbols:
             addr = self.get_symbol_addr(sym)
             if not addr:
-                l.debug("Symbol %s was not found (IDA)" % sym)
+                l.debug("Symbol %s was not found (IDA)", sym)
                 continue
             addrs[sym] = addr
         return addrs
@@ -151,7 +155,7 @@ class IdaBin(AbsObj):
                 i)
             self.ida.idaapi.enum_import_names(i, self._import_entry_callback)
 
-    def _import_entry_callback(self, ea, name, entry_ord):
+    def _import_entry_callback(self, ea, name, entry_ord): # pylint: disable=unused-argument
         """ Callback function for IDA's enum_import_names"""
         self.raw_imports[name] = ea
         return True
@@ -188,7 +192,7 @@ class IdaBin(AbsObj):
             for addr in lst:
                 if self._in_proper_section(addr) and addr != self.badaddr:
                     imports[name] = addr
-                    l.debug("\t -> has import %s - GOT entry @ 0x%x" % (name, addr))
+                    l.debug("\t -> has import %s - GOT entry @ 0x%x", name, addr)
         return imports
 
     def get_min_addr(self):
@@ -232,19 +236,19 @@ class IdaBin(AbsObj):
 
         # Try IDA's _ptr
         plt_addr = self.get_symbol_addr(sym + "_ptr")
-        if (plt_addr):
+        if plt_addr:
             addr = [plt_addr]
             return self.update_addrs(addr, new_val)
 
         # Try the __imp_name
         plt_addr = self.get_symbol_addr("__imp_" + sym)
-        if (plt_addr):
+        if plt_addr:
             addr = list(self.ida.idautils.DataRefsTo(plt_addr))
             return self.update_addrs(addr, new_val)
 
         # Try the normal name
         plt_addr = self.get_symbol_addr(sym)
-        if (plt_addr):
+        if plt_addr:
             addr = list(self.ida.idautils.DataRefsTo(plt_addr))
             # If not datarefs, try coderefs. It can happen on PPC
             if len(addr) == 0:
@@ -252,7 +256,7 @@ class IdaBin(AbsObj):
             return self.update_addrs(addr, new_val)
 
         # If none of them has an address, that's a problem
-            l.debug("Warning: could not find references to symbol %s (IDA)" % sym)
+        l.debug("Warning: could not find references to symbol %s (IDA)", sym)
 
     def resolve_import_with(self, name, newaddr):
         """ Resolve import @name with address @newaddr, that is, update the GOT
@@ -275,7 +279,7 @@ class IdaBin(AbsObj):
         for addr in update_addrs:
             #l.debug("... setting 0x%x to 0x%x", addr, new_val)
             for n, p in enumerate(packed):
-                self.ida.mem[addr + n] = p
+                self.ida.memory[addr + n] = p
 
         # IDA memory was modified, it needs to be synced with Ld
         if len(update_addrs) > 0:
