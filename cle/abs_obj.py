@@ -5,6 +5,12 @@ from .memory import Clemory
 from abc import ABCMeta
 
 
+class Symbol(object):
+    def __init__(self):
+        super(Symbol, self).__init__()
+        self.name = None
+        self.addr = None
+
 class AbsObj(object):
     __metaclass__ = ABCMeta
 
@@ -12,7 +18,7 @@ class AbsObj(object):
         Main abstract class for CLE binary objects.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, binary, **kwargs):
         """
         args: binary
         kwargs: {load=True, custom_base_addr=None, custom_entry_point=None,
@@ -23,7 +29,7 @@ class AbsObj(object):
         for k,v in kwargs.iteritems():
             setattr(self, k, v)
 
-        self.binary = args[0]
+        self.binary = binary
         self.segments = [] # List of segments
         self.imports = {}
         self.symbols = None # Object's symbols
