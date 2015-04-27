@@ -265,14 +265,18 @@ class Arch(object):
     def get_relative_reloc_type(self):
         return self._reloc_b_a()
 
+    def get_copy_reloc_type(self):
+        return self._reloc_copy()
+
     # From tests on Debian in /lib/xxx and /usr/blah/lib for cross stuff, we can
     # see that the following types of relocations actually show up in the dynamic
     # section, intended for the dynamic linker.
 
-    # amd64 needs types [1, 5, 6, 8, 16, 17, 18]:
+    # amd64 needs types [1, 5, 6, 7, 8, 16, 17, 18]:
     #     R_X86_64_64         S+A but the is always 0
     #     R_X86_64_COPY       NONE (seems like S from the description)
     #     R_X86_64_GLOB_DAT   S
+    #     R_X86_64_JUMP_SLOT  S
     #     R_X86_64_RELATIVE   B+A
     #     R_X86_64_DTPMOD64   ELF spec says "described in TLS spec"
     #     R_X86_64_DTPOFF64   -
@@ -370,7 +374,7 @@ class Arch(object):
         """
         if self.name == "i386:x86-64":
             #R_X86_64_GOT32
-            return [3, 6]
+            return [3, 6, 7]
 
         elif self.name == "i386":
             return [6]

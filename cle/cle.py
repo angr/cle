@@ -7,6 +7,7 @@ import shutil
 import subprocess
 
 from .elf import Elf
+from .cleextractor import CLEExtractor
 from .pe import Pe
 from .idabin import IdaBin
 from .blob import Blob
@@ -239,7 +240,7 @@ class Ld(object):
 
         for o in objs:
             l.info("**SLOW**: Copy IDA's memory to Ld's memory (%s)", o.binary)
-            self._copy_mem(o, update=True)
+            self.memory.update_backer(o.rebase_addr, o.memory)
 
     def addr_belongs_to_object(self, addr):
         maxaddr = self.main_bin.get_max_addr()
@@ -310,13 +311,14 @@ class Ld(object):
         Type 5 on amd64 - copy the value of the resolved symbol instead of its
         address
         """
-        for got_addr, symb in obj.copy_reloc:
-            addr, _ = self.find_symbol(symb)
-            if addr is None:
-                raise CLException("Could not find address for symbol %s" % symb)
-            val = self.memory.read_addr_at(addr)
-            got_addr = got_addr + obj.rebase_addr
+        for reloc in obj.copy_reloc:
+            match_symbol = self.find_symbol(reloc.symbol.name)
+            if match_symbol is None:
+                raise CLException("Could not find address for symbol %s" % reloc.symbol.name)
+            val = self.memory.read_addr_at(match_symbol.rebased_addr)
+            got_addr = reloc.rebased_addr
             self.memory.write_addr_at(got_addr, val)
+            reloc.resolve(match_symbol)
 
     def _reloc_tls(self, obj, module_id):
         for addr in obj.tls_mod_reloc:
@@ -343,35 +345,31 @@ class Ld(object):
         # i.e., functions) or rela/rel for non functions.
 
         # Now let's update GOT entries for both PLT jumps and global data
-        ext = dict(obj.jmprel.items() + obj.global_reloc.items())
-        for symb, got_addr in ext.iteritems():
+        ext = obj.global_reloc
+        for reloc in ext:
 
+            got_addr = reloc.rebased_addr
             # We don't resolve ignored functions
-            if symb in self.ignore_imports:
+            if reloc.symbol.name in self.ignore_imports:
                 continue
 
             if "mips" in self.main_bin.archinfo.name and obj != self.main_bin:
                 delta = obj.rebase_addr - obj.mips_static_base_addr
                 got_addr = got_addr + delta
-            else:
-                # We take the GOT from ELF file, that's not rebased yet
-                got_addr = got_addr + obj.rebase_addr
 
-            loc = "(external)"
             # Find_symbol_addr() already takes care of rebasing
-            uaddr, so = self.find_symbol(symb)
+            match_symbol = self.find_symbol(reloc.symbol.name)
 
-            if uaddr:
-                self.memory.write_addr_at(got_addr, uaddr)
+            if match_symbol is not None:
+                self.memory.write_addr_at(got_addr, match_symbol.rebased_addr)
                 # We resolved this symbol
-                obj.resolved_imports[symb] = so
+                reloc.resolve(match_symbol)
 
-                stype = "function" if symb in obj.jmprel else "global data ref"
-                l.debug("\t--> [R] %s Relocation of %s %s -> 0x%x [stub@0x%x]", loc, stype, symb,
-                                                                                  uaddr, got_addr)
+                l.debug("\t--> [R] Relocation of %s -> 0x%x [stub@0x%x]",
+                        reloc.symbol.name, match_symbol.rebased_addr, got_addr)
 
             else:
-                l.warning("\t--> [U] Cannot locate symbol \"%s\" from SOs", symb)
+                l.warning("\t--> [U] Cannot locate symbol \"%s\" from SOs", reloc.symbol.name)
 
     def _reloc_absolute(self, obj):
         """
@@ -379,26 +377,26 @@ class Ld(object):
         """
 
         l.info("[Performing absolute relocations of %s]", obj.binary)
-        for t in obj.s_a_reloc:
-            name = t[0]
-            off = t[1]
-            off = off + obj.rebase_addr
+        for reloc in obj.s_a_reloc:
             #if name in obj.resolved_imports:
             # Those relocations should be exported by the local module
             # BUT they can also be exported by other modules (e.g., PPC type 20)
-            if obj.rela_type == "DT_RELA":
-                addend = t[2]
+            if reloc.is_rela:
+                addend = reloc.addend
             else:
-                addend = self.memory.read_addr_at(off)
+                addend = self.memory.read_addr_at(reloc.rebased_addr)
 
             if addend != 0:
                 raise CLException("S+A reloc with an actual addend, what should we do with it ??")
-            addr, _ = self.find_symbol(name)
-            if addr is not None:
-                self.memory.write_addr_at(off, addr)
-                l.debug("\t-->[R] ABS relocation of %s -> 0x%x [at 0x%x]", name, addr, off)
+            match_symbol = self.find_symbol(reloc.symbol.name)
+            if match_symbol is not None:
+                self.memory.write_addr_at(reloc.rebased_addr, match_symbol.rebased_addr)
+                reloc.resolve(match_symbol)
+                l.debug("\t-->[R] ABS relocation of %s -> 0x%x [at 0x%x]",
+                        match_symbol.name, match_symbol.rebased_addr, reloc.rebased_addr)
             else:
-                l.warning('[U] "%s" not relocated [instance at 0x%x]', name, off)
+                l.warning('[U] "%s" not relocated [instance at 0x%x]',
+                          reloc.symbol.name, reloc.rebased_addr)
 
     def _reloc_relative(self, obj):
         """
@@ -408,21 +406,19 @@ class Ld(object):
 
         l.info("[Performing relative relocations of %s]" , obj.binary)
         # This is an array of tuples
-        for t in obj.relative_reloc:
-            offset = t[0]  # Offset in the binary where the address to relocate is stored
-
-            vaddr = offset + obj.rebase_addr  # Where that is in memory as we loaded it
-
-            if obj.rela_type == "DT_RELA":
+        for reloc in obj.relative_reloc:
+            if reloc.is_rela:
                 # DT_RELA specifies the addend explicitely
-                addend = t[1]
+                addend = reloc.addend
             else:
                 # DT_REL stores the addend in the memory location to be updated
-                addend = self.memory.read_addr_at(vaddr)
+                addend = self.memory.read_addr_at(reloc.rebased_addr)
 
             rela_updated = addend + obj.rebase_addr
-            self.memory.write_addr_at(vaddr, rela_updated)
-            l.debug("\t-->[R] Relative relocation, 0x%x [at 0x%x]", rela_updated, vaddr)
+            self.memory.write_addr_at(reloc.rebased_addr, rela_updated)
+            reloc.resolve(None)
+            l.debug("\t-->[R] Relative relocation, 0x%x [at 0x%x]",
+                    rela_updated, reloc.rebased_addr)
 
     def _reloc_mips_local(self, obj):
         """ MIPS local relocations (yes, GOT entries for local symbols also need
@@ -488,14 +484,12 @@ class Ld(object):
         the new address @newaddr, inside the GOT of object @obj.
         This is used to call simprocedures instead of actual code """
 
-        got = obj.jmprel
-
-        if symbol not in got:
+        if symbol not in obj.imports:
             l.debug("Could not override the address of symbol %s: symbol entry not "
                     "found in GOT", symbol)
             return False
 
-        self.memory.write_addr_at(obj.rebase_addr + got[symbol], newaddr)
+        self.memory.write_addr_at(obj.imports[symbol].rebased_addr, newaddr)
         return True
 
     # Search functions
@@ -507,42 +501,31 @@ class Ld(object):
         with binding STB_WEAK.
         """
 
-        found = None
-        foundso = None
-        for so in set(self.shared_objects + [self.main_bin]):
-            ex = so.exports
-            if name in ex:
-                for i in so.symbols:
-                    if i["name"] == name:
-                        binding = i["binding"]  # weak or global symbol ?
-                        # We prefer STB_GLOBAL
-                        if binding == "STB_GLOBAL" and ex[name] != 0:
-                            return ex[name] + so.rebase_addr, so
-                        elif binding == "STB_WEAK" and ex[name] != 0 and found is None:
-                            found = ex[name] + so.rebase_addr
-                            foundso = so
-        if found is not None:
-            return found, foundso
+        weak_result = None
+        for so in self.shared_objects + [self.main_bin]:
+            symbol = so.get_symbol(name)
+            if symbol is not None and symbol.is_export:
+                if symbol.binding == 'STB_GLOBAL':
+                    return symbol
+                elif weak_result is None:
+                    weak_result = symbol
+
+        if weak_result is not None:
+            return weak_result
 
         # If that doesn't do it, we also look into local symbols
-        for so in set(self.shared_objects + [self.main_bin]):
-            sb = so.symbol(name)
-            if sb is not None:
-                if sb['addr'] != 0:
-                    return sb['addr'], so
-
-        return None, None
+        for so in [self.main_bin] + self.shared_objects:
+            symbol = so.get_symbol(name)
+            if symbol is not None and symbol.addr != 0:
+                l.warning("Matched %s to local symbol of %s. Is this possible?", name, so.binary)
+                return symbol
 
     def find_symbol_name(self, addr):
         """ Return the name of the function starting at addr.
         """
-        objs = [self.main_bin]
-        objs = objs + self.shared_objects
-
-        for o in objs:
-            name = o.whatis(addr)
-            if name is not None:
-                return name
+        sym = self.find_symbol(addr)
+        if sym is not None:
+            return sym.name
 
     def guess_function_name(self, addr):
         """
@@ -627,7 +610,7 @@ class Ld(object):
 
         # Copy mem from object's private memory to Ld's address space
         self.memory = Clemory(self.main_bin.archinfo)
-        self._copy_mem(self.main_bin)
+        self.memory.add_backer(self.main_bin.rebase_addr, self.main_bin.memory)
 
     def _make_custom_lib(self, path, ops):
         """
@@ -656,7 +639,7 @@ class Ld(object):
             obj.rebase_addr = base
         else:
             obj.rebase_addr = obj.custom_rebase_addr
-        self._copy_mem(obj, obj.rebase_addr)
+        self.memory.add_backer(obj.rebase_addr, obj.memory)
 
 
     @staticmethod
@@ -668,6 +651,9 @@ class Ld(object):
 
         if backend == 'elf':
             obj = Elf(path)
+
+        elif backend == 'cleextract':
+            obj = CLEExtractor(path)
 
         elif backend == 'pe':
             obj = Pe(path)
@@ -702,22 +688,6 @@ class Ld(object):
             obj.provides = ops['provides']
 
         return obj
-
-    def _copy_mem(self, obj, rebase_addr=None, update=False):
-        """ Copies private memory of obj to Ld's memory (the one we work with)
-            if @rebase_addr is specified, all memory addresses of obj will be
-            translated by @rebase_addr in memory.
-            By default, Ld assumes nothing was previously loaded there and will
-            raise an exception if it has to overwrite something, unless @update
-            is set to True
-        """
-        for addr, val in obj._memory.iteritems():
-            if rebase_addr is not None:
-                addr = addr + rebase_addr
-            if addr in self.memory and not update:
-                raise CLException("Something is already loaded at 0x%x" % addr)
-            else:
-                self.memory[addr] = val
 
     def _auto_load_shared_libs(self):
         """ Load and rebase shared objects """
@@ -777,7 +747,7 @@ class Ld(object):
         else:
             l.info("[Rebasing %s @0x%x]", os.path.basename(so.binary), base)
 
-        self._copy_mem(so, base)
+        self.memory.add_backer(base, so.memory)
 
     def _get_safe_rebase_addr(self):
         """
@@ -806,6 +776,8 @@ class Ld(object):
         Static deps because we statically read it from the Elf file (as opposed to ask GNU ld)
         """
         if isinstance(obj, Elf):
+            return obj.deps
+        if isinstance(obj, CLEExtractor):
             return obj.deps
         elif isinstance(obj, IdaBin):
             elf_b = Elf(self.path, load=False)  # Use Elf to determine needed libs

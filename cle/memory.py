@@ -1,62 +1,90 @@
-import collections
-
-class Clemory(collections.MutableMapping):
+class Clemory(object):
     def __init__(self, archinfo):
         self._archinfo = archinfo
-        self._storage = { }
+        self._backers = []  # tuple of (start, str)
+        self._updates = {}
+        self._pointer = 0
 
-    #
-    # Methods for the collection
-    #
+    def add_backer(self, start, data):
+        self._backers.append((start, data))
+
+    def update_backer(self, start, data):
+        for i, (oldstart, _) in enumerate(self._backers):
+            if oldstart == start:
+                self._updates[i] = (start, data)
+                break
 
     def __getitem__(self, k):
-        return self._storage[k]
+        if k in self._updates:
+            return self._updates[k]
+        else:
+            for start, data in reversed(self._backers):
+                if isinstance(data, str):
+                    if 0 <= k - start < len(data):
+                        return data[k - start]
+                elif isinstance(data, (Clemory, dict)):
+                    try:
+                        return data[k - start]
+                    except KeyError:
+                        pass
+            raise KeyError(k)
 
     def __setitem__(self, k, v):
-        self._storage[k] = v
+        self._updates[k] = v
 
-    def __delitem__(self, k):
-        del self._storage[k]
-
-    def __iter__(self):
-        return iter(self._storage)
-
-    def __len__(self):
-        return len(self._storage)
+    # no __delitem__, __iter__, or __len__: not clear how that would work w/ backers
 
     def __contains__(self, k):
-        return k in self._storage
+        try:
+            self.__getitem__(k)
+            return True
+        except KeyError:
+            return False
 
     def __getstate__(self):
-        return { k:ord(v) for k,v in self._storage.iteritems() }
+        out = { 'updates': {k:ord(v) for k,v in self._updates.iteritems()}, 'backers': [] }
+        for start, data in self._backers:
+            if isinstance(data, str):
+                out['backers'].append((start, {'type': 'str', 'data': data}))
+            elif isinstance(data, dict):
+                out['backers'].append((start, {'type': 'dict', 'data': data}))
+            elif isinstance(data, Clemory):
+                out['backers'].append((start, {'type': 'Clemory', 'data': data.__getstate__()}))
 
     def __setstate__(self, s):
-        for k,v in s.iteritems():
-            self._storage[k] = chr(v)
+        self._updates = {k:chr(v) for k,v in s['updates'].iteritems()}
+        self._backers = []
+        for start, serialdata in s['backers']:
+            if serialdata['type'] == 'str':
+                self._backers.append((start, serialdata['data']))
+            elif serialdata['type'] == 'dict':
+                self._backers.append((start, serialdata['data']))
+            elif serialdata['type'] == 'Clemory':
+                subdata = Clemory(self._archinfo)
+                subdata.__setstate__(serialdata['data'])
+                self._backers.append((start, subdata))
 
     def read_bytes(self, addr, n):
         """ Read @n bytes at address @addr in memory and return an array of bytes
         """
         b = []
         for i in range(addr, addr+n):
-            b.append(self.get(i))
+            b.append(self[i])
         return b
 
     def write_bytes(self, addr, data):
         """
         Write bytes from @data at address @addr
         """
-        d = {}
-        for i in range(0,len(data)):
-            d[addr+i] = data[i]
-        self.update(d) # This merges d into self
+        for i, c in enumerate(data):
+            self[addr+i] = c
 
-    def read_addr_at(self, addr):
+    def read_addr_at(self, where):
         """
         Read addr stored in memory as a serie of bytes starting at @addr
         @archinfo is an cle.Archinfo instance
         """
-        return self._archinfo.bytes_to_addr(''.join(self.read_bytes(addr, self._archinfo.bits/8)))
+        return self._archinfo.bytes_to_addr(''.join(self.read_bytes(where, self._archinfo.bits/8)))
 
     def write_addr_at(self, where, addr):
         """
@@ -66,37 +94,49 @@ class Clemory(collections.MutableMapping):
         by = self._archinfo.addr_to_bytes(addr)
         self.write_bytes(where, by)
 
-    @property
-    def stride_repr(self):
-        # We save tuples of (start, end, bytes) in the list `strides`
-        strides = [ ]
+    #@property
+    #def stride_repr(self):
+    #    # We save tuples of (start, end, bytes) in the list `strides`
+    #    strides = [ ]
 
-        start_ = None
-        end_ = None
-        bytestring = ""
+    #    start_ = None
+    #    end_ = None
+    #    bytestring = ""
 
-        mem = self
+    #    mem = self
 
-        for pos in xrange(min(self.keys()), max(self.keys())):
-            if pos in mem:
-                if start_ is None:
-                    start_ = pos
-                end_ = pos
+    #    for pos in xrange(min(self.keys()), max(self.keys())):
+    #        if pos in mem:
+    #            if start_ is None:
+    #                start_ = pos
+    #            end_ = pos
 
-                bytestring += mem[pos]
-            else:
-                if len(bytestring):
-                    # Create the tuple and save it
-                    tpl = (start_, end_, bytestring)
-                    strides.append(tpl)
+    #            bytestring += mem[pos]
+    #        else:
+    #            if len(bytestring):
+    #                # Create the tuple and save it
+    #                tpl = (start_, end_, bytestring)
+    #                strides.append(tpl)
 
-                    # Initialize the data structure
-                    start_ = None
-                    end_ = None
-                    bytestring = ""
+    #                # Initialize the data structure
+    #                start_ = None
+    #                end_ = None
+    #                bytestring = ""
 
-        if start_ is not None:
-            tpl = (start_, end_, bytestring)
-            strides.append(tpl)
+    #    if start_ is not None:
+    #        tpl = (start_, end_, bytestring)
+    #        strides.append(tpl)
 
-        return strides
+    #    return strides
+
+    def seek(self, value):
+        self._pointer = value
+
+    def read(self, nbytes):
+        if nbytes == 1:
+            self._pointer += 1
+            return self[self._pointer-1]
+        else:
+            out = self.read_bytes(self._pointer, nbytes)
+            self._pointer += nbytes
+            return ''.join(out)
