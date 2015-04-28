@@ -116,9 +116,11 @@ class Ld(object):
             if self._check_lib(path):
                 return path
         else:
+            if self._check_lib(os.path.realpath(path)):
+                return os.path.realpath(path)
+            if self._check_lib(os.path.join(os.path.basename(self._main_binary_path), path)):
+                return os.path.join(os.path.basename(self._main_binary_path), path)
             loc = []
-            loc.append(os.path.dirname(self._main_binary_path))
-            loc.append('.')
             loc += self._custom_ld_path
             loc += self.main_bin.archinfo._arch_paths()
             # Dangerous, only ok if the hosts sytem's is the same as the target
