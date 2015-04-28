@@ -4,6 +4,7 @@ from elftools.elf import sections, relocation
 
 from .abs_obj import Symbol, Relocation, Segment
 from .metaelf import MetaELF
+from .archinfo import ArchInfo
 from .clexception import CLException
 
 import logging
@@ -26,10 +27,11 @@ class ELFSegment(Segment):
     def __init__(self, readelf_seg):
         super(ELFSegment, self).__init__('seg_%x' % readelf_seg.header.p_vaddr, readelf_seg.header.p_vaddr, readelf_seg.header.p_memsz, readelf_seg.header.p_filesz, readelf_seg.header.p_offset)
 
-class Elf(MetaELF):
+class ELF(MetaELF):
     def __init__(self, binary, **kwargs):
-        super(Elf, self).__init__(binary, **kwargs)
+        super(ELF, self).__init__(binary, **kwargs)
         self.reader = readelf.ELFFile(open(self.binary))
+        self.set_archinfo(ArchInfo(binary))
         self.strtab = None
         self.dynsym = None
         self.hashtable = None

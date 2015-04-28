@@ -1,10 +1,10 @@
 import os
-from ctypes import cdll, c_char_p
 import logging
 import subprocess
 import simuvex
 import struct
 from .clexception import CLException, UnknownFormatException
+from readelf import ELFFile
 
 l = logging.getLogger("cle.archinfo")
 
@@ -14,16 +14,8 @@ class Arch(object):
         cle_bfd library.
     """
 
-    # There is a dozen of types of mips and arm CPUs reported from libbfd
-    mips_names = ["mips:isa32", "mips:3000", "mips:6000"]
-    ppc_names = ["powerpc:common", "powerpc:common64"]
-    arm_names = ["arm", "armv4t", "armv5t"]
-
-
-    def __init__(self, name=None, bits=None, arch_size=None, byte_order=None, simarch=None):
-        self.elfflags = None
-        self.endianness = None
-        self.qemu_arch = None
+    def __init__(self, name=None, bits=None, arch_size=None, byte_order=None, elfflags=0, simarch=None):
+        self.elfflags = elfflags
 
         if simarch is None:
             self.name = name
@@ -32,11 +24,22 @@ class Arch(object):
             self.byte_order = byte_order
         else:
             s=simuvex.Architectures[simarch]()
-            self.name = s.name
+            self.name = s.name.lower()
             self.bits = s.bits
             self.arch_size = self.bits
             self.byte_order = "LSB" if s.memory_endness == "Iend_LE" else "MSB"
 
+    @property
+    def qemu_arch(self):
+        return self.to_qemu_arch(self.name)
+
+    @property
+    def simuvex_arch(self):
+        return self.to_simuvex_arch(self.name)
+
+    @property
+    def ida_arch(self):
+        return self.to_ida_arch(self.name)
 
     def to_qemu_arch(self, arch):
         """ We internally use the BFD architecture names.
@@ -45,15 +48,15 @@ class Arch(object):
 
         if arch == "i386:x86-64":
             return "x86_64"
-        elif arch in self.mips_names and self.byte_order == "MSB":
+        elif arch == 'mips' and self.byte_order == "MSB":
             return "mips"
-        elif arch in self.mips_names and self.byte_order == "LSB":
+        elif arch == 'mips' and self.byte_order == "LSB":
             return "mipsel"
-        elif arch in self.ppc_names and self.arch_size == 32:
+        elif arch == 'powerpc' and self.arch_size == 32:
             return "ppc"
-        elif arch in self.ppc_names and self.arch_size == 64:
+        elif arch == 'powerpc' and self.arch_size == 64:
             return "ppc64"
-        elif arch in self.arm_names:
+        elif arch == 'arm':
             return "arm"
         elif arch == "i386":
             return "i386"
@@ -70,11 +73,11 @@ class Arch(object):
             return "AMD64"
         elif "mips" in arch and self.arch_size == 32:
             return "MIPS32"
-        elif arch in self.ppc_names and self.arch_size == 32:
+        elif arch == 'powerpc' and self.arch_size == 32:
             return "PPC32"
-        elif arch in self.ppc_names and self.arch_size == 64:
+        elif arch == 'powerpc' and self.arch_size == 64:
             return "PPC64"
-        elif arch in self.arm_names:
+        elif arch == 'arm':
             return "ARM"
         elif arch == "i386":
             return "X86"
@@ -82,7 +85,7 @@ class Arch(object):
         elif "mips" in arch and self.arch_size == 64:
             raise CLException("Architecture MIPS 64 bit not supported")
         # mipsel
-        elif "mips" in arch and self.endianness == "LSB":
+        elif "mips" in arch and self.byte_order == "LSB":
             l.info("Warning: arch mipsel detected, make sure you compile VEX "
                    "accordingly")
         else:
@@ -473,45 +476,25 @@ class Arch(object):
 
 
 class ArchInfo(Arch):
-    @classmethod
-    def _load_lib(cls):
-        if not hasattr(cls, "lib"):
-            env_p = os.getenv("VIRTUAL_ENV", "/")
-            lib_p = "lib"
-            lib = os.path.join(env_p, lib_p, "cle_bfd.so")
-
-            if not os.path.exists(lib):
-                raise CLException("Cannot load cle_bfd.so, invalid path:%s" % lib)
-
-            cls.lib = cdll.LoadLibrary(lib)
-            cls.lib.get_bfd_arch_pname.restype = c_char_p
-            cls.lib.get_arch_byte_order.restype = c_char_p
-
     def __init__(self, binary):
         """ Getarchitecture information from the binary file @binary using
-        ctypes and cle_bfd.so """
-        super(ArchInfo, self).__init__(binary)
-        ArchInfo._load_lib()
+        the readelf python lib """
         binary = str(binary)  # Would segfault if utf8
-
         if not os.path.isfile(binary):
             raise CLException("%s is no file or cannot be found" % binary)
         if not os.access(binary, os.R_OK):
             raise CLException("Insufficient permissions to read file %s" % binary)
 
-        self.name = self.lib.get_bfd_arch_pname(binary)
+        elfread = ELFFile(open(binary))
 
-        if self.name == "ERROR":
-            raise UnknownFormatException("%s doesn't look like an ELF File. Unsupported format or architecture" % binary)
-        elif self.name == "unknown":
-            raise CLException("Dude, your libbfd doesn't seem to know the architecture of %s." % binary)
-
-        self.bits = self.lib.get_bits_per_addr(binary)
-        self.arch_size = self.lib.get_arch_size(binary)
-        self.byte_order = self.lib.get_arch_byte_order(binary)
-
-        self.elfflags = 0
-        self.qemu_arch = self.to_qemu_arch(self.name)
-        self.simuvex_arch = self.to_simuvex_arch(self.name)
-        self.ida_arch = self.to_ida_arch(self.name)
+        bfdname = {
+            'EM_X86_64': 'i386:x86-64',
+            'EM_386': 'i386',
+            'EM_ARM': 'arm',
+            'EM_PPC': 'powerpc',
+            'EM_PPC64': 'powerpc',
+            'EM_MIPS': 'mips'
+        }[elfread.header.e_machine]
+        super(ArchInfo, self).__init__(bfdname, elfread.elfclass, elfread.elfclass,
+                'LSB' if elfread.little_endian else 'MSB', elfread.header.e_flags)
 

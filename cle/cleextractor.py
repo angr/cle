@@ -4,6 +4,7 @@ import subprocess
 from .clexception import CLException
 from .abs_obj import Segment
 from .metaelf import MetaELF
+from .archinfo import ArchInfo
 
 l = logging.getLogger("cle.cleextractor")
 
@@ -32,6 +33,7 @@ class CLEExtractor(MetaELF):
 
         # Call the constructor of AbsObj
         super(CLEExtractor, self).__init__(*args, **kwargs)
+        self.set_archinfo(ArchInfo(self.binary))
 
         # Shall we load the binary ? Yes by default
         load = True if 'load' not in kwargs else False

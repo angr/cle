@@ -1,6 +1,6 @@
 import os
 from .clexception import CLException
-from .archinfo import ArchInfo, Arch
+from .archinfo import Arch
 from .memory import Clemory
 from abc import ABCMeta
 
@@ -104,7 +104,7 @@ class Relocation(object):
         if self.is_rela:
             return self._addend
         else:
-            return self.owner_obj.read_addr_at(self.addr)
+            return self.owner_obj.memory.read_addr_at(self.addr)
 
     def resolve(self, obj):
         self.resolvedby = obj
@@ -163,7 +163,7 @@ class Relocation(object):
         return True
 
     def reloc_tls_mod_id(self):
-        self.owner_obj.memory.write_addr_at(self.rebased_addr, self.owner_obj.tls_module_id)
+        self.owner_obj.memory.write_addr_at(self.addr, self.owner_obj.tls_module_id)
         self.resolve(None)
         return True
 
@@ -174,8 +174,9 @@ class Relocation(object):
     def reloc_mips_global(self, solist):
         if not self.resolve_symbol(solist):
             return False
-        delta = -self.owner_obj._dynamic['DT_MIPS_BASE_ADDRESS']
-        addr = self.addr + delta
+        #delta = -self.owner_obj._dynamic['DT_MIPS_BASE_ADDRESS']
+        addr = self.addr #+ delta
+        # this causes crashes when not using the ld_fallback, for some reason
         self.owner_obj.memory.write_addr_at(addr, self.resolvedby.rebased_addr)
         return True
 
@@ -247,13 +248,15 @@ class AbsObj(object):
         self.imports = {}
         self.jmprel = {}
         self.symbols = None # Object's symbols
+        self.bits_per_addr = None
+        self.arch = None
 
         # These are set by cle, and should not be overriden manually
         self.rebase_addr = 0 # not to be set manually - used by CLE
         self.tls_module_id = None
 
         self.object_type = None
-        self.deps = None # Needed shared objects (libraries dependencies)
+        self.deps = []           # Needed shared objects (libraries dependencies)
         self.linking = None # Dynamic or static linking
 
         # Custom options
@@ -262,32 +265,29 @@ class AbsObj(object):
         self.custom_offset = None
         self.provides = None
 
+        self.memory = None
         self.ppc64_initial_rtoc = None
 
         if not os.path.exists(self.binary):
             raise CLException("The binary file \"%s\" does not exist :(" %
                               self.binary)
 
-        if 'blob' in kwargs.keys():
-            if 'custom_arch' in kwargs.keys():
-                self.archinfo = Arch(simarch=kwargs['custom_arch'])
-                self.simarch = kwargs['custom_arch']
-            else:
-                self.archinfo = None
-
+        if 'blob' in kwargs and 'custom_arch' in kwargs:
+            self.set_archinfo(Arch(simarch=kwargs['custom_arch']))
+            self.simarch = kwargs['custom_arch']
         else:
-            archinfo = ArchInfo(self.binary)
+            self.archinfo = None
 
-            self.archinfo = archinfo
-            arch_name = archinfo.name
-            self.bits_per_addr = archinfo.bits
+    def set_archinfo(self, archinfo):
+        self.archinfo = archinfo
+        arch_name = archinfo.name
+        self.bits_per_addr = archinfo.bits
 
-            # We use qemu's convention for arch names
-            self.arch = archinfo.to_qemu_arch(arch_name)
-            self.simarch = archinfo.to_simuvex_arch(arch_name)
+        # We use qemu's convention for arch names
+        self.arch = archinfo.to_qemu_arch(arch_name)
+        self.simarch = archinfo.to_simuvex_arch(arch_name)
 
         self.memory = Clemory(self.archinfo) # Private virtual address space, without relocations
-
 
     def get_vex_ir_endness(self):
         """

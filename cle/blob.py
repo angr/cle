@@ -1,4 +1,3 @@
-from .clexception import CLException
 from .abs_obj import AbsObj
 import logging
 import os
@@ -11,7 +10,8 @@ class Blob(AbsObj):
         format.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, path, custom_entry_point, custom_base_addr,
+                custom_arch, custom_offset=None, *args, **kwargs):
         """
         Arguments we expect in kwargs:
             @custom_entry_point: where to start the execution in the blob
@@ -20,20 +20,19 @@ class Blob(AbsObj):
                 n = @custom_offset
         """
 
-        if 'custom_entry_point' not  in kwargs or \
-                'custom_base_addr' not in kwargs or \
-                'custom_arch' not in kwargs:
-            raise CLException("Not enought arguments supplied to load this blob (Blob needs custom_entry_point, custom_base_addr and custom_arch passed as cle_options)")
 
-        if 'custom_offset' not in kwargs:
+        if custom_offset is None:
             l.warning("No custom offset was specified for blob, assuming 0")
 
-        kwargs['blob'] = True
-        super(Blob, self).__init__(*args, **kwargs)
+        super(Blob, self).__init__(path, *args, blob=True,
+                custom_entry_point=custom_entry_point,
+                custom_arch=custom_arch,
+                custom_base_addr=custom_base_addr,
+                custom_offset=custom_offset, **kwargs)
 
-        self.custom_offset = kwargs['custom_offset']
-        self.custom_base_addr = kwargs['custom_base_addr']
-        self.custom_entry_point = kwargs['custom_entry_point']
+        self.custom_offset = custom_offset if custom_offset is not None else 0
+        self.custom_base_addr = custom_base_addr
+        self.custom_entry_point = custom_entry_point
 
         self.entry = self.custom_entry_point
         self._max_addr = self.custom_base_addr
@@ -57,7 +56,6 @@ class Blob(AbsObj):
         if size == 0:
             size = os.path.getsize(self.binary)
 
-        # Fill the memory dict with addr:value
         f.seek(offset)
         if size is None:
             string = f.read()

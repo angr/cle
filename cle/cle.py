@@ -6,7 +6,8 @@ import logging
 import shutil
 import subprocess
 
-from .elf import Elf
+from .elf import ELF
+from .metaelf import MetaELF
 from .cleextractor import CLEExtractor
 from .pe import Pe
 from .idabin import IdaBin
@@ -30,205 +31,150 @@ class Ld(object):
     """ CLE ELF loader
     The loader loads all the objects and exports an abstraction of the memory of
     the process. What you see here is an address space with loaded and rebased
-    binaries.  We try to use the same addresses as GNU Ld would use whenever we
-    can, but it's not always possible.
+    binaries.
     """
 
-    def __init__(self, main_binary, cle_ops):
-        """
-        Cle expects:
-            - @main_binary: the path to the main binary of the project
-            - optionally, a dict as a set of parameters of the following form:
-            {path1:{options1}, path2:{options2} etc.
+    def __init__(self, main_binary, auto_load_libs=True,
+                 force_load_libs=None, skip_libs=None,
+                 main_opts=None, lib_opts=None, custom_ld_path=None,
+                 ignore_import_version_numbers=True, rebase_granularity=0x1000000):
 
-            where:
-                - each path is a distinct binary.
-                - each set of options is a dict.
-
-        Valid options are:
-
-            @backend : 'ida' or 'elf' or 'blob' (defaults to 'elf')
-
-        The following options are only relevant for the main binary:
-
-            @auto_load_libs : bool ; shall we also load dynamic libraries ?
-            @skip_libs = [] ; specific libs to skip, e.g., skip_libs=['libc.so.6']
-            @except_on_ld_fail: bool ; shall we raise an exception if LD_AUDIT fails ?
-            @ignore_missing_libs: bool ; shall we ignore missing libs (instead of exception)
-
-        The following options override CLE's automatic detection:
-
-            @custom_entry_point: the address of a custom entry point that will
-                override CLE's automatic detection.
-            @custom_base_addr: base address to load the binary
-            @custom_offset: discard everything in the binary until this address
-
-            @provides: which dependency is provided by the binary.
-            This is used instead of what CLE would normally load for this
-            dependency.
-            e.g., provides = 'libc.so.6'.
-
-        Example of valid parameters:
-            {'/bin/ls': {backend:'elf', auto_load_libs:True, skip_libs:['libc.so.6']}}
-
-        """
+        self._main_binary_path = os.path.realpath(str(main_binary))
+        self._auto_load_libs = auto_load_libs
+        self._unsatisfied_deps = [] if force_load_libs is None else force_load_libs
+        self._satisfied_deps = set([] if skip_libs is None else skip_libs)
+        self._main_opts = {} if main_opts is None else main_opts
+        self._lib_opts = {} if lib_opts is None else lib_opts
+        self._custom_ld_path = [] if custom_ld_path is None else custom_ld_path
+        self._ignore_import_version_numbers = ignore_import_version_numbers
+        self._rebase_granularity = rebase_granularity
 
         # These are all the class variables of Ld
         # Please add new stuff here along with a description :)
 
-        self.cle_ops = cle_ops  # Load options passed to Cle
-        self.memory = None
-        self.shared_objects = []  # Contains autodetected libraries (CLE binaries)
-        self.dependencies = {}  # {libname : vaddr} dict
-        self._custom_dependencies = {}  # {libname : vaddr} dict
-        self._custom_shared_objects = []  # Contains manually specified libs (CLE binaries)
-        self.ida_rebase_granularity = 0x1000000  # IDA workaround/fallback
-        self.ida_main = False  # Is the main binary backed with ida ?
-        self.path = None  # Path to the main binary
-        self.skip_libs = []  # Libraries we don't want to load
-        self.main_bin = None  # The main binary (i.e., the executable)
-        self.auto_load_libs = False  # Shall we load the libraries the main binary depends on ?
-        self.tmp_dir = None  # A temporary directory where we store copies of the binaries
-        self.original_path = None  # The path to the original binary (before copy)
-        self.except_on_ld_fail = False  # Raise an exception when LD_AUDIT fails
-        self.ignore_missing_libs = False  # Raise an exception when a lib cannot be loaded
-        self.custom_ld_path = None  # Extra location to look for libraries
-        self.ignore_imports = []  # Imports we don't want to resolve
-        self.ignore_import_version_numbers = False  # if libx.so.0 also resolves libx.so
-        self.ld_failed = None  # Whether using LD auditing interface failed
-        self.ld_missing_libs = []  # missing libs that LD complains about
+        self.memory = None          # The loaded, rebased, and relocated memory of the program
+        self.main_bin = None        # The main binary (i.e., the executable)
+        self.shared_objects = {}    # Contains autodetected libraries (CLE binaries)
+        self.all_objects = []       # all the different objects loaded
 
-        main_binary = str(main_binary)
-
-        if len(cle_ops) == 0:
-            l.info("No load_options passed to Cle")
-        else:
-            #import pdb; pdb.set_trace()
-            # If just a dict is passed, we assume these options are for the main
-            # binary, and we transform it into a dict of dict
-            if not isinstance(cle_ops.values()[0], dict):
-                nd = {main_binary: cle_ops}
-                cle_ops = nd
-
-        main_ops = {'backend': 'elf'}
-        libs = []
-        libs_ops = []
-
-        # Get the a list of binaries for which we have parameters
-        for b, ops in cle_ops.iteritems():
-            b = str(b)
-            if 'backend' not in ops:
-                ops['backend'] = 'elf'  # We default to Elf
-
-            if b == main_binary:
-                main_ops = ops
-                continue
-
-            else:
-                libs.append(b)
-                libs_ops.append(ops)
-
-        # We load everything we got as specified in the parameters. This means
-        # that custom shared libraries with custom options will be loaded
-        # in place of autodetected stuff (which come later anyway)
-        self._load_exe(main_binary, main_ops)
-        for i in range(0, len(libs)):
-            if not os.path.exists(libs[i]):
-                path = self._search_so(os.path.basename(libs[i]))
-            else:
-                path = libs[i]
-            self._make_custom_lib(path, libs_ops[i])
-
-        # From here, we have a coupe of options:
-
-        #     1. The sole specified binary in an elf file: we autodetect
-        #     dependencies, and load them if auto_load_libs is True
-
-        #     2. The sole binary is a blob: we load it and exit.
-
-        #     3. All binaries are Elf files. We autodetect dependencies, and only
-        #     load those that are not already provided by one of the specified
-        #     binaries.  (See the provide option)
-
-        #     4. The main binary is an Elf file, the rest is mixed:
-        #         - We apply 3, and blobs replace autodetected dependencies if
-        #         they provide the same library. Not sure how useful this is.
-
-        #     5. The main binary is a blob. The rest is mixed:
-        #         - We don't try to autodetect anything, we just load everything
-        #         arbitrarily.
-
-        # Load custom binaries
-        for o in self._custom_shared_objects:
-            self._manual_load(o)
-
-        # Cases 2 and 5, skip dependencies resolution if the main binary is a blob
-        if isinstance(self.main_bin, Blob):
-            return
-
-        # If we reach this point, the main binary is Elf.
-
-        if self.main_bin.linking == 'static':
-            l.debug("This binary was linked statically, there is nothing to resolve here")
-            return
-
-        # We need to resolve dependencies here, even when auto_load_libs=False
-        # because the SimProcedure resolution needs this info.
-
-        self.dependencies = self._ld_so_addr()
-
-        if self.dependencies is None:
-            l.warning("Could not get dependencies from LD, falling back to"
-                      " static mode")
-            self.dependencies = self._ld_so_addr_fallback()
-
-        if self.auto_load_libs is True:
-            l.info("TODO: check for memory overlapping with manually loaded stuff")
-            self._auto_load_shared_libs()
-
-        # Relocating stuff, resolving exports, etc. is done here
+        self._load_main_binary()
+        self._load_dependencies()
         self._perform_reloc()
-
-        # IDA backed stuff is not kept in sync with cle's mem, and the
-        # relocations most likely altered it
-        if self.ida_main is True:
+        if isinstance(self.main_bin, IdaBin):
             self.ida_sync_mem()
 
-    def _perform_reloc(self):
+    def _load_main_binary(self):
+        base_addr = self._main_opts.get('custom_base_addr', 0)
+        self.main_bin = self._load_object(self._main_binary_path, self._main_opts)
+        self.memory = Clemory(self.main_bin.archinfo)
+        self._rebase_obj(base_addr, self.main_bin)
 
-        l.info("TODO: relocations in custom loaded shared objects")
-        # Libraries
-        for i, obj in enumerate(self.shared_objects):
-            obj.tls_module_id = i
-            self._perform_reloc_stub(obj)
+    def _load_dependencies(self):
+        while len(self._unsatisfied_deps) > 0:
+            dep = self._unsatisfied_deps.pop(0)
+            if dep in self._satisfied_deps:
+                continue
+            path = self._resolve_path(dep)
+            if not path:
+                continue
+            libname = os.path.basename(path)
+            options = self._lib_opts.get(libname, {})
+            base_addr = options.get('custom_base_addr', None)
+            if base_addr is None:
+                base_addr = self._get_safe_rebase_addr()
+            obj = self._load_object(path, options)
+            self.shared_objects[obj.soname] = obj
+            self._rebase_obj(base_addr, obj)
 
-        # Main binary
-        self._perform_reloc_stub(self.main_bin)
-
-    def _perform_reloc_stub(self, binary):
-        """ This performs dynamic linking of all objects, i.e., calculate
-            addresses of relocated symbols and resolve imports for each object.
-            When using CLE without IDA, the rebasing and relocations are done by
-            CLE based on information from Elf files.
-            When using CLE with IDA, the rebasing is done with IDA, and
-            relocations of symbols are done by CLE using the IDA API.
-        """
-        solist = self.shared_objects + [self.main_bin]
-        if isinstance(binary, IdaBin):
-            self._resolve_imports_ida(binary)
-            # Once everything is relocated, we can copy IDA's memory to Ld
-        elif isinstance(binary, Pe):
-            pass
+    def _load_object(self, path, options):
+        backend = options.get('backend', 'elf')
+        if backend == 'elf':
+            obj = ELF(path, **options)
+        elif backend == 'cleextract':
+            obj = CLEExtractor(path, **options)
+        elif backend == 'ida':
+            obj = IdaBin(path, **options)
+        elif backend == 'pe':
+            obj = Pe(path, **options)
+        elif backend == 'blob':
+            obj = Blob(path, **options)
         else:
-            for reloc in binary.relocs:
-                reloc.relocate(solist)
+            raise CLException('Invalid backend: %s' % backend)
+
+        if self._auto_load_libs:
+            self._unsatisfied_deps += obj.deps
+        self._satisfied_deps.add(path)
+        self._satisfied_deps.add(os.path.basename(path))
+        self._satisfied_deps.add(os.path.basename(path).strip('.0123456789'))
+        self.all_objects.append(obj)
+        return obj
+
+    def _resolve_path(self, path):
+        if '/' in path:
+            if self._check_lib(path):
+                return path
+        else:
+            loc = []
+            loc.append(os.path.dirname(self._main_binary_path))
+            loc.append('.')
+            loc += self._custom_ld_path
+            loc += self.main_bin.archinfo._arch_paths()
+            # Dangerous, only ok if the hosts sytem's is the same as the target
+            #loc.append(os.getenv("LD_LIBRARY_PATH"))
+
+            l.debug("Searching for SO %s in %s", path, str(loc))
+            for ld_path in loc:
+                for s_path, _, files in os.walk(ld_path, followlinks=True):
+                    sopath = os.path.join(s_path, path)
+                    if path in files and self._check_lib(sopath):
+                        return sopath
+                    elif self._ignore_import_version_numbers:
+                        for filename in files:
+                            if filename.startswith(path):
+                                sopath = os.path.join(s_path, filename)
+                                l.debug("-->Found with version number: %s", path)
+                                if self._check_lib(sopath):
+                                    return sopath
+
+    def _perform_reloc(self):
+        for i, obj in enumerate(self.all_objects):
+            obj.tls_module_id = i
+            if isinstance(obj, IdaBin):
+                self._resolve_imports_ida(obj)
+            elif isinstance(obj, Pe):
+                pass
+            elif isinstance(obj, MetaELF):
+                for reloc in obj.relocs:
+                    reloc.relocate(self.all_objects)
+
+    def _rebase_obj(self, base, obj):
+        """ Relocate a shared objet given a base address
+        We actually copy the local memory of the object at the new computed
+        address in the "main memory" """
+
+        if isinstance(obj, IdaBin):
+            obj.rebase(base)
+            return
+        l.info("[Rebasing %s @0x%x]", os.path.basename(obj.binary), base)
+        self.memory.add_backer(base, obj.memory)
+        obj.rebase_addr = base
+
+    def _get_safe_rebase_addr(self):
+        """
+        Get a "safe" rebase addr, i.e., that won't overlap with already loaded stuff.
+        This is used as a fallback when we cannot use LD to tell use where to load
+        a binary object. It is also a workaround to IDA crashes when we try to
+        rebase binaries at too high addresses.
+        """
+        granularity = self._rebase_granularity
+        return self.max_addr() + (granularity - self.max_addr() % granularity)
 
     def ida_sync_mem(self):
         """
             TODO: be smarter, and add a flag to IdaBin to toggle resync
         """
-        objs = [self.main_bin]
-        for i in self.shared_objects:
+        objs = []
+        for i in self.all_objects:
             if isinstance(i, IdaBin):
                 objs.append(i)
             else:
@@ -239,58 +185,31 @@ class Ld(object):
             self.memory.update_backer(o.rebase_addr, o.memory)
 
     def addr_belongs_to_object(self, addr):
-        if addr in self.main_bin.memory:
-            return self.main_bin
-
-        for so in self.shared_objects:
-            if addr - so.rebase_addr in so.memory:
-                return so
-        return None
+        for obj in self.all_objects:
+            if addr - obj.rebase_addr in obj.memory:
+                return obj
 
     def addr_is_ida_mapped(self, addr):
-        """
-            Is the object mapping @addr an instance of IdaBin ?
+        """ Is the object mapping @addr an instance of IdaBin ?
         """
         return isinstance(IdaBin, self.addr_belongs_to_object(addr))
 
     def addr_is_mapped(self, addr):
-        """
-        Is addr mapped at all ?
+        """ Is addr mapped at all ?
         """
         return self.addr_belongs_to_object(addr) is not None
 
-    def min_addr(self):
-        """ The minimum base address of any loaded object """
-
-        # Let's start with the main executable
-        if self.ida_main == True:
-            return self.main_bin.get_min_addr()
-        else:
-            base = self.main_bin.get_min_addr()
-
-        # Libraries usually have 0 as their base address, until relocation.
-        # It is unlikely that libraries get relocated at a lower address than
-        # the main binary, but we never know...
-        for i in self.shared_objects:
-            if 0 < i.rebase_addr < base:
-                base = i.rebase_addr
-
-        return base
-
     def max_addr(self):
+        """ The maximum address loaded as part of any loaded object
+        (i.e., the whole address space)
         """
-        The maximum address loaded as part of any loaded object (i.e., the whole address space)
+        return max(map(lambda x: x.get_max_addr() + x.rebase_addr, self.all_objects))
+
+    def min_addr(self):
+        """ The minimum address loaded as part of any loaded object
+        i.e., the whole address space)
         """
-
-        m1 = self.main_bin.get_max_addr()
-
-        for i in self.shared_objects:
-            m1 = max(m1, i.get_max_addr() + i.rebase_addr)
-
-        for i in self._custom_shared_objects:
-            m1 = max(m1, i.get_max_addr() + i.rebase_addr)
-
-        return m1
+        return min(map(lambda x: x.get_min_addr() + x.rebase_addr, self.all_objects))
 
     def override_got_entry(self, symbol, newaddr, obj):
         """ This overrides the address of the function defined by @symbol with
@@ -310,8 +229,7 @@ class Ld(object):
     def find_symbol_name(self, addr):
         """ Return the name of the function starting at addr.
         """
-
-        for so in [self.main_bin] + self.shared_objects:
+        for so in self.all_objects:
             if addr - so.rebase_addr in so.symbols_by_addr:
                 return so.symbols_by_addr[addr - so.rebase_addr].name
         return None
@@ -321,20 +239,13 @@ class Ld(object):
         Try to guess the name of the function at @addr
         WARNING: this is approximate
         """
-
-        objs = [self.main_bin]
-        objs = objs + self.shared_objects
-
-        for o in objs:
+        for o in self.all_objects:
             name = o.guess_function_name(addr)
             if name is not None:
                 return name
 
     def find_module_name(self, addr):
-        objs = [self.main_bin]
-        objs = objs + self.shared_objects
-
-        for o in objs:
+        for o in self.all_objects:
             # The Elf class only works with static non-relocated addresses
             if o.contains_addr(addr - o.rebase_addr):
                 return os.path.basename(o.binary)
@@ -346,231 +257,9 @@ class Ld(object):
         if isinstance(self.main_bin, IdaBin):
             if symbol in self.main_bin.imports:
                 return self.main_bin.imports[symbol]
-        elif isinstance(self.main_bin, Elf):
+        elif isinstance(self.main_bin, ELF):
             if symbol in self.main_bin.jmprel:
                 return self.main_bin.jmprel[symbol].addr
-
-    def _load_exe(self, path, main_binary_ops):
-        """ Instanciate and load exe into "main memory
-        """
-        # Warning: when using IDA, the relocations will be performed in its own
-        # memory, which we'll have to sync later with Ld's memory
-        self.path = path
-        if main_binary_ops['backend'] == "blob":
-            try:
-                arch = main_binary_ops['archinfo']
-            except KeyError:
-                l.debug("No archinfo instance passed to Cle for blob")
-        else:
-            arch = ArchInfo(self.path).name
-            self.tmp_dir = "/tmp/cle_" + os.path.basename(self.path) + "_" + arch
-
-        if 'skip_libs' in main_binary_ops:
-            self.skip_libs = main_binary_ops['skip_libs']
-
-        if 'auto_load_libs' in main_binary_ops:
-            self.auto_load_libs = main_binary_ops['auto_load_libs']
-
-        if 'except_on_ld_fail' in main_binary_ops:
-            self.except_on_ld_fail = main_binary_ops['except_on_ld_fail']
-
-        if 'ignore_missing_libs' in main_binary_ops:
-            self.ignore_missing_libs = main_binary_ops['ignore_missing_libs']
-
-        if 'custom_ld_path' in main_binary_ops:
-            self.custom_ld_path = main_binary_ops['custom_ld_path']
-
-        if 'ignore_imports' in main_binary_ops:
-            self.ignore_imports = main_binary_ops['ignore_imports']
-
-        if 'ignore_import_version_numbers' in main_binary_ops:
-            self.ignore_import_version_numbers = main_binary_ops['ignore_import_version_numbers']
-
-        # IDA specific crap
-        if main_binary_ops['backend'] == 'ida':
-            self.ida_main = True
-            # If we use IDA, it needs a directory where it has permissions
-            self.original_path = self.path
-            path = self._copy_obj(self.path)
-            self.path = path
-
-        # The backend defaults to Elf
-        self.main_bin = self._instanciate_binary(path, main_binary_ops)
-
-        # Copy mem from object's private memory to Ld's address space
-        self.memory = Clemory(self.main_bin.archinfo)
-        self.memory.add_backer(self.main_bin.rebase_addr, self.main_bin.memory)
-
-    def _make_custom_lib(self, path, ops):
-        """
-        Instanciate custom library (i.e., manyally specified lib) as opposed to auto-loading)
-        Returns: nothing, it only appends the new binary to the custom shared objects dict
-        """
-
-        obj = self._instanciate_binary(path, ops)
-        self._custom_shared_objects.append(obj)
-
-        # What library is that ? If nothing was specified, we use the filename
-        if obj.provides is not None:
-            dep = obj.provides
-        else:
-            dep = os.path.basename(path)
-
-        self._custom_dependencies[dep] = obj.custom_base_addr if obj.custom_base_addr else 0
-
-    def _manual_load(self, obj):
-        """
-        Manual loading stub.
-        """
-        # If no base address was specified, let's find one
-        if obj.custom_base_addr is None:
-            base = self._get_safe_rebase_addr()
-            obj.rebase_addr = base
-        else:
-            obj.rebase_addr = obj.custom_rebase_addr
-        self.memory.add_backer(obj.rebase_addr, obj.memory)
-
-
-    @staticmethod
-    def _instanciate_binary(path, ops):
-        """
-        Simple stub function to instanciate the right type given the backend name
-        """
-        backend = ops['backend']
-
-        if backend == 'elf':
-            obj = Elf(path)
-
-        elif backend == 'cleextract':
-            obj = CLEExtractor(path)
-
-        elif backend == 'pe':
-            obj = Pe(path)
-
-        elif backend == 'ida':
-            obj = IdaBin(path)
-
-        elif backend == 'blob':
-            if 'custom_base_addr' not in ops.keys() \
-                    or 'custom_entry_point' not in ops.keys() \
-                    or 'custom_arch' not in ops.keys():
-                raise CLException("Blob needs a custom_entry_point, custom_"
-                                  "base_addr and custom_arch passed as cle options")
-
-            obj = Blob(path, custom_entry_point=ops['custom_entry_point'],
-                       custom_base_addr=ops['custom_base_addr'],
-                       custom_offset=ops['custom_offset'], custom_arch=ops['custom_arch'])
-
-        else:
-            raise CLException("Unknown backend %s" % backend)
-
-        if 'custom_base_addr' in ops:
-            obj.custom_base_addr = ops['custom_base_addr']
-
-        if 'custom_entry_point' in ops:
-            obj.custom_entry_point = ops['custom_entry_point']
-
-        if 'custom_offset' in ops:
-            obj.custom_offset = ops['custom_offset']
-
-        if 'provides' in ops:
-            obj.provides = ops['provides']
-
-        return obj
-
-    def _auto_load_shared_libs(self):
-        """ Load and rebase shared objects """
-        # shared_libs = self.main_bin.deps
-        shared_libs = self.dependencies
-        for name, addr in shared_libs.iteritems():
-
-            # If a custom loaded object already provides the same dependency as
-            # what we autodetected, let's skip that
-            if name in self._custom_dependencies:
-                continue
-
-            if name in self.skip_libs:
-                continue
-
-            if len(name) == 0:
-                l.warning("***Library with no name at 0x%x. You are probably trying to load a shared object as the main library. If that's the case, its base address will be 0 instead of 0x%x. If that's not the case, this is probably a bug.***", addr, addr)
-                continue
-
-            fname = os.path.basename(name)
-            # If we haven't determined any base address yet (probably because
-            # LD_AUDIT failed)
-            if addr == 0:
-                addr = self._get_safe_rebase_addr()
-
-            if self.ida_main == True:
-                so = self._auto_load_so_ida(name)
-            else:
-                so = self._auto_load_so_cle(name)
-
-            if so is None:
-                if fname in self.skip_libs:
-                    l.debug("Shared object %s not loaded (skip_libs)", name)
-                else:
-                    l.warning("Could not load lib %s", fname)
-                    if self.ignore_missing_libs is False:
-                        raise CLException(
-                            "Could not find suitable %s (%s), please copy it in the  binary's directory or set skip_libs = [\"%s\"]",
-                                fname, self.main_bin.archinfo.name, fname)
-            else:
-                self.rebase_lib(so, addr)
-                so.rebase_addr = addr
-                self.shared_objects.append(so)
-
-    def rebase_lib(self, so, base):
-        """ Relocate a shared objet given a base address
-        We actually copy the local memory of the object at the new computed
-        address in the "main memory" """
-
-        if isinstance(so, IdaBin):
-            so.rebase(base)
-            return
-        l.info("[Rebasing %s @0x%x]", os.path.basename(so.binary), base)
-        self.memory.add_backer(base, so.memory)
-
-    def _get_safe_rebase_addr(self):
-        """
-        Get a "safe" rebase addr, i.e., that won't overlap with already loaded stuff.
-        This is used as a fallback when we cannot use LD to tell use where to load
-        a binary object. It is also a workaround to IDA crashes when we try to
-        rebase binaries at too high addresses.
-        """
-        granularity = self.ida_rebase_granularity
-        base = self.max_addr() + (granularity - self.max_addr() % granularity)
-        return base
-
-    def _same_dir_shared_objects(self):
-        """
-        Returns the list of *.so found in the same directory as the main binary
-        """
-        so = {}
-        curdir = os.path.dirname(self.original_path)
-        for f in os.listdir(curdir):
-            if os.path.isfile(os.path.join(curdir, f)) and ".so" in f:
-                so[f] = 0
-        return so
-
-    def _get_static_deps(self, obj):
-        """
-        Static deps because we statically read it from the Elf file (as opposed to ask GNU ld)
-        """
-        if isinstance(obj, Elf):
-            return obj.deps
-        if isinstance(obj, CLEExtractor):
-            return obj.deps
-        elif isinstance(obj, IdaBin):
-            elf_b = Elf(self.path, load=False)  # Use Elf to determine needed libs
-            return elf_b.deps
-        elif isinstance(obj, Pe):
-            return obj.deps
-        elif isinstance(obj, Blob):
-            return []
-        else:
-            raise CLException("I don't know how to get deps for this type of binary")
 
     def _ld_so_addr(self):
         """ Use LD_AUDIT to find object dependencies and relocation addresses"""
@@ -594,13 +283,13 @@ class Ld(object):
         ld_path = ld_path + ":" + ld_libs
 
         # Make LD look for custom libraries in the right place
-        if self.custom_ld_path is not None:
-            ld_path = self.custom_ld_path + ":" + ld_path
+        if self._custom_ld_path is not None:
+            ld_path = self._custom_ld_path + ":" + ld_path
 
         var = "LD_LIBRARY_PATH=%s,LD_AUDIT=%s,LD_BIND_NOW=yes" % (ld_path, ld_audit_obj)
 
         # Let's work on a copy of the binary
-        binary = self._binary_screwup_copy(self.path)
+        binary = self._binary_screwup_copy(self._main_binary_path)
 
         #LD_AUDIT's output
         log = "./ld_audit.out"
@@ -613,7 +302,7 @@ class Ld(object):
         err = s.stderr.readlines()
         msg = "cannot open shared object file"
 
-        deps = self._get_static_deps(self.main_bin)
+        deps = self.main_bin.deps
 
         for dep in deps:
             for str_e in err:
@@ -621,7 +310,7 @@ class Ld(object):
                     l.error("LD could not find dependency %s.", dep)
                     l.error("GNU LD will stop looking for libraries to load if "
                             "it doesn't find one of them.")
-                    self.ld_missing_libs.append(dep)
+                    #self.ld_missing_libs.append(dep)
                     break
 
         s.communicate()
@@ -642,7 +331,6 @@ class Ld(object):
 
             l.debug("---")
             os.remove(log)
-            self.ld_failed = False
             return libs
 
         else:
@@ -650,16 +338,7 @@ class Ld(object):
             l.error("Could not find library dependencies using ld."
                     " The log file '%s' does not exist, did qemu fail ? Try to run "
                     "`%s` manually to check", log, " ".join(cmd))
-            l.info("Will fallback to alternate loading mode. The addresses won't "
-                   "match qemu's addresses anymore, and only libraries from the "
-                   "current directory will be loaded.")
-
-            if self.except_on_ld_fail:
-                raise CLException("Could not find library dependencies using ld.")
-            else:
-                self.ld_failed = True
-
-            return None
+            raise CLException("Could not find library dependencies using ld.")
 
     def _binary_screwup_copy(self, path):
         """
@@ -673,7 +352,7 @@ class Ld(object):
         """
 
         # Let's work on a copy of the main binary
-        copy = self._copy_obj(path, suffix="screwed")
+        copy = self._make_tmp_copy(path, suffix=".screwed")
         f = open(copy, 'r+')
 
         # Looking at elf.h, we can see that the the entry point's
@@ -689,71 +368,16 @@ class Ld(object):
         f.close()
         return copy
 
-    def _ld_so_addr_fallback(self):
-        """
-        Sometimes, _ld_so_addr fails, because it relies on LD_AUDIT, and that
-        won't work for binaries that have been compiled for a different ABI.
-        In this case, we only extract the DT_NEEDED field of Elf binaries, and
-        set 0 as the load address for SOs.
-        """
-
-        deps = self._get_static_deps(self.main_bin)
-        if deps is None:
-            raise CLException("Could not find any dependencies for this binary,"
-                              " this is most likely a bug")
-        load = {}
-        for i in deps:
-            load[i] = 0
-        return load
-
-    def _auto_load_so_ida(self, soname, base_addr=None):
-        """Ida cannot use system libraries because it needs write access to the
-           same location to write its #@! db files.
-        """
-
-        # This looks for an existing /tmp/cle_blah/lib_blah.so
-        dname = os.path.dirname(self.path)
-        lib = os.path.basename(soname)
-        sopath = os.path.join(dname, lib)
-
-        # Otherwise, create cle's tmp dir and try to find the lib somewhere else
-        if not os.path.exists(sopath) or not self._check_arch(sopath):
-            self._make_tmp_dir()
-
-            # Look in the same dir as the main binary
-            orig_dname = os.path.dirname(self.original_path)
-            so_orig = os.path.join(orig_dname, lib)
-
-            if os.path.exists(so_orig) and self._check_arch(so_orig):
-                sopath = self._copy_obj(so_orig)
-
-            # finally let's find it somewhere in the system
-            else:
-                so_system = self._search_so(soname)
-                # If found, we make a copy of it in our tmpdir
-                if so_system is not None:
-                    sopath = self._copy_obj(so_system)
-                else:
-                    return None
-
-        obj = IdaBin(sopath, base_addr)
-        return obj
-
-    def _make_tmp_dir(self):
-        """ Create CLE's tmp directory if it does not exists """
-        if not os.path.exists(self.tmp_dir):
-            os.mkdir(self.tmp_dir)
-
-
-    def _copy_obj(self, path, suffix=None):
+    @staticmethod
+    def _make_tmp_copy(path, suffix=None):
         """ Makes a copy of obj into CLE's tmp directory """
-        self._make_tmp_dir()
+        if not os.path.exists('/tmp/cle'):
+            os.mkdir('/tmp/cle')
         if os.path.exists(path):
-            if suffix is None:
-                bn = os.path.basename(path)
-            else:
-                bn = os.path.basename(path) + "_" + suffix
-            dest = os.path.join(self.tmp_dir, bn)
+            bn = os.urandom(5).encode('hex')
+            if suffix is not None:
+                bn += suffix
+            dest = os.path.join('/tmp/cle', bn)
             l.info("\t -> copy obj %s to %s", path, dest)
             shutil.copy(path, dest)
         else:
@@ -761,22 +385,8 @@ class Ld(object):
                               " path is correct" % path)
         return dest
 
-    def _auto_load_so_cle(self, soname):
-        # Soname can be a path or just the name if the library, in which case we
-        # search for it in known paths.
-
-        if os.path.exists(soname):
-            path = soname
-        else:
-            path = self._search_so(soname)
-
-        if path is not None:
-            so = Elf(path)
-            return so
-
     def _check_arch(self, objpath):
         """ Is obj the same architecture as our main binary ? """
-
         arch = ArchInfo(objpath)
         # The architectures are exactly the same
         return self.main_bin.archinfo.compatible_with(arch)
@@ -793,37 +403,6 @@ class Ld(object):
         except UnknownFormatException:
             l.info("Binary with unknown format ignored: %s", sopath)
         return False
-
-    def _search_so(self, soname):
-        """ Looks for a shared object given its filename"""
-
-        # Normally we should not need this as LD knows everything already. But
-        # in case we need to look for stuff manually...
-        loc = []
-        loc.append(os.path.dirname(self.path))
-        if self.custom_ld_path is not None:
-            loc.append(self.custom_ld_path)
-        arch_lib = self.main_bin.archinfo._arch_paths()
-        loc = loc + arch_lib
-        # Dangerous, only ok if the hosts sytem's is the same as the target
-        #loc.append(os.getenv("LD_LIBRARY_PATH"))
-
-        libname = os.path.basename(soname)
-
-        l.debug("Searching for SO %s in %s", libname, str(loc))
-        for ld_path in loc:
-            #if not ld_path: continue
-            for s_path, _, files in os.walk(ld_path, followlinks=True):
-                sopath = os.path.join(s_path, libname)
-                if libname in files and self._check_lib(sopath):
-                    return sopath
-                elif self.ignore_import_version_numbers:
-                    for filename in files:
-                        if filename.startswith(libname):
-                            sopath = os.path.join(s_path, filename)
-                            l.debug("-->Found with version number: %s", libname)
-                            if self._check_lib(sopath):
-                                return sopath
 
     def _all_so_exports(self):
         exports = {}
