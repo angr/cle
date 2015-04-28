@@ -34,11 +34,12 @@ class Blob(AbsObj):
         self.custom_offset = kwargs['custom_offset']
         self.custom_base_addr = kwargs['custom_base_addr']
         self.custom_entry_point = kwargs['custom_entry_point']
+
         self.entry = self.custom_entry_point
+        self._max_addr = self.custom_base_addr
 
         self.load(self.custom_offset)
 
-        self._max_addr = max(self._memory.keys())
 
     def get_min_addr(self):
         return self.custom_base_addr
@@ -46,20 +47,25 @@ class Blob(AbsObj):
     def get_max_addr(self):
         return self._max_addr
 
-    def load(self, offset, size=0):
+    def load(self, offset, size=None):
         """ Load a segment into memory """
         try:
             f = open(self.binary, 'r')
         except IOError:
-            print("\tFile does not exist", self.binary)
+            raise IOError("\tFile %s does not exist" % self.binary)
 
         if size == 0:
             size = os.path.getsize(self.binary)
 
         # Fill the memory dict with addr:value
         f.seek(offset)
-        for i in range(offset, size):
-            self._memory[i + self.custom_base_addr] = f.read(1)
+        if size is None:
+            string = f.read()
+        else:
+            string = f.read(size)
+        self.memory.add_backer(self.custom_base_addr, string)
+        if self.custom_base_addr + len(string) > self._max_addr:
+            self._max_addr = self.custom_base_addr + len(string)
 
     def function_name(self, addr): #pylint: disable=unused-argument,no-self-use
         '''
@@ -68,10 +74,7 @@ class Blob(AbsObj):
         return None
 
     def contains_addr(self, addr):
-        max_addr = self.get_max_addr()
-        min_addr = self.get_min_addr()
-
-        return min_addr <= addr <= max_addr
+        return addr in self.memory
 
     def in_which_segment(self, addr): #pylint: disable=unused-argument,no-self-use
         '''

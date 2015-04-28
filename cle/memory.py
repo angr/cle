@@ -1,3 +1,7 @@
+import bisect
+
+# TODO: Further optimization is possible now that the list of backers is sorted
+
 class Clemory(object):
     def __init__(self, archinfo):
         self._archinfo = archinfo
@@ -6,9 +10,15 @@ class Clemory(object):
         self._pointer = 0
 
     def add_backer(self, start, data):
-        self._backers.append((start, data))
+        if not isinstance(data, (str, Clemory)):
+            raise TypeError("Data must be a string or a Clemory")
+        if start in self:
+            raise ValueError("Address %#x is already backed!" % start)
+        bisect.insort(self._backers, (start, data))
 
     def update_backer(self, start, data):
+        if not isinstance(data, (str, Clemory)):
+            raise TypeError("Data must be a string or a Clemory")
         for i, (oldstart, _) in enumerate(self._backers):
             if oldstart == start:
                 self._updates[i] = (start, data)
@@ -18,11 +28,11 @@ class Clemory(object):
         if k in self._updates:
             return self._updates[k]
         else:
-            for start, data in reversed(self._backers):
+            for start, data in self._backers:
                 if isinstance(data, str):
                     if 0 <= k - start < len(data):
                         return data[k - start]
-                elif isinstance(data, (Clemory, dict)):
+                elif isinstance(data, Clemory):
                     try:
                         return data[k - start]
                     except KeyError:
@@ -30,9 +40,9 @@ class Clemory(object):
             raise KeyError(k)
 
     def __setitem__(self, k, v):
+        if k not in self:
+            raise IndexError(k)
         self._updates[k] = v
-
-    # no __delitem__, __iter__, or __len__: not clear how that would work w/ backers
 
     def __contains__(self, k):
         try:
@@ -46,8 +56,6 @@ class Clemory(object):
         for start, data in self._backers:
             if isinstance(data, str):
                 out['backers'].append((start, {'type': 'str', 'data': data}))
-            elif isinstance(data, dict):
-                out['backers'].append((start, {'type': 'dict', 'data': data}))
             elif isinstance(data, Clemory):
                 out['backers'].append((start, {'type': 'Clemory', 'data': data.__getstate__()}))
 
@@ -56,8 +64,6 @@ class Clemory(object):
         self._backers = []
         for start, serialdata in s['backers']:
             if serialdata['type'] == 'str':
-                self._backers.append((start, serialdata['data']))
-            elif serialdata['type'] == 'dict':
                 self._backers.append((start, serialdata['data']))
             elif serialdata['type'] == 'Clemory':
                 subdata = Clemory(self._archinfo)
@@ -94,40 +100,26 @@ class Clemory(object):
         by = self._archinfo.addr_to_bytes(addr)
         self.write_bytes(where, by)
 
-    #@property
-    #def stride_repr(self):
-    #    # We save tuples of (start, end, bytes) in the list `strides`
-    #    strides = [ ]
+    @property
+    def _stride_repr(self):
+        out = []
+        for start, data in self._backers:
+            if isinstance(data, str):
+                out.append((start, bytearray(data)))
+            else:
+                out += map(lambda (substart, subdata), start=start: (substart+start, subdata), data._stride_repr)
+        for key, val in self._updates.iteritems():
+            for start, data in out:
+                if start <= key < start + len(data):
+                    data[key - start] = val
+                    break
+            else:
+                raise ValueError('There was an update to a Clemory not on top of any backer')
+        return out
 
-    #    start_ = None
-    #    end_ = None
-    #    bytestring = ""
-
-    #    mem = self
-
-    #    for pos in xrange(min(self.keys()), max(self.keys())):
-    #        if pos in mem:
-    #            if start_ is None:
-    #                start_ = pos
-    #            end_ = pos
-
-    #            bytestring += mem[pos]
-    #        else:
-    #            if len(bytestring):
-    #                # Create the tuple and save it
-    #                tpl = (start_, end_, bytestring)
-    #                strides.append(tpl)
-
-    #                # Initialize the data structure
-    #                start_ = None
-    #                end_ = None
-    #                bytestring = ""
-
-    #    if start_ is not None:
-    #        tpl = (start_, end_, bytestring)
-    #        strides.append(tpl)
-
-    #    return strides
+    @property
+    def stride_repr(self):
+        return map(lambda (start, bytearr): (start, start+len(bytearr), str(bytearr)), self._stride_repr)
 
     def seek(self, value):
         self._pointer = value

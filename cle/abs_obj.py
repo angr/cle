@@ -169,7 +169,7 @@ class Relocation(object):
 
     @staticmethod
     def reloc_tls_offset():
-        raise CLException("this should crash")
+        return False
 
     def reloc_mips_global(self, solist):
         if not self.resolve_symbol(solist):

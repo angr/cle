@@ -239,20 +239,11 @@ class Ld(object):
             self.memory.update_backer(o.rebase_addr, o.memory)
 
     def addr_belongs_to_object(self, addr):
-        maxaddr = self.main_bin.get_max_addr()
-        minaddr = self.main_bin.get_min_addr()
-
-        if minaddr <= addr <= maxaddr:
+        if addr in self.main_bin.memory:
             return self.main_bin
 
         for so in self.shared_objects:
-            maxaddr = so.get_max_addr() + so.rebase_addr
-            minaddr = so.rebase_addr
-            if minaddr == 0:
-                raise CLException(
-                    "Rebase address of object %s is 0, it should have been updated already" % os.path.basename(
-                        so.binary))
-            if minaddr <= addr <= maxaddr:
+            if addr - so.rebase_addr in so.memory:
                 return so
         return None
 
