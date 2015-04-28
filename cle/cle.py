@@ -56,6 +56,7 @@ class Ld(object):
         self.main_bin = None        # The main binary (i.e., the executable)
         self.shared_objects = {}    # Contains autodetected libraries (CLE binaries)
         self.all_objects = []       # all the different objects loaded
+        self.requested_objects = set()
 
         self._load_main_binary()
         self._load_dependencies()
@@ -103,6 +104,7 @@ class Ld(object):
 
         if self._auto_load_libs:
             self._unsatisfied_deps += obj.deps
+        self.requested_objects.update(obj.deps)
         self._satisfied_deps.add(path)
         self._satisfied_deps.add(os.path.basename(path))
         self._satisfied_deps.add(os.path.basename(path).strip('.0123456789'))
