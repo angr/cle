@@ -3,8 +3,8 @@ import logging
 import subprocess
 import simuvex
 import struct
-from .clexception import CLException, UnknownFormatException
-from readelf import ELFFile
+from .clexception import CLException
+from elftools.elf import elffile
 
 l = logging.getLogger("cle.archinfo")
 
@@ -485,7 +485,7 @@ class ArchInfo(Arch):
         if not os.access(binary, os.R_OK):
             raise CLException("Insufficient permissions to read file %s" % binary)
 
-        elfread = ELFFile(open(binary))
+        elfread = elffile.ELFFile(open(binary))
 
         bfdname = {
             'EM_X86_64': 'i386:x86-64',

@@ -1,6 +1,5 @@
 import struct
-import readelf
-from elftools.elf import sections, relocation
+from elftools.elf import elffile, sections
 
 from .abs_obj import Symbol, Relocation, Segment
 from .metaelf import MetaELF
@@ -30,7 +29,7 @@ class ELFSegment(Segment):
 class ELF(MetaELF):
     def __init__(self, binary, **kwargs):
         super(ELF, self).__init__(binary, **kwargs)
-        self.reader = readelf.ELFFile(open(self.binary))
+        self.reader = elffile.ELFFile(open(self.binary))
         self.set_archinfo(ArchInfo(binary))
         self.strtab = None
         self.dynsym = None
@@ -86,7 +85,7 @@ class ELF(MetaELF):
             fakestrtabheader = {
                 'sh_offset': self._dynamic['DT_STRTAB']
             }
-            self.strtab = sections.StringTableSection(fakestrtabheader, 'strtab_cle', self.memory)
+            self.strtab = elffile.StringTableSection(fakestrtabheader, 'strtab_cle', self.memory)
             self.deps = map(self.strtab.get_string, self.deps)
             if 'DT_SONAME' in self._dynamic:
                 self.soname = self.strtab.get_string(self._dynamic['DT_SONAME'])
@@ -96,7 +95,7 @@ class ELF(MetaELF):
                     'sh_entsize': self._dynamic['DT_SYMENT'],
                     'sh_size': 0
                 } # bogus size: no iteration allowed
-                self.dynsym = sections.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.memory, self.reader, self.strtab)
+                self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.memory, self.reader, self.strtab)
 
                 if 'DT_GNU_HASH' in self._dynamic:
                     self.hashtable = GNUHashTable(self.dynsym, self.memory, self._dynamic['DT_GNU_HASH'], self.archinfo)
@@ -126,7 +125,7 @@ class ELF(MetaELF):
                         'sh_entsize': relentsz,
                         'sh_size': relsz
                     }
-                    readelf_relocsec = relocation.RelocationSection(fakerelheader, 'reloc_cle', self.memory, self.reader)
+                    readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self.memory, self.reader)
                     self.__register_relocs(readelf_relocsec)
 
                 if 'DT_JMPREL' in self._dynamic:
@@ -138,7 +137,7 @@ class ELF(MetaELF):
                         'sh_entsize': relentsz,
                         'sh_size': jmprelsz
                     }
-                    readelf_jmprelsec = relocation.RelocationSection(fakejmprelheader, 'jmprel_cle', self.memory, self.reader)
+                    readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.memory, self.reader)
                     self.jmprel = {reloc.symbol.name: reloc for reloc in self.__register_relocs(readelf_jmprelsec)}
 
     def __register_relocs(self, section):
@@ -190,7 +189,7 @@ class ELF(MetaELF):
 
     def __register_sections(self):
         for sec_readelf in self.reader.iter_sections():
-            if isinstance(sec_readelf, readelf.SymbolTableSection):
+            if isinstance(sec_readelf, elffile.SymbolTableSection):
                 self.__register_section_symbols(sec_readelf)
 
     def __register_section_symbols(self, sec_re):
