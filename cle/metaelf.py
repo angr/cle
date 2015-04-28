@@ -8,14 +8,13 @@ class MetaELF(AbsObj):
         self.elfflags = 0
 
     def _load_plt(self):
-        if "arm" in self.archinfo.name:
+        if "arm" in self.archinfo.name or 'mips' in self.archinfo.name:
             return
 
         for name in self.jmprel:
             #FIXME: shouldn't we use get_call_stub_addr(name) instead ??
             addr = self._get_plt_stub_addr(name)
             self.plt[name] = addr
-        return self.plt
 
     def _get_plt_stub_addr(self, name):
         """
