@@ -2,7 +2,8 @@ import struct
 import readelf
 from elftools.elf import sections, relocation
 
-from .abs_obj import AbsObj, Symbol, Relocation, Segment
+from .abs_obj import Symbol, Relocation, Segment
+from .metaelf import MetaELF
 from .clexception import CLException
 
 import logging
@@ -10,9 +11,10 @@ l = logging.getLogger('cle.elf')
 
 class ELFSymbol(Symbol):
     def __init__(self, owner, symb):
+        realtype = owner.archinfo.translate_symbol_type(symb.entry.st_info.type)
         super(ELFSymbol, self).__init__(owner, symb.name, symb.entry.st_value,
                                         symb.entry.st_size, symb.entry.st_info.bind,
-                                        symb.entry.st_info.type, symb.entry.st_shndx)
+                                        realtype, symb.entry.st_shndx)
 
 class ELFRelocation(Relocation):
     def __init__(self, readelf_reloc, owner, symbol):
@@ -24,38 +26,37 @@ class ELFSegment(Segment):
     def __init__(self, readelf_seg):
         super(ELFSegment, self).__init__('seg_%x' % readelf_seg.header.p_vaddr, readelf_seg.header.p_vaddr, readelf_seg.header.p_memsz, readelf_seg.header.p_filesz, readelf_seg.header.p_offset)
 
-class Elf(AbsObj):
+class Elf(MetaELF):
     def __init__(self, binary, **kwargs):
         super(Elf, self).__init__(binary, **kwargs)
         self.reader = readelf.ELFFile(open(self.binary))
-
         self.strtab = None
         self.dynsym = None
         self.hashtable = None
-        self._symbol_cache = {}
+
+        self._dynamic = {}
         self.deps = []
         self.soname = None
         self.rela_type = None
-        self.resolved_imports = []
-        self.imports = {}
 
-        self._dynamic = {}
+        self._symbol_cache = {}
+        self.symbols_by_addr = {}
+        self.imports = {}
+        self.resolved_imports = []
 
         self.relocs = []
-        self.copy_reloc = []
-        self.global_reloc = []
-        self.s_a_reloc = []
-        self.relative_reloc = []
         self.jmprel = {}
 
-        self.tls_mod_reloc = {}
-        self.tls_offset_reloc = {}
+        self.tls_init_image = ''
 
         self.elfflags = self.reader.header.e_flags
-        self.entry = self.reader.header.e_entry
         self.archinfo.elfflags = self.elfflags
+        self.entry = self.reader.header.e_entry
 
         self.__register_segments()
+        self.__register_sections()
+        self._ppc64_abiv1_entry_fix()
+        self._load_plt()
 
     def __register_segments(self):
         for seg_readelf in self.reader.iter_segments():
@@ -63,6 +64,8 @@ class Elf(AbsObj):
                 self._load_segment(seg_readelf)
             elif seg_readelf.header.p_type == 'PT_DYNAMIC':
                 self.__register_dyn(seg_readelf)
+            elif seg_readelf.header.p_type == 'PT_TLS':
+                self.__register_tls(seg_readelf)
 
     def _load_segment(self, seg):
         self.memory.add_backer(seg.header.p_vaddr, seg.data())
@@ -73,8 +76,9 @@ class Elf(AbsObj):
     def __register_dyn(self, seg_readelf):
         #import ipdb; ipdb.set_trace()
         for tag in seg_readelf.iter_tags():
-            self._dynamic[tag.entry.d_tag] = tag.entry.d_val
-            if tag.entry.d_tag == 'DT_NEEDED':
+            tagstr = self.archinfo.translate_dynamic_tag(tag.entry.d_tag)
+            self._dynamic[tagstr] = tag.entry.d_val
+            if tagstr == 'DT_NEEDED':
                 self.deps.append(tag.entry.d_val)
         if 'DT_STRTAB' in self._dynamic:
             fakestrtabheader = {
@@ -99,24 +103,29 @@ class Elf(AbsObj):
                 else:
                     l.warning("No hash table available in %s", self.binary)
 
+                if self.__relocate_mips():
+                    return
+
                 if self._dynamic['DT_PLTREL'] == 7:
                     self.rela_type = 'RELA'
+                    relentsz = self.reader.structs.Elf_Rela.sizeof()
                 elif self._dynamic['DT_PLTREL'] == 17:
                     self.rela_type = 'REL'
+                    relentsz = self.reader.structs.Elf_Rel.sizeof()
                 else:
                     raise CLException('DT_PLTREL is not REL or RELA?')
 
-                reloffset = self._dynamic['DT_' + self.rela_type]
-                relentsz = self._dynamic['DT_' + self.rela_type + 'ENT']
-                relsz = self._dynamic['DT_' + self.rela_type + 'SZ']
-                fakerelheader = {
-                    'sh_offset': reloffset,
-                    'sh_type': 'SHT_' + self.rela_type,
-                    'sh_entsize': relentsz,
-                    'sh_size': relsz
-                }
-                readelf_relocsec = relocation.RelocationSection(fakerelheader, 'reloc_cle', self.memory, self.reader)
-                self.__register_relocs(readelf_relocsec)
+                if 'DT_' + self.rela_type in self._dynamic:
+                    reloffset = self._dynamic['DT_' + self.rela_type]
+                    relsz = self._dynamic['DT_' + self.rela_type + 'SZ']
+                    fakerelheader = {
+                        'sh_offset': reloffset,
+                        'sh_type': 'SHT_' + self.rela_type,
+                        'sh_entsize': relentsz,
+                        'sh_size': relsz
+                    }
+                    readelf_relocsec = relocation.RelocationSection(fakerelheader, 'reloc_cle', self.memory, self.reader)
+                    self.__register_relocs(readelf_relocsec)
 
                 if 'DT_JMPREL' in self._dynamic:
                     jmpreloffset = self._dynamic['DT_JMPREL']
@@ -137,16 +146,6 @@ class Elf(AbsObj):
             reloc = ELFRelocation(readelf_reloc, self, symbol)
             relocs.append(reloc)
             self.relocs.append(reloc)
-            if reloc.type in self.archinfo.get_global_reloc_type():
-                self.global_reloc.append(reloc)
-            elif reloc.type in self.archinfo.get_s_a_reloc_type():
-                self.s_a_reloc.append(reloc)
-            elif reloc.type in self.archinfo.get_relative_reloc_type():
-                self.relative_reloc.append(reloc)
-            elif reloc.type in self.archinfo.get_copy_reloc_type():
-                self.copy_reloc.append(reloc)
-            else:
-                l.warning("Unknown reloc type: %d", reloc.type)
         return relocs
 
 
@@ -174,8 +173,49 @@ class Elf(AbsObj):
             symbol = ELFSymbol(self, re_sym)
             self._symbol_cache[symid] = symbol
             return symbol
+        elif isinstance(symid, sections.Symbol):
+            if symid.name in self._symbol_cache:
+                return self._symbol_cache[symid.name]
+            symbol = ELFSymbol(self, symid)
+            self._symbol_cache[symid.name] = symbol
+            return symbol
         else:
             raise CLException("Bad symbol identifier: %s" % symid)
+
+    def __register_tls(self, seg_readelf):
+        bss_size = seg_readelf.header.p_memsz - seg_readelf.header.p_filesz
+        self.tls_init_image = seg_readelf.data() + '\0'*bss_size
+
+    def __register_sections(self):
+        for sec_readelf in self.reader.iter_sections():
+            if isinstance(sec_readelf, readelf.SymbolTableSection):
+                self.__register_section_symbols(sec_readelf)
+
+    def __register_section_symbols(self, sec_re):
+        for sym_re in sec_re.iter_symbols():
+            if sym_re.name == '':
+                continue
+            self.get_symbol(sym_re)
+
+    def __relocate_mips(self):
+        if 'DT_MIPS_BASE_ADDRESS' not in self._dynamic:
+            return False
+        got_local_num = self._dynamic['DT_MIPS_LOCAL_GOTNO'] # number of local GOT entries
+        # a.k.a the index of the first global GOT entry
+        symtab_got_idx = self._dynamic['DT_MIPS_GOTSYM']   # index of first symbol w/ GOT entry
+        symbol_count = self._dynamic['DT_MIPS_SYMTABNO']
+        gotaddr = self._dynamic['DT_PLTGOT']
+        wordsize = self.bits_per_addr/8
+        for i in range(got_local_num):
+            reloc = Relocation(self, None, gotaddr + i*wordsize, 'mips_local')
+            self.relocs.append(reloc)
+
+        for i in range(symbol_count - symtab_got_idx):
+            symbol = self.get_symbol(i + symtab_got_idx)
+            reloc = Relocation(self, symbol, gotaddr + (i + got_local_num)*wordsize, 'mips_global')
+            self.relocs.append(reloc)
+            self.jmprel[symbol.name] = reloc
+        return True
 
 class ELFHashTable(object):
     def __init__(self, symtab, stream, offset, archinfo):
@@ -188,12 +228,12 @@ class ELFHashTable(object):
 
     def get(self, k):
         hval = self.elf_hash(k) % self.nbuckets
-        while hval != 0:
-            bval = self.buckets[hval]
-            sym = self.symtab.get_symbol(bval)
+        symndx = self.buckets[hval]
+        while symndx != 0:
+            sym = self.symtab.get_symbol(symndx)
             if sym.name == k:
                 return sym
-            hval = self.chains[bval]
+            symndx = self.chains[symndx]
         return None
 
     # from http://www.partow.net/programming/hashfunctions/

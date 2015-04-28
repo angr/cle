@@ -2,11 +2,12 @@ import os
 import logging
 import subprocess
 from .clexception import CLException
-from .abs_obj import AbsObj, Segment
+from .abs_obj import Segment
+from .metaelf import MetaELF
 
 l = logging.getLogger("cle.cleextractor")
 
-class CLEExtractor(AbsObj):
+class CLEExtractor(MetaELF):
     """
     Representation of loaded (but NOT rebased) Elf binaries. What you see here
     is what we get from the Elf file by snooping on the actual loading process
@@ -424,7 +425,7 @@ class CLEExtractor(AbsObj):
 
         count = self.mips_symtabno - self.mips_gotsym # Number of got mapped symbols
         l.debug("Relocating %d external GOT entries", count)
-        for i in range(0, count):
+        for i in range(count):
             sym = self.symbols[symtab_base_idx + i]
             got_idx = got_base_idx + i
             got_slot = gotaddr + (got_idx) * got_entry_size
@@ -437,7 +438,7 @@ class CLEExtractor(AbsObj):
         relocs = self._get_mips_external_reloc()
         jmprel = {}
         for k,v in relocs.iteritems():
-            if k in self.imports.keys():
+            if k in self.imports:
                 jmprel[k] = v
         return jmprel
 
@@ -447,7 +448,7 @@ class CLEExtractor(AbsObj):
         """
         reloc = {}
         for k,v in self._get_mips_external_reloc().iteritems():
-            if k in self.global_symbols.keys() or k in self.global_functions.keys():
+            if k in self.global_symbols or k in self.global_functions:
                 reloc[k] = v
         return reloc
 
@@ -851,64 +852,6 @@ class CLEExtractor(AbsObj):
                 r = addrs[i]
                 return local[r]
 
-    def _load_plt(self):
-        plt={}
-
-        if "arm" in self.archinfo.name:
-            return plt
-
-        for name in self.jmprel.keys():
-            #FIXME: shouldn't we use get_call_stub_addr(name) instead ??
-            addr = self._get_plt_stub_addr(name)
-            plt[name] = addr
-        return plt
-
-    def _get_plt_stub_addr(self, name):
-        """
-        Guess the address of the PLT stub for function @name.
-        Functions must have a know GOT entry in self.jmprel
-
-        NOTE: you probably want to call get_call_stub_addr() instead.
-        TODO: sections fallback for statically linked binaries
-        WARNING: call this after loading the binary image, but *before* resolving
-        SimProcedures.
-        """
-        if name not in self.jmprel.keys():
-            return None
-            #raise CLException("%s does not figure in the GOT")
-
-        # What's in the got slot for @name ?
-        got = self.jmprel[name]
-        addr = self.memory.read_addr_at(got)
-
-        # This is the address of the next second instruction in the PLT stub
-        # This is hackish but it works
-
-        if self.archinfo.name in ["i386:x86-64", "i386"]:
-            # 0x6 is the size of the plt's jmpq instruction in x86_64
-            return addr - 0x6
-
-        elif "arm" in self.archinfo.name:
-            return addr
-
-        elif "powerpc" in self.archinfo.name:
-            return got
-
-        elif "mips" in self.archinfo.name:
-            return addr
-
-    def get_call_stub_addr(self, name):
-        """
-        Usually, the PLT stub is called when jumping to an external function.
-        """
-        # FIXME: this doesn't work on PPC. It will return .plt address of the
-        # function, but it is not what is called in practice...
-        if "powerpc" in self.archinfo.name or "arm" in self.archinfo.name:
-            raise CLException("FXIME: this doesn't work on PPC/ARM")
-
-        if name in self.plt.keys():
-            return self.plt[name]
-
     def symbol(self, symbol):
         for si in self.symbols:
             if si["name"] == symbol:
@@ -930,7 +873,7 @@ class CLEExtractor(AbsObj):
         if len(self.sections) is None:
             return None
 
-        if '.got' in self.sections.keys():
+        if '.got' in self.sections:
             return self.sections['.got']['addr']
 
 
@@ -1049,6 +992,4 @@ class CLEExtractor(AbsObj):
             ep_offset = self._elf_entry
             self._elf_entry = self.memory.read_addr_at(ep_offset)
             self.ppc64_initial_rtoc = self.memory.read_addr_at(ep_offset+8)
-        else:
-            pass
 

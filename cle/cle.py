@@ -199,15 +199,13 @@ class Ld(object):
         l.info("TODO: relocations in custom loaded shared objects")
         # Libraries
         for i, obj in enumerate(self.shared_objects):
-            self._perform_reloc_stub(obj, i)
+            obj.tls_module_id = i
+            self._perform_reloc_stub(obj)
 
         # Main binary
         self._perform_reloc_stub(self.main_bin)
-        # Again, MIPS is a pain...
-        #   if "mips" in obj.arch and isinstance(obj, Elf):
-        #       obj.relocate_mips_jmprel()
 
-    def _perform_reloc_stub(self, binary, tls_module_id=None):
+    def _perform_reloc_stub(self, binary):
         """ This performs dynamic linking of all objects, i.e., calculate
             addresses of relocated symbols and resolve imports for each object.
             When using CLE without IDA, the rebasing and relocations are done by
@@ -215,17 +213,15 @@ class Ld(object):
             When using CLE with IDA, the rebasing is done with IDA, and
             relocations of symbols are done by CLE using the IDA API.
         """
+        solist = self.shared_objects + [self.main_bin]
         if isinstance(binary, IdaBin):
             self._resolve_imports_ida(binary)
             # Once everything is relocated, we can copy IDA's memory to Ld
         elif isinstance(binary, Pe):
             pass
         else:
-            self._reloc_got(binary)
-            self._reloc_absolute(binary)
-            self._reloc_relative(binary)
-            self._reloc_global_copy(binary)
-            self._reloc_tls(binary, tls_module_id)
+            for reloc in binary.relocs:
+                reloc.relocate(solist)
 
     def ida_sync_mem(self):
         """
@@ -305,180 +301,6 @@ class Ld(object):
 
         return m1
 
-
-    def _reloc_global_copy(self, obj):
-        """
-        Type 5 on amd64 - copy the value of the resolved symbol instead of its
-        address
-        """
-        for reloc in obj.copy_reloc:
-            match_symbol = self.find_symbol(reloc.symbol.name)
-            if match_symbol is None:
-                raise CLException("Could not find address for symbol %s" % reloc.symbol.name)
-            val = self.memory.read_addr_at(match_symbol.rebased_addr)
-            got_addr = reloc.rebased_addr
-            self.memory.write_addr_at(got_addr, val)
-            reloc.resolve(match_symbol)
-
-    def _reloc_tls(self, obj, module_id):
-        for addr in obj.tls_mod_reloc:
-            self.memory.write_addr_at(obj.rebase_addr + addr, module_id)
-
-        for addr_offset, tls_offset in obj.tls_offset_reloc.iteritems():
-            self.memory.write_addr_at(obj.rebase_addr + addr_offset, tls_offset)
-
-    def _reloc_got(self, obj):
-        """
-        Perform relocations of jump slots (in practice, GOT entries)
-        Type S
-        """
-
-        l.info("[Performing GOT relocations of %s]", obj.binary)
-
-        # MIPS local GOT entries need relocation too (except for the main
-        # binary as we don't relocate it).
-        if "mips" in self.main_bin.arch and obj != self.main_bin:
-            self._reloc_mips_local(obj)
-
-        # We need to update GOT entries of external symbols.
-        # These may be of type jmprel (jump type relocations,
-        # i.e., functions) or rela/rel for non functions.
-
-        # Now let's update GOT entries for both PLT jumps and global data
-        ext = obj.global_reloc
-        for reloc in ext:
-
-            got_addr = reloc.rebased_addr
-            # We don't resolve ignored functions
-            if reloc.symbol.name in self.ignore_imports:
-                continue
-
-            if "mips" in self.main_bin.archinfo.name and obj != self.main_bin:
-                delta = obj.rebase_addr - obj.mips_static_base_addr
-                got_addr = got_addr + delta
-
-            # Find_symbol_addr() already takes care of rebasing
-            match_symbol = self.find_symbol(reloc.symbol.name)
-
-            if match_symbol is not None:
-                self.memory.write_addr_at(got_addr, match_symbol.rebased_addr)
-                # We resolved this symbol
-                reloc.resolve(match_symbol)
-
-                l.debug("\t--> [R] Relocation of %s -> 0x%x [stub@0x%x]",
-                        reloc.symbol.name, match_symbol.rebased_addr, got_addr)
-
-            else:
-                l.warning("\t--> [U] Cannot locate symbol \"%s\" from SOs", reloc.symbol.name)
-
-    def _reloc_absolute(self, obj):
-        """
-        Type S+A
-        """
-
-        l.info("[Performing absolute relocations of %s]", obj.binary)
-        for reloc in obj.s_a_reloc:
-            #if name in obj.resolved_imports:
-            # Those relocations should be exported by the local module
-            # BUT they can also be exported by other modules (e.g., PPC type 20)
-            if reloc.is_rela:
-                addend = reloc.addend
-            else:
-                addend = self.memory.read_addr_at(reloc.rebased_addr)
-
-            if addend != 0:
-                raise CLException("S+A reloc with an actual addend, what should we do with it ??")
-            match_symbol = self.find_symbol(reloc.symbol.name)
-            if match_symbol is not None:
-                self.memory.write_addr_at(reloc.rebased_addr, match_symbol.rebased_addr)
-                reloc.resolve(match_symbol)
-                l.debug("\t-->[R] ABS relocation of %s -> 0x%x [at 0x%x]",
-                        match_symbol.name, match_symbol.rebased_addr, reloc.rebased_addr)
-            else:
-                l.warning('[U] "%s" not relocated [instance at 0x%x]',
-                          reloc.symbol.name, reloc.rebased_addr)
-
-    def _reloc_relative(self, obj):
-        """
-        This is dealing with relative relocations, e.g., R_386_RELATIVE
-        The relocation is B + A (base address + addend).
-        """
-
-        l.info("[Performing relative relocations of %s]" , obj.binary)
-        # This is an array of tuples
-        for reloc in obj.relative_reloc:
-            if reloc.is_rela:
-                # DT_RELA specifies the addend explicitely
-                addend = reloc.addend
-            else:
-                # DT_REL stores the addend in the memory location to be updated
-                addend = self.memory.read_addr_at(reloc.rebased_addr)
-
-            rela_updated = addend + obj.rebase_addr
-            self.memory.write_addr_at(reloc.rebased_addr, rela_updated)
-            reloc.resolve(None)
-            l.debug("\t-->[R] Relative relocation, 0x%x [at 0x%x]",
-                    rela_updated, reloc.rebased_addr)
-
-    def _reloc_mips_local(self, obj):
-        """ MIPS local relocations (yes, GOT entries for local symbols also need
-        relocation) """
-
-        if obj.rebase_addr == 0:
-            raise CLException("MIPS local GOT relocation only occurs to shared objects")
-
-        delta = obj.rebase_addr - obj.mips_static_base_addr
-
-        # If we load the shared library at the predefined base address, there's
-        # nothing to do.
-        if delta == 0:
-            l.debug("No need to relocate local symbols for this object")
-            return
-
-        elif delta < 0:
-            raise CLException("We are relocating a MIPS object at a lower address than"
-                    " its static base address. This is weird.")
-
-        got_entry_size = obj.bits_per_addr / 8  # How many bytes per slot ?
-
-        # Local entries reside in the first part of the GOT
-        for i in range(0, obj.mips_local_gotno):  # 0 to number of local symb
-            got_slot = obj.pltgotaddr + obj.rebase_addr + (i * got_entry_size)
-            addr = self.memory.read_addr_at(got_slot)
-            if addr == 0:
-                l.error("Address in GOT at 0x%x is 0", got_slot)
-            else:
-                newaddr = addr + delta
-                l.debug("\t-->Relocating MIPS local GOT entry @ slot 0x%x from 0x%x"
-                        " to 0x%x", got_slot, addr, newaddr)
-                self.memory.write_addr_at(got_slot, newaddr)
-
-    @staticmethod
-    def get_relocated_mips_jmprel(obj):
-        """ After we relocate an ELF object, we also need, in the case of MIPS,
-        to relocate its GOT addresses relatively to its static base address.
-        Note: according to the Elf specification, this ONLY applies to shared objects
-        """
-
-        l.warning("This function is deprecated and should not be used.")
-
-        jmprel = {}
-        # This should not be called for non rebased binaries (i.e., main
-        # binaries)
-        if obj.rebase_addr == 0:
-            raise CLException("Attempting MIPS relocation with rebase_addr = 0")
-
-        # Here, we shift all GOT addresses (the slots, not what they contain)
-        # by a delta. This is because the MIPS compiler expected us to load the
-        # binary at self.mips_static_base_addr)
-        delta = obj.rebase_addr - obj.mips_static_base_addr
-        l.info("Relocating MIPS GOT entries - static base addr is 0%x, acutal "
-               "base addr is 0x%x", obj.mips_static_base_addr, obj.rebase_addr)
-        for i, v in obj.get_mips_jmprel().iteritems():
-            jmprel[i] = v + delta
-
-        return jmprel
-
     def override_got_entry(self, symbol, newaddr, obj):
         """ This overrides the address of the function defined by @symbol with
         the new address @newaddr, inside the GOT of object @obj.
@@ -494,38 +316,14 @@ class Ld(object):
 
     # Search functions
 
-    def find_symbol(self, name):
-        """ Try to find the address of @symbol, if it is exported by any of the
-        libraries or the main binary. We give priority to symbols with
-        STB_GLOBAL binding, i.e., it takes precedence other any other symbol
-        with binding STB_WEAK.
-        """
-
-        weak_result = None
-        for so in self.shared_objects + [self.main_bin]:
-            symbol = so.get_symbol(name)
-            if symbol is not None and symbol.is_export:
-                if symbol.binding == 'STB_GLOBAL':
-                    return symbol
-                elif weak_result is None:
-                    weak_result = symbol
-
-        if weak_result is not None:
-            return weak_result
-
-        # If that doesn't do it, we also look into local symbols
-        for so in [self.main_bin] + self.shared_objects:
-            symbol = so.get_symbol(name)
-            if symbol is not None and symbol.addr != 0:
-                l.warning("Matched %s to local symbol of %s. Is this possible?", name, so.binary)
-                return symbol
-
     def find_symbol_name(self, addr):
         """ Return the name of the function starting at addr.
         """
-        sym = self.find_symbol(addr)
-        if sym is not None:
-            return sym.name
+
+        for so in [self.main_bin] + self.shared_objects:
+            if addr - so.rebase_addr in so.symbols_by_addr:
+                return so.symbols_by_addr[addr - so.rebase_addr].name
+        return None
 
     def guess_function_name(self, addr):
         """
@@ -559,7 +357,7 @@ class Ld(object):
                 return self.main_bin.imports[symbol]
         elif isinstance(self.main_bin, Elf):
             if symbol in self.main_bin.jmprel:
-                return self.main_bin.jmprel[symbol]
+                return self.main_bin.jmprel[symbol].addr
 
     def _load_exe(self, path, main_binary_ops):
         """ Instanciate and load exe into "main memory
@@ -740,13 +538,7 @@ class Ld(object):
         if isinstance(so, IdaBin):
             so.rebase(base)
             return
-
-        if "mips" in so.arch and isinstance(so, Elf):
-            l.debug("\t--> rebasing %s @0x%x (instead of static base addr 0x%x)",
-                    so.binary, base, so.mips_static_base_addr)
-        else:
-            l.info("[Rebasing %s @0x%x]", os.path.basename(so.binary), base)
-
+        l.info("[Rebasing %s @0x%x]", os.path.basename(so.binary), base)
         self.memory.add_backer(base, so.memory)
 
     def _get_safe_rebase_addr(self):

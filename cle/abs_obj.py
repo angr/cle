@@ -4,6 +4,9 @@ from .archinfo import ArchInfo, Arch
 from .memory import Clemory
 from abc import ABCMeta
 
+import logging
+l = logging.getLogger('cle.generic')
+
 class Segment(object):
     """ Simple representation of an ELF file segment"""
     def __init__(self, name, vaddr, memsize, filesize, offset):
@@ -58,6 +61,8 @@ class Symbol(object):
         self.sh_info = sh_info if sh_info != 'SHN_UNDEF' else None
         self.resolved = False
         self.resolvedby = None
+        if self.addr != 0:
+            self.owner_obj.symbols_by_addr[self.addr] = self
 
     def resolve(self, obj):
         self.resolved = True
@@ -83,15 +88,23 @@ class Relocation(object):
     def __init__(self, owner, symbol, addr, r_type, addend=None):
         super(Relocation, self).__init__()
         self.owner_obj = owner
+        self.archinfo = owner.archinfo
         self.symbol = symbol
         self.addr = addr
         self.type = r_type
         self.is_rela = addend is not None
-        self.addend = 0 if addend is None else addend
+        self._addend = addend
         self.resolvedby = None
         self.resolved = False
         if self.symbol is not None and self.symbol.is_import:
             self.owner_obj.imports[self.symbol.name] = self
+
+    @property
+    def addend(self):
+        if self.is_rela:
+            return self._addend
+        else:
+            return self.owner_obj.read_addr_at(self.addr)
 
     def resolve(self, obj):
         self.resolvedby = obj
@@ -103,6 +116,112 @@ class Relocation(object):
     def rebased_addr(self):
         return self.addr + self.owner_obj.rebase_addr
 
+    def relocate(self, solist):
+        if self.type == 'mips_local':
+            return self.reloc_mips_local()
+        elif self.type == 'mips_global':
+            return self.reloc_mips_global(solist)
+        elif self.type in self.archinfo.get_global_reloc_type():
+            return self.reloc_global(solist)
+        elif self.type in self.archinfo.get_s_a_reloc_type():
+            return self.reloc_absolute(solist)
+        elif self.type in self.archinfo.get_relative_reloc_type():
+            return self.reloc_relative()
+        elif self.type in self.archinfo.get_copy_reloc_type():
+            return self.reloc_copy(solist)
+        elif self.type in self.archinfo.get_tls_mod_id_reloc_type():
+            return self.reloc_tls_mod_id()
+        elif self.type in self.archinfo.get_tls_offset_reloc_type():
+            return self.reloc_tls_offset()
+        else:
+            l.warning("Unknown reloc type: %d", self.type)
+
+    def reloc_global(self, solist):
+        if not self.resolve_symbol(solist):
+            return False
+        self.owner_obj.memory.write_addr_at(self.addr, self.resolvedby.rebased_addr)
+        return True
+
+    def reloc_absolute(self, solist):
+        if self.addend != 0:
+            raise CLException("S+A reloc with an actual addend??? halp")
+        if not self.resolve_symbol(solist):
+            return False
+        self.owner_obj.memory.write_addr_at(self.addr, self.resolvedby.rebased_addr)
+        return True
+
+    def reloc_relative(self):
+        self.owner_obj.memory.write_addr_at(self.addr, self.addend + self.owner_obj.rebase_addr)
+        self.resolve(None)
+        return True
+
+    def reloc_copy(self, solist):
+        if not self.resolve_symbol(solist):
+            return False
+        val = self.resolvedby.owner_obj.memory.read_addr_at(self.resolvedby.addr)
+        self.owner_obj.memory.write_addr_at(self.addr, val)
+        return True
+
+    def reloc_tls_mod_id(self):
+        self.owner_obj.memory.write_addr_at(self.rebased_addr, self.owner_obj.tls_module_id)
+        self.resolve(None)
+        return True
+
+    @staticmethod
+    def reloc_tls_offset():
+        raise CLException("this should crash")
+
+    def reloc_mips_global(self, solist):
+        if not self.resolve_symbol(solist):
+            return False
+        delta = -self.owner_obj._dynamic['DT_MIPS_BASE_ADDRESS']
+        addr = self.addr + delta
+        self.owner_obj.memory.write_addr_at(addr, self.resolvedby.rebased_addr)
+        return True
+
+    def reloc_mips_local(self):
+        if self.owner_obj.rebase_addr == 0:
+            self.resolve(None)
+            return True                     # don't touch local relocations on the main bin
+        delta = self.owner_obj.rebase_addr - self.owner_obj._dynamic['DT_MIPS_BASE_ADDRESS']
+        if delta == 0:
+            self.resolve(None)
+            return True
+        elif delta < 0:
+            raise CLException("We are relocating a MIPS object at a lower address than"
+                    " its static base address. This is weird.")
+        val = self.owner_obj.memory.read_addr_at(self.addr)
+        if val == 0:
+            l.error("Addressin GOT at %#x is 0", self.rebased_addr)
+            return False
+        newval = val + delta
+        self.owner_obj.memory.write_addr_at(self.addr, newval)
+        self.resolve(None)
+        return True
+
+    def resolve_symbol(self, solist):
+        weak_result = None
+        for so in solist:
+            symbol = so.get_symbol(self.symbol.name)
+            if symbol is not None and symbol.is_export:
+                if symbol.binding == 'STB_GLOBAL':
+                    self.resolve(symbol)
+                    return True
+                elif weak_result is None:
+                    weak_result = symbol
+
+        if weak_result is not None:
+            self.resolve(weak_result)
+            return True
+
+        # If that doesn't do it, we also look into local symbols
+        for so in solist:
+            symbol = so.get_symbol(self.symbol.name)
+            if symbol is not None and symbol is not self.symbol and symbol.addr != 0:
+                l.warning("Matched %s to local symbol of %s. Is this possible?", self.symbol.name, so.binary)
+                self.resolve(symbol)
+                return True
+        return False
 
 class AbsObj(object):
     __metaclass__ = ABCMeta
@@ -123,12 +242,15 @@ class AbsObj(object):
             setattr(self, k, v)
 
         self.binary = binary
+        self.entry = None
         self.segments = [] # List of segments
         self.imports = {}
+        self.jmprel = {}
         self.symbols = None # Object's symbols
 
         # These are set by cle, and should not be overriden manually
         self.rebase_addr = 0 # not to be set manually - used by CLE
+        self.tls_module_id = None
 
         self.object_type = None
         self.deps = None # Needed shared objects (libraries dependencies)

@@ -268,6 +268,12 @@ class Arch(object):
     def get_copy_reloc_type(self):
         return self._reloc_copy()
 
+    def get_tls_mod_id_reloc_type(self):
+        return self._reloc_tls_mod_id()
+
+    def get_tls_offset_reloc_type(self):
+        return self._reloc_tls_offset()
+
     # From tests on Debian in /lib/xxx and /usr/blah/lib for cross stuff, we can
     # see that the following types of relocations actually show up in the dynamic
     # section, intended for the dynamic linker.
@@ -422,6 +428,48 @@ class Arch(object):
             return [18, 19] # R_ARM_TLS_DTPOFF32, R_ARM_TLS_TPOFF32
         else:
             return []
+
+    @property
+    def dynamic_tag_translation(self):
+        if 'mips' in self.name:
+            return {
+                0x70000001: 'DT_MIPS_RLD_VERSION',
+                0x70000005: 'DT_MIPS_FLAGS',
+                0x70000006: 'DT_MIPS_BASE_ADDRESS',
+                0x7000000a: 'DT_MIPS_LOCAL_GOTNO',
+                0x70000011: 'DT_MIPS_SYMTABNO',
+                0x70000012: 'DT_MIPS_UNREFEXTNO',
+                0x70000013: 'DT_MIPS_GOTSYM',
+                0x70000016: 'DT_MIPS_RLD_MAP'
+            }
+        else:
+            return {}
+
+    def translate_dynamic_tag(self, tag):
+        try:
+            return self.dynamic_tag_translation[tag]
+        except KeyError:
+            if isinstance(tag, (int, long)):
+                l.error("Please look up and add dynamic tag type %#x for %s", tag, self.name)
+            return tag
+
+    @property
+    def symbol_type_translation(self):
+        if self.name == "i386:x86-64":
+            return {
+                10: 'STT_GNU_IFUNC',
+                'STT_LOOS': 'STT_GNU_IFUNC'
+            }
+        else:
+            return {}
+
+    def translate_symbol_type(self, tag):
+        try:
+            return self.symbol_type_translation[tag]
+        except KeyError:
+            if isinstance(tag, (int, long)):
+                l.error("Please look up and add symbol type %#x for %s", tag, self.name)
+            return tag
 
 
 class ArchInfo(Arch):
