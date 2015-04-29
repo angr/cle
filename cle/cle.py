@@ -127,6 +127,7 @@ class Ld(object):
             #loc.append(os.getenv("LD_LIBRARY_PATH"))
 
             l.debug("Searching for SO %s in %s", path, str(loc))
+            # TODO: Figure out how to get this to not loop in recursive filesystem structures
             for ld_path in loc:
                 for s_path, _, files in os.walk(ld_path, followlinks=True):
                     sopath = os.path.join(s_path, path)

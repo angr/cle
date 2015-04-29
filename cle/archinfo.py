@@ -209,9 +209,8 @@ class Arch(object):
             Note: @arch is another archinfo object
             """
 
-        # Same names
-        if self.name == arch.name:
-            return True
+        if self.name != arch.name:
+            return False
 
         if self.byte_order != arch.byte_order:
             return False
@@ -219,13 +218,7 @@ class Arch(object):
         if self.bits != arch.bits:
             return False
 
-        # ARM and MIPS have tons of names, so let's just pattern match
-        for i in ["mips", "arm", "powerpc"]:
-            if i in arch.name and i in self.name:
-                l.warning("Considering %s and %s compatible", self.name, arch.name)
-                return True
-
-        return False
+        return True
 
     def get_struct_fmt(self):
         """ Stuct format for the current architecture, e.g. returns '>Q' for big
