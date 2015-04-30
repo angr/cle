@@ -12,7 +12,7 @@ class MetaELF(AbsObj):
         self.elfflags = 0
 
     def _load_plt(self):
-        if self.arch.name in ('ARM', 'ARMHF', 'MIPS32'):
+        if self.arch.name in ('ARMEL', 'ARMHF', 'MIPS32'):
             return
 
         for name in self.jmprel:
@@ -45,10 +45,10 @@ class MetaELF(AbsObj):
             # 0x6 is the size of the plt's jmpq instruction in x86_64
             return addr - 0x6
 
-        elif self.arch.name in ('ARM', 'ARMHF'):
+        elif self.arch.name in ('ARMEL', 'ARMHF'):
             return addr
 
-        elif self.arch.name in ('PPC', 'PPC64'):
+        elif self.arch.name in ('PPC32', 'PPC64'):
             return got
 
         elif self.arch.name == 'MIPS32':
@@ -60,7 +60,7 @@ class MetaELF(AbsObj):
         """
         # FIXME: this doesn't work on PPC. It will return .plt address of the
         # function, but it is not what is called in practice...
-        if self.arch.name in ('ARM', 'ARMHF', 'PPC32', 'PPC64'):
+        if self.arch.name in ('ARMEL', 'ARMHF', 'PPC32', 'PPC64'):
             raise CLException("FXIME: this doesn't work on PPC/ARM")
 
         if name in self.plt.keys():

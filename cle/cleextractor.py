@@ -853,7 +853,7 @@ class CLEExtractor(MetaELF):
         On x86, x86_64 DT_PLTGOT is equal to .got.plt, but different from .got
         On PPC, PPC64 DT_PLTGOT is equal to .plt, but different from .got
         """
-        if self.arch.name in ('MIPS32', 'ARM', 'ARMHF'):
+        if self.arch.name in ('MIPS32', 'ARMEL', 'ARMHF'):
             # Dynamically-linked
             if self._dyn_gotaddr is not None: #DT_PLTGOT
                 return self._dyn_gotaddr
@@ -877,7 +877,7 @@ class CLEExtractor(MetaELF):
         """
 
         # On MIPS and ARM, DT_PLTGOT is equal to .got (and there is no .got.plt)
-        if self.arch.name in ('MIPS32', 'ARM', 'ARMHF'):
+        if self.arch.name in ('MIPS32', 'ARMEL', 'ARMHF'):
             return self.gotaddr
 
         # Other arch, dynamically-linked
@@ -909,7 +909,7 @@ class CLEExtractor(MetaELF):
 
     @property
     def pltgotsz(self):
-        if self.arch.name in ('MIPS32', 'ARM', 'ARMHF'):
+        if self.arch.name in ('MIPS32', 'ARMEL', 'ARMHF'):
             return self.gotsz
 
         if self.arch.name in ('PPC32', 'PPC64'):
