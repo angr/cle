@@ -2,6 +2,10 @@ from .abs_obj import AbsObj
 from .clexception import CLException
 
 class MetaELF(AbsObj):
+    """
+    A metaclass that implements functions used by all backends that can load
+    an ELF.
+    """
     def __init__(self, *args, **kwargs):
         super(MetaELF, self).__init__(*args, **kwargs)
         self.plt = {}

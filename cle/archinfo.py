@@ -10,8 +10,10 @@ l = logging.getLogger("cle.archinfo")
 
 
 class Arch(object):
-    """ This class extracts architecture information from ELF binaries using the
-        cle_bfd library.
+    """
+    This class is an information collection about a processor.
+
+    It is transitional and will be replaced with a better, exported version soon.
     """
 
     def __init__(self, name=None, bits=None, arch_size=None, byte_order=None, elfflags=0, simarch=None):

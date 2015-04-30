@@ -32,12 +32,43 @@ class Ld(object):
     The loader loads all the objects and exports an abstraction of the memory of
     the process. What you see here is an address space with loaded and rebased
     binaries.
+
+    Class variables:
+       memory             The loaded, rebased, and relocated memory of the program
+       main_bin           The object representing the main binary (i.e., the executable)
+       shared_objects     A dictionary mapping loaded library names to the objects representing them
+       all_objects        A list containing representations of all the different objects loaded
+       requested_objects  A set containing the names of all the different shared libraries that were marked as a dependancy by somebody
+
+    When reference is made to a dictionary of options, it require a dictionary with zero or more of the following keys:
+        backend           "elf", "cleextract", "ida", "blob": which loader backend to use
+        ???               Potentially more, needs to be documented better
     """
 
     def __init__(self, main_binary, auto_load_libs=True,
                  force_load_libs=None, skip_libs=None,
                  main_opts=None, lib_opts=None, custom_ld_path=None,
                  ignore_import_version_numbers=True, rebase_granularity=0x1000000):
+        """
+        @param main_binary      The path to the main binary you're loading
+        @param auto_load_libs   Whether to automatically load shared libraries that
+                                loaded objects depend on
+        @param force_load_libs  A list of libraries to load regardless of if they're
+                                required by a loaded object
+        @param skip_libs        A list of libraries to never load, even if they're
+                                required by a loaded object
+        @param main_opts        A dictionary of options to be used loading the
+                                main binary
+        @param lib_opts         A dictionary mapping library names to the dictionaries
+                                of options to be used when loading them
+        @param custom_ld_path   A list of paths in which we can search for shared libraries
+        @param ignore_import_version_numbers
+                                Whether libraries with different version numbers in the
+                                filename will be considered equivilant, for example
+                                libc.so.6 and libc.so.0
+        @param rebase_granularity
+                                The alignment to use for rebasing shared objects
+        """
 
         self._main_binary_path = os.path.realpath(str(main_binary))
         self._auto_load_libs = auto_load_libs
@@ -52,17 +83,20 @@ class Ld(object):
         # These are all the class variables of Ld
         # Please add new stuff here along with a description :)
 
-        self.memory = None          # The loaded, rebased, and relocated memory of the program
-        self.main_bin = None        # The main binary (i.e., the executable)
-        self.shared_objects = {}    # Contains autodetected libraries (CLE binaries)
-        self.all_objects = []       # all the different objects loaded
-        self.requested_objects = set()
+        self.memory = None              # The loaded, rebased, and relocated memory of the program
+        self.main_bin = None            # The main binary (i.e., the executable)
+        self.shared_objects = {}        # Contains autodetected libraries (CLE binaries)
+        self.all_objects = []           # All the different objects loaded
+        self.requested_objects = set()  # All the different shared libraries that were marked as a dependancy by somebody
 
         self._load_main_binary()
         self._load_dependencies()
         self._perform_reloc()
         if isinstance(self.main_bin, IdaBin):
             self.ida_sync_mem()
+
+    def __repr__(self):
+        return '<Loaded %s, maps [%#x:%#x]>' % (os.path.basename(self._main_binary_path), self.min_addr(), self.max_addr())
 
     def _load_main_binary(self):
         base_addr = self._main_opts.get('custom_base_addr', 0)

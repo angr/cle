@@ -3,6 +3,13 @@ import bisect
 # TODO: Further optimization is possible now that the list of backers is sorted
 
 class Clemory(object):
+    """
+    An object representing a memory space. Uses "backers" and "updates"
+    to separate the concepts of loaded and written memory and make
+    lookups more efficient.
+
+    Accesses can be made with [index] notation.
+    """
     def __init__(self, archinfo):
         self._archinfo = archinfo
         self._backers = []  # tuple of (start, str)
@@ -10,6 +17,12 @@ class Clemory(object):
         self._pointer = 0
 
     def add_backer(self, start, data):
+        """
+        Adds a backer to the memory.
+
+        @param start        The address where the backer should be loaded
+        @param data         The backer itself. Can be either a string or another Clemory
+        """
         if not isinstance(data, (str, Clemory)):
             raise TypeError("Data must be a string or a Clemory")
         if start in self:
@@ -119,12 +132,28 @@ class Clemory(object):
 
     @property
     def stride_repr(self):
+        """
+        Returns a representation of memory in a list of (start, end, data)
+        where data is a string.
+        """
         return map(lambda (start, bytearr): (start, start+len(bytearr), str(bytearr)), self._stride_repr)
 
     def seek(self, value):
+        """
+        The stream-like function that sets the "file's" current position.
+        Use with read().
+
+        @param value        The position to seek to
+        """
         self._pointer = value
 
     def read(self, nbytes):
+        """
+        The stream-like function that reads a number of bytes starting from the
+        current position and updates the current position. Use with seek().
+
+        @param nbytes   The number of bytes to read
+        """
         if nbytes == 1:
             self._pointer += 1
             return self[self._pointer-1]

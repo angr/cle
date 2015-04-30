@@ -50,6 +50,13 @@ class Segment(object):
         return self.offset
 
 class Symbol(object):
+    """
+    Representation of a symbol from a binary file. Smart enough to rebase itself.
+
+    There should never be more than one Symbol instance representing a single
+    symbol. To make sure of this, only use the get_symbol method in the backend
+    objects.
+    """
     def __init__(self, owner, name, addr, size, binding, sym_type, sh_info):
         super(Symbol, self).__init__()
         self.owner_obj = owner
@@ -85,6 +92,10 @@ class Symbol(object):
                                              self.binding == 'STB_WEAK')
 
 class Relocation(object):
+    """
+    A representation of a relocation in a binary file. Smart enough to
+    relocate itself.
+    """
     def __init__(self, owner, symbol, addr, r_type, addend=None):
         super(Relocation, self).__init__()
         self.owner_obj = owner
@@ -117,6 +128,12 @@ class Relocation(object):
         return self.addr + self.owner_obj.rebase_addr
 
     def relocate(self, solist):
+        """
+        Applies this relocation. Will make changes to the memory object of the
+        object it came from.
+
+        @param solist       A list of objects from which to resolve symbols
+        """
         if self.type == 'mips_local':
             return self.reloc_mips_local()
         elif self.type == 'mips_global':

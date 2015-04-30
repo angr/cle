@@ -1,4 +1,4 @@
-import struct
+import struct, os
 from elftools.elf import elffile, sections
 
 from .abs_obj import Symbol, Relocation, Segment
@@ -58,6 +58,9 @@ class ELF(MetaELF):
         self.__register_sections()
         self._ppc64_abiv1_entry_fix()
         self._load_plt()
+
+    def __repr__(self):
+        return '<ELF Object %s, maps [%#x:%#x]>' % (os.path.basename(self.binary), self.get_min_addr(), self.get_max_addr())
 
     def __register_segments(self):
         for seg_readelf in self.reader.iter_segments():
@@ -219,7 +222,18 @@ class ELF(MetaELF):
         return True
 
 class ELFHashTable(object):
+    """
+    Functions to do lookup from a HASH section of an ELF file.
+
+    Information: http://docs.oracle.com/cd/E23824_01/html/819-0690/chapter6-48031.html
+    """
     def __init__(self, symtab, stream, offset, archinfo):
+        """
+        @param symtab       The symbol table to perform lookups from (as a pyelftools SymbolTableSection)
+        @param stream       A file-like object to read from the ELF's memory
+        @param offset       The offset in the object where the table starts
+        @param archinfo     The ArchInfo object for the ELF file
+        """
         self.symtab = symtab
         fmt = '<' if archinfo.byte_order == 'LSB' else '>'
         stream.seek(offset)
@@ -228,6 +242,11 @@ class ELFHashTable(object):
         self.chains = struct.unpack(fmt + 'I'*self.nchains, stream.read(4*self.nchains))
 
     def get(self, k):
+        """
+        Perform a lookup. Returns a pyelftools Symbol object, or None if there is no match.
+
+        @param k        The string to look up
+        """
         hval = self.elf_hash(k) % self.nbuckets
         symndx = self.buckets[hval]
         while symndx != 0:
@@ -251,7 +270,18 @@ class ELFHashTable(object):
         return h
 
 class GNUHashTable(object):
+    """
+    Functions to do lookup from a GNU_HASH section of an ELF file.
+
+    Information: https://blogs.oracle.com/ali/entry/gnu_hash_elf_sections
+    """
     def __init__(self, symtab, stream, offset, archinfo):
+        """
+        @param symtab       The symbol table to perform lookups from (as a pyelftools SymbolTableSection)
+        @param stream       A file-like object to read from the ELF's memory
+        @param offset       The offset in the object where the table starts
+        @param archinfo     The ArchInfo object for the ELF file
+        """
         self.symtab = symtab
         fmt = '<' if archinfo.byte_order == 'LSB' else '>'
         self.c = archinfo.bits
@@ -264,7 +294,7 @@ class GNUHashTable(object):
         self.bloom = struct.unpack(fmt + fmtsz*self.maskwords, stream.read(self.c*self.maskwords/8))
         self.buckets = struct.unpack(fmt + 'I'*self.nbuckets, stream.read(4*self.nbuckets))
 
-    def matches_bloom(self, H1):
+    def _matches_bloom(self, H1):
         C = self.c
         H2 = H1 >> self.shift2
         N = ((H1 / C) & (self.maskwords - 1))
@@ -272,8 +302,13 @@ class GNUHashTable(object):
         return (self.bloom[N] & BITMASK) == BITMASK
 
     def get(self, k):
+        """
+        Perform a lookup. Returns a pyelftools Symbol object, or None if there is no match.
+
+        @param k        The string to look up
+        """
         h = self.gnu_hash(k)
-        if not self.matches_bloom(h):
+        if not self._matches_bloom(h):
             return None
         n = self.buckets[h % self.nbuckets]
         if n == 0:
