@@ -1,62 +1,109 @@
-import collections
+import bisect
 
-class Clemory(collections.MutableMapping):
+# TODO: Further optimization is possible now that the list of backers is sorted
+
+class Clemory(object):
+    """
+    An object representing a memory space. Uses "backers" and "updates"
+    to separate the concepts of loaded and written memory and make
+    lookups more efficient.
+
+    Accesses can be made with [index] notation.
+    """
     def __init__(self, archinfo):
         self._archinfo = archinfo
-        self._storage = { }
+        self._backers = []  # tuple of (start, str)
+        self._updates = {}
+        self._pointer = 0
 
-    #
-    # Methods for the collection
-    #
+    def add_backer(self, start, data):
+        """
+        Adds a backer to the memory.
+
+        @param start        The address where the backer should be loaded
+        @param data         The backer itself. Can be either a string or another Clemory
+        """
+        if not isinstance(data, (str, Clemory)):
+            raise TypeError("Data must be a string or a Clemory")
+        if start in self:
+            raise ValueError("Address %#x is already backed!" % start)
+        bisect.insort(self._backers, (start, data))
+
+    def update_backer(self, start, data):
+        if not isinstance(data, (str, Clemory)):
+            raise TypeError("Data must be a string or a Clemory")
+        for i, (oldstart, _) in enumerate(self._backers):
+            if oldstart == start:
+                self._updates[i] = (start, data)
+                break
 
     def __getitem__(self, k):
-        return self._storage[k]
+        if k in self._updates:
+            return self._updates[k]
+        else:
+            for start, data in self._backers:
+                if isinstance(data, str):
+                    if 0 <= k - start < len(data):
+                        return data[k - start]
+                elif isinstance(data, Clemory):
+                    try:
+                        return data[k - start]
+                    except KeyError:
+                        pass
+            raise KeyError(k)
 
     def __setitem__(self, k, v):
-        self._storage[k] = v
-
-    def __delitem__(self, k):
-        del self._storage[k]
-
-    def __iter__(self):
-        return iter(self._storage)
-
-    def __len__(self):
-        return len(self._storage)
+        if k not in self:
+            raise IndexError(k)
+        self._updates[k] = v
 
     def __contains__(self, k):
-        return k in self._storage
+        try:
+            self.__getitem__(k)
+            return True
+        except KeyError:
+            return False
 
     def __getstate__(self):
-        return { k:ord(v) for k,v in self._storage.iteritems() }
+        out = { 'updates': {k:ord(v) for k,v in self._updates.iteritems()}, 'backers': [] }
+        for start, data in self._backers:
+            if isinstance(data, str):
+                out['backers'].append((start, {'type': 'str', 'data': data}))
+            elif isinstance(data, Clemory):
+                out['backers'].append((start, {'type': 'Clemory', 'data': data.__getstate__()}))
 
     def __setstate__(self, s):
-        for k,v in s.iteritems():
-            self._storage[k] = chr(v)
+        self._updates = {k:chr(v) for k,v in s['updates'].iteritems()}
+        self._backers = []
+        for start, serialdata in s['backers']:
+            if serialdata['type'] == 'str':
+                self._backers.append((start, serialdata['data']))
+            elif serialdata['type'] == 'Clemory':
+                subdata = Clemory(self._archinfo)
+                subdata.__setstate__(serialdata['data'])
+                self._backers.append((start, subdata))
 
     def read_bytes(self, addr, n):
         """ Read @n bytes at address @addr in memory and return an array of bytes
         """
         b = []
         for i in range(addr, addr+n):
-            b.append(self.get(i))
+            b.append(self[i])
         return b
 
     def write_bytes(self, addr, data):
         """
         Write bytes from @data at address @addr
         """
-        d = {}
-        for i in range(0,len(data)):
-            d[addr+i] = data[i]
-        self.update(d) # This merges d into self
+        for i, c in enumerate(data):
+            self[addr+i] = c
 
-    def read_addr_at(self, addr):
+    def read_addr_at(self, where):
         """
         Read addr stored in memory as a serie of bytes starting at @addr
         @archinfo is an cle.Archinfo instance
         """
-        return self._archinfo.bytes_to_addr(''.join(self.read_bytes(addr, self._archinfo.bits/8)))
+        return self._archinfo.bytes_to_addr(''.join(self.read_bytes(where, self._archinfo.bits/8)))
 
     def write_addr_at(self, where, addr):
         """
@@ -67,36 +114,50 @@ class Clemory(collections.MutableMapping):
         self.write_bytes(where, by)
 
     @property
-    def stride_repr(self):
-        # We save tuples of (start, end, bytes) in the list `strides`
-        strides = [ ]
-
-        start_ = None
-        end_ = None
-        bytestring = ""
-
-        mem = self
-
-        for pos in xrange(min(self.keys()), max(self.keys())):
-            if pos in mem:
-                if start_ is None:
-                    start_ = pos
-                end_ = pos
-
-                bytestring += mem[pos]
+    def _stride_repr(self):
+        out = []
+        for start, data in self._backers:
+            if isinstance(data, str):
+                out.append((start, bytearray(data)))
             else:
-                if len(bytestring):
-                    # Create the tuple and save it
-                    tpl = (start_, end_, bytestring)
-                    strides.append(tpl)
+                out += map(lambda (substart, subdata), start=start: (substart+start, subdata), data._stride_repr)
+        for key, val in self._updates.iteritems():
+            for start, data in out:
+                if start <= key < start + len(data):
+                    data[key - start] = val
+                    break
+            else:
+                raise ValueError('There was an update to a Clemory not on top of any backer')
+        return out
 
-                    # Initialize the data structure
-                    start_ = None
-                    end_ = None
-                    bytestring = ""
+    @property
+    def stride_repr(self):
+        """
+        Returns a representation of memory in a list of (start, end, data)
+        where data is a string.
+        """
+        return map(lambda (start, bytearr): (start, start+len(bytearr), str(bytearr)), self._stride_repr)
 
-        if start_ is not None:
-            tpl = (start_, end_, bytestring)
-            strides.append(tpl)
+    def seek(self, value):
+        """
+        The stream-like function that sets the "file's" current position.
+        Use with read().
 
-        return strides
+        @param value        The position to seek to
+        """
+        self._pointer = value
+
+    def read(self, nbytes):
+        """
+        The stream-like function that reads a number of bytes starting from the
+        current position and updates the current position. Use with seek().
+
+        @param nbytes   The number of bytes to read
+        """
+        if nbytes == 1:
+            self._pointer += 1
+            return self[self._pointer-1]
+        else:
+            out = self.read_bytes(self._pointer, nbytes)
+            self._pointer += nbytes
+            return ''.join(out)
