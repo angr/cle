@@ -6,13 +6,14 @@ import logging
 import shutil
 import subprocess
 
+from arch import arch_from_binary
+
 from .elf import ELF
 from .metaelf import MetaELF
 from .cleextractor import CLEExtractor
 from .pe import Pe
 from .idabin import IdaBin
 from .blob import Blob
-from .archinfo import ArchInfo
 from .clexception import CLException, UnknownFormatException
 from .memory import Clemory
 
@@ -101,7 +102,7 @@ class Ld(object):
     def _load_main_binary(self):
         base_addr = self._main_opts.get('custom_base_addr', 0)
         self.main_bin = self._load_object(self._main_binary_path, self._main_opts)
-        self.memory = Clemory(self.main_bin.archinfo)
+        self.memory = Clemory(self.main_bin.arch)
         self._rebase_obj(base_addr, self.main_bin)
 
     def _load_dependencies(self):
@@ -156,7 +157,7 @@ class Ld(object):
                 return os.path.join(os.path.basename(self._main_binary_path), path)
             loc = []
             loc += self._custom_ld_path
-            loc += self.main_bin.archinfo._arch_paths()
+            loc += self.main_bin.arch.lib_paths
             # Dangerous, only ok if the hosts sytem's is the same as the target
             #loc.append(os.getenv("LD_LIBRARY_PATH"))
 
@@ -303,9 +304,9 @@ class Ld(object):
     def _ld_so_addr(self):
         """ Use LD_AUDIT to find object dependencies and relocation addresses"""
 
-        qemu = self.main_bin.archinfo.get_qemu_cmd()
+        qemu = 'qemu-%s' % self.main_bin.arch.qemu_name
         env_p = os.getenv("VIRTUAL_ENV", "/")
-        bin_p = os.path.join(env_p, "local/lib", self.main_bin.archinfo.get_unique_name())
+        bin_p = os.path.join(env_p, "local/lib", self.main_bin.arch.name.lower())
 
         # Our LD_AUDIT shared object
         ld_audit_obj = os.path.join(bin_p, "cle_ld_audit.so")
@@ -317,8 +318,14 @@ class Ld(object):
         else:
             ld_path = ld_path + ":" + bin_p
 
-        cross_libs = self.main_bin.archinfo.get_cross_library_path()
-        ld_libs = self.main_bin.archinfo.get_cross_ld_path()
+        cross_libs = self.main_bin.arch.lib_paths
+        if self.main_bin.arch.name in ('AMD64', 'X86'):
+            ld_libs = self.main_bin.arch.lib_paths
+        elif self.main_bin.arch.name == 'PPC64':
+            ld_libs = map(lambda x: x + 'lib64/', self.main_bin.arch.lib_paths)
+        else:
+            ld_libs = map(lambda x: x + 'lib/', self.main_bin.arch.lib_paths)
+        ld_libs = ':'.join(ld_libs)
         ld_path = ld_path + ":" + ld_libs
 
         # Make LD look for custom libraries in the right place
@@ -398,7 +405,7 @@ class Ld(object):
         # definition is always at the same place for all architectures.
         off = 0x18
         f.seek(off)
-        count = self.main_bin.archinfo.bits / 8
+        count = self.main_bin.arch.bits / 8
 
         # Set the entry point to address 0
         screw_char = "\x00"
@@ -426,9 +433,9 @@ class Ld(object):
 
     def _check_arch(self, objpath):
         """ Is obj the same architecture as our main binary ? """
-        arch = ArchInfo(objpath)
+        arch = arch_from_binary(objpath)
         # The architectures are exactly the same
-        return self.main_bin.archinfo.compatible_with(arch)
+        return self.main_bin.arch == arch
 
     def _check_lib(self, sopath):
         try:

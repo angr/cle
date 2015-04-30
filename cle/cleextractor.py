@@ -4,7 +4,7 @@ import subprocess
 from .clexception import CLException
 from .abs_obj import Segment
 from .metaelf import MetaELF
-from .archinfo import ArchInfo
+from arch import arch_from_binary
 
 l = logging.getLogger("cle.cleextractor")
 
@@ -33,7 +33,8 @@ class CLEExtractor(MetaELF):
 
         # Call the constructor of AbsObj
         super(CLEExtractor, self).__init__(*args, **kwargs)
-        self.set_archinfo(ArchInfo(self.binary))
+        if self.arch is None:
+            self.set_arch(arch_from_binary(self.binary))
 
         # Shall we load the binary ? Yes by default
         load = True if 'load' not in kwargs else False
@@ -49,11 +50,6 @@ class CLEExtractor(MetaELF):
         self.tls_init_image = None
 
         info = self._call_ccle()
-
-        # TODO: fix this
-        self.elfflags = self._get_elf_flags(info)
-        self.archinfo.elfflags = self.elfflags
-        ##
 
         self.symbols = self._get_symbols(info)
         self.s_symbols = self._get_symbols(info, static=True)
@@ -282,7 +278,7 @@ class CLEExtractor(MetaELF):
         # old MIPS ABIS don't not support jmprel so we need a workaround
         #TODO: we should probably try to find out which versions of the MIPS ABI are affected
         # as it might impact the behavior of other things...
-        if len(got) == 0 and "mips" in self.arch:
+        if len(got) == 0 and self.arch.name == 'MIPS32':
            got = self._get_mips_jmprel()
 
         return got
@@ -315,7 +311,7 @@ class CLEExtractor(MetaELF):
         Returns: a dict {name:offset}
         """
 
-        if "mips" in self.archinfo.name:
+        if self.arch.name == "MIPS32":
             return self._get_mips_global_reloc()
         reloc = {}
 
@@ -325,7 +321,7 @@ class CLEExtractor(MetaELF):
 
         # raw reloc: (offset, name, reloc_type)
         for t in raw_reloc:
-            if t[2] in self.archinfo.get_global_reloc_type():
+            if t[2] in self.arch.reloc_s:
                 reloc[t[1]] = t[0]
                 if t[1] == '':
                     raise CLException("Empty name in global data reloc, this is a bug\n")
@@ -338,7 +334,7 @@ class CLEExtractor(MetaELF):
         """
 
         raw_reloc = self.raw_reloc
-        reloc_type = self.archinfo.get_s_a_reloc_type()
+        reloc_type = self.arch.reloc_s_a
         if reloc_type is None:
             return []
 
@@ -369,7 +365,7 @@ class CLEExtractor(MetaELF):
 
         raw_reloc = self.raw_reloc
         for t in raw_reloc:
-            if t[2] in self.archinfo.get_relative_reloc_type():
+            if t[2] in self.arch.reloc_b_a:
                 if self.rela_type == "DT_RELA":
                     #(offset, addend)
                     reloc.append((t[0], t[3]))
@@ -387,7 +383,7 @@ class CLEExtractor(MetaELF):
 
         raw_reloc = self.raw_reloc
         for t in raw_reloc:
-            if t[2] in self.archinfo.get_copy_reloc_type():
+            if t[2] in self.arch.reloc_copy:
                     reloc.append((t[0], t[1]))
         return reloc
 
@@ -396,7 +392,7 @@ class CLEExtractor(MetaELF):
         Find relocs for the TLS "module ID".
         returns: a list of offsets
         """
-        tls_mod_relocs = self.archinfo._reloc_tls_mod_id()
+        tls_mod_relocs = self.arch.reloc_tls_mod_id
         return [t[0] for t in self.raw_reloc if t[2] in tls_mod_relocs]
 
     def _get_tls_offset_reloc(self):
@@ -404,7 +400,7 @@ class CLEExtractor(MetaELF):
         Find relocs for offsets into each TLS block.
         returns: a dict {offset_into_obj: offset_into_tls_block}
         """
-        tls_offset_relocs = self.archinfo._reloc_tls_offset()
+        tls_offset_relocs = self.arch.reloc_tls_offset
         return {t[0]: t[3] for t in self.raw_reloc if t[2] in tls_offset_relocs}
 
     def _get_mips_external_reloc(self):
@@ -421,7 +417,7 @@ class CLEExtractor(MetaELF):
         symtab_base_idx = self.mips_gotsym # First symbol of symtab that has a GOT entry
         got_base_idx = self.mips_local_gotno  # Index of first global entry in GOT
         gotaddr = self.gotaddr
-        got_entry_size = self.bits_per_addr / 8 # How many bytes per slot ?
+        got_entry_size = self.arch.bytes # How many bytes per slot ?
 
         rel = {}
 
@@ -586,8 +582,8 @@ class CLEExtractor(MetaELF):
 
     def _call_ccle(self):
         """ Get information from the binary using ccle """
-        qemu = self.archinfo.get_qemu_cmd()
-        arch = self.archinfo.get_unique_name()
+        qemu = 'qemu-%s' % self.arch.qemu_name
+        arch = self.arch.name.lower()
         env_p = os.getenv("VIRTUAL_ENV", "/")
         bin_p = "local/bin/%s" % arch
         lib_p = "local/lib/%s" % arch
@@ -596,8 +592,14 @@ class CLEExtractor(MetaELF):
         if not os.path.exists(cle):
             raise CLException("Cannot find ccle binary at %s" % cle)
 
-        crosslibs = self.archinfo.get_cross_library_path()
-        ld_libs = self.archinfo.get_cross_ld_path()
+        crosslibs = ':'.join(self.arch.lib_paths)
+        if self.arch.name in ('AMD64', 'X86'):
+            ld_libs = self.arch.lib_paths
+        elif self.arch.name == 'PPC64':
+            ld_libs = map(lambda x: x + 'lib64/', self.arch.lib_paths)
+        else:
+            ld_libs = map(lambda x: x + 'lib/', self.arch.lib_paths)
+        ld_libs = ':'.join(ld_libs)
         # ccle needs libcle which resides in arch/ for each arch
         cmd = [qemu, "-L", crosslibs, "-E", "LD_LIBRARY_PATH=" +
                os.path.join(env_p, lib_p) + ":" + ld_libs
@@ -706,21 +708,6 @@ class CLEExtractor(MetaELF):
             # How many elements in the symbol table
             elif i["tag"] == "DT_MIPS_SYMTABNO":
                 self.mips_symtabno = int(i["val"].strip(), 16)
-
-    def is_thumb(self,addr):
-        """ Is the address @addr in thumb mode ? """
-        if not "arm" in self.arch:
-            raise CLException("Dude, thumb mode is on ARM!")
-
-        # Is the entry point in ARM or Thumb mode ?
-        # If the first bit of the entry point's address is 1, then Thumb.
-        # If it is 00, then ARM. Check page 16 of this document for details:
-        # http://infocenter.arm.com/help/topic/com.arm.doc.ihi0044e/IHI0044E_aaelf.pdf
-
-        if addr == self.entry:
-            return (addr & 1) == 1
-        else:
-            raise CLException("Runtime thumb mode detection not implemented")
 
     @staticmethod
     def _global_symbols(symbols):
@@ -866,7 +853,7 @@ class CLEExtractor(MetaELF):
         On x86, x86_64 DT_PLTGOT is equal to .got.plt, but different from .got
         On PPC, PPC64 DT_PLTGOT is equal to .plt, but different from .got
         """
-        if "mips" in self.archinfo.name or "arm" in self.archinfo.name:
+        if self.arch.name in ('MIPS32', 'ARM', 'ARMHF'):
             # Dynamically-linked
             if self._dyn_gotaddr is not None: #DT_PLTGOT
                 return self._dyn_gotaddr
@@ -890,7 +877,7 @@ class CLEExtractor(MetaELF):
         """
 
         # On MIPS and ARM, DT_PLTGOT is equal to .got (and there is no .got.plt)
-        if "mips" in self.archinfo.name or "arm" in self.archinfo.name:
+        if self.arch.name in ('MIPS32', 'ARM', 'ARMHF'):
             return self.gotaddr
 
         # Other arch, dynamically-linked
@@ -901,7 +888,7 @@ class CLEExtractor(MetaELF):
         if len(self.sections) is None:
             return None
 
-        if "powerpc" in self.archinfo.name:
+        if self.arch.name in ('PPC32', 'PPC64'):
             if '.plt' in self.sections.keys():
                 return self.sections['.plt']['addr']
 
@@ -922,10 +909,10 @@ class CLEExtractor(MetaELF):
 
     @property
     def pltgotsz(self):
-        if "mips" in self.archinfo.name or "arm" in self.archinfo.name:
+        if self.arch.name in ('MIPS32', 'ARM', 'ARMHF'):
             return self.gotsz
 
-        if "powerpc" in self.archinfo.name:
+        if self.arch.name in ('PPC32', 'PPC64'):
             if '.plt' in self.sections.keys():
                 return self.sections['.plt']['size']
 
@@ -989,7 +976,7 @@ class CLEExtractor(MetaELF):
         """
 
         self.ppc64_initial_rtoc = None
-        if self.archinfo.qemu_arch != 'ppc64': return
+        if self.arch != 'PPC64': return
         if self.elfflags & 3 < 2:
             ep_offset = self._elf_entry
             self._elf_entry = self.memory.read_addr_at(ep_offset)

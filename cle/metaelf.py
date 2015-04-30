@@ -12,7 +12,7 @@ class MetaELF(AbsObj):
         self.elfflags = 0
 
     def _load_plt(self):
-        if "arm" in self.archinfo.name or 'mips' in self.archinfo.name:
+        if self.arch.name in ('ARM', 'ARMHF', 'MIPS32'):
             return
 
         for name in self.jmprel:
@@ -41,17 +41,17 @@ class MetaELF(AbsObj):
         # This is the address of the next second instruction in the PLT stub
         # This is hackish but it works
 
-        if self.archinfo.name in ["i386:x86-64", "i386"]:
+        if self.arch.name in ('X86', 'AMD64'):
             # 0x6 is the size of the plt's jmpq instruction in x86_64
             return addr - 0x6
 
-        elif "arm" in self.archinfo.name:
+        elif self.arch.name in ('ARM', 'ARMHF'):
             return addr
 
-        elif "powerpc" in self.archinfo.name:
+        elif self.arch.name in ('PPC', 'PPC64'):
             return got
 
-        elif "mips" in self.archinfo.name:
+        elif self.arch.name == 'MIPS32':
             return addr
 
     def get_call_stub_addr(self, name):
@@ -60,7 +60,7 @@ class MetaELF(AbsObj):
         """
         # FIXME: this doesn't work on PPC. It will return .plt address of the
         # function, but it is not what is called in practice...
-        if "powerpc" in self.archinfo.name or "arm" in self.archinfo.name:
+        if self.arch.name in ('ARM', 'ARMHF', 'PPC32', 'PPC64'):
             raise CLException("FXIME: this doesn't work on PPC/ARM")
 
         if name in self.plt.keys():
@@ -76,7 +76,7 @@ class MetaELF(AbsObj):
         Utter bollocks, but this function should fix it.
         """
 
-        if self.archinfo.qemu_arch != 'ppc64': return
+        if self.arch.name != 'PPC64': return
         if self.elfflags & 3 < 2:
             ep_offset = self.entry
             self.entry = self.memory.read_addr_at(ep_offset)

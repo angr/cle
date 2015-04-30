@@ -1,4 +1,5 @@
 import bisect
+import struct
 
 # TODO: Further optimization is possible now that the list of backers is sorted
 
@@ -10,8 +11,8 @@ class Clemory(object):
 
     Accesses can be made with [index] notation.
     """
-    def __init__(self, archinfo):
-        self._archinfo = archinfo
+    def __init__(self, arch):
+        self._arch = arch
         self._backers = []  # tuple of (start, str)
         self._updates = {}
         self._pointer = 0
@@ -79,7 +80,7 @@ class Clemory(object):
             if serialdata['type'] == 'str':
                 self._backers.append((start, serialdata['data']))
             elif serialdata['type'] == 'Clemory':
-                subdata = Clemory(self._archinfo)
+                subdata = Clemory(self._arch)
                 subdata.__setstate__(serialdata['data'])
                 self._backers.append((start, subdata))
 
@@ -100,17 +101,16 @@ class Clemory(object):
 
     def read_addr_at(self, where):
         """
-        Read addr stored in memory as a serie of bytes starting at @addr
-        @archinfo is an cle.Archinfo instance
+        Read addr stored in memory as a serie of bytes starting at @where
         """
-        return self._archinfo.bytes_to_addr(''.join(self.read_bytes(where, self._archinfo.bits/8)))
+        return struct.unpack(self._arch.struct_fmt(), ''.join(self.read_bytes(where, self._arch.bytes)))[0]
 
     def write_addr_at(self, where, addr):
         """
         Writes @addr into a serie of bytes in memory at @where
         @archinfo is an cle.Archinfo instance
         """
-        by = self._archinfo.addr_to_bytes(addr)
+        by = struct.pack(self._arch.struct_fmt(), addr)
         self.write_bytes(where, by)
 
     @property

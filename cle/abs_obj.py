@@ -1,6 +1,6 @@
 import os
+import arch
 from .clexception import CLException
-from .archinfo import Arch
 from .memory import Clemory
 from abc import ABCMeta
 
@@ -99,7 +99,7 @@ class Relocation(object):
     def __init__(self, owner, symbol, addr, r_type, addend=None):
         super(Relocation, self).__init__()
         self.owner_obj = owner
-        self.archinfo = owner.archinfo
+        self.arch = owner.arch
         self.symbol = symbol
         self.addr = addr
         self.type = r_type
@@ -138,17 +138,17 @@ class Relocation(object):
             return self.reloc_mips_local()
         elif self.type == 'mips_global':
             return self.reloc_mips_global(solist)
-        elif self.type in self.archinfo.get_global_reloc_type():
+        elif self.type in self.arch.reloc_s:
             return self.reloc_global(solist)
-        elif self.type in self.archinfo.get_s_a_reloc_type():
+        elif self.type in self.arch.reloc_s_a:
             return self.reloc_absolute(solist)
-        elif self.type in self.archinfo.get_relative_reloc_type():
+        elif self.type in self.arch.reloc_b_a:
             return self.reloc_relative()
-        elif self.type in self.archinfo.get_copy_reloc_type():
+        elif self.type in self.arch.reloc_copy:
             return self.reloc_copy(solist)
-        elif self.type in self.archinfo.get_tls_mod_id_reloc_type():
+        elif self.type in self.arch.reloc_tls_mod_id:
             return self.reloc_tls_mod_id()
-        elif self.type in self.archinfo.get_tls_offset_reloc_type():
+        elif self.type in self.arch.reloc_tls_offset:
             return self.reloc_tls_offset()
         else:
             l.warning("Unknown reloc type: %d", self.type)
@@ -265,7 +265,6 @@ class AbsObj(object):
         self.imports = {}
         self.jmprel = {}
         self.symbols = None # Object's symbols
-        self.bits_per_addr = None
         self.arch = None
 
         # These are set by cle, and should not be overriden manually
@@ -289,31 +288,14 @@ class AbsObj(object):
             raise CLException("The binary file \"%s\" does not exist :(" %
                               self.binary)
 
-        if 'blob' in kwargs and 'custom_arch' in kwargs:
-            self.set_archinfo(Arch(simarch=kwargs['custom_arch']))
-            self.simarch = kwargs['custom_arch']
+        if 'custom_arch' in kwargs:
+            self.set_arch(arch.arch_from_id(kwargs['custom_arch']))
         else:
-            self.archinfo = None
+            self.arch = None
 
-    def set_archinfo(self, archinfo):
-        self.archinfo = archinfo
-        arch_name = archinfo.name
-        self.bits_per_addr = archinfo.bits
-
-        # We use qemu's convention for arch names
-        self.arch = archinfo.to_qemu_arch(arch_name)
-        self.simarch = archinfo.to_simuvex_arch(arch_name)
-
-        self.memory = Clemory(self.archinfo) # Private virtual address space, without relocations
-
-    def get_vex_ir_endness(self):
-        """
-        This returns the endianness of the object in VEX notation
-        """
-        return 'Iend_LE' if self.archinfo.byte_order == 'LSB' else 'Iend_BE'
-
-    def get_vex_endness(self):
-        return 'VexEndnessLE' if self.archinfo.byte_order == 'LSB' else 'VexEndnessBE'
+    def set_arch(self, archinfo):
+        self.arch = archinfo
+        self.memory = Clemory(archinfo) # Private virtual address space, without relocations
 
     def contains_addr(self, addr):
         """ Is @vaddr in one of the binary's segments we have loaded ?

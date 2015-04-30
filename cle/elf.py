@@ -1,9 +1,9 @@
 import struct, os
 from elftools.elf import elffile, sections
+from arch import arch_from_binary
 
 from .abs_obj import Symbol, Relocation, Segment
 from .metaelf import MetaELF
-from .archinfo import ArchInfo
 from .clexception import CLException
 
 import logging
@@ -11,7 +11,7 @@ l = logging.getLogger('cle.elf')
 
 class ELFSymbol(Symbol):
     def __init__(self, owner, symb):
-        realtype = owner.archinfo.translate_symbol_type(symb.entry.st_info.type)
+        realtype = owner.arch.translate_symbol_type(symb.entry.st_info.type)
         super(ELFSymbol, self).__init__(owner, symb.name, symb.entry.st_value,
                                         symb.entry.st_size, symb.entry.st_info.bind,
                                         realtype, symb.entry.st_shndx)
@@ -30,7 +30,8 @@ class ELF(MetaELF):
     def __init__(self, binary, **kwargs):
         super(ELF, self).__init__(binary, **kwargs)
         self.reader = elffile.ELFFile(open(self.binary))
-        self.set_archinfo(ArchInfo(binary))
+        if self.arch is None:
+            self.set_arch(arch_from_binary(binary))
         self.strtab = None
         self.dynsym = None
         self.hashtable = None
@@ -50,8 +51,6 @@ class ELF(MetaELF):
 
         self.tls_init_image = ''
 
-        self.elfflags = self.reader.header.e_flags
-        self.archinfo.elfflags = self.elfflags
         self.entry = self.reader.header.e_entry
 
         self.__register_segments()
@@ -78,9 +77,8 @@ class ELF(MetaELF):
             self.memory.add_backer(seg.header.p_vaddr + seg.header.p_filesz, '\0' * (seg.header.p_memsz - seg.header.p_filesz))
 
     def __register_dyn(self, seg_readelf):
-        #import ipdb; ipdb.set_trace()
         for tag in seg_readelf.iter_tags():
-            tagstr = self.archinfo.translate_dynamic_tag(tag.entry.d_tag)
+            tagstr = self.arch.translate_dynamic_tag(tag.entry.d_tag)
             self._dynamic[tagstr] = tag.entry.d_val
             if tagstr == 'DT_NEEDED':
                 self.deps.append(tag.entry.d_val)
@@ -101,9 +99,9 @@ class ELF(MetaELF):
                 self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.memory, self.reader, self.strtab)
 
                 if 'DT_GNU_HASH' in self._dynamic:
-                    self.hashtable = GNUHashTable(self.dynsym, self.memory, self._dynamic['DT_GNU_HASH'], self.archinfo)
+                    self.hashtable = GNUHashTable(self.dynsym, self.memory, self._dynamic['DT_GNU_HASH'], self.arch)
                 elif 'DT_HASH' in self._dynamic:
-                    self.hashtable = ELFHashTable(self.dynsym, self.memory, self._dynamic['DT_HASH'], self.archinfo)
+                    self.hashtable = ELFHashTable(self.dynsym, self.memory, self._dynamic['DT_HASH'], self.arch)
                 else:
                     l.warning("No hash table available in %s", self.binary)
 
@@ -209,7 +207,7 @@ class ELF(MetaELF):
         symtab_got_idx = self._dynamic['DT_MIPS_GOTSYM']   # index of first symbol w/ GOT entry
         symbol_count = self._dynamic['DT_MIPS_SYMTABNO']
         gotaddr = self._dynamic['DT_PLTGOT']
-        wordsize = self.bits_per_addr/8
+        wordsize = self.arch.bytes
         for i in range(got_local_num):
             reloc = Relocation(self, None, gotaddr + i*wordsize, 'mips_local')
             self.relocs.append(reloc)
@@ -235,7 +233,7 @@ class ELFHashTable(object):
         @param archinfo     The ArchInfo object for the ELF file
         """
         self.symtab = symtab
-        fmt = '<' if archinfo.byte_order == 'LSB' else '>'
+        fmt = '<' if archinfo.memory_endness == 'Iend_LE' else '>'
         stream.seek(offset)
         self.nbuckets, self.nchains = struct.unpack(fmt + 'II', stream.read(8))
         self.buckets = struct.unpack(fmt + 'I'*self.nbuckets, stream.read(4*self.nbuckets))
@@ -283,7 +281,7 @@ class GNUHashTable(object):
         @param archinfo     The ArchInfo object for the ELF file
         """
         self.symtab = symtab
-        fmt = '<' if archinfo.byte_order == 'LSB' else '>'
+        fmt = '<' if archinfo.memory_endness == 'Iend_LE' else '>'
         self.c = archinfo.bits
         fmtsz = 'I' if self.c == 32 else 'Q'
 
