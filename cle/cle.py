@@ -49,7 +49,8 @@ class Ld(object):
     def __init__(self, main_binary, auto_load_libs=True,
                  force_load_libs=None, skip_libs=None,
                  main_opts=None, lib_opts=None, custom_ld_path=None,
-                 ignore_import_version_numbers=True, rebase_granularity=0x1000000):
+                 ignore_import_version_numbers=True, rebase_granularity=0x1000000,
+                 except_missing_libs=True):
         """
         @param main_binary      The path to the main binary you're loading
         @param auto_load_libs   Whether to automatically load shared libraries that
@@ -69,6 +70,8 @@ class Ld(object):
                                 libc.so.6 and libc.so.0
         @param rebase_granularity
                                 The alignment to use for rebasing shared objects
+        @param except_missing_libs
+                                Throw an exception when a shared library can't be found
         """
 
         self._main_binary_path = os.path.realpath(str(main_binary))
@@ -80,15 +83,13 @@ class Ld(object):
         self._custom_ld_path = [] if custom_ld_path is None else custom_ld_path
         self._ignore_import_version_numbers = ignore_import_version_numbers
         self._rebase_granularity = rebase_granularity
+        self._except_missing_libs = except_missing_libs
 
-        # These are all the class variables of Ld
-        # Please add new stuff here along with a description :)
-
-        self.memory = None              # The loaded, rebased, and relocated memory of the program
-        self.main_bin = None            # The main binary (i.e., the executable)
-        self.shared_objects = {}        # Contains autodetected libraries (CLE binaries)
-        self.all_objects = []           # All the different objects loaded
-        self.requested_objects = set()  # All the different shared libraries that were marked as a dependancy by somebody
+        self.memory = None
+        self.main_bin = None
+        self.shared_objects = {}
+        self.all_objects = []
+        self.requested_objects = set()
 
         self._load_main_binary()
         self._load_dependencies()
@@ -110,8 +111,12 @@ class Ld(object):
             dep = self._unsatisfied_deps.pop(0)
             if dep in self._satisfied_deps:
                 continue
+            if self._ignore_import_version_numbers and dep.strip('.0123456789') in self._satisfied_deps:
+                continue
             path = self._resolve_path(dep)
             if not path:
+                if self._except_missing_libs:
+                    raise CLException("Could not find shared library: %s" % dep)
                 continue
             libname = os.path.basename(path)
             options = self._lib_opts.get(libname, {})
@@ -142,7 +147,8 @@ class Ld(object):
         self.requested_objects.update(obj.deps)
         self._satisfied_deps.add(path)
         self._satisfied_deps.add(os.path.basename(path))
-        self._satisfied_deps.add(os.path.basename(path).strip('.0123456789'))
+        if self._ignore_import_version_numbers:
+            self._satisfied_deps.add(os.path.basename(path).strip('.0123456789'))
         self.all_objects.append(obj)
         return obj
 
@@ -151,30 +157,18 @@ class Ld(object):
             if self._check_lib(path):
                 return path
         else:
-            if self._check_lib(os.path.realpath(path)):
-                return os.path.realpath(path)
-            if self._check_lib(os.path.join(os.path.basename(self._main_binary_path), path)):
-                return os.path.join(os.path.basename(self._main_binary_path), path)
-            loc = []
-            loc += self._custom_ld_path
-            loc += self.main_bin.arch.lib_paths
-            # Dangerous, only ok if the hosts sytem's is the same as the target
-            #loc.append(os.getenv("LD_LIBRARY_PATH"))
-
-            l.debug("Searching for SO %s in %s", path, str(loc))
-            # TODO: Figure out how to get this to not loop in recursive filesystem structures
-            for ld_path in loc:
-                for s_path, _, files in os.walk(ld_path, followlinks=True):
-                    sopath = os.path.join(s_path, path)
-                    if path in files and self._check_lib(sopath):
-                        return sopath
-                    elif self._ignore_import_version_numbers:
-                        for filename in files:
-                            if filename.startswith(path):
-                                sopath = os.path.join(s_path, filename)
-                                l.debug("-->Found with version number: %s", path)
-                                if self._check_lib(sopath):
-                                    return sopath
+            dirs = self._custom_ld_path
+            dirs += ['.', os.path.basename(self._main_binary_path)]
+            dirs += self.main_bin.arch.library_search_path()
+            for libdir in dirs:
+                if self._check_lib(os.path.join(libdir, path)):
+                    return os.path.realpath(os.path.join(libdir, path))
+                if self._ignore_import_version_numbers:
+                    listing = os.listdir(libdir)
+                    for libname in listing:
+                        if libname.strip('.0123456789') == path.strip('.0123456789'):
+                            if self._check_lib(os.path.join(libdir, listing)):
+                                return os.path.realpath(os.path.join(libdir, listing))
 
     def _perform_reloc(self):
         for i, obj in enumerate(self.all_objects):
