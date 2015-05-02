@@ -7,14 +7,20 @@ from abc import ABCMeta
 import logging
 l = logging.getLogger('cle.generic')
 
-class Segment(object):
-    """ Simple representation of an ELF file segment"""
-    def __init__(self, name, vaddr, memsize, filesize, offset):
+class Region(object):
+    """
+    A region of memory that is mapped in the object's file.
+
+    offset is the offset into the file the region starts
+    vaddr (or just addr) is the virtual address
+    filesize (or just size) is the size of the region in the file
+    memsize (or vsize) is the size of the region when loaded into memory
+    """
+    def __init__(self, offset, vaddr, size, vsize):
         self.vaddr = vaddr
-        self.memsize = memsize
-        self.filesize = filesize
+        self.memsize = vsize
+        self.filesize = size
         self.offset = offset
-        self.name = name
 
     def contains_addr(self, addr):
         return (addr >= self.vaddr) and (addr < self.vaddr + self.memsize)
@@ -48,6 +54,23 @@ class Segment(object):
 
     def min_offset(self):
         return self.offset
+
+
+class Segment(Region):
+    """ Simple representation of an ELF file segment"""
+    pass
+
+class Section(Region):
+    """ Simple representation of an ELF file section"""
+    def __init__(self, name, offset, vaddr, size, sectype, entsize, flags, link, info, align):
+        super(Section, self).__init__(offset, vaddr, size, size)
+        self.name = name
+        self.type = sectype
+        self.entsize = entsize
+        self.flags = flags
+        self.link = link
+        self.info = info
+        self.align = align
 
 class Symbol(object):
     """
@@ -260,6 +283,8 @@ class AbsObj(object):
         self.binary = binary
         self.entry = None
         self.segments = [] # List of segments
+        self.sections = []      # List of sections
+        self.sections_map = {}  # Mapping from section name to section
         self.imports = {}
         self.jmprel = {}
         self.symbols = None # Object's symbols
@@ -313,16 +338,15 @@ class AbsObj(object):
                 return True
         return False
 
-    def in_which_segment(self, vaddr):
-        """ What is the segment name containing @vaddr ?"""
+    def find_segment_containing(self, vaddr):
+        """ Returns the segment that contains @vaddr, or None """
         for s in self.segments:
             if s.contains_addr(vaddr):
-                return s.name
-        return None
+                return s
 
-    def get_segment(self, vaddr):
-        """ Returns the segment that contains @vaddr """
-        for s in self.segments:
+    def find_section_containing(self, vaddr):
+        """ Returns the section that contains @vaddr, or None """
+        for s in self.sections:
             if s.contains_addr(vaddr):
                 return s
 

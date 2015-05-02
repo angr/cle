@@ -2,7 +2,7 @@ import struct, os
 from elftools.elf import elffile, sections
 from arch import arch_from_binary
 
-from .abs_obj import Symbol, Relocation, Segment
+from .abs_obj import Symbol, Relocation, Segment, Section
 from .metaelf import MetaELF
 from .clexception import CLException
 
@@ -12,19 +12,42 @@ l = logging.getLogger('cle.elf')
 class ELFSymbol(Symbol):
     def __init__(self, owner, symb):
         realtype = owner.arch.translate_symbol_type(symb.entry.st_info.type)
-        super(ELFSymbol, self).__init__(owner, symb.name, symb.entry.st_value,
-                                        symb.entry.st_size, symb.entry.st_info.bind,
-                                        realtype, symb.entry.st_shndx)
+        super(ELFSymbol, self).__init__(owner,
+                                        symb.name,
+                                        symb.entry.st_value,
+                                        symb.entry.st_size,
+                                        symb.entry.st_info.bind,
+                                        realtype,
+                                        symb.entry.st_shndx)
 
 class ELFRelocation(Relocation):
     def __init__(self, readelf_reloc, owner, symbol):
         addend = readelf_reloc.entry.r_addend if readelf_reloc.is_RELA() else None
-        super(ELFRelocation, self).__init__(owner, symbol, readelf_reloc.entry.r_offset,
-                                            readelf_reloc.entry.r_info_type, addend)
+        super(ELFRelocation, self).__init__(owner,
+                                            symbol,
+                                            readelf_reloc.entry.r_offset,
+                                            readelf_reloc.entry.r_info_type,
+                                            addend)
 
 class ELFSegment(Segment):
     def __init__(self, readelf_seg):
-        super(ELFSegment, self).__init__('seg_%x' % readelf_seg.header.p_vaddr, readelf_seg.header.p_vaddr, readelf_seg.header.p_memsz, readelf_seg.header.p_filesz, readelf_seg.header.p_offset)
+        super(ELFSegment, self).__init__(readelf_seg.header.p_offset,
+                                         readelf_seg.header.p_vaddr,
+                                         readelf_seg.header.p_filesz,
+                                         readelf_seg.header.p_memsz)
+
+class ELFSection(Section):
+    def __init__(self, readelf_sec):
+        super(ELFSection, self).__init__(readelf_sec.name,
+                                         readelf_sec.header.sh_offset,
+                                         readelf_sec.header.sh_addr,
+                                         readelf_sec.header.sh_size,
+                                         readelf_sec.header.sh_type,
+                                         readelf_sec.header.sh_entsize,
+                                         readelf_sec.header.sh_flags,
+                                         readelf_sec.header.sh_link,
+                                         readelf_sec.header.sh_info,
+                                         readelf_sec.header.sh_addralign)
 
 class ELF(MetaELF):
     def __init__(self, binary, **kwargs):
@@ -190,6 +213,9 @@ class ELF(MetaELF):
 
     def __register_sections(self):
         for sec_readelf in self.reader.iter_sections():
+            section = ELFSection(sec_readelf)
+            self.sections.append(section)
+            self.sections_map[section.name] = section
             if isinstance(sec_readelf, elffile.SymbolTableSection):
                 self.__register_section_symbols(sec_readelf)
 
