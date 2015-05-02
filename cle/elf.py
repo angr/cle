@@ -31,10 +31,10 @@ class ELFRelocation(Relocation):
 
 class ELFSegment(Segment):
     def __init__(self, readelf_seg):
-        super(ELFSegment, self).__init__(readelf_seg.header.p_vaddr,
-                                         readelf_seg.header.p_memsz,
+        super(ELFSegment, self).__init__(readelf_seg.header.p_offset,
+                                         readelf_seg.header.p_vaddr,
                                          readelf_seg.header.p_filesz,
-                                         readelf_seg.header.p_offset)
+                                         readelf_seg.header.p_memsz)
 
 class ELFSection(Section):
     def __init__(self, readelf_sec):

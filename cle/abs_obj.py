@@ -9,7 +9,12 @@ l = logging.getLogger('cle.generic')
 
 class Region(object):
     """
-    A region of memory that is mapped in the object's file
+    A region of memory that is mapped in the object's file.
+
+    offset is the offset into the file the region starts
+    vaddr (or just addr) is the virtual address
+    filesize (or just size) is the size of the region in the file
+    memsize (or vsize) is the size of the region when loaded into memory
     """
     def __init__(self, offset, vaddr, size, vsize):
         self.vaddr = vaddr
@@ -353,16 +358,15 @@ class AbsObj(object):
                 return True
         return False
 
-    def in_which_segment(self, vaddr):
-        """ What is the segment name containing @vaddr ?"""
+    def find_segment_containing(self, vaddr):
+        """ Returns the segment that contains @vaddr, or None """
         for s in self.segments:
             if s.contains_addr(vaddr):
-                return s.name
-        return None
+                return s
 
-    def get_segment(self, vaddr):
-        """ Returns the segment that contains @vaddr """
-        for s in self.segments:
+    def find_section_containing(self, vaddr):
+        """ Returns the section that contains @vaddr, or None """
+        for s in self.sections:
             if s.contains_addr(vaddr):
                 return s
 
