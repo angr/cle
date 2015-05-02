@@ -158,7 +158,7 @@ class Ld(object):
                 return path
         else:
             dirs = self._custom_ld_path
-            dirs += ['.', os.path.basename(self._main_binary_path)]
+            dirs += ['.', os.path.dirname(self._main_binary_path)]
             dirs += self.main_bin.arch.library_search_path()
             for libdir in dirs:
                 if self._check_lib(os.path.join(libdir, path)):

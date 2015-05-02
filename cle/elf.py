@@ -59,7 +59,7 @@ class ELF(MetaELF):
         self._load_plt()
 
     def __repr__(self):
-        return '<ELF Object %s, maps [%#x:%#x]>' % (os.path.basename(self.binary), self.get_min_addr(), self.get_max_addr())
+        return '<ELF Object %s, maps [%#x:%#x]>' % (os.path.basename(self.binary), self.get_min_addr() + self.rebase_addr, self.get_max_addr() + self.rebase_addr)
 
     def __register_segments(self):
         for seg_readelf in self.reader.iter_segments():

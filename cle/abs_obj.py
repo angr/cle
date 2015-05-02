@@ -160,8 +160,6 @@ class Relocation(object):
         return True
 
     def reloc_absolute(self, solist):
-        if self.addend != 0:
-            raise CLException("S+A reloc with an actual addend??? halp")
         if not self.resolve_symbol(solist):
             return False
         self.owner_obj.memory.write_addr_at(self.addr, self.resolvedby.rebased_addr)
