@@ -61,7 +61,6 @@ class ELF(MetaELF):
 
         self._dynamic = {}
         self.deps = []
-        self.soname = None
         self.rela_type = None
 
         self._symbol_cache = {}
@@ -112,7 +111,7 @@ class ELF(MetaELF):
             self.strtab = elffile.StringTableSection(fakestrtabheader, 'strtab_cle', self.memory)
             self.deps = map(self.strtab.get_string, self.deps)
             if 'DT_SONAME' in self._dynamic:
-                self.soname = self.strtab.get_string(self._dynamic['DT_SONAME'])
+                self.provides = self.strtab.get_string(self._dynamic['DT_SONAME'])
             if 'DT_SYMTAB' in self._dynamic and 'DT_SYMENT' in self._dynamic:
                 fakesymtabheader = {
                     'sh_offset': self._dynamic['DT_SYMTAB'],

@@ -6,7 +6,7 @@ import logging
 import shutil
 import subprocess
 
-from arch import arch_from_binary
+from arch import arch_from_binary, ArchError
 
 from .elf import ELF
 from .metaelf import MetaELF
@@ -14,7 +14,7 @@ from .cleextractor import CLEExtractor
 from .pe import Pe
 from .idabin import IdaBin
 from .blob import Blob
-from .clexception import CLException, UnknownFormatException
+from .clexception import CLException
 from .memory import Clemory
 
 # import platform
@@ -109,7 +109,7 @@ class Ld(object):
     def _load_dependencies(self):
         while len(self._unsatisfied_deps) > 0:
             dep = self._unsatisfied_deps.pop(0)
-            if dep in self._satisfied_deps:
+            if os.path.basename(dep) in self._satisfied_deps:
                 continue
             if self._ignore_import_version_numbers and dep.strip('.0123456789') in self._satisfied_deps:
                 continue
@@ -124,7 +124,7 @@ class Ld(object):
             if base_addr is None:
                 base_addr = self._get_safe_rebase_addr()
             obj = self._load_object(path, options)
-            self.shared_objects[obj.soname] = obj
+            self.shared_objects[obj.provides] = obj
             self._rebase_obj(base_addr, obj)
 
     def _load_object(self, path, options):
@@ -145,10 +145,15 @@ class Ld(object):
         if self._auto_load_libs:
             self._unsatisfied_deps += obj.deps
         self.requested_objects.update(obj.deps)
-        self._satisfied_deps.add(path)
+
+        if obj.provides is not None:
+            self._satisfied_deps.add(obj.provides)
+            if self._ignore_import_version_numbers:
+                self._satisfied_deps.add(obj.provides.strip('.0123456789'))
         self._satisfied_deps.add(os.path.basename(path))
         if self._ignore_import_version_numbers:
             self._satisfied_deps.add(os.path.basename(path).strip('.0123456789'))
+
         self.all_objects.append(obj)
         return obj
 
@@ -164,11 +169,13 @@ class Ld(object):
                 if self._check_lib(os.path.join(libdir, path)):
                     return os.path.realpath(os.path.join(libdir, path))
                 if self._ignore_import_version_numbers:
-                    listing = os.listdir(libdir)
+                    listing = ()
+                    try: listing = os.listdir(libdir)
+                    except OSError: pass
                     for libname in listing:
                         if libname.strip('.0123456789') == path.strip('.0123456789'):
-                            if self._check_lib(os.path.join(libdir, listing)):
-                                return os.path.realpath(os.path.join(libdir, listing))
+                            if self._check_lib(os.path.join(libdir, libname)):
+                                return os.path.realpath(os.path.join(libdir, libname))
 
     def _perform_reloc(self):
         for i, obj in enumerate(self.all_objects):
@@ -433,16 +440,9 @@ class Ld(object):
 
     def _check_lib(self, sopath):
         try:
-            if os.path.isfile(sopath):
-                l.debug("\t--> Trying %s", sopath)
-                if not self._check_arch(sopath):
-                    l.debug("\t\t -> has wrong architecture")
-                else:
-                    l.debug("-->Found %s", sopath)
-                    return True
-        except UnknownFormatException:
-            l.info("Binary with unknown format ignored: %s", sopath)
-        return False
+            return self.main_bin.arch == arch_from_binary(sopath)
+        except ArchError:
+            return False
 
     def _all_so_exports(self):
         exports = {}
