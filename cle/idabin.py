@@ -21,7 +21,7 @@ class IdaBin(AbsObj):
         # We don't really need 32 bit idal, do we ?
         ida_prog = "idal64"
 
-        processor_type = self.archinfo.ida_arch
+        processor_type = self.arch.ida_name
 
         l.debug("Loading binary %s using IDA with arch %s", self.binary, processor_type)
         self.ida = idalink(self.binary, ida_prog=ida_prog,
@@ -79,7 +79,7 @@ class IdaBin(AbsObj):
         """ Locate the section (e.g., .got) that should be updated when
         relocating functions (that's where we want to write absolute addresses).
         """
-        sec_name = self.archinfo.got_section_name()
+        sec_name = self.arch.got_section_name
         self.got_begin = None
         self.got_end = None
 
@@ -182,7 +182,7 @@ class IdaBin(AbsObj):
         for name, ea in self.raw_imports.iteritems():
             # If this architecture uses the plt directly, then we need to look
             # in the code segment.
-            if self.archinfo.got_section_name() == '.plt':
+            if self.arch.got_section_name == '.plt':
                 lst = list(self.ida.idautils.CodeRefsTo(ea, 1))
             else:
                 lst = list(self.ida.idautils.DataRefsTo(ea))
@@ -270,7 +270,7 @@ class IdaBin(AbsObj):
             @updatre_addrs is a list
             @new_val is an address
         """
-        arch = self.archinfo.get_simuvex_obj()
+        arch = self.arch.got_section_name
         fmt = arch.struct_fmt
         packed = struct.pack(fmt, new_val)
 

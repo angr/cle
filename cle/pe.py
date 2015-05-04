@@ -24,8 +24,7 @@ class Pe(AbsObj):
         self.resolved_imports = {}
         self.jmprel = self._get_jmprel()
 
-        for i, c in enumerate(self._pe.get_memory_mapped_image()):
-            self._memory[self._base + i] = c
+        self.memory.add_backer(self._base, self._pe.get_memory_mapped_image())
 
     def get_min_addr(self):
         return min(self._base + section.VirtualAddress for section in self._pe.sections)

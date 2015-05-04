@@ -2,7 +2,7 @@ LIB:=$(CURDIR)
 BINDIR=$(VIRTUAL_ENV)/local/bin
 LIBDIR=$(VIRTUAL_ENV)/local/lib
 
-cflags=-Wall -fstack-protector -fdiagnostics-color=auto
+cflags=-Wall -fstack-protector
 cflags_ppc64=-I/cross/ppc/usr/include/powerpc-linux-gnu/
 mips_cflags=-Wall
 ppc_cflags=-Wall
