@@ -1,5 +1,5 @@
 import os
-import arch
+import archinfo
 from .clexception import CLException
 from .memory import Clemory
 from abc import ABCMeta
@@ -312,13 +312,13 @@ class AbsObj(object):
                               self.binary)
 
         if 'custom_arch' in kwargs:
-            self.set_arch(arch.arch_from_id(kwargs['custom_arch']))
+            self.set_arch(archinfo.arch_from_id(kwargs['custom_arch']))
         else:
             self.arch = None
 
-    def set_arch(self, archinfo):
-        self.arch = archinfo
-        self.memory = Clemory(archinfo) # Private virtual address space, without relocations
+    def set_arch(self, arch):
+        self.arch = arch
+        self.memory = Clemory(arch) # Private virtual address space, without relocations
 
     def contains_addr(self, addr):
         """ Is @vaddr in one of the binary's segments we have loaded ?

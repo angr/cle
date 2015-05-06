@@ -6,7 +6,7 @@ import logging
 import shutil
 import subprocess
 
-from arch import arch_from_binary, ArchError
+from archinfo import arch_from_binary, ArchError
 
 from .elf import ELF
 from .metaelf import MetaELF

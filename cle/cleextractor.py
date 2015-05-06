@@ -4,7 +4,7 @@ import subprocess
 from .clexception import CLException
 from .abs_obj import Segment
 from .metaelf import MetaELF
-from arch import arch_from_binary
+from archinfo import arch_from_binary
 
 l = logging.getLogger("cle.cleextractor")
 
@@ -684,7 +684,7 @@ class CLEExtractor(MetaELF):
         self.memory.add_backer(vaddr, f.read(size))
 
         # Add the segment to the list of loaded segments
-        seg = Segment(name, vaddr, memsize, size, offset)
+        seg = Segment(vaddr, memsize, size, offset)
         self.segments.append(seg)
         l.debug("\t--> Loaded segment %s @0x%x with size:0x%x", name, vaddr, size)
 

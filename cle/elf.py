@@ -1,6 +1,6 @@
 import struct, os
 from elftools.elf import elffile, sections
-from arch import arch_from_binary
+from archinfo import arch_from_binary
 
 from .abs_obj import Symbol, Relocation, Segment, Section
 from .metaelf import MetaELF
