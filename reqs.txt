@@ -1,3 +1,0 @@
-pyelftools
-pefile
-git+git@git.seclab.cs.ucsb.edu:angr/arch.git
