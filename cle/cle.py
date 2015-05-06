@@ -230,6 +230,8 @@ class Ld(object):
             if addr - obj.rebase_addr in obj.memory:
                 return obj
 
+        return None
+
     def addr_is_ida_mapped(self, addr):
         """ Is the object mapping @addr an instance of IdaBin ?
         """
