@@ -162,7 +162,8 @@ class Ld(object):
             if self._check_lib(path):
                 return path
         else:
-            dirs = self._custom_ld_path
+            dirs = []                   # if we say dirs = blah, we modify the original
+            dirs += self._custom_ld_path
             dirs += ['.', os.path.dirname(self._main_binary_path)]
             dirs += self.main_bin.arch.library_search_path()
             for libdir in dirs:
