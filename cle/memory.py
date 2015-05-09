@@ -1,5 +1,6 @@
 import bisect
 import struct
+import cffi
 
 # TODO: Further optimization is possible now that the list of backers is sorted
 
@@ -16,6 +17,8 @@ class Clemory(object):
         self._backers = []  # tuple of (start, str)
         self._updates = {}
         self._pointer = 0
+
+        self._cbackers = [ ] # tuple of (start, cdata<buffer>)
 
     def add_backer(self, start, data):
         """
@@ -161,3 +164,31 @@ class Clemory(object):
             out = self.read_bytes(self._pointer, nbytes)
             self._pointer += nbytes
             return ''.join(out)
+
+    def flatten_to_c(self):
+        """
+        Flattens memory backers to C-backed strings
+        """
+        ffi = cffi.FFI()
+
+        # Considering the fact that there are much less bytes in self._updates than amount of bytes in backer,
+        # this way instead of calling self.__getitem__() is actually faster
+        strides = self._stride_repr
+
+        self._cbackers = [ ]
+        for start, data in strides:
+            cbacker = ffi.new("unsigned char [%d]" % len(data), str(data))
+            self._cbackers.append((start, cbacker))
+
+    def read_bytes_c(self, addr):
+        """
+        Read @n bytes at address @addr in cbacked memory, and returns a cffi buffer pointer.
+        Note: We don't support reading across segments for performance concerns.
+        """
+
+        # TODO: We assume self.flatten_to_c() has already been called
+        for start, cbacker in self._cbackers:
+            if addr >= start and addr < start + len(cbacker):
+                return cbacker + (addr - start)
+
+        raise KeyError(addr)
