@@ -170,6 +170,17 @@ class Clemory(object):
             self._pointer += nbytes
             return ''.join(out)
 
+    @property
+    def cbackers(self):
+        """
+        This function directly returns a list of already-flattened cbackers. It's designed for performance purpose.
+        GirlScout uses it. Use this property at your own risk!
+        """
+        if self._flattening_needed:
+            self._flatten_to_c()
+
+        return self._cbackers
+
     def _flatten_to_c(self):
         """
         Flattens memory backers to C-backed strings
@@ -196,7 +207,6 @@ class Clemory(object):
         if self._flattening_needed:
             self._flatten_to_c()
 
-        # TODO: We assume self.flatten_to_c() has already been called
         for start, cbacker in self._cbackers:
             if addr >= start and addr < start + len(cbacker):
                 return cbacker + (addr - start), len(cbacker) - start
