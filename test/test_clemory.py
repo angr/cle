@@ -11,7 +11,7 @@ def test_cclemory():
     clemory.add_backer(0, "\x90" * 1000)
     clemory.add_backer(2000, "A" * 1000)
     clemory.add_backer(3000, "ABCDEFGH")
-    clemory.flatten_to_c()
+    clemory._flatten_to_c()
 
     ffi = cffi.FFI()
     ffi.cdef("""
@@ -21,17 +21,17 @@ def test_cclemory():
         #include <string.h>
     """)
     # pylint: disable=no-member
-    byte_str = clemory.read_byte_str_c(0)
+    byte_str = clemory.read_bytes_c(0)[0]
     out = c.memcmp(ffi.new("unsigned char []", "\x90" * 10), byte_str, 10)
     nose.tools.assert_equal(out, 0)
 
-    byte_str = clemory.read_byte_str_c(2000)
+    byte_str = clemory.read_bytes_c(2000)[0]
     out = c.memcmp(ffi.new("unsigned char []", "B" * 1000), byte_str, 1000)
     nose.tools.assert_not_equal(out, 0)
     out = c.memcmp(ffi.new("unsigned char []", "A" * 1000), byte_str, 1000)
     nose.tools.assert_equal(out, 0)
 
-    byte_str = clemory.read_byte_str_c(3000)
+    byte_str = clemory.read_bytes_c(3000)[0]
     out = c.memcmp(ffi.new("unsigned char []", "ABCDEFGH"), byte_str, 8)
     nose.tools.assert_equal(out, 0)
 
