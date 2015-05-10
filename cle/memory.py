@@ -1,5 +1,6 @@
 import bisect
 import struct
+import cffi
 
 # TODO: Further optimization is possible now that the list of backers is sorted
 
@@ -17,6 +18,9 @@ class Clemory(object):
         self._updates = {}
         self._pointer = 0
 
+        self._cbackers = [ ] # tuple of (start, cdata<buffer>)
+        self._flattening_needed = True
+
     def add_backer(self, start, data):
         """
         Adds a backer to the memory.
@@ -29,6 +33,7 @@ class Clemory(object):
         if start in self:
             raise ValueError("Address %#x is already backed!" % start)
         bisect.insort(self._backers, (start, data))
+        self._flattening_needed = True
 
     def update_backer(self, start, data):
         if not isinstance(data, (str, Clemory)):
@@ -36,6 +41,7 @@ class Clemory(object):
         for i, (oldstart, _) in enumerate(self._backers):
             if oldstart == start:
                 self._updates[i] = (start, data)
+                self._flattening_needed = True
                 break
 
     def __getitem__(self, k):
@@ -57,6 +63,7 @@ class Clemory(object):
         if k not in self:
             raise IndexError(k)
         self._updates[k] = v
+        self._flattening_needed = True
 
     def __contains__(self, k):
         try:
@@ -83,6 +90,7 @@ class Clemory(object):
                 subdata = Clemory(self._arch)
                 subdata.__setstate__(serialdata['data'])
                 self._backers.append((start, subdata))
+        self._flattening_needed = True
 
     def read_bytes(self, addr, n):
         """ Read @n bytes at address @addr in memory and return an array of bytes
@@ -161,3 +169,46 @@ class Clemory(object):
             out = self.read_bytes(self._pointer, nbytes)
             self._pointer += nbytes
             return ''.join(out)
+
+    @property
+    def cbackers(self):
+        """
+        This function directly returns a list of already-flattened cbackers. It's designed for performance purpose.
+        GirlScout uses it. Use this property at your own risk!
+        """
+        if self._flattening_needed:
+            self._flatten_to_c()
+
+        return self._cbackers
+
+    def _flatten_to_c(self):
+        """
+        Flattens memory backers to C-backed strings
+        """
+
+        self._flattening_needed = False
+        ffi = cffi.FFI()
+
+        # Considering the fact that there are much less bytes in self._updates than amount of bytes in backer,
+        # this way instead of calling self.__getitem__() is actually faster
+        strides = self._stride_repr
+
+        self._cbackers = [ ]
+        for start, data in strides:
+            cbacker = ffi.new("unsigned char [%d]" % len(data), str(data))
+            self._cbackers.append((start, cbacker))
+
+    def read_bytes_c(self, addr):
+        """
+        Read @n bytes at address @addr in cbacked memory, and returns a cffi buffer pointer.
+        Note: We don't support reading across segments for performance concerns.
+        """
+
+        if self._flattening_needed:
+            self._flatten_to_c()
+
+        for start, cbacker in self._cbackers:
+            if addr >= start and addr < start + len(cbacker):
+                return cbacker + (addr - start), len(cbacker) - start
+
+        raise KeyError(addr)
