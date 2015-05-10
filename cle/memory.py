@@ -19,6 +19,7 @@ class Clemory(object):
         self._pointer = 0
 
         self._cbackers = [ ] # tuple of (start, cdata<buffer>)
+        self._flattening_needed = True
 
     def add_backer(self, start, data):
         """
@@ -32,6 +33,7 @@ class Clemory(object):
         if start in self:
             raise ValueError("Address %#x is already backed!" % start)
         bisect.insort(self._backers, (start, data))
+        self._flattening_needed = True
 
     def update_backer(self, start, data):
         if not isinstance(data, (str, Clemory)):
@@ -39,6 +41,7 @@ class Clemory(object):
         for i, (oldstart, _) in enumerate(self._backers):
             if oldstart == start:
                 self._updates[i] = (start, data)
+                self._flattening_needed = True
                 break
 
     def __getitem__(self, k):
@@ -60,6 +63,7 @@ class Clemory(object):
         if k not in self:
             raise IndexError(k)
         self._updates[k] = v
+        self._flattening_needed = True
 
     def __contains__(self, k):
         try:
@@ -86,6 +90,7 @@ class Clemory(object):
                 subdata = Clemory(self._arch)
                 subdata.__setstate__(serialdata['data'])
                 self._backers.append((start, subdata))
+        self._flattening_needed = True
 
     def read_bytes(self, addr, n):
         """ Read @n bytes at address @addr in memory and return an array of bytes
@@ -165,10 +170,12 @@ class Clemory(object):
             self._pointer += nbytes
             return ''.join(out)
 
-    def flatten_to_c(self):
+    def _flatten_to_c(self):
         """
         Flattens memory backers to C-backed strings
         """
+
+        self._flattening_needed = False
         ffi = cffi.FFI()
 
         # Considering the fact that there are much less bytes in self._updates than amount of bytes in backer,
@@ -186,9 +193,12 @@ class Clemory(object):
         Note: We don't support reading across segments for performance concerns.
         """
 
+        if self._flattening_needed:
+            self._flatten_to_c()
+
         # TODO: We assume self.flatten_to_c() has already been called
         for start, cbacker in self._cbackers:
             if addr >= start and addr < start + len(cbacker):
-                return cbacker + (addr - start)
+                return cbacker + (addr - start), len(cbacker) - start
 
         raise KeyError(addr)
