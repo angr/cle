@@ -2,6 +2,7 @@
 *.so
 *.pyc
 build
+__pycache__
 
 ccle/armel
 ccle/armhf
