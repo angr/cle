@@ -209,6 +209,6 @@ class Clemory(object):
 
         for start, cbacker in self._cbackers:
             if addr >= start and addr < start + len(cbacker):
-                return cbacker + (addr - start), len(cbacker) - start
+                return cbacker + (addr - start), start + len(cbacker) - addr
 
         raise KeyError(addr)
