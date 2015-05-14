@@ -102,7 +102,7 @@ class Ld(object):
 
     def _load_main_binary(self):
         self.main_bin = self.load_object(self._main_binary_path, self._main_opts)
-        self.memory = Clemory(self.main_bin.arch)
+        self.memory = Clemory(self.main_bin.arch, root=True)
         base_addr = self._main_opts.get('custom_base_addr', 0)
         self.add_object(self.main_bin, base_addr)
 
