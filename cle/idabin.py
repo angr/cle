@@ -256,10 +256,9 @@ class IdaBin(AbsObj):
         # If none of them has an address, that's a problem
         l.debug("Warning: could not find references to symbol %s (IDA)", sym)
 
-    def resolve_import_with(self, name, newaddr):
+    def set_got_entry(self, name, newaddr):
         """ Resolve import @name with address @newaddr, that is, update the GOT
             entry for @name with @newaddr
-            Note: this should be called update_got_slot to match the Elf class.
         """
         if name in self.imports:
             addr = self.imports[name]

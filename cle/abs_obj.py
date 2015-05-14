@@ -1,4 +1,3 @@
-import os
 import archinfo
 from .clexception import CLException
 from .memory import Clemory
@@ -285,6 +284,7 @@ class AbsObj(object):
         self.segments = [] # List of segments
         self.sections = []      # List of sections
         self.sections_map = {}  # Mapping from section name to section
+        self.symbols_by_addr = {}
         self.imports = {}
         self.jmprel = {}
         self.symbols = None # Object's symbols
@@ -306,10 +306,6 @@ class AbsObj(object):
 
         self.memory = None
         self.ppc64_initial_rtoc = None
-
-        if not os.path.exists(self.binary):
-            raise CLException("The binary file \"%s\" does not exist :(" %
-                              self.binary)
 
         if 'custom_arch' in kwargs:
             self.set_arch(archinfo.arch_from_id(kwargs['custom_arch']))
@@ -387,4 +383,18 @@ class AbsObj(object):
             if out is None or segment.max_addr > out:
                 out = segment.max_addr
         return out
+
+    def set_got_entry(self, symbol_name, newaddr):
+        '''
+         This overrides the address of the function defined by @symbol with
+         the new address @newaddr.
+         This is used to call simprocedures instead of actual code
+        '''
+
+        if symbol_name not in self.imports:
+            l.warning("Could not override the address of symbol %s: symbol entry not "
+                    "found in GOT", symbol_name)
+            return
+
+        self.memory.write_addr_at(self.imports[symbol_name].addr, newaddr)
 
