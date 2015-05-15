@@ -101,10 +101,10 @@ class Ld(object):
         return '<Loaded %s, maps [%#x:%#x]>' % (os.path.basename(self._main_binary_path), self.min_addr(), self.max_addr())
 
     def _load_main_binary(self):
+        self.main_bin = self.load_object(self._main_binary_path, self._main_opts)
+        self.memory = Clemory(self.main_bin.arch, root=True)
         base_addr = self._main_opts.get('custom_base_addr', 0)
-        self.main_bin = self._load_object(self._main_binary_path, self._main_opts)
-        self.memory = Clemory(self.main_bin.arch)
-        self._rebase_obj(base_addr, self.main_bin)
+        self.add_object(self.main_bin, base_addr)
 
     def _load_dependencies(self):
         while len(self._unsatisfied_deps) > 0:
@@ -120,14 +120,14 @@ class Ld(object):
                 continue
             libname = os.path.basename(path)
             options = self._lib_opts.get(libname, {})
-            base_addr = options.get('custom_base_addr', None)
-            if base_addr is None:
-                base_addr = self._get_safe_rebase_addr()
-            obj = self._load_object(path, options)
-            self.shared_objects[obj.provides] = obj
-            self._rebase_obj(base_addr, obj)
+            obj = self.load_object(path, options)
 
-    def _load_object(self, path, options):
+            base_addr = options.get('custom_base_addr', None)
+            self.add_object(obj, base_addr)
+            self.shared_objects[obj.provides] = obj
+
+    @staticmethod
+    def load_object(path, options):
         backend = options.get('backend', 'elf')
         if backend == 'elf':
             obj = ELF(path, **options)
@@ -141,6 +141,14 @@ class Ld(object):
             obj = Blob(path, **options)
         else:
             raise CLException('Invalid backend: %s' % backend)
+        return obj
+
+    def add_object(self, obj, base_addr=None):
+        '''
+         Add object obj to the memory map, rebased at base_addr.
+         If base_addr is None CLE will pick a safe one.
+         Registers all its dependencies.
+        '''
 
         if self._auto_load_libs:
             self._unsatisfied_deps += obj.deps
@@ -150,12 +158,18 @@ class Ld(object):
             self._satisfied_deps.add(obj.provides)
             if self._ignore_import_version_numbers:
                 self._satisfied_deps.add(obj.provides.strip('.0123456789'))
-        self._satisfied_deps.add(os.path.basename(path))
-        if self._ignore_import_version_numbers:
-            self._satisfied_deps.add(os.path.basename(path).strip('.0123456789'))
 
         self.all_objects.append(obj)
-        return obj
+
+        if base_addr is None:
+            base_addr = self._get_safe_rebase_addr()
+
+        if isinstance(obj, IdaBin):
+            obj.rebase(base_addr)
+            return
+        l.info("[Rebasing %s @%#x]", os.path.basename(obj.binary), base_addr)
+        self.memory.add_backer(base_addr, obj.memory)
+        obj.rebase_addr = base_addr
 
     def _resolve_path(self, path):
         if '/' in path:
@@ -188,18 +202,6 @@ class Ld(object):
             elif isinstance(obj, MetaELF):
                 for reloc in obj.relocs:
                     reloc.relocate(self.all_objects)
-
-    def _rebase_obj(self, base, obj):
-        """ Relocate a shared objet given a base address
-        We actually copy the local memory of the object at the new computed
-        address in the "main memory" """
-
-        if isinstance(obj, IdaBin):
-            obj.rebase(base)
-            return
-        l.info("[Rebasing %s @0x%x]", os.path.basename(obj.binary), base)
-        self.memory.add_backer(base, obj.memory)
-        obj.rebase_addr = base
 
     def _get_safe_rebase_addr(self):
         """
@@ -254,19 +256,6 @@ class Ld(object):
         i.e., the whole address space)
         """
         return min(map(lambda x: x.get_min_addr() + x.rebase_addr, self.all_objects))
-
-    def override_got_entry(self, symbol, newaddr, obj):
-        """ This overrides the address of the function defined by @symbol with
-        the new address @newaddr, inside the GOT of object @obj.
-        This is used to call simprocedures instead of actual code """
-
-        if symbol not in obj.imports:
-            l.debug("Could not override the address of symbol %s: symbol entry not "
-                    "found in GOT", symbol)
-            return False
-
-        self.memory.write_addr_at(obj.imports[symbol].rebased_addr, newaddr)
-        return True
 
     # Search functions
 

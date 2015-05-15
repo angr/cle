@@ -7,7 +7,7 @@ import cle
 def test_cclemory():
     # This is a test case for C-backed Clemory.
 
-    clemory = cle.Clemory(None)
+    clemory = cle.Clemory(None, root=True)
     clemory.add_backer(0, "\x90" * 1000)
     clemory.add_backer(2000, "A" * 1000)
     clemory.add_backer(3000, "ABCDEFGH")

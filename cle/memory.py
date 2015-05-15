@@ -12,14 +12,15 @@ class Clemory(object):
 
     Accesses can be made with [index] notation.
     """
-    def __init__(self, arch):
+    def __init__(self, arch, root=False):
         self._arch = arch
         self._backers = []  # tuple of (start, str)
         self._updates = {}
         self._pointer = 0
+        self._root = root
 
         self._cbackers = [ ] # tuple of (start, cdata<buffer>)
-        self._flattening_needed = True
+        self._needs_flattening_personal = True
 
     def add_backer(self, start, data):
         """
@@ -32,8 +33,10 @@ class Clemory(object):
             raise TypeError("Data must be a string or a Clemory")
         if start in self:
             raise ValueError("Address %#x is already backed!" % start)
+        if isinstance(data, Clemory) and data._root:
+            raise ValueError("Cannot add a root clemory as a backer!")
         bisect.insort(self._backers, (start, data))
-        self._flattening_needed = True
+        self._needs_flattening_personal = True
 
     def update_backer(self, start, data):
         if not isinstance(data, (str, Clemory)):
@@ -41,7 +44,7 @@ class Clemory(object):
         for i, (oldstart, _) in enumerate(self._backers):
             if oldstart == start:
                 self._updates[i] = (start, data)
-                self._flattening_needed = True
+                self._needs_flattening_personal = True
                 break
 
     def __getitem__(self, k):
@@ -63,7 +66,7 @@ class Clemory(object):
         if k not in self:
             raise IndexError(k)
         self._updates[k] = v
-        self._flattening_needed = True
+        self._needs_flattening_personal = True
 
     def __contains__(self, k):
         try:
@@ -90,7 +93,7 @@ class Clemory(object):
                 subdata = Clemory(self._arch)
                 subdata.__setstate__(serialdata['data'])
                 self._backers.append((start, subdata))
-        self._flattening_needed = True
+        self._needs_flattening_personal = True
 
     def read_bytes(self, addr, n):
         """ Read @n bytes at address @addr in memory and return an array of bytes
@@ -176,7 +179,7 @@ class Clemory(object):
         This function directly returns a list of already-flattened cbackers. It's designed for performance purpose.
         GirlScout uses it. Use this property at your own risk!
         """
-        if self._flattening_needed:
+        if self._needs_flattening:
             self._flatten_to_c()
 
         return self._cbackers
@@ -186,7 +189,9 @@ class Clemory(object):
         Flattens memory backers to C-backed strings
         """
 
-        self._flattening_needed = False
+        if not self._root:
+            raise ValueError("Pulling C data out of a non-root Clemory is disallowed!")
+
         ffi = cffi.FFI()
 
         # Considering the fact that there are much less bytes in self._updates than amount of bytes in backer,
@@ -198,13 +203,24 @@ class Clemory(object):
             cbacker = ffi.new("unsigned char [%d]" % len(data), str(data))
             self._cbackers.append((start, cbacker))
 
+    @property
+    def _needs_flattening(self):
+        out = self._needs_flattening_personal
+        for backer in self._backers:
+            if isinstance(backer, Clemory):
+                out |= backer._needs_flattening
+
+        self._needs_flattening_personal = False
+        return out
+
+
     def read_bytes_c(self, addr):
         """
         Read @n bytes at address @addr in cbacked memory, and returns a cffi buffer pointer.
         Note: We don't support reading across segments for performance concerns.
         """
 
-        if self._flattening_needed:
+        if self._needs_flattening:
             self._flatten_to_c()
 
         for start, cbacker in self._cbackers:
