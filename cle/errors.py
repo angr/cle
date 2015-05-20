@@ -1,4 +1,10 @@
-__all__ = ('CLEError', 'CLEUnknownFormatError', 'CLEAddrError')
+__all__ = (
+    'CLEError',
+    'CLEUnknownFormatError',
+    'CLEFileNotFoundError',
+    'CLEInvalidBinaryError',
+    'CLEOperationError',
+)
 
 class CLEError(Exception):
     pass
@@ -17,8 +23,4 @@ class CLEInvalidBinaryError(CLEError):
 
 
 class CLEOperationError(CLEError):
-    pass
-
-
-class CLEAddrError(CLEError):
     pass

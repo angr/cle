@@ -1,6 +1,7 @@
 """ CLE """
-from .cle import Ld
+from .cle import *
 
-from .idabin import IdaBin
-from .elf import ELF
-from .metaelf import MetaELF
+from .idabin import *
+from .elf import *
+from .metaelf import *
+from .errors import *
