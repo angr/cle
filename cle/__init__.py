@@ -1,7 +1,8 @@
 """ CLE """
 from .cle import *
 
-from .idabin import *
+from .memory import *
 from .elf import *
-from .metaelf import *
 from .errors import *
+from .idabin import *
+from .metaelf import *
