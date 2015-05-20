@@ -2,6 +2,8 @@ import bisect
 import struct
 import cffi
 
+__all__ = ('Clemory',)
+
 # TODO: Further optimization is possible now that the list of backers is sorted
 
 class Clemory(object):

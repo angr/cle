@@ -1,8 +1,7 @@
-try:
-    import pefile
-except ImportError:
-    pass # please install this soon
-from .abs_obj import AbsObj
+import pefile
+from .absobj import AbsObj
+
+__all__ = ('Pe',)
 
 class Pe(AbsObj):
     """
