@@ -21,7 +21,7 @@ from .memory import Clemory
 # import platform
 # import binascii
 
-__all__ = ('Ld',)
+__all__ = ('Loader',)
 
 l = logging.getLogger("cle.ld")
 
@@ -39,7 +39,7 @@ BACKENDS = {
 #     2)  Smart fallback: if no backend was specified and it the binary is NOT
 #         elf, fall back to blob
 
-class Ld(object):
+class Loader(object):
     """ CLE ELF loader
     The loader loads all the objects and exports an abstraction of the memory of
     the process. What you see here is an address space with loaded and rebased
