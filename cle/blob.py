@@ -1,8 +1,10 @@
-from .abs_obj import AbsObj
+from .absobj import AbsObj
 import logging
 import os
 
 l = logging.getLogger("cle.blob")
+
+__all__ = ('Blob',)
 
 class Blob(AbsObj):
     """

@@ -8,19 +8,30 @@ import subprocess
 
 from archinfo import arch_from_binary, ArchError
 
+from .absobj import AbsObj
 from .elf import ELF
 from .metaelf import MetaELF
 from .cleextractor import CLEExtractor
 from .pe import Pe
 from .idabin import IdaBin
 from .blob import Blob
-from .clexception import CLException
+from .errors import CLEError, CLEOperationError, CLEFileNotFoundError
 from .memory import Clemory
 
 # import platform
 # import binascii
 
+__all__ = ('Ld',)
+
 l = logging.getLogger("cle.ld")
+
+BACKENDS = {
+    'elf': ELF,
+    'cleextract': CLEExtractor,
+    'ida': IdaBin,
+    'pe': Pe,
+    'blob': Blob,
+}
 
 # FIXME list
 #     1)  add support for per-library backend (right now, it all depends on the
@@ -116,7 +127,7 @@ class Ld(object):
             path = self._resolve_path(dep)
             if not path:
                 if self._except_missing_libs:
-                    raise CLException("Could not find shared library: %s" % dep)
+                    raise CLEFileNotFoundError("Could not find shared library: %s" % dep)
                 continue
             libname = os.path.basename(path)
             options = self._lib_opts.get(libname, {})
@@ -128,20 +139,15 @@ class Ld(object):
 
     @staticmethod
     def load_object(path, options):
-        backend = options.get('backend', 'elf')
-        if backend == 'elf':
-            obj = ELF(path, **options)
-        elif backend == 'cleextract':
-            obj = CLEExtractor(path, **options)
-        elif backend == 'ida':
-            obj = IdaBin(path, **options)
-        elif backend == 'pe':
-            obj = Pe(path, **options)
-        elif backend == 'blob':
-            obj = Blob(path, **options)
+        backend_option = options.get('backend', 'elf')
+        if isinstance(backend_option, type) and issubclass(backend_option, AbsObj):
+            backend = backend_option
+        elif backend_option in BACKENDS:
+            backend = BACKENDS[backend_option]
         else:
-            raise CLException('Invalid backend: %s' % backend)
-        return obj
+            raise CLEError('Invalid backend: %s' % backend)
+
+        return backend(path, **options)
 
     def add_object(self, obj, base_addr=None):
         '''
@@ -377,7 +383,7 @@ class Ld(object):
             l.error("Could not find library dependencies using ld."
                     " The log file '%s' does not exist, did qemu fail ? Try to run "
                     "`%s` manually to check", log, " ".join(cmd))
-            raise CLException("Could not find library dependencies using ld.")
+            raise CLEOperationError("Could not find library dependencies using ld.")
 
     def _binary_screwup_copy(self, path):
         """
@@ -420,8 +426,8 @@ class Ld(object):
             l.info("\t -> copy obj %s to %s", path, dest)
             shutil.copy(path, dest)
         else:
-            raise CLException("File %s does not exist :(. Please check that the"
-                              " path is correct" % path)
+            raise CLEFileNotFoundError("File %s does not exist :(. Please check that the"
+                                       " path is correct" % path)
         return dest
 
     def _check_arch(self, objpath):

@@ -1,8 +1,8 @@
 import os
 import logging
 import subprocess
-from .clexception import CLException
-from .abs_obj import Segment
+from .errors import CLEError, CLEOperationError, CLEInvalidBinaryError
+from .absobj import Segment
 from .metaelf import MetaELF
 from archinfo import arch_from_binary
 
@@ -324,7 +324,7 @@ class CLEExtractor(MetaELF):
             if t[2] in self.arch.reloc_s:
                 reloc[t[1]] = t[0]
                 if t[1] == '':
-                    raise CLException("Empty name in global data reloc, this is a bug\n")
+                    raise CLEOperationError("Empty name in global data reloc, this is a bug\n")
         return reloc
 
     def _get_s_a_reloc(self):
@@ -349,7 +349,7 @@ class CLEExtractor(MetaELF):
                     reloc.append((t[1], t[0]))
 
                 if t[1] == '':
-                    raise CLException("Empty name in '32' data reloc, this is a bug\n")
+                    raise CLEOperationError("Empty name in '32' data reloc, this is a bug\n")
         return reloc
 
     def _get_relative_reloc(self):
@@ -455,8 +455,8 @@ class CLEExtractor(MetaELF):
         for i in data:
             if i[0] == "Linking":
                 return i[1].strip()
-        raise CLException("We could not get any linking information from the "
-                          "binary, this should not happen")
+        raise CLEOperationError("We could not get any linking information from the "
+                                "binary, this should not happen")
 
 
     def _get_tls_addresses(self):
@@ -559,8 +559,8 @@ class CLEExtractor(MetaELF):
             if info != 'SHN_UNDEF':
                 if binding == "STB_GLOBAL" or binding == "STB_WEAK":
                     if name in self.imports:
-                        raise CLException("Symbol %s at 0x%x is both in imports and "
-                                      "exports, something is wrong :(", name, addr)
+                        raise CLEInvalidBinaryError("Symbol %s at 0x%x is both in imports and "
+                                                    "exports, something is wrong :(", name, addr)
                     exports[name] = addr
         return exports
 
@@ -590,7 +590,7 @@ class CLEExtractor(MetaELF):
         cle = os.path.join(env_p, bin_p, "ccle")
 
         if not os.path.exists(cle):
-            raise CLException("Cannot find ccle binary at %s" % cle)
+            raise CLEOperationError("Cannot find ccle binary at %s" % cle)
 
         crosslibs = ':'.join(self.arch.lib_paths)
         if self.arch.name in ('AMD64', 'X86'):
@@ -614,8 +614,8 @@ class CLEExtractor(MetaELF):
         # the output. TODO: we should also get ccle's return code (maybe
         # through an ENV variable ?)
         if err != 0:
-            raise CLException("Qemu returned error %d while running %s :("
-                              % (err, " ".join(cmd)))
+            raise CLEOperationError("Qemu returned error %d while running %s :("
+                                    % (err, " ".join(cmd)))
 
         else:
 
@@ -659,8 +659,8 @@ class CLEExtractor(MetaELF):
     def _load(self, hdrinfo, name):
         """ Stub to load the text segment """
         if not hdrinfo:
-            raise CLException("No program header entry for the %s segment was"
-                               " found :(" % name)
+            raise CLEInvalidBinaryError("No program header entry for the %s segment was"
+                                        " found :(" % name)
         self.load_segment(hdrinfo["offset"], hdrinfo["filesz"],
                           hdrinfo["memsz"], hdrinfo["vaddr"], name)
 
@@ -743,7 +743,7 @@ class CLEExtractor(MetaELF):
         for e in symbols:
             if e['type'] == 'STT_FUNC' and e['sh_info'] != 'SHN_UNDEF':
                 if e['addr'] == 0:
-                    raise CLException("Local symbol with address 0")
+                    raise CLEInvalidBinaryError("Local symbol with address 0")
                 name = e['name']
                 loc[name] = e['addr']
         return loc
@@ -759,7 +759,7 @@ class CLEExtractor(MetaELF):
             if e['type'] == 'STT_FUNC' and e['binding'] == 'STB_GLOBAL' and\
             e['sh_info'] != 'SHN_UNDEF':
                 if e['addr'] == 0:
-                    raise CLException("Local symbol with address 0")
+                    raise CLEInvalidBinaryError("Local symbol with address 0")
                 name = e['name']
                 loc[name] = e['addr']
         return loc

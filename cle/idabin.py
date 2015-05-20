@@ -1,12 +1,14 @@
 import logging
-from .clexception import CLException
 from idalink import idalink
 import os
 import struct
-from .abs_obj import AbsObj
+
+from .errors import CLEOperationError
+from .absobj import AbsObj
 
 l = logging.getLogger("cle.idabin")
 
+__all__ = ('IdaBin',)
 
 class IdaBin(AbsObj):
 
@@ -60,7 +62,7 @@ class IdaBin(AbsObj):
             if self.ida.idaapi.rebase_program(
                 base_addr, self.ida.idaapi.MSF_FIXONCE |
                 self.ida.idaapi.MSF_LDKEEP) != 0:
-                raise CLException("Rebasing of %s failed!", self.binary)
+                raise CLEOperationError("Rebasing of %s failed!", self.binary)
             del self.ida.memory
             self.rebase_addr = base_addr
             #self._rebase_exports(base_addr)
@@ -91,7 +93,6 @@ class IdaBin(AbsObj):
 
         # If we reach this point, we should have the addresses
         if self.got_begin is None or self.got_end is None:
-            #raise CLException("This architecture has no section %s :(" % sec_name)
             l.warning("No section %s, is this a static binary ? (or stripped)", sec_name)
             return False
         return True

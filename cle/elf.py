@@ -2,12 +2,14 @@ import struct, os
 from elftools.elf import elffile, sections
 from archinfo import arch_from_binary
 
-from .abs_obj import Symbol, Relocation, Segment, Section
+from .absobj import Symbol, Relocation, Segment, Section
 from .metaelf import MetaELF
-from .clexception import CLException
+from .errors import CLEError, CLEInvalidBinaryError
 
 import logging
 l = logging.getLogger('cle.elf')
+
+__all__ = ('ELFSymbol', 'ELF')
 
 class ELFSymbol(Symbol):
     def __init__(self, owner, symb):
@@ -137,7 +139,7 @@ class ELF(MetaELF):
                     self.rela_type = 'REL'
                     relentsz = self.reader.structs.Elf_Rel.sizeof()
                 else:
-                    raise CLException('DT_PLTREL is not REL or RELA?')
+                    raise CLEInvalidBinaryError('DT_PLTREL is not REL or RELA?')
 
                 if 'DT_' + self.rela_type in self._dynamic:
                     reloffset = self._dynamic['DT_' + self.rela_type]
@@ -204,7 +206,7 @@ class ELF(MetaELF):
             self._symbol_cache[symid.name] = symbol
             return symbol
         else:
-            raise CLException("Bad symbol identifier: %s" % symid)
+            raise CLEError("Bad symbol identifier: %s" % symid)
 
     def __register_tls(self, seg_readelf):
         bss_size = seg_readelf.header.p_memsz - seg_readelf.header.p_filesz

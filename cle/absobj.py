@@ -1,10 +1,12 @@
 import archinfo
-from .clexception import CLException
+from .errors import CLEOperationError
 from .memory import Clemory
 from abc import ABCMeta
 
 import logging
 l = logging.getLogger('cle.generic')
+
+__all__ = ('Region', 'Segment', 'Section', 'Symbol', 'Relocation', 'AbsObj')
 
 class Region(object):
     """
@@ -226,8 +228,8 @@ class Relocation(object):
             self.resolve(None)
             return True
         elif delta < 0:
-            raise CLException("We are relocating a MIPS object at a lower address than"
-                    " its static base address. This is weird.")
+            raise CLEOperationError("We are relocating a MIPS object at a lower address than"
+                                    " its static base address. This is weird.")
         val = self.owner_obj.memory.read_addr_at(self.addr)
         if val == 0:
             l.error("Address in local GOT at %#x is 0?", self.rebased_addr)

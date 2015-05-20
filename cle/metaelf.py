@@ -1,5 +1,7 @@
-from .abs_obj import AbsObj
-from .clexception import CLException
+from .absobj import AbsObj
+from .errors import CLEOperationError
+
+__all__ = ('MetaELF',)
 
 class MetaELF(AbsObj):
     """
@@ -32,7 +34,6 @@ class MetaELF(AbsObj):
         """
         if name not in self.jmprel.keys():
             return None
-            #raise CLException("%s does not figure in the GOT")
 
         # What's in the got slot for @name ?
         got = self.jmprel[name].addr
@@ -61,7 +62,7 @@ class MetaELF(AbsObj):
         # FIXME: this doesn't work on PPC. It will return .plt address of the
         # function, but it is not what is called in practice...
         if self.arch.name in ('ARMEL', 'ARMHF', 'PPC32', 'PPC64'):
-            raise CLException("FXIME: this doesn't work on PPC/ARM")
+            raise CLEOperationError("FIXME: this doesn't work on PPC/ARM")
 
         if name in self.plt.keys():
             return self.plt[name]
