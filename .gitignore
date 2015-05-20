@@ -12,3 +12,5 @@ ccle/mipsel
 ccle/ppc
 ccle/ppc64
 ccle/x86_64
+
+*.egg-info
