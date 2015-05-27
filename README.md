@@ -11,7 +11,7 @@ the OS's loader.
 ```python
 >>> import cle
 >>> ld = cle.Loader("/bin/ls")
->>> hex(ld.main_binary.entry)
+>>> hex(ld.main_bin.entry)
 '0x4048d0'
 >>> ld.shared_objects
 {'ld-linux-x86-64.so.2': <ELF Object ld-2.21.so, maps [0x5000000:0x522312f]>,
