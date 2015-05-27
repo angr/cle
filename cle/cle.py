@@ -124,9 +124,11 @@ class Loader(object):
             for path in self._possible_paths(dep):
                 libname = os.path.basename(path)
                 options = self._lib_opts.get(libname, {})
-                obj = self.load_object(path, options, compatible_with=self.main_bin)
-                if obj is not None:
+                try:
+                    obj = self.load_object(path, options, compatible_with=self.main_bin)
                     break
+                except (CLECompatibilityError, CLEFileNotFoundError):
+                    continue
             else:
                 if self._except_missing_libs:
                     raise CLEFileNotFoundError("Could not find shared library: %s" % dep)
