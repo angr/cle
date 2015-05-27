@@ -270,7 +270,7 @@ class AbsObj(object):
         Main abstract class for CLE binary objects.
     """
 
-    def __init__(self, binary, compatible_with=None, **kwargs):
+    def __init__(self, binary, compatible_with=None, filetype='unknown', **kwargs):
         """
         args: binary
         kwargs: {load=True, custom_base_addr=None, custom_entry_point=None,
@@ -282,7 +282,7 @@ class AbsObj(object):
             setattr(self, k, v)
 
         self.binary = binary
-        self.entry = None
+        self._entry = None
         self.segments = [] # List of segments
         self.sections = []      # List of sections
         self.sections_map = {}  # Mapping from section name to section
@@ -291,8 +291,9 @@ class AbsObj(object):
         self.jmprel = {}
         self.symbols = None # Object's symbols
         self.arch = None
-        self.filetype = 'unknown'
-        self.os = None
+        self.filetype = filetype
+        self.os = 'windows' if self.filetype == 'pe' else 'unix'
+        self.compatible_with = compatible_with
 
         # These are set by cle, and should not be overriden manually
         self.rebase_addr = 0 # not to be set manually - used by CLE
@@ -303,11 +304,8 @@ class AbsObj(object):
         self.linking = None # Dynamic or static linking
 
         # Custom options
-        self.custom_base_addr = None
-        self.custom_entry_point = None
-        self.custom_offset = None
+        self._custom_entry_point = kwargs.get('custom_entry_point', None)
         self.provides = None
-        self.compatible_with = compatible_with
 
         self.memory = None
         self.ppc64_initial_rtoc = None
@@ -331,6 +329,12 @@ class AbsObj(object):
             raise CLECompatibilityError("Binary %s not compatible with arch %s" % (self.binary, self.compatible_with.arch))
         self.arch = arch
         self.memory = Clemory(arch) # Private virtual address space, without relocations
+
+    @property
+    def entry(self):
+        if self._custom_entry_point is not None:
+            return self._custom_entry_point + self.rebase_addr
+        return self._entry + self.rebase_addr
 
     def contains_addr(self, addr):
         """ Is @vaddr in one of the binary's segments we have loaded ?

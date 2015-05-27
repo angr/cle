@@ -6,33 +6,12 @@ import shutil
 import subprocess
 from collections import OrderedDict
 
-from .absobj import AbsObj
-from .elf import ELF
-from .metaelf import MetaELF
-from .cleextractor import CLEExtractor
-from .pe import Pe
-from .idabin import IdaBin
-from .blob import Blob
 from .errors import CLEError, CLEOperationError, CLEFileNotFoundError, CLECompatibilityError
 from .memory import Clemory
 
 __all__ = ('Loader',)
 
-l = logging.getLogger("cle.ld")
-
-BACKENDS = OrderedDict((
-    ('elf', ELF),
-    ('pe', Pe),
-    ('cleextract', CLEExtractor),
-    ('ida', IdaBin),
-    ('blob', Blob)
-))
-
-# FIXME list
-#     1)  add support for per-library backend (right now, it all depends on the
-#         global flag ida_main, i.e., the main binary's backend.
-#     2)  Smart fallback: if no backend was specified and it the binary is NOT
-#         elf, fall back to blob
+l = logging.getLogger("cle.loader")
 
 class Loader(object):
     """ CLE ELF loader
@@ -103,8 +82,6 @@ class Loader(object):
         self._load_main_binary()
         self._load_dependencies()
         self._perform_reloc()
-        if isinstance(self.main_bin, IdaBin):
-            self.ida_sync_mem()
 
     def __repr__(self):
         return '<Loaded %s, maps [%#x:%#x]>' % (os.path.basename(self._main_binary_path), self.min_addr(), self.max_addr())
@@ -174,7 +151,7 @@ class Loader(object):
 
         for backend in backends:
             try:
-                loaded = backend(path, compatible_with=compatible_with, **options)
+                loaded = backend(path, compatible_with=compatible_with, filetype=filetype, **options)
                 return loaded
             except CLECompatibilityError:
                 raise
@@ -222,9 +199,6 @@ class Loader(object):
         if base_addr is None:
             base_addr = self._get_safe_rebase_addr()
 
-        if isinstance(obj, IdaBin):
-            obj.rebase(base_addr)
-            return
         l.info("[Rebasing %s @%#x]", os.path.basename(obj.binary), base_addr)
         self.memory.add_backer(base_addr, obj.memory)
         obj.rebase_addr = base_addr
@@ -249,7 +223,7 @@ class Loader(object):
         for i, obj in enumerate(self.all_objects):
             obj.tls_module_id = i
             if isinstance(obj, IdaBin):
-                self._resolve_imports_ida(obj)
+                pass
             elif isinstance(obj, Pe):
                 pass
             elif isinstance(obj, MetaELF):
@@ -266,37 +240,12 @@ class Loader(object):
         granularity = self._rebase_granularity
         return self.max_addr() + (granularity - self.max_addr() % granularity)
 
-    def ida_sync_mem(self):
-        """
-            TODO: be smarter, and add a flag to IdaBin to toggle resync
-        """
-        objs = []
-        for i in self.all_objects:
-            if isinstance(i, IdaBin):
-                objs.append(i)
-            else:
-                l.warning("Not syncing memory for %s, not IDA backed", i.binary)
-
-        for o in objs:
-            l.info("**SLOW**: Copy IDA's memory to Ld's memory (%s)", o.binary)
-            self.memory.update_backer(o.rebase_addr, o.memory)
-
     def addr_belongs_to_object(self, addr):
         for obj in self.all_objects:
             if addr - obj.rebase_addr in obj.memory:
                 return obj
 
         return None
-
-    def addr_is_ida_mapped(self, addr):
-        """ Is the object mapping @addr an instance of IdaBin ?
-        """
-        return isinstance(IdaBin, self.addr_belongs_to_object(addr))
-
-    def addr_is_mapped(self, addr):
-        """ Is addr mapped at all ?
-        """
-        return self.addr_belongs_to_object(addr) is not None
 
     def max_addr(self):
         """ The maximum address loaded as part of any loaded object
@@ -477,44 +426,19 @@ class Loader(object):
                                        " path is correct" % path)
         return dest
 
-    def _all_so_exports(self):
-        exports = {}
-        for i in self.shared_objects:
-            if len(i.exports) == 0:
-                l.debug("Warning: %s has no exports", os.path.basename(i.path))
+from .absobj import AbsObj
+from .elf import ELF
+from .metaelf import MetaELF
+from .cleextractor import CLEExtractor
+from .pe import Pe
+from .idabin import IdaBin
+from .blob import Blob
 
-            for symb, addr in i.exports.iteritems():
-                exports[symb] = addr
-                #l.debug("%s has export %s@%x" % (i.binary, symb, addr))
-        return exports
+BACKENDS = OrderedDict((
+    ('elf', ELF),
+    ('pe', Pe),
+    ('cleextract', CLEExtractor),
+    ('ida', IdaBin),
+    ('blob', Blob)
+))
 
-    def _so_name_from_symbol(self, symb):
-        """ Which shared object exports the symbol @symb ?
-            Returns the first match
-        """
-        for i in self.shared_objects:
-            if symb in i.exports:
-                return os.path.basename(i.path)
-
-    def _resolve_imports_ida(self, b):
-        """ Resolve imports using IDA.
-            @b is the main binary
-        """
-        so_exports = self._all_so_exports()
-
-        imports = b.imports
-        for name, ea in imports.iteritems():
-            # In the same binary
-            if name in b.exports:
-                newaddr = b.exports[name]
-                #b.resolve_import_dirty(name, b.exports[name])
-            # In shared objects
-            elif name in so_exports:
-                newaddr = so_exports[name]
-
-            else:
-                l.warning("[U] %s -> unable to resolve import (IDA) :(", name)
-                continue
-
-            l.info("[R] %s -> at 0x%08x (IDA)", name, newaddr)
-            b.update_addrs([ea], newaddr)

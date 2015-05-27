@@ -10,13 +10,11 @@ class Pe(AbsObj):
 
     def __init__(self, *args, **kwargs):
         super(Pe, self).__init__(*args, **kwargs)
-        self.filetype = 'pe'
-        self.os = 'windows'
 
         self._pe = pefile.PE(self.binary)
 
         self._base = self._pe.OPTIONAL_HEADER.ImageBase
-        self.entry = self._base + self._pe.OPTIONAL_HEADER.AddressOfEntryPoint
+        self._entry = self._base + self._pe.OPTIONAL_HEADER.AddressOfEntryPoint
 
         self.imports = self._get_imports()
         self.exports = self._get_exports()

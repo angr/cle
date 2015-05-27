@@ -13,12 +13,11 @@ class Blob(AbsObj):
         format.
     """
 
-    def __init__(self, path, custom_entry_point=None, custom_base_addr=None,
+    def __init__(self, path, custom_entry_point=None,
                 custom_arch=None, custom_offset=None, *args, **kwargs):
         """
         Arguments we expect in kwargs:
             @custom_entry_point: where to start the execution in the blob
-            @custom_base_addr: at which address shall we load the blob ?
             @custom_offset: skip n bytes from the beginning of the file, where
                 n = @custom_offset
         """
@@ -26,40 +25,32 @@ class Blob(AbsObj):
 
         if custom_arch is None:
             raise CLEError("Must specify custom_arch when loading blob!")
-        if custom_offset is None:
-            l.warning("No custom offset was specified for blob, assuming 0")
-            custom_offset = 0
-        if custom_entry_point is None:
-            l.warning("No custom entry point was specified for blob, assuming 0")
-            custom_entry_point = 0
-        if custom_base_addr is None:
-            l.warning("No custom base address was specified for blob, assuming 0")
-            custom_base_addr = 0
 
         super(Blob, self).__init__(path, *args, blob=True,
                 custom_entry_point=custom_entry_point,
                 custom_arch=custom_arch,
-                custom_base_addr=custom_base_addr,
                 custom_offset=custom_offset, **kwargs)
 
         self.custom_offset = custom_offset if custom_offset is not None else 0
-        self.custom_base_addr = custom_base_addr
-        self.custom_entry_point = custom_entry_point
 
-        self.entry = self.custom_entry_point
-        self._max_addr = self.custom_base_addr
+        if self._custom_entry_point is None:
+            l.warning("No custom entry point was specified for blob, assuming 0")
+            self._custom_entry_point = 0
 
-        self.load(self.custom_offset)
+        self._entry = self.custom_entry_point
+        self._max_addr = 0
+
+        self._load(self.custom_offset)
 
     supported_filetypes = ['elf', 'pe', 'mach-o', 'unknown']
 
     def get_min_addr(self):
-        return self.custom_base_addr
+        return 0
 
     def get_max_addr(self):
         return self._max_addr
 
-    def load(self, offset, size=None):
+    def _load(self, offset, size=None):
         """ Load a segment into memory """
         try:
             f = open(self.binary, 'r')
@@ -74,9 +65,8 @@ class Blob(AbsObj):
             string = f.read()
         else:
             string = f.read(size)
-        self.memory.add_backer(self.custom_base_addr, string)
-        if self.custom_base_addr + len(string) > self._max_addr:
-            self._max_addr = self.custom_base_addr + len(string)
+        self.memory.add_backer(0, string)
+        self._max_addr = len(string)
 
     def function_name(self, addr): #pylint: disable=unused-argument,no-self-use
         '''

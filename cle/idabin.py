@@ -1,9 +1,11 @@
 import logging
-from idalink import idalink
-import os
-import struct
 
-from .errors import CLEOperationError, CLEError
+try:
+    idalink = __import__('idalink').idalink
+except ImportError:
+    idalink = None
+
+from .errors import CLEError
 from .absobj import AbsObj
 
 l = logging.getLogger("cle.idabin")
@@ -11,35 +13,35 @@ l = logging.getLogger("cle.idabin")
 __all__ = ('IdaBin',)
 
 class IdaBin(AbsObj):
+    '''
+     Get informations from binaries using IDA.
+    '''
+    def __init__(self, binary, *args, **kwargs):
+        if idalink is None:
+            raise CLEError("Install the idalink module to use the IdaBin backend!")
 
-    """ Get informations from binaries using IDA.
-    This replaces the old Binary class and integrates it into CLE as a fallback
-    """
-    def __init__(self, *args, **kwargs):
-        raise CLEError('The IdaBin backend is currently unsupported')
+        super(IdaBin, self).__init__(binary, *args, **kwargs)
 
-        super(IdaBin, self).__init__(*args, **kwargs)
+        if self.arch is None:
+            raise CLEError("You must specify a custom_arch in order to use the IdaBin backend")
 
         ida_prog = "idal64" # We don't really need 32 bit idal, do we ?
-        processor_type = self.arch.ida_name
+        processor_type = self.arch.ida_processor
 
         l.debug("Loading binary %s using IDA with arch %s", self.binary, processor_type)
-        self.ida = idalink(self.binary, ida_prog=ida_prog,
+
+        self.ida_path = Loader._make_tmp_copy(self.binary)
+        self.ida = idalink(self.ida_path, ida_prog=ida_prog,
                                    processor_type=processor_type).link
 
-        self.filetype = 'unknown'       # FIXME
-        self.os = None
+        self.BADADDR = self.ida.idc.BADADDR
+        l.info('Loading memory from ida, this will take a minute...')
+        memcache = self.ida.memory
 
-        self.badaddr = self.ida.idc.BADADDR
-        self._memory = self.ida.memory
-
-        # This flag defines whether synchronization with the loader is needed
-        self.mem_needs_sync = False
-
-       # if self.rebase_addr != 0:
-       #     self.rebase(self.base_addr)
-       # else:
-       #     self.rebase_addr = 0
+        for segaddr in self.ida.idautils.Segments():
+            segend = self.ida.idc.SegEnd(segaddr)
+            string = ''.join(memcache[i] if i in memcache else '\0' for i in xrange(segaddr, segend))
+            self.memory.add_backer(segaddr, string)
 
         self.got_begin = None
         self.got_end = None
@@ -51,27 +53,8 @@ class IdaBin(AbsObj):
         self.linking = self._get_linking_type()
 
         self.exports = self._get_exports()
-        self.entry_point = self._get_entry_point()
 
     supported_filetypes = ['elf', 'pe', 'mach-o', 'unknown']
-
-    def rebase(self, base_addr):
-        """ Rebase the binary at address @base_addr """
-        l.debug("-> Rebasing %s to address 0x%x (IDA)",
-                os.path.basename(self.binary), base_addr)
-        if self.get_min_addr() >= base_addr:
-            l.debug("It looks like the current idb is already rebased!")
-        else:
-            if self.ida.idaapi.rebase_program(
-                base_addr, self.ida.idaapi.MSF_FIXONCE |
-                self.ida.idaapi.MSF_LDKEEP) != 0:
-                raise CLEOperationError("Rebasing of %s failed!", self.binary)
-            del self.ida.memory
-            self.rebase_addr = base_addr
-            #self._rebase_exports(base_addr)
-
-            # We also need to update the exports' addresses
-            self.exports = self._get_exports()
 
     def in_which_segment(self, addr):
         """ Return the segment name at address @addr (IDA)"""
@@ -130,7 +113,7 @@ class IdaBin(AbsObj):
         """
         #addr = self.ida.idaapi.get_name_ea(self.ida.idc.BADADDR, sym)
         addr = self.ida.idc.LocByName(sym)
-        if addr == self.ida.idc.BADADDR:
+        if addr == self.BADADDR:
             addr = None
         return addr
 
@@ -153,8 +136,7 @@ class IdaBin(AbsObj):
         self.raw_imports = {}
 
         for i in xrange(0, import_modules_count):
-            self.current_module_name = self.ida.idaapi.get_import_module_name(
-                i)
+            self.current_module_name = self.ida.idaapi.get_import_module_name(i)
             self.ida.idaapi.enum_import_names(i, self._import_entry_callback)
 
     def _import_entry_callback(self, ea, name, entry_ord): # pylint: disable=unused-argument
@@ -192,7 +174,7 @@ class IdaBin(AbsObj):
                 lst = list(self.ida.idautils.DataRefsTo(ea))
 
             for addr in lst:
-                if self._in_proper_section(addr) and addr != self.badaddr:
+                if self._in_proper_section(addr) and addr != self.BADADDR:
                     imports[name] = addr
                     l.debug("\t -> has import %s - GOT entry @ 0x%x", name, addr)
         return imports
@@ -202,7 +184,7 @@ class IdaBin(AbsObj):
         nm = self.ida.idc.NextAddr(0)
         pm = self.ida.idc.PrevAddr(nm)
 
-        if pm == self.ida.idc.BADADDR:
+        if pm == self.BADADDR:
             return nm
         else:
             return pm
@@ -212,20 +194,16 @@ class IdaBin(AbsObj):
         pm = self.ida.idc.PrevAddr(self.ida.idc.MAXADDR)
         nm = self.ida.idc.NextAddr(pm)
 
-        if nm == self.ida.idc.BADADDR:
+        if nm == self.BADADDR:
             return pm
         else:
             return nm
 
     @property
     def entry(self):
-        return self._get_entry_point()
-
-    def _get_entry_point(self):
-        """ Get the entry point of the binary (from IDA)"""
-        if self.custom_entry_point is not None:
-            return self.custom_entry_point
-        return self.ida.idc.BeginEA()
+        if self._custom_entry_point is not None:
+            return self._custom_entry_point + self.rebase_addr
+        return self.ida.idc.BeginEA() + self.rebase_addr
 
     def resolve_import_dirty(self, sym, new_val):
         """ Resolve import for symbol @sym the dirty way, i.e. find all
@@ -239,66 +217,55 @@ class IdaBin(AbsObj):
         # Try IDA's _ptr
         plt_addr = self.get_symbol_addr(sym + "_ptr")
         if plt_addr:
-            addr = [plt_addr]
-            return self.update_addrs(addr, new_val)
+            self.memory.write_addr_at(plt_addr, new_val)
+            return
 
         # Try the __imp_name
         plt_addr = self.get_symbol_addr("__imp_" + sym)
         if plt_addr:
-            addr = list(self.ida.idautils.DataRefsTo(plt_addr))
-            return self.update_addrs(addr, new_val)
+            for addr in self.ida.idautils.DataRefsTo(plt_addr):
+                self.memory.write_addr_at(addr, new_val)
+            return
 
         # Try the normal name
         plt_addr = self.get_symbol_addr(sym)
         if plt_addr:
-            addr = list(self.ida.idautils.DataRefsTo(plt_addr))
+            addrlist = list(self.ida.idautils.DataRefsTo(plt_addr))
             # If not datarefs, try coderefs. It can happen on PPC
-            if len(addr) == 0:
-                addr = list(self.ida.idautils.CodeRefsTo(plt_addr))
-            return self.update_addrs(addr, new_val)
+            if len(addrlist) == 0:
+                addrlist = list(self.ida.idautils.CodeRefsTo(plt_addr))
+            for addr in addrlist:
+                self.memory.write_addr_at(addr, new_val)
+            return
 
         # If none of them has an address, that's a problem
-        l.debug("Warning: could not find references to symbol %s (IDA)", sym)
+        l.warning("Could not find references to symbol %s (IDA)", sym)
 
     def set_got_entry(self, name, newaddr):
         """ Resolve import @name with address @newaddr, that is, update the GOT
             entry for @name with @newaddr
         """
-        if name in self.imports:
-            addr = self.imports[name]
-            self.update_addrs([addr], newaddr)
+        if name not in self.imports:
+            l.warning("%s not in imports", name)
+            return
 
-    def update_addrs(self, update_addrs, new_val):
-        """ Updates all the addresses of @update_addrs with @new_val
-            @updatre_addrs is a list
-            @new_val is an address
-        """
-        arch = self.arch.got_section_name
-        fmt = arch.struct_fmt
-        packed = struct.pack(fmt, new_val)
-
-        for addr in update_addrs:
-            #l.debug("... setting 0x%x to 0x%x", addr, new_val)
-            for n, p in enumerate(packed):
-                self.ida.memory[addr + n] = p
-
-        # IDA memory was modified, it needs to be synced with Ld
-        if len(update_addrs) > 0:
-            self.mem_needs_sync = True
+        addr = self.imports[name]
+        self.memory.write_addr_at(addr, newaddr)
 
     def is_thumb(self, addr):
         """ Is the address @addr in thumb mode ? (ARM) """
-        if "arm" in self.arch:
-            return self.ida.idc.GetReg(addr, "T") == 1
+        if not "arm" in self.arch:
+            return False
+        return self.ida.idc.GetReg(addr, "T") == 1
 
     def get_strings(self):
-            """ Extract strings from binary (IDA) """
-            ss = self.ida.idautils.Strings()
-            string_list = []
-            for s in ss:
-                t_entry = (s.ea, str(s), s.length)
-                string_list.append(t_entry)
-            return string_list
+        """ Extract strings from binary (IDA) """
+        ss = self.ida.idautils.Strings()
+        string_list = []
+        for s in ss:
+            t_entry = (s.ea, str(s), s.length)
+            string_list.append(t_entry)
+        return string_list
 
     def _get_linking_type(self):
         """ Define whether a binary is sattically or dynamically linked based on
@@ -310,3 +277,5 @@ class IdaBin(AbsObj):
             return "static"
         else:
             return "dynamic"
+
+from .loader import Loader

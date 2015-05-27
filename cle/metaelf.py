@@ -11,9 +11,6 @@ class MetaELF(AbsObj):
     def __init__(self, *args, **kwargs):
         super(MetaELF, self).__init__(*args, **kwargs)
 
-        self.filetype = 'elf'
-        self.os = 'unix'
-
         self.plt = {}
         self.elfflags = 0
 
@@ -85,7 +82,7 @@ class MetaELF(AbsObj):
 
         if self.arch.name != 'PPC64': return
         if self.elfflags & 3 < 2:
-            ep_offset = self.entry
-            self.entry = self.memory.read_addr_at(ep_offset)
+            ep_offset = self._entry
+            self._entry = self.memory.read_addr_at(ep_offset)
             self.ppc64_initial_rtoc = self.memory.read_addr_at(ep_offset+8)
 

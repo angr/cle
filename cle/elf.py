@@ -83,12 +83,13 @@ class ELF(MetaELF):
         self.relocs = []
         self.jmprel = {}
 
-        self.tls_init_image = ''
+        self._entry = self.reader.header.e_entry
 
-        self.entry = self.reader.header.e_entry
+        self.tls_init_image = ''
 
         self.__register_segments()
         self.__register_sections()
+
         self._ppc64_abiv1_entry_fix()
         self._load_plt()
 
