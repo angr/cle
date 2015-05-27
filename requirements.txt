@@ -1,5 +1,5 @@
 pyelftools
 pefile
 cffi
-git+https://github.com/zardus/idalink
-git+ssh://git@git.seclab.cs.ucsb.edu/angr/archinfo.git
+idalink
+archinfo
