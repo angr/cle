@@ -1,101 +1,121 @@
 Clé loads binaries and their associated libraries, resolves imports and
 provides an abstraction of process memory the same way as if it was loader by
-the OS's loader (without ASLR).
+the OS's loader.
 
-CLE's loader is implemented in the Ld class. 
-There are two backends to CLE:
+# Installation
 
-    - Elf, as its name says, loads ELF binaries.  With Elf, the addresses are
-      the same as if you run the binary into qemu-{arch} (e.g., qemu-x86_64) as
-      provided by the qemu-user package.
-
-    - IdaBin relies on IDA (through IdaLink) to get information from the
-      binaries. As of now, the addresses are not the same as if loader on a
-      real system (see "known bugs and limitations" below). 
-
-The backend to use is specified by the force_ida switch in Ld's constructor.
-    force_ida = True: IdaBin
-    force_ida = False: Elf
+`$ pip install cle`
 
 # Usage example
 
-ld = cle.Ld("path/to/binary", force_ida=bool, load_libs=bool,
-skip_libs=[list, of, libs])
+```python
+>>> import cle
+>>> ld = cle.Loader("/bin/ls")
+>>> hex(ld.main_binary.entry)
+'0x4048d0'
+>>> ld.shared_objects
+{'ld-linux-x86-64.so.2': <ELF Object ld-2.21.so, maps [0x5000000:0x522312f]>,
+ 'libacl.so.1': <ELF Object libacl.so.1.1.0, maps [0x2000000:0x220829f]>,
+ 'libattr.so.1': <ELF Object libattr.so.1.1.0, maps [0x4000000:0x4204177]>,
+ 'libc.so.6': <ELF Object libc-2.21.so, maps [0x3000000:0x33a1a0f]>,
+ 'libcap.so.2': <ELF Object libcap.so.2.24, maps [0x1000000:0x1203c37]>}
+>>> ld.addr_belongs_to_object(0x5000000)
+<ELF Object ld-2.21.so, maps [0x5000000:0x522312f]>
+>>> libc_main_reloc = ld.main_bin.imports['__libc_start_main']
+>>> hex(libc_main_reloc.addr)       # Address of GOT entry for libc_start_main
+'0x61c1c0'
+>>> import pyvex
+>>> some_text_data = ''.join(ld.memory.read_bytes(ld.main_bin.entry, 0x100))
+>>> irsb = pyvex.IRSB(bytes=some_text_data, arch=ld.main_bin.arch, mem_addr=ld.main_bin.entry)
+>>> irsb.pp()
+IRSB {
+   t0:Ity_I32 t1:Ity_I32 t2:Ity_I32 t3:Ity_I64 t4:Ity_I64 t5:Ity_I64 t6:Ity_I32 t7:Ity_I64 t8:Ity_I32 t9:Ity_I64 t10:Ity_I64 t11:Ity_I64 t12:Ity_I64 t13:Ity_I64 t14:Ity_I64
 
-    force_ida: use IDA as a backend (through the IdaBin class)
-    load_libs: load shared libraries the binary depends on
-    skip_libs: a list containing names of libraries to exclude from loading
+   15 | ------ IMark(0x4048d0, 2, 0) ------
+   16 | t5 = 32Uto64(0x00000000)
+   17 | PUT(rbp) = t5
+   18 | t7 = GET:I64(rbp)
+   19 | t6 = 64to32(t7)
+   20 | t2 = t6
+   21 | t9 = GET:I64(rbp)
+   22 | t8 = 64to32(t9)
+   23 | t1 = t8
+   24 | t0 = Xor32(t2,t1)
+   25 | PUT(cc_op) = 0x0000000000000013
+   26 | t10 = 32Uto64(t0)
+   27 | PUT(cc_dep1) = t10
+   28 | PUT(cc_dep2) = 0x0000000000000000
+   29 | t11 = 32Uto64(t0)
+   30 | PUT(rbp) = t11
+   31 | PUT(rip) = 0x00000000004048d2
+   32 | ------ IMark(0x4048d2, 3, 0) ------
+   33 | t12 = GET:I64(rdx)
+   34 | PUT(r9) = t12
+   35 | PUT(rip) = 0x00000000004048d5
+   36 | ------ IMark(0x4048d5, 1, 0) ------
+   37 | t4 = GET:I64(rsp)
+   38 | t3 = LDle:I64(t4)
+   39 | t13 = Add64(t4,0x0000000000000008)
+   40 | PUT(rsp) = t13
+   41 | PUT(rsi) = t3
+   42 | PUT(rip) = 0x00000000004048d6
+   43 | t14 = GET:I64(rip)
+   NEXT: PUT(rip) = t14; Ijk_Boring
+}
+```
 
-# Binaries' location
+# Valid options
 
-    - When using IDA as a backend, copies of all the binaries (the main binary
-      and shared objects) are placed into a temporary folder:
-      /tmp/cle_binary-name_architecture (e.g., /tmp/cle_ls_mips) so that it
-      doesn't interfere with other IDA sessions on the same binaries (and also
-      because IDA requires write permission to the same path to write its .db
-      files).
+For a full listing and description of the options that can be provided to the
+loader and the methods it provides, please examine the docstrings in
+`cle/loader.py`. If anything is unclear or poorly documented (there is much)
+please complain through whatever channel you feel appropriate.
 
-    - When using CLE, the binaries are directly loaded from their original locations.
+# Loading Backends
+
+CLE's loader is implemented in the Loader class. 
+There are several backends that can be used to load a single file:
+
+    - ELF, as its name says, loads ELF binaries. ELF files loaded this way are
+      statically parsed using PyElfTools.
+
+    - CLEExtract is a mostly unsupported backend that audits the actual linux
+      dynamic loader to get the dependencies, rebase address, and relocations
+      for each binary. With Elf, the addresses are selected to be well-aligned
+      and non-overlapping. With CLEExtract, they are the same as they could be
+      loaded if you run the binary with qemu-{arch} (e.g., qemu-x86_64) as
+      provided by the qemu-user package.
+
+    - IdaBin relies on IDA (through IdaLink) to get information from the
+      binaries. At the moment, it works in a bare-bones fashion, but is
+      mostly unsupported.
+
+    - PE is a backend to load Microsoft's Portable Executable format,
+      effectively Windows binaries.
+
+    - Blob is a backend to load unknown data. It requires that you specify
+      the architecture it would be run on, in the form of a class from
+      ArchInfo.
+
+Which backend you use can be specified as an argument to Loader. If left
+unspecified, the loader will pick a reasonable default.
 
 # Finding shared libraries
 
-    - Ld determines which shared objects are needed when loading binaries, and
-      searches for them in the following order:
-        - in the temporary directory of the project if it exists from previous
-          executions for the same binary AND architecture
+    - If the `auto_load_libs` option is set to False, the Loader will not
+      automatically load libraries requested by loaded objects. Otherwise...
+    - The loader determines which shared objects are needed when loading
+      binaries, and searches for them in the following order:
+        - in the current working directory
+        - in folders specified in the `custom_ld_path` option
         - in the same folder as the main binary
         - in the system (in the corresponding library path for the architecture
           of the binary, e.g., /usr/arm-linux-gnueabi/lib for ARM, note that
           you need to install cross libraries for this, e.g.,
           libc6-powerpc-cross on Debian - needs emdebian repos)
+        - in the system, but with mismatched version numbers from what is specified
+          as a dependency, if the `ignore_import_version_numbers` option is True
 
-       If no binary is found with the correct architecture, Ld raises an
-       exception, unless the library causing trouble is defined in skip_libs. 
+       If no binary is found with the correct architecture, the loader raises an
+       exception, unless the `except_missing_libs` option is False
 
-
-# Dependencies
-
-You will need binutils-multiarch-dev, gcc and libc6 crosscompiled for mips,
-arm, ppc, x86 and x86_64. On Debian, this is provided by emdebian.
-
-
-# Manual install
-
-To install Clé manually, you need to compile and install the code in the
-subdirectories bfd, cle and ld_audit. The best way to do it is in a python
-virtual
-environment, e.g.:
-
-    workon angr
-
-On Ubuntu 14.04, this might help:
-
-	echo "deb http://www.emdebian.org/debian/ squeeze main" | sudo tee /etc/apt/sources.list.d/emdebian.list
-	sudo apt-get update
-	sudo apt-get install emdebian-keyring
-	sudo apt-get update
-	sudo apt-get install 'gcc-[a-zA-z0-9]*-linux-gnu' 'libc-dev-[a-zA-z0-9]*-cross' gcc-4.4-mips-linux-gnu binutils-multiarch-dev linux-libc-dev:i386 build-essential dkms dpkg-dev g++ gcc hardening-includes lintian
-
-And then:
-
-    make 
-    make install
-
-# Auto install
-
-Just git clone git@git.seclab.cs.ucsb.edu:angr/angr_setup.git and run the
-install script.
-
-# Known bugs and limitations (as of 08/26/14)
-
-    - When using IdaBin, addresses do not match the addresses of an actual
-      execution because of a bug IDA, causing it to crash when trying to
-      rebase binaries at high addresses.
-
-    - As of now, relocations on MIPS are wrong when using Elf. It also seems
-      that, due to a bug in IDA resulting in wrong GOT entries when rebasing
-      MIPS binaries, that these are wrong with IdaBin too.
-
-    - Resolving imports after relocation may miss symbols when using IdaBin,
-      most likely because IDA's exports list seems wrong on some architectures
-      (idautils.Entries() does not contain all exports)
