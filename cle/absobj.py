@@ -2,6 +2,7 @@ import archinfo
 from .errors import CLEOperationError, CLECompatibilityError, CLEError
 from .memory import Clemory
 from abc import ABCMeta
+import os
 
 import logging
 l = logging.getLogger('cle.generic')
@@ -288,6 +289,8 @@ class AbsObj(object):
         self.sections_map = {}  # Mapping from section name to section
         self.symbols_by_addr = {}
         self.imports = {}
+        self.resolved_imports = []
+        self.relocs = []
         self.jmprel = {}
         self.symbols = None # Object's symbols
         self.arch = None
@@ -302,6 +305,7 @@ class AbsObj(object):
         self.object_type = None
         self.deps = []           # Needed shared objects (libraries dependencies)
         self.linking = None # Dynamic or static linking
+        self.requested_base = None
 
         # Custom options
         self._custom_entry_point = kwargs.get('custom_entry_point', None)
@@ -323,6 +327,9 @@ class AbsObj(object):
             raise CLEError("Bad parameter: custom_arch=%s" % custom_arch)
 
     supported_filetypes = []
+
+    def __repr__(self):
+        return '<%s Object %s, maps [%#x:%#x]>' % (self.__class__.__name__, os.path.basename(self.binary), self.get_min_addr() + self.rebase_addr, self.get_max_addr() + self.rebase_addr)
 
     def set_arch(self, arch):
         if self.compatible_with is not None and self.compatible_with.arch != arch:

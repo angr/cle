@@ -54,6 +54,8 @@ class IdaBin(AbsObj):
 
         self.exports = self._get_exports()
 
+        l.warning('The IdaBin module is not well supported. Good luck!')
+
     supported_filetypes = ['elf', 'pe', 'mach-o', 'unknown']
 
     def in_which_segment(self, addr):

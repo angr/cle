@@ -4,6 +4,7 @@ import os
 import logging
 import shutil
 import subprocess
+import struct
 from collections import OrderedDict
 
 from .errors import CLEError, CLEOperationError, CLEFileNotFoundError, CLECompatibilityError
@@ -90,6 +91,8 @@ class Loader(object):
         self.main_bin = self.load_object(self._main_binary_path, self._main_opts)
         self.memory = Clemory(self.main_bin.arch, root=True)
         base_addr = self._main_opts.get('custom_base_addr', 0)
+        if base_addr == 0 and self.main_bin.requested_base is not None:
+            base_addr = self.main_bin.requested_base
         self.add_object(self.main_bin, base_addr)
 
     def _load_dependencies(self):
@@ -165,18 +168,19 @@ class Loader(object):
          Returns the filetype of the file at path. Will be one of the strings
          in {'elf', 'pe', 'mach-o', 'unknown'}
         '''
-        identstring = open(path).read(0x100)
+        identstring = open(path).read(0x1000)
         if identstring.startswith('\x7fELF'):
             return 'elf'
-        elif identstring.startswith('MZ') and len(identstring) > 0x3e and identstring[0x3c:0x3e] == 'PE':
-            return 'pe'
+        elif identstring.startswith('MZ') and len(identstring) > 0x40:
+            peptr = struct.unpack('I', identstring[0x3c:0x40])[0]
+            if peptr < len(identstring) and identstring[peptr:peptr+4] == 'PE\0\0':
+                return 'pe'
         elif identstring.startswith('\xfe\xed\xfa\xce') or \
              identstring.startswith('\xfe\xed\xfa\xcf') or \
              identstring.startswith('\xce\xfa\xed\xfe') or \
              identstring.startswith('\xcf\xfa\xed\xfe'):
             return 'mach-o'
-        else:
-            return 'unknown'
+        return 'unknown'
 
     def add_object(self, obj, base_addr=None):
         '''
@@ -197,7 +201,10 @@ class Loader(object):
         self.all_objects.append(obj)
 
         if base_addr is None:
-            base_addr = self._get_safe_rebase_addr()
+            if obj.requested_base is not None and self.addr_belongs_to_object(obj.requested_base) is None:
+                base_addr = obj.requested_base
+            else:
+                base_addr = self._get_safe_rebase_addr()
 
         l.info("[Rebasing %s @%#x]", os.path.basename(obj.binary), base_addr)
         self.memory.add_backer(base_addr, obj.memory)
@@ -224,9 +231,7 @@ class Loader(object):
             obj.tls_module_id = i
             if isinstance(obj, IdaBin):
                 pass
-            elif isinstance(obj, Pe):
-                pass
-            elif isinstance(obj, MetaELF):
+            elif isinstance(obj, (MetaELF, PE)):
                 for reloc in obj.relocs:
                     reloc.relocate(self.all_objects)
 
@@ -244,7 +249,6 @@ class Loader(object):
         for obj in self.all_objects:
             if addr - obj.rebase_addr in obj.memory:
                 return obj
-
         return None
 
     def max_addr(self):
@@ -430,13 +434,13 @@ from .absobj import AbsObj
 from .elf import ELF
 from .metaelf import MetaELF
 from .cleextractor import CLEExtractor
-from .pe import Pe
+from .pe import PE
 from .idabin import IdaBin
 from .blob import Blob
 
 BACKENDS = OrderedDict((
     ('elf', ELF),
-    ('pe', Pe),
+    ('pe', PE),
     ('cleextract', CLEExtractor),
     ('ida', IdaBin),
     ('blob', Blob)

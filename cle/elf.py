@@ -1,4 +1,4 @@
-import struct, os
+import struct
 from elftools.elf import elffile, sections
 import archinfo
 
@@ -92,9 +92,6 @@ class ELF(MetaELF):
 
         self._ppc64_abiv1_entry_fix()
         self._load_plt()
-
-    def __repr__(self):
-        return '<ELF Object %s, maps [%#x:%#x]>' % (os.path.basename(self.binary), self.get_min_addr() + self.rebase_addr, self.get_max_addr() + self.rebase_addr)
 
     def __register_segments(self):
         for seg_readelf in self.reader.iter_segments():
