@@ -1,5 +1,5 @@
 import archinfo
-from .errors import CLEOperationError
+from .errors import CLEOperationError, CLECompatibilityError
 from .memory import Clemory
 from abc import ABCMeta
 
@@ -270,7 +270,7 @@ class AbsObj(object):
         Main abstract class for CLE binary objects.
     """
 
-    def __init__(self, binary, **kwargs):
+    def __init__(self, binary, compatible_with=None, **kwargs):
         """
         args: binary
         kwargs: {load=True, custom_base_addr=None, custom_entry_point=None,
@@ -291,6 +291,8 @@ class AbsObj(object):
         self.jmprel = {}
         self.symbols = None # Object's symbols
         self.arch = None
+        self.filetype = 'unknown'
+        self.os = None
 
         # These are set by cle, and should not be overriden manually
         self.rebase_addr = 0 # not to be set manually - used by CLE
@@ -305,6 +307,7 @@ class AbsObj(object):
         self.custom_entry_point = None
         self.custom_offset = None
         self.provides = None
+        self.compatible_with = compatible_with
 
         self.memory = None
         self.ppc64_initial_rtoc = None
@@ -314,7 +317,11 @@ class AbsObj(object):
         else:
             self.arch = None
 
+    supported_filetypes = []
+
     def set_arch(self, arch):
+        if self.compatible_with is not None and self.compatible_with.arch != arch:
+            raise CLECompatibilityError("Binary %s not compatible with arch %s" % (self.binary, self.compatible_with.arch))
         self.arch = arch
         self.memory = Clemory(arch) # Private virtual address space, without relocations
 

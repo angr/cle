@@ -3,7 +3,7 @@ from idalink import idalink
 import os
 import struct
 
-from .errors import CLEOperationError
+from .errors import CLEOperationError, CLEError
 from .absobj import AbsObj
 
 l = logging.getLogger("cle.idabin")
@@ -16,23 +16,24 @@ class IdaBin(AbsObj):
     This replaces the old Binary class and integrates it into CLE as a fallback
     """
     def __init__(self, *args, **kwargs):
+        raise CLEError('The IdaBin backend is currently unsupported')
 
-        # Call the constructor of AbsObj
         super(IdaBin, self).__init__(*args, **kwargs)
 
-        # We don't really need 32 bit idal, do we ?
-        ida_prog = "idal64"
-
+        ida_prog = "idal64" # We don't really need 32 bit idal, do we ?
         processor_type = self.arch.ida_name
 
         l.debug("Loading binary %s using IDA with arch %s", self.binary, processor_type)
         self.ida = idalink(self.binary, ida_prog=ida_prog,
                                    processor_type=processor_type).link
 
+        self.filetype = 'unknown'       # FIXME
+        self.os = None
+
         self.badaddr = self.ida.idc.BADADDR
         self._memory = self.ida.memory
 
-        # This flag defines whether synchronization with Ld is needed
+        # This flag defines whether synchronization with the loader is needed
         self.mem_needs_sync = False
 
        # if self.rebase_addr != 0:
@@ -51,6 +52,8 @@ class IdaBin(AbsObj):
 
         self.exports = self._get_exports()
         self.entry_point = self._get_entry_point()
+
+    supported_filetypes = ['elf', 'pe', 'mach-o', 'unknown']
 
     def rebase(self, base_addr):
         """ Rebase the binary at address @base_addr """

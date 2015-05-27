@@ -10,8 +10,14 @@ class MetaELF(AbsObj):
     """
     def __init__(self, *args, **kwargs):
         super(MetaELF, self).__init__(*args, **kwargs)
+
+        self.filetype = 'elf'
+        self.os = 'unix'
+
         self.plt = {}
         self.elfflags = 0
+
+    supported_filetypes = ['elf']
 
     def _load_plt(self):
         if self.arch.name in ('ARMEL', 'ARMHF', 'MIPS32'):

@@ -24,3 +24,7 @@ class CLEInvalidBinaryError(CLEError):
 
 class CLEOperationError(CLEError):
     pass
+
+
+class CLECompatibilityError(CLEError):
+    pass

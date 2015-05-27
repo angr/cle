@@ -1,12 +1,10 @@
 #!/usr/bin/env python
 
-# from ctypes import *
 import os
 import logging
 import shutil
 import subprocess
-
-from archinfo import arch_from_binary, ArchError
+from collections import OrderedDict
 
 from .absobj import AbsObj
 from .elf import ELF
@@ -15,23 +13,20 @@ from .cleextractor import CLEExtractor
 from .pe import Pe
 from .idabin import IdaBin
 from .blob import Blob
-from .errors import CLEError, CLEOperationError, CLEFileNotFoundError
+from .errors import CLEError, CLEOperationError, CLEFileNotFoundError, CLECompatibilityError
 from .memory import Clemory
-
-# import platform
-# import binascii
 
 __all__ = ('Loader',)
 
 l = logging.getLogger("cle.ld")
 
-BACKENDS = {
-    'elf': ELF,
-    'cleextract': CLEExtractor,
-    'ida': IdaBin,
-    'pe': Pe,
-    'blob': Blob,
-}
+BACKENDS = OrderedDict((
+    ('elf', ELF),
+    ('pe', Pe),
+    ('cleextract', CLEExtractor),
+    ('ida', IdaBin),
+    ('blob', Blob)
+))
 
 # FIXME list
 #     1)  add support for per-library backend (right now, it all depends on the
@@ -53,8 +48,10 @@ class Loader(object):
        requested_objects  A set containing the names of all the different shared libraries that were marked as a dependancy by somebody
 
     When reference is made to a dictionary of options, it require a dictionary with zero or more of the following keys:
-        backend           "elf", "cleextract", "ida", "blob": which loader backend to use
-        ???               Potentially more, needs to be documented better
+        backend             "elf", "cleextract", "ida", "blob": which loader backend to use
+        custom_base_addr    The address to rebase the object at
+        custom_entry_point  The entry point to use for the object
+        ???                 More, defined on a per-backend basis
     """
 
     def __init__(self, main_binary, auto_load_libs=True,
@@ -124,30 +121,82 @@ class Loader(object):
                 continue
             if self._ignore_import_version_numbers and dep.strip('.0123456789') in self._satisfied_deps:
                 continue
-            path = self._resolve_path(dep)
-            if not path:
+            for path in self._possible_paths(dep):
+                libname = os.path.basename(path)
+                options = self._lib_opts.get(libname, {})
+                obj = self.load_object(path, options, compatible_with=self.main_bin)
+                if obj is not None:
+                    break
+            else:
                 if self._except_missing_libs:
                     raise CLEFileNotFoundError("Could not find shared library: %s" % dep)
                 continue
-            libname = os.path.basename(path)
-            options = self._lib_opts.get(libname, {})
-            obj = self.load_object(path, options)
 
             base_addr = options.get('custom_base_addr', None)
             self.add_object(obj, base_addr)
             self.shared_objects[obj.provides] = obj
 
     @staticmethod
-    def load_object(path, options):
-        backend_option = options.get('backend', 'elf')
-        if isinstance(backend_option, type) and issubclass(backend_option, AbsObj):
-            backend = backend_option
-        elif backend_option in BACKENDS:
-            backend = BACKENDS[backend_option]
-        else:
-            raise CLEError('Invalid backend: %s' % backend)
+    def load_object(path, options=None, compatible_with=None):
+        try:
+            filetype = Loader.identify_object(path)
+        except OSError:
+            raise CLEFileNotFoundError('File %s does not exist!' % path)
 
-        return backend(path, **options)
+        if compatible_with is not None and filetype != compatible_with.filetype:
+            raise CLECompatibilityError('File %s is not compatible with %s' % (path, compatible_with))
+
+        backend_option = options.get('backend', None)
+        if isinstance(backend_option, type) and issubclass(backend_option, AbsObj):
+            backends = [backend_option]
+        elif backend_option in BACKENDS:
+            backends = [BACKENDS[backend_option]]
+        elif isinstance(backend_option, (list, tuple)):
+            backends = []
+            for backend_option_item in backend_option:
+                if isinstance(backend_option_item, type) and issubclass(backend_option_item, AbsObj):
+                    backends.append(backend_option_item)
+                elif backend_option_item in BACKENDS:
+                    backends.append(BACKENDS[backend_option_item])
+                else:
+                    raise CLEError('Invalid backend: %s' % backend_option_item)
+        elif backend_option is None:
+            backends = BACKENDS.values()
+        else:
+            raise CLEError('Invalid backend: %s' % backend_option)
+
+        backends = filter(lambda x: filetype in x.supported_filetypes, backends)
+        if len(backends) == 0:
+            raise CLECompatibilityError('No compatible backends specified for filetype %s (file %s)' % (filetype, path))
+
+        for backend in backends:
+            try:
+                loaded = backend(path, compatible_with=compatible_with, **options)
+                return loaded
+            except CLECompatibilityError:
+                raise
+            except CLEError:
+                l.exception("Loading error when loading %s with backend %s", path, backend.__name__)
+        raise CLEError("All backends failed loading %s!" % path)
+
+    @staticmethod
+    def identify_object(path):
+        '''
+         Returns the filetype of the file at path. Will be one of the strings
+         in {'elf', 'pe', 'mach-o', 'unknown'}
+        '''
+        identstring = open(path).read(0x100)
+        if identstring.startswith('\x7fELF'):
+            return 'elf'
+        elif identstring.startswith('MZ') and len(identstring) > 0x3e and identstring[0x3c:0x3e] == 'PE':
+            return 'pe'
+        elif identstring.startswith('\xfe\xed\xfa\xce') or \
+             identstring.startswith('\xfe\xed\xfa\xcf') or \
+             identstring.startswith('\xce\xfa\xed\xfe') or \
+             identstring.startswith('\xcf\xfa\xed\xfe'):
+            return 'mach-o'
+        else:
+            return 'unknown'
 
     def add_object(self, obj, base_addr=None):
         '''
@@ -177,26 +226,21 @@ class Loader(object):
         self.memory.add_backer(base_addr, obj.memory)
         obj.rebase_addr = base_addr
 
-    def _resolve_path(self, path):
-        if '/' in path:
-            if self._check_lib(path):
-                return path
-        else:
-            dirs = []                   # if we say dirs = blah, we modify the original
-            dirs += self._custom_ld_path
-            dirs += ['.', os.path.dirname(self._main_binary_path)]
-            dirs += self.main_bin.arch.library_search_path()
-            for libdir in dirs:
-                if self._check_lib(os.path.join(libdir, path)):
-                    return os.path.realpath(os.path.join(libdir, path))
-                if self._ignore_import_version_numbers:
-                    listing = ()
-                    try: listing = os.listdir(libdir)
-                    except OSError: pass
-                    for libname in listing:
+    def _possible_paths(self, path):
+        if os.path.exists(path): yield path
+        dirs = []                   # if we say dirs = blah, we modify the original
+        dirs += self._custom_ld_path
+        dirs += [os.path.dirname(self._main_binary_path)]
+        dirs += self.main_bin.arch.library_search_path()
+        for libdir in dirs:
+            fullpath = os.path.realpath(os.path.join(libdir, path))
+            if os.path.exists(fullpath): yield fullpath
+            if self._ignore_import_version_numbers:
+                try:
+                    for libname in os.listdir(libdir):
                         if libname.strip('.0123456789') == path.strip('.0123456789'):
-                            if self._check_lib(os.path.join(libdir, libname)):
-                                return os.path.realpath(os.path.join(libdir, libname))
+                            yield os.path.realpath(os.path.join(libdir, libname))
+                except OSError: pass
 
     def _perform_reloc(self):
         for i, obj in enumerate(self.all_objects):
@@ -429,18 +473,6 @@ class Loader(object):
             raise CLEFileNotFoundError("File %s does not exist :(. Please check that the"
                                        " path is correct" % path)
         return dest
-
-    def _check_arch(self, objpath):
-        """ Is obj the same architecture as our main binary ? """
-        arch = arch_from_binary(objpath)
-        # The architectures are exactly the same
-        return self.main_bin.arch == arch
-
-    def _check_lib(self, sopath):
-        try:
-            return self.main_bin.arch == arch_from_binary(sopath)
-        except ArchError:
-            return False
 
     def _all_so_exports(self):
         exports = {}

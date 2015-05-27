@@ -10,6 +10,8 @@ class Pe(AbsObj):
 
     def __init__(self, *args, **kwargs):
         super(Pe, self).__init__(*args, **kwargs)
+        self.filetype = 'pe'
+        self.os = 'windows'
 
         self._pe = pefile.PE(self.binary)
 
@@ -24,6 +26,8 @@ class Pe(AbsObj):
         self.jmprel = self._get_jmprel()
 
         self.memory.add_backer(self._base, self._pe.get_memory_mapped_image())
+
+    supported_filetypes = ['pe']
 
     def get_min_addr(self):
         return min(self._base + section.VirtualAddress for section in self._pe.sections)

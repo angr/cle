@@ -8,7 +8,7 @@ __all__ = ('Blob',)
 
 class Blob(AbsObj):
     """
-        Representation of a binary blob, i.e., an executable in an unknown file
+        Representation of a binary blob, i.e. an executable in an unknown file
         format.
     """
 
@@ -41,6 +41,7 @@ class Blob(AbsObj):
 
         self.load(self.custom_offset)
 
+    supported_filetypes = ['elf', 'pe', 'mach-o', 'unknown']
 
     def get_min_addr(self):
         return self.custom_base_addr

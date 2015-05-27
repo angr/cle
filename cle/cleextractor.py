@@ -4,7 +4,6 @@ import subprocess
 from .errors import CLEError, CLEOperationError, CLEInvalidBinaryError
 from .absobj import Segment
 from .metaelf import MetaELF
-from archinfo import arch_from_binary
 
 l = logging.getLogger("cle.cleextractor")
 
@@ -30,11 +29,10 @@ class CLEExtractor(MetaELF):
         """ Initialization of the Elf object.
         This is called by the constructor of the parent class
         """
+        raise CLEError("The CLEExtract backend is unsupported")
 
         # Call the constructor of AbsObj
         super(CLEExtractor, self).__init__(*args, **kwargs)
-        if self.arch is None:
-            self.set_arch(arch_from_binary(self.binary))
 
         # Shall we load the binary ? Yes by default
         load = True if 'load' not in kwargs else False

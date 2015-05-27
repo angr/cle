@@ -1,6 +1,6 @@
 import struct, os
 from elftools.elf import elffile, sections
-from archinfo import arch_from_binary
+import archinfo
 
 from .absobj import Symbol, Relocation, Segment, Section
 from .metaelf import MetaELF
@@ -56,7 +56,17 @@ class ELF(MetaELF):
         super(ELF, self).__init__(binary, **kwargs)
         self.reader = elffile.ELFFile(open(self.binary))
         if self.arch is None:
-            self.set_arch(arch_from_binary(binary))
+            if self.reader.header.e_machine == 'EM_ARM' and \
+                    self.reader.header.e_flags & 0x200:
+                self.set_arch(archinfo.ArchARMEL('Iend_LE' if 'LSB' in self.reader.header.e_ident.EI_DATA else 'Iend_BE'))
+            elif self.reader.header.e_machine == 'EM_ARM' and \
+                    self.reader.header.e_flags & 0x400:
+                self.set_arch(archinfo.ArchARMHF('Iend_LE' if 'LSB' in self.reader.header.e_ident.EI_DATA else 'Iend_BE'))
+            else:
+                self.set_arch(archinfo.arch_from_id(self.reader.header.e_machine,
+                                                self.reader.header.e_ident.EI_DATA,
+                                                self.reader.header.e_ident.EI_CLASS))
+
         self.strtab = None
         self.dynsym = None
         self.hashtable = None
@@ -252,15 +262,15 @@ class ELFHashTable(object):
 
     Information: http://docs.oracle.com/cd/E23824_01/html/819-0690/chapter6-48031.html
     """
-    def __init__(self, symtab, stream, offset, archinfo):
+    def __init__(self, symtab, stream, offset, arch):
         """
         @param symtab       The symbol table to perform lookups from (as a pyelftools SymbolTableSection)
         @param stream       A file-like object to read from the ELF's memory
         @param offset       The offset in the object where the table starts
-        @param archinfo     The ArchInfo object for the ELF file
+        @param arch         The ArchInfo object for the ELF file
         """
         self.symtab = symtab
-        fmt = '<' if archinfo.memory_endness == 'Iend_LE' else '>'
+        fmt = '<' if arch.memory_endness == 'Iend_LE' else '>'
         stream.seek(offset)
         self.nbuckets, self.nchains = struct.unpack(fmt + 'II', stream.read(8))
         self.buckets = struct.unpack(fmt + 'I'*self.nbuckets, stream.read(4*self.nbuckets))
@@ -300,16 +310,16 @@ class GNUHashTable(object):
 
     Information: https://blogs.oracle.com/ali/entry/gnu_hash_elf_sections
     """
-    def __init__(self, symtab, stream, offset, archinfo):
+    def __init__(self, symtab, stream, offset, arch):
         """
         @param symtab       The symbol table to perform lookups from (as a pyelftools SymbolTableSection)
         @param stream       A file-like object to read from the ELF's memory
         @param offset       The offset in the object where the table starts
-        @param archinfo     The ArchInfo object for the ELF file
+        @param arch         The ArchInfo object for the ELF file
         """
         self.symtab = symtab
-        fmt = '<' if archinfo.memory_endness == 'Iend_LE' else '>'
-        self.c = archinfo.bits
+        fmt = '<' if arch.memory_endness == 'Iend_LE' else '>'
+        self.c = arch.bits
         fmtsz = 'I' if self.c == 32 else 'Q'
 
         stream.seek(offset)
