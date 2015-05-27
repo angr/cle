@@ -49,6 +49,7 @@ class Loader(object):
 
     When reference is made to a dictionary of options, it require a dictionary with zero or more of the following keys:
         backend             "elf", "cleextract", "ida", "blob": which loader backend to use
+        custom_arch         The archinfo.Arch object to use for the binary
         custom_base_addr    The address to rebase the object at
         custom_entry_point  The entry point to use for the object
         ???                 More, defined on a per-backend basis

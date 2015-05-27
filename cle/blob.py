@@ -1,4 +1,5 @@
 from .absobj import AbsObj
+from .errors import CLEError
 import logging
 import os
 
@@ -12,8 +13,8 @@ class Blob(AbsObj):
         format.
     """
 
-    def __init__(self, path, custom_entry_point, custom_base_addr,
-                custom_arch, custom_offset=None, *args, **kwargs):
+    def __init__(self, path, custom_entry_point=None, custom_base_addr=None,
+                custom_arch=None, custom_offset=None, *args, **kwargs):
         """
         Arguments we expect in kwargs:
             @custom_entry_point: where to start the execution in the blob
@@ -23,8 +24,17 @@ class Blob(AbsObj):
         """
 
 
+        if custom_arch is None:
+            raise CLEError("Must specify custom_arch when loading blob!")
         if custom_offset is None:
             l.warning("No custom offset was specified for blob, assuming 0")
+            custom_offset = 0
+        if custom_entry_point is None:
+            l.warning("No custom entry point was specified for blob, assuming 0")
+            custom_entry_point = 0
+        if custom_base_addr is None:
+            l.warning("No custom base address was specified for blob, assuming 0")
+            custom_base_addr = 0
 
         super(Blob, self).__init__(path, *args, blob=True,
                 custom_entry_point=custom_entry_point,

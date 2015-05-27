@@ -1,5 +1,5 @@
 import archinfo
-from .errors import CLEOperationError, CLECompatibilityError
+from .errors import CLEOperationError, CLECompatibilityError, CLEError
 from .memory import Clemory
 from abc import ABCMeta
 
@@ -312,10 +312,17 @@ class AbsObj(object):
         self.memory = None
         self.ppc64_initial_rtoc = None
 
-        if 'custom_arch' in kwargs:
-            self.set_arch(archinfo.arch_from_id(kwargs['custom_arch']))
-        else:
+        custom_arch = kwargs.get('custom_arch', None)
+        if custom_arch is None:
             self.arch = None
+        elif isinstance(custom_arch, str):
+            self.set_arch(archinfo.arch_from_id(custom_arch))
+        elif isinstance(custom_arch, archinfo.Arch):
+            self.set_arch(custom_arch)
+        elif isinstance(custom_arch, type) and issubclass(custom_arch, archinfo.Arch):
+            self.set_arch(custom_arch())
+        else:
+            raise CLEError("Bad parameter: custom_arch=%s" % custom_arch)
 
     supported_filetypes = []
 
