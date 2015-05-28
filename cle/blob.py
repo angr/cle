@@ -13,21 +13,18 @@ class Blob(AbsObj):
         format.
     """
 
-    def __init__(self, path, custom_entry_point=None,
-                custom_arch=None, custom_offset=None, *args, **kwargs):
+    def __init__(self, path, custom_arch=None, custom_offset=None, *args, **kwargs):
         """
         Arguments we expect in kwargs:
-            @custom_entry_point: where to start the execution in the blob
-            @custom_offset: skip n bytes from the beginning of the file, where
-                n = @custom_offset
+            @custom_arch: required, an archinfo.Arch for the binary blob
+            @custom_offset: skip this many bytes from the beginning of the file
         """
 
 
         if custom_arch is None:
             raise CLEError("Must specify custom_arch when loading blob!")
 
-        super(Blob, self).__init__(path, *args, blob=True,
-                custom_entry_point=custom_entry_point,
+        super(Blob, self).__init__(path, *args,
                 custom_arch=custom_arch,
                 custom_offset=custom_offset, **kwargs)
 
@@ -37,7 +34,7 @@ class Blob(AbsObj):
             l.warning("No custom entry point was specified for blob, assuming 0")
             self._custom_entry_point = 0
 
-        self._entry = self.custom_entry_point
+        self._entry = self._custom_entry_point
         self._max_addr = 0
 
         self._load(self.custom_offset)
