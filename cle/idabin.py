@@ -10,20 +10,20 @@ from .absobj import AbsObj
 
 l = logging.getLogger("cle.idabin")
 
-__all__ = ('IdaBin',)
+__all__ = ('IDABin',)
 
-class IdaBin(AbsObj):
+class IDABin(AbsObj):
     '''
      Get informations from binaries using IDA.
     '''
     def __init__(self, binary, *args, **kwargs):
         if idalink is None:
-            raise CLEError("Install the idalink module to use the IdaBin backend!")
+            raise CLEError("Install the idalink module to use the IDABin backend!")
 
-        super(IdaBin, self).__init__(binary, *args, **kwargs)
+        super(IDABin, self).__init__(binary, *args, **kwargs)
 
         if self.arch is None:
-            raise CLEError("You must specify a custom_arch in order to use the IdaBin backend")
+            raise CLEError("You must specify a custom_arch in order to use the IDABin backend")
 
         ida_prog = "idal64" # We don't really need 32 bit idal, do we ?
         processor_type = self.arch.ida_processor
@@ -31,8 +31,11 @@ class IdaBin(AbsObj):
         l.debug("Loading binary %s using IDA with arch %s", self.binary, processor_type)
 
         self.ida_path = Loader._make_tmp_copy(self.binary)
-        self.ida = idalink(self.ida_path, ida_prog=ida_prog,
-                                   processor_type=processor_type).link
+        try:
+            self.ida = idalink(self.ida_path, ida_prog=ida_prog,
+                                       processor_type=processor_type).link
+        except idalink.IDALinkError as e:
+            raise CLEError("IDALink returned error: %s" % e.message)
 
         self.BADADDR = self.ida.idc.BADADDR
         l.info('Loading memory from ida, this will take a minute...')
@@ -54,9 +57,9 @@ class IdaBin(AbsObj):
 
         self.exports = self._get_exports()
 
-        l.warning('The IdaBin module is not well supported. Good luck!')
+        l.warning('The IDABin module is not well supported. Good luck!')
 
-    supported_filetypes = ['elf', 'pe', 'mach-o', 'unknown']
+    supported_filetypes = ['elf', 'pe', 'mach-o']
 
     def in_which_segment(self, addr):
         """ Return the segment name at address @addr (IDA)"""

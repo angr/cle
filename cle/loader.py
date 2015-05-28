@@ -28,7 +28,7 @@ class Loader(object):
        requested_objects  A set containing the names of all the different shared libraries that were marked as a dependancy by somebody
 
     When reference is made to a dictionary of options, it require a dictionary with zero or more of the following keys:
-        backend             "elf", "cleextract", "ida", "blob": which loader backend to use
+        backend             "elf", "cleextract", "pe", "ida", "blob": which loader backend to use
         custom_arch         The archinfo.Arch object to use for the binary
         custom_base_addr    The address to rebase the object at
         custom_entry_point  The entry point to use for the object
@@ -229,7 +229,7 @@ class Loader(object):
     def _perform_reloc(self):
         for i, obj in enumerate(self.all_objects):
             obj.tls_module_id = i
-            if isinstance(obj, IdaBin):
+            if isinstance(obj, IDABin):
                 pass
             elif isinstance(obj, (MetaELF, PE)):
                 for reloc in obj.relocs:
@@ -293,7 +293,7 @@ class Loader(object):
         """ Look for the address of a GOT entry for symbol @symbol.
         If found, return the address, otherwise, return None
         """
-        if isinstance(self.main_bin, IdaBin):
+        if isinstance(self.main_bin, IDABin):
             if symbol in self.main_bin.imports:
                 return self.main_bin.imports[symbol]
         elif isinstance(self.main_bin, ELF):
@@ -435,14 +435,14 @@ from .elf import ELF
 from .metaelf import MetaELF
 from .cleextractor import CLEExtractor
 from .pe import PE
-from .idabin import IdaBin
+from .idabin import IDABin
 from .blob import Blob
 
 BACKENDS = OrderedDict((
     ('elf', ELF),
     ('pe', PE),
     ('cleextract', CLEExtractor),
-    ('ida', IdaBin),
+    ('ida', IDABin),
     ('blob', Blob)
 ))
 
