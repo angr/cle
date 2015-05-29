@@ -93,6 +93,8 @@ class Loader(object):
         base_addr = self._main_opts.get('custom_base_addr', 0)
         if base_addr == 0 and self.main_bin.requested_base is not None:
             base_addr = self.main_bin.requested_base
+        if base_addr == 0 and self.main_bin.pic:
+            base_addr = 0x400000
         self.add_object(self.main_bin, base_addr)
 
     def _load_dependencies(self):

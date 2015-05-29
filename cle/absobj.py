@@ -306,6 +306,7 @@ class AbsObj(object):
         self.deps = []           # Needed shared objects (libraries dependencies)
         self.linking = None # Dynamic or static linking
         self.requested_base = None
+        self.pic = False
 
         # Custom options
         self._custom_entry_point = kwargs.get('custom_entry_point', None)

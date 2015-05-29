@@ -84,6 +84,7 @@ class ELF(MetaELF):
         self.jmprel = {}
 
         self._entry = self.reader.header.e_entry
+        self.pic = self.reader.header.e_type == 'ET_DYN'
 
         self.tls_init_image = ''
 
