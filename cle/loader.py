@@ -259,13 +259,13 @@ class Loader(object):
         """ The maximum address loaded as part of any loaded object
         (i.e., the whole address space)
         """
-        return max(map(lambda x: x.get_max_addr() + x.rebase_addr, self.all_objects))
+        return max(map(lambda x: x.get_max_addr(), self.all_objects))
 
     def min_addr(self):
         """ The minimum address loaded as part of any loaded object
         i.e., the whole address space)
         """
-        return min(map(lambda x: x.get_min_addr() + x.rebase_addr, self.all_objects))
+        return min(map(lambda x: x.get_min_addr(), self.all_objects))
 
     # Search functions
 

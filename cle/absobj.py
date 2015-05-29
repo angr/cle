@@ -330,7 +330,7 @@ class AbsObj(object):
     supported_filetypes = []
 
     def __repr__(self):
-        return '<%s Object %s, maps [%#x:%#x]>' % (self.__class__.__name__, os.path.basename(self.binary), self.get_min_addr() + self.rebase_addr, self.get_max_addr() + self.rebase_addr)
+        return '<%s Object %s, maps [%#x:%#x]>' % (self.__class__.__name__, os.path.basename(self.binary), self.get_min_addr(), self.get_max_addr())
 
     def set_arch(self, arch):
         if self.compatible_with is not None and self.compatible_with.arch != arch:
@@ -347,37 +347,28 @@ class AbsObj(object):
     def contains_addr(self, addr):
         """ Is @vaddr in one of the binary's segments we have loaded ?
         (i.e., is it mapped into memory ?)
-
-        WARNING: in the case of relocatable objects (e.g., libraries), this
-        function works with relative addresses (wrt the start of the object).
-        Remember that statically, the Elf headers define a virtual address of 0
-        for relocatable objects.
-
-        If you try to use this function with a runtime address of a relocated
-        object, you should consider substracting the rebase_addr value to @addr
-        beforehands.
         """
         for i in self.segments:
-            if i.contains_addr(addr):
+            if i.contains_addr(addr - self.rebase_addr):
                 return True
         return False
 
     def find_segment_containing(self, vaddr):
         """ Returns the segment that contains @vaddr, or None """
         for s in self.segments:
-            if s.contains_addr(vaddr):
+            if s.contains_addr(vaddr - self.rebase_addr):
                 return s
 
     def find_section_containing(self, vaddr):
         """ Returns the section that contains @vaddr, or None """
         for s in self.sections:
-            if s.contains_addr(vaddr):
+            if s.contains_addr(vaddr - self.rebase_addr):
                 return s
 
     def addr_to_offset(self, addr):
         for s in self.segments:
-            if s.contains_addr(addr):
-                return s.addr_to_offset(addr)
+            if s.contains_addr(addr - self.rebase_addr):
+                return s.addr_to_offset(addr - self.rebase_addr)
         return None
 
     def offset_to_addr(self, offset):
@@ -386,31 +377,26 @@ class AbsObj(object):
                 return s.offset_to_addr(offset)
 
     def get_min_addr(self):
-        """
-        Return the virtual address of the segment that has the lowest address.
-        WARNING: this is calculated BEFORE rebasing the binaries, therefore,
-        this is only relevant to executable files, as shared libraries should always
-        have 0 as their text segment load addresseses.
+        """ This returns the lowest virtual address contained in any loaded
+        segment of the binary.
         """
 
         out = None
         for segment in self.segments:
             if out is None or segment.min_addr < out:
                 out = segment.min_addr
-        return out
+        return out + self.rebase_addr
 
     def get_max_addr(self):
         """ This returns the highest virtual address contained in any loaded
-        segment of the binary, BEFORE rebasing.
-
-        NOTE: relocation is taken into consideration by ld, not here.
+        segment of the binary.
         """
 
         out = None
         for segment in self.segments:
             if out is None or segment.max_addr > out:
                 out = segment.max_addr
-        return out
+        return out + self.rebase_addr
 
     def set_got_entry(self, symbol_name, newaddr):
         '''

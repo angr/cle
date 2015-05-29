@@ -69,10 +69,10 @@ class PE(AbsObj):
     supported_filetypes = ['pe']
 
     def get_min_addr(self):
-        return min(section.VirtualAddress for section in self._pe.sections)
+        return min(section.VirtualAddress - self.requested_base + self.rebase_addr for section in self._pe.sections)
 
     def get_max_addr(self):
-        return max(section.VirtualAddress + section.Misc_VirtualSize - 1
+        return max(section.VirtualAddress - self.requested_base + self.rebase_addr + section.Misc_VirtualSize - 1
                    for section in self._pe.sections)
 
     def get_symbol(self, name):
