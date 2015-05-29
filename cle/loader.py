@@ -90,11 +90,13 @@ class Loader(object):
     def _load_main_binary(self):
         self.main_bin = self.load_object(self._main_binary_path, self._main_opts)
         self.memory = Clemory(self.main_bin.arch, root=True)
-        base_addr = self._main_opts.get('custom_base_addr', 0)
-        if base_addr == 0 and self.main_bin.requested_base is not None:
+        base_addr = self._main_opts.get('custom_base_addr', None)
+        if base_addr is None and self.main_bin.requested_base is not None:
             base_addr = self.main_bin.requested_base
-        if base_addr == 0 and self.main_bin.pic:
+        if base_addr is None and self.main_bin.pic:
             base_addr = 0x400000
+        if base_addr is None:
+            base_addr = 0
         self.add_object(self.main_bin, base_addr)
 
     def _load_dependencies(self):

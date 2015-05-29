@@ -9,7 +9,7 @@ test_location = str(os.path.join(os.path.dirname(os.path.realpath(__file__)), '.
 
 def test_ppc():
     libc = os.path.join(test_location, "ppc/libc.so.6")
-    ld = cle.Loader(libc, auto_load_libs=True)
+    ld = cle.Loader(libc, auto_load_libs=True, main_opts={'custom_base_addr': 0})
     # This tests the relocation of _rtld_global_ro in ppc libc6.
     # This relocation is of type 20, and relocates a non-local symbol
     relocated = ld.memory.read_addr_at(0x18ace4)
