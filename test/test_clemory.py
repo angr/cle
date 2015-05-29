@@ -35,6 +35,34 @@ def test_cclemory():
     out = c.memcmp(ffi.new("unsigned char []", "ABCDEFGH"), byte_str, 8)
     nose.tools.assert_equal(out, 0)
 
+def test_clemory():
+    """
+    Some basic tests of the Clemory class
+    """
+
+    # directly write bytes to backers
+    clemory = cle.Clemory(None, root=True)
+    clemory.add_backer(0, "A" * 20)
+    clemory.add_backer(20, "A" * 20)
+    clemory.add_backer(50, "A" * 20)
+    nose.tools.assert_equal(len(clemory._backers), 3)
+
+    clemory.write_bytes_to_backer(10, "B" * 70)
+
+    nose.tools.assert_equal(len(clemory._backers), 4)
+    nose.tools.assert_equal("".join(clemory.read_bytes(0, 80)), "A" * 10 + "B" * 70)
+
+
+    clemory = cle.Clemory(None, root=True)
+    clemory.add_backer(10, "A" * 20)
+    clemory.add_backer(50, "A" * 20)
+    nose.tools.assert_equal(len(clemory._backers), 2)
+    clemory.write_bytes_to_backer(0, "") # Should not except out
+    nose.tools.assert_equal(len(clemory._backers), 2)
+    clemory.write_bytes_to_backer(0, "B" * 10)
+    nose.tools.assert_equal(len(clemory._backers), 3)
+    nose.tools.assert_equal("".join(clemory.read_bytes(0, 25)), "B" * 10 + "A" * 15)
+
 def main():
     g = globals()
     for func_name, func in g.iteritems():
