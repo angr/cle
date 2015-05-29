@@ -184,6 +184,8 @@ class Loader(object):
              identstring.startswith('\xce\xfa\xed\xfe') or \
              identstring.startswith('\xcf\xfa\xed\xfe'):
             return 'mach-o'
+        elif identstring.startswith('\x7fCGC'):
+            return 'cgc'
         return 'unknown'
 
     def add_object(self, obj, base_addr=None):
@@ -441,10 +443,14 @@ from .cleextractor import CLEExtractor
 from .pe import PE
 from .idabin import IDABin
 from .blob import Blob
+from .cgc import CGC
+from .backedcgc import BackedCGC
 
 BACKENDS = OrderedDict((
     ('elf', ELF),
     ('pe', PE),
+    ('cgc', CGC),
+    ('backedcgc', BackedCGC),
     ('cleextract', CLEExtractor),
     ('ida', IDABin),
     ('blob', Blob)

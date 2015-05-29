@@ -45,9 +45,20 @@ class Clemory(object):
             raise TypeError("Data must be a string or a Clemory")
         for i, (oldstart, _) in enumerate(self._backers):
             if oldstart == start:
-                self._updates[i] = (start, data)
+                self._backers[i] = (start, data)
                 self._needs_flattening_personal = True
                 break
+        else:
+            raise ValueError("Can't find backer to update")
+
+    def remove_backer(self, start):
+        for i, (oldstart, _) in enumerate(self._backers):
+            if oldstart == start:
+                self._backers.pop(i)
+                self._needs_flattening_personal = True
+                break
+        else:
+            raise ValueError("Can't find backer to remove")
 
     def __getitem__(self, k):
         if k in self._updates:
@@ -111,6 +122,62 @@ class Clemory(object):
         """
         for i, c in enumerate(data):
             self[addr+i] = c
+
+    def write_bytes_to_backer(self, addr, data):
+        """
+        Write bytes from @data at address @addr to backer instead of self._updates
+        This is only needed when writing a huge amount of data
+        """
+
+        pos = addr
+        to_insert = [ ]
+        i = 0
+
+        while i < len(self._backers) and len(data):
+            start, backer_data = self._backers[i] # self._backers is always sorted
+            size = len(backer_data)
+            stop = start + size
+            if pos >= start:
+                if pos < stop:
+                    if pos + len(data) > stop:
+                        new_backer_data = backer_data[ : pos - start] + data[ : stop - pos]
+                        self._backers[i] = (start, new_backer_data)
+
+                        # slicing data
+                        data = data[ stop - pos : ]
+                        pos = stop
+                    else:
+                        new_backer_data = backer_data[ : pos - start] + data + backer_data[pos - start + len(data) : ]
+                        self._backers[i] = (start, new_backer_data)
+                        # We are done
+                        break
+                i += 1
+            else:
+                # Look forward and see if we should insert a new backer
+                if i < len(self._backers) - 1:
+                    if pos + len(data) <= start:
+                        to_insert.append((pos, data[ : start - pos]))
+
+                        data = data[start - pos : ]
+                        pos = start
+
+                    else:
+                        # we reach the end of our data to insert
+                        to_insert.append((pos, data))
+
+                        break
+                else:
+                    # seems we reach the end of the list...
+                    to_insert.append((pos, data))
+
+                    break
+
+        # Insert the blocks that are needed to insert into self._backers
+        for seg_start, seg_data in to_insert:
+            bisect.insort(self._backers, (seg_start, seg_data))
+
+        # Set the flattening_needed flag
+        self._needs_flattening_personal = True
 
     def read_addr_at(self, where):
         """

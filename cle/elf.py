@@ -33,10 +33,23 @@ class ELFRelocation(Relocation):
 
 class ELFSegment(Segment):
     def __init__(self, readelf_seg):
+        self.flags = readelf_seg.header.p_flags
         super(ELFSegment, self).__init__(readelf_seg.header.p_offset,
                                          readelf_seg.header.p_vaddr,
                                          readelf_seg.header.p_filesz,
                                          readelf_seg.header.p_memsz)
+
+    @property
+    def is_readable(self):
+        return self.flags & 4 != 0
+
+    @property
+    def is_writable(self):
+        return self.flags & 2 != 0
+
+    @property
+    def is_executable(self):
+        return self.flags & 1 != 0
 
 class ELFSection(Section):
     def __init__(self, readelf_sec):
@@ -104,10 +117,11 @@ class ELF(MetaELF):
                 self.__register_tls(seg_readelf)
 
     def _load_segment(self, seg):
-        self.memory.add_backer(seg.header.p_vaddr, seg.data())
         self.segments.append(ELFSegment(seg))
+        seg_data = seg.data()
         if seg.header.p_memsz > seg.header.p_filesz:
-            self.memory.add_backer(seg.header.p_vaddr + seg.header.p_filesz, '\0' * (seg.header.p_memsz - seg.header.p_filesz))
+            seg_data += '\0' * (seg.header.p_memsz - seg.header.p_filesz)
+        self.memory.add_backer(seg.header.p_vaddr, seg_data)
 
     def __register_dyn(self, seg_readelf):
         for tag in seg_readelf.iter_tags():
