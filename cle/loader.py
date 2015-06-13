@@ -172,7 +172,7 @@ class Loader(object):
          Returns the filetype of the file at path. Will be one of the strings
          in {'elf', 'pe', 'mach-o', 'unknown'}
         '''
-        identstring = open(path).read(0x1000)
+        identstring = open(path, 'rb').read(0x1000)
         if identstring.startswith('\x7fELF'):
             return 'elf'
         elif identstring.startswith('MZ') and len(identstring) > 0x40:
@@ -404,7 +404,7 @@ class Loader(object):
 
         # Let's work on a copy of the main binary
         copy = self._make_tmp_copy(path, suffix=".screwed")
-        f = open(copy, 'r+')
+        f = open(copy, 'r+b')
 
         # Looking at elf.h, we can see that the the entry point's
         # definition is always at the same place for all architectures.

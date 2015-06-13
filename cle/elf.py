@@ -67,7 +67,7 @@ class ELFSection(Section):
 class ELF(MetaELF):
     def __init__(self, binary, **kwargs):
         super(ELF, self).__init__(binary, **kwargs)
-        self.reader = elffile.ELFFile(open(self.binary))
+        self.reader = elffile.ELFFile(open(self.binary, 'rb'))
         if self.arch is None:
             if self.reader.header.e_machine == 'EM_ARM' and \
                     self.reader.header.e_flags & 0x200:
