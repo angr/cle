@@ -673,7 +673,7 @@ class CLEExtractor(MetaELF):
         """ Load a segment into memory """
 
         try:
-            f = open(self.binary, 'r')
+            f = open(self.binary, 'rb')
         except IOError:
             print("\tFile does not exist", self.binary)
 

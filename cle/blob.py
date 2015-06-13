@@ -50,7 +50,7 @@ class Blob(AbsObj):
     def _load(self, offset, size=None):
         """ Load a segment into memory """
         try:
-            f = open(self.binary, 'r')
+            f = open(self.binary, 'rb')
         except IOError:
             raise IOError("\tFile %s does not exist" % self.binary)
 
