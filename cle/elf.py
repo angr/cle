@@ -65,9 +65,14 @@ class ELFSection(Section):
                                          readelf_sec.header.sh_addralign)
 
 class ELF(MetaELF):
+    '''
+     The main loader class for statically loading elves. Uses the pyreadelf library where useful.
+    '''
     def __init__(self, binary, **kwargs):
         super(ELF, self).__init__(binary, **kwargs)
         self.reader = elffile.ELFFile(open(self.binary, 'rb'))
+
+        # Get an appropriate archinfo.Arch for this binary, unless the user specified one
         if self.arch is None:
             if self.reader.header.e_machine == 'EM_ARM' and \
                     self.reader.header.e_flags & 0x200:
@@ -104,6 +109,7 @@ class ELF(MetaELF):
         self.__register_segments()
         self.__register_sections()
 
+        # call the methods defined by MetaELF
         self._ppc64_abiv1_entry_fix()
         self._load_plt()
 
@@ -117,6 +123,9 @@ class ELF(MetaELF):
                 self.__register_tls(seg_readelf)
 
     def _load_segment(self, seg):
+        '''
+         Loads a segment based on a LOAD directive in the program header table
+        '''
         self.segments.append(ELFSegment(seg))
         seg_data = seg.data()
         if seg.header.p_memsz > seg.header.p_filesz:
@@ -124,20 +133,36 @@ class ELF(MetaELF):
         self.memory.add_backer(seg.header.p_vaddr, seg_data)
 
     def __register_dyn(self, seg_readelf):
+        '''
+         Parse the dynamic section for dynamically linked objects
+        '''
         for tag in seg_readelf.iter_tags():
+            # Create a dictionary, self._dynamic, mapping DT_* strings to their values
             tagstr = self.arch.translate_dynamic_tag(tag.entry.d_tag)
             self._dynamic[tagstr] = tag.entry.d_val
+            # For tags that may appear more than once, handle them here
             if tagstr == 'DT_NEEDED':
                 self.deps.append(tag.entry.d_val)
+
+        # None of the following things make sense without a string table
         if 'DT_STRTAB' in self._dynamic:
+            # To handle binaries without section headers, we need to hack around pyreadelf's assumptions
+            # make our own string table
             fakestrtabheader = {
                 'sh_offset': self._dynamic['DT_STRTAB']
             }
             self.strtab = elffile.StringTableSection(fakestrtabheader, 'strtab_cle', self.memory)
+
+            # get the list of strings that are the required shared libraries
             self.deps = map(self.strtab.get_string, self.deps)
+
+            # get the string for the "shared object name" that this binary provides
             if 'DT_SONAME' in self._dynamic:
                 self.provides = self.strtab.get_string(self._dynamic['DT_SONAME'])
+
+            # None of the following structures can be used without a symbol table
             if 'DT_SYMTAB' in self._dynamic and 'DT_SYMENT' in self._dynamic:
+                # Construct our own symbol table to hack around pyreadelf assuming section headers are around
                 fakesymtabheader = {
                     'sh_offset': self._dynamic['DT_SYMTAB'],
                     'sh_entsize': self._dynamic['DT_SYMENT'],
@@ -145,6 +170,8 @@ class ELF(MetaELF):
                 } # bogus size: no iteration allowed
                 self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.memory, self.reader, self.strtab)
 
+                # set up the hash table, prefering the gnu hash section to the old hash section
+                # the hash table lets you get any symbol given its name
                 if 'DT_GNU_HASH' in self._dynamic:
                     self.hashtable = GNUHashTable(self.dynsym, self.memory, self._dynamic['DT_GNU_HASH'], self.arch)
                 elif 'DT_HASH' in self._dynamic:
@@ -152,18 +179,31 @@ class ELF(MetaELF):
                 else:
                     l.warning("No hash table available in %s", self.binary)
 
-                if self.__relocate_mips():
-                    return
+                # mips' relocations are absolutely screwed up, handle some of them here.
+                self.__relocate_mips()
 
-                if self._dynamic['DT_PLTREL'] == 7:
-                    self.rela_type = 'RELA'
-                    relentsz = self.reader.structs.Elf_Rela.sizeof()
-                elif self._dynamic['DT_PLTREL'] == 17:
-                    self.rela_type = 'REL'
-                    relentsz = self.reader.structs.Elf_Rel.sizeof()
+                # perform a lot of checks to figure out what kind of relocation tables are around
+                self.rela_type = None
+                if 'DT_PLTREL' in self._dynamic:
+                    if self._dynamic['DT_PLTREL'] == 7:
+                        self.rela_type = 'RELA'
+                        relentsz = self.reader.structs.Elf_Rela.sizeof()
+                    elif self._dynamic['DT_PLTREL'] == 17:
+                        self.rela_type = 'REL'
+                        relentsz = self.reader.structs.Elf_Rel.sizeof()
+                    else:
+                        raise CLEInvalidBinaryError('DT_PLTREL is not REL or RELA?')
                 else:
-                    raise CLEInvalidBinaryError('DT_PLTREL is not REL or RELA?')
+                    if 'DT_RELA' in self._dynamic:
+                        self.rela_type = 'RELA'
+                        relentsz = self.reader.structs.Elf_Rela.sizeof()
+                    elif 'DT_REL' in self._dynamic:
+                        self.rela_type = 'REL'
+                        relentsz = self.reader.structs.Elf_Rel.sizeof()
+                    else:
+                        return
 
+                # try to parse relocations out of a table of type DT_REL{,A}
                 if 'DT_' + self.rela_type in self._dynamic:
                     reloffset = self._dynamic['DT_' + self.rela_type]
                     relsz = self._dynamic['DT_' + self.rela_type + 'SZ']
@@ -176,6 +216,7 @@ class ELF(MetaELF):
                     readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self.memory, self.reader)
                     self.__register_relocs(readelf_relocsec)
 
+                # try to parse relocations out of a table of type DT_JMPREL
                 if 'DT_JMPREL' in self._dynamic:
                     jmpreloffset = self._dynamic['DT_JMPREL']
                     jmprelsz = self._dynamic['DT_PLTRELSZ']
@@ -191,10 +232,42 @@ class ELF(MetaELF):
     def __register_relocs(self, section):
         relocs = []
         for readelf_reloc in section.iter_relocations():
-            symbol = self.get_symbol(readelf_reloc.entry.r_info_sym)
-            reloc = ELFRelocation(readelf_reloc, self, symbol)
-            relocs.append(reloc)
-            self.relocs.append(reloc)
+            # MIPS64 is just plain old fucked up
+            # https://www.sourceware.org/ml/libc-alpha/2003-03/msg00153.html
+            if self.arch.name == 'MIPS64':
+                # Little endian addionally needs one of its fields reversed... WHY
+                if self.arch.memory_endness == 'Iend_LE':
+                    readelf_reloc.entry.r_info_sym = readelf_reloc.entry.r_info & 0xFFFFFFFF
+                    readelf_reloc.entry.r_info = struct.unpack('>Q', struct.pack('<Q', readelf_reloc.entry.r_info))[0]
+
+                type_1 = readelf_reloc.entry.r_info & 0xFF
+                type_2 = readelf_reloc.entry.r_info >> 8 & 0xFF
+                type_3 = readelf_reloc.entry.r_info >> 16 & 0xFF
+                extra_sym = readelf_reloc.entry.r_info >> 24 & 0xFF
+                if extra_sym != 0:
+                    l.error('r_info_extra_sym is nonzero??? PLEASE SEND HELP')
+                symbol = self.get_symbol(readelf_reloc.entry.r_info_sym)
+
+                if type_1 != 0:
+                    readelf_reloc.entry.r_info_type = type_1
+                    reloc = ELFRelocation(readelf_reloc, self, symbol)
+                    relocs.append(reloc)
+                    self.relocs.append(reloc)
+                if type_2 != 0:
+                    readelf_reloc.entry.r_info_type = type_2
+                    reloc = ELFRelocation(readelf_reloc, self, symbol)
+                    relocs.append(reloc)
+                    self.relocs.append(reloc)
+                if type_3 != 0:
+                    readelf_reloc.entry.r_info_type = type_3
+                    reloc = ELFRelocation(readelf_reloc, self, symbol)
+                    relocs.append(reloc)
+                    self.relocs.append(reloc)
+            else:
+                symbol = self.get_symbol(readelf_reloc.entry.r_info_sym)
+                reloc = ELFRelocation(readelf_reloc, self, symbol)
+                relocs.append(reloc)
+                self.relocs.append(reloc)
         return relocs
 
 
