@@ -109,7 +109,12 @@ class ELF(MetaELF):
         self._entry = self.reader.header.e_entry
         self.pic = self.reader.header.e_type == 'ET_DYN'
 
-        self.tls_init_image = ''
+        self.tls_used = False
+        self.tls_module_id = None
+        self.tls_block_offset = None
+        self.tls_block_size = None
+        self.tls_tdata_start = None
+        self.tls_tdata_size = None
 
         self.__register_segments()
         self.__register_sections()
@@ -350,8 +355,10 @@ class ELF(MetaELF):
 
 
     def __register_tls(self, seg_readelf):
-        bss_size = seg_readelf.header.p_memsz - seg_readelf.header.p_filesz
-        self.tls_init_image = seg_readelf.data() + '\0'*bss_size
+        self.tls_used = True
+        self.tls_block_size = seg_readelf.header.p_memsz
+        self.tls_tdata_size = seg_readelf.header.p_filesz
+        self.tls_tdata_start = seg_readelf.header.p_vaddr
 
     def __register_sections(self):
         for sec_readelf in self.reader.iter_sections():

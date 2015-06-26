@@ -190,7 +190,7 @@ class Clemory(object):
         Writes @addr into a serie of bytes in memory at @where
         @archinfo is an cle.Archinfo instance
         """
-        by = struct.pack(self._arch.struct_fmt(), addr)
+        by = struct.pack(self._arch.struct_fmt(), addr % (2**self._arch.bits))
         self.write_bytes(where, by)
 
     @property
