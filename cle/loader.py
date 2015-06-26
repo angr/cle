@@ -101,6 +101,15 @@ class Loader(object):
         '''
         return sum(map(lambda x: x.get_initializers(), self.all_objects), [])
 
+    @property
+    def linux_loader_object(self):
+        for obj in self.all_objects:
+            if obj.soname is None:
+                continue
+            if 'ld.so' in obj.soname or 'ld64.so' in obj.soname or 'ld-linux' in obj.soname:
+                return obj
+        return None
+
     def _load_main_binary(self):
         self.main_bin = self.load_object(self._main_binary_path, self._main_opts)
         self.main_bin.is_main_bin = True    # this is a bit of a hack. can we pass this in more cleanly?
