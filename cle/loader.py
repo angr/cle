@@ -9,6 +9,7 @@ from collections import OrderedDict
 
 from .errors import CLEError, CLEOperationError, CLEFileNotFoundError, CLECompatibilityError
 from .memory import Clemory
+from .tls import TLSObj
 
 __all__ = ('Loader',)
 
@@ -26,6 +27,7 @@ class Loader(object):
        shared_objects     A dictionary mapping loaded library names to the objects representing them
        all_objects        A list containing representations of all the different objects loaded
        requested_objects  A set containing the names of all the different shared libraries that were marked as a dependancy by somebody
+       tls_object         An object dealing with the region of memory allocated for thread-local storage
 
     When reference is made to a dictionary of options, it require a dictionary with zero or more of the following keys:
         backend             "elf", "cleextract", "pe", "ida", "blob": which loader backend to use
@@ -79,10 +81,13 @@ class Loader(object):
         self.shared_objects = {}
         self.all_objects = []
         self.requested_objects = set()
+        self.tls_object = None
 
         self._load_main_binary()
         self._load_dependencies()
+        self._load_tls()
         self._perform_reloc()
+        self._finalize_tls()
 
     def __repr__(self):
         return '<Loaded %s, maps [%#x:%#x]>' % (os.path.basename(self._main_binary_path), self.min_addr(), self.max_addr())
@@ -104,9 +109,9 @@ class Loader(object):
     @property
     def linux_loader_object(self):
         for obj in self.all_objects:
-            if obj.soname is None:
+            if obj.provides is None:
                 continue
-            if 'ld.so' in obj.soname or 'ld64.so' in obj.soname or 'ld-linux' in obj.soname:
+            if 'ld.so' in obj.provides or 'ld64.so' in obj.provides or 'ld-linux' in obj.provides:
                 return obj
         return None
 
@@ -257,8 +262,7 @@ class Loader(object):
                 except OSError: pass
 
     def _perform_reloc(self):
-        for i, obj in enumerate(self.all_objects):
-            obj.tls_module_id = i
+        for obj in self.all_objects:
             if isinstance(obj, IDABin):
                 pass
             elif isinstance(obj, (MetaELF, PE)):
@@ -274,6 +278,29 @@ class Loader(object):
         """
         granularity = self._rebase_granularity
         return self.max_addr() + (granularity - self.max_addr() % granularity)
+
+    def _load_tls(self):
+        '''
+         Set up an object to store TLS data in
+        '''
+        modules = []
+        for obj in self.all_objects:
+            if not isinstance(obj, MetaELF):
+                continue
+            if not obj.tls_used:
+                continue
+            modules.append(obj)
+        if len(modules) == 0:
+            return
+        self.tls_object = TLSObj(modules)
+        self.add_object(self.tls_object)
+
+    def _finalize_tls(self):
+        '''
+         Lay out the TLS initialization images into memory
+        '''
+        if self.tls_object is not None:
+            self.tls_object.finalize()
 
     def addr_belongs_to_object(self, addr):
         for obj in self.all_objects:

@@ -173,6 +173,8 @@ class Relocation(object):
             return self.reloc_copy(solist)
         elif self.type in self.arch.reloc_tls_mod_id:
             return self.reloc_tls_mod_id()
+        elif self.type in self.arch.reloc_tls_doffset:
+            return self.reloc_tls_doffset()
         elif self.type in self.arch.reloc_tls_offset:
             return self.reloc_tls_offset()
         else:
@@ -207,9 +209,15 @@ class Relocation(object):
         self.resolve(None)
         return True
 
-    @staticmethod
-    def reloc_tls_offset():
-        return False
+    def reloc_tls_doffset(self):
+        self.owner_obj.memory.write_addr_at(self.addr, self.addend + self.symbol.addr)
+        self.resolve(None)
+        return True
+
+    def reloc_tls_offset(self):
+        self.owner_obj.memory.write_addr_at(self.addr, self.owner_obj.tls_block_offset + self.addend + self.symbol.addr)
+        self.resolve(None)
+        return True
 
     def reloc_mips_global(self, solist):
         if not self.resolve_symbol(solist):
@@ -426,4 +434,10 @@ class AbsObj(object):
          Stub function. Like get_initializers, but with finalizers.
         '''
         return []
+
+    def get_symbol(self, name): # pylint: disable=no-self-use,unused-argument
+        '''
+         Stub function. Implement to find the symbol with name `name`.
+        '''
+        return None
 
