@@ -271,7 +271,7 @@ class AbsObj(object):
         Main abstract class for CLE binary objects.
     """
 
-    def __init__(self, binary, compatible_with=None, filetype='unknown', **kwargs):
+    def __init__(self, binary, is_main_bin=False, compatible_with=None, filetype='unknown', **kwargs):
         """
         args: binary
         kwargs: {load=True, custom_base_addr=None, custom_entry_point=None,
@@ -283,6 +283,7 @@ class AbsObj(object):
             setattr(self, k, v)
 
         self.binary = binary
+        self.is_main_bin = is_main_bin
         self._entry = None
         self.segments = [] # List of segments
         self.sections = []      # List of sections
@@ -411,4 +412,18 @@ class AbsObj(object):
             return
 
         self.memory.write_addr_at(self.imports[symbol_name].addr, newaddr)
+
+    def get_initializers(self): # pylint: disable=no-self-use
+        '''
+         Stub function. Should be overridden by backends that can provide
+         initializer functions that ought to be run before execution reaches
+         the entry point. Addresses should be rebased.
+        '''
+        return []
+
+    def get_finalizers(self): # pylint: disable=no-self-use
+        '''
+         Stub function. Like get_initializers, but with finalizers.
+        '''
+        return []
 
