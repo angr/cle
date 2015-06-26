@@ -208,14 +208,14 @@ class ELF(MetaELF):
             arr_entsize = self.arch.bytes
             self._preinit_arr = map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize))
         if 'DT_INIT' in self._dynamic:
-            self._init_func = self.memory.read_addr_at(self._dynamic['DT_INIT'])
+            self._init_func = self._dynamic['DT_INIT']
         if 'DT_INIT_ARRAY' in self._dynamic and 'DT_INIT_ARRAYSZ' in self._dynamic:
             arr_start = self._dynamic['DT_INIT_ARRAY']
             arr_end = arr_start + self._dynamic['DT_INIT_ARRAYSZ']
             arr_entsize = self.arch.bytes
             self._init_arr = map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize))
         if 'DT_FINI' in self._dynamic:
-            self._fini_func = self.memory.read_addr_at(self._dynamic['DT_FINI'])
+            self._fini_func = self._dynamic['DT_FINI']
         if 'DT_FINI_ARRAY' in self._dynamic and 'DT_FINI_ARRAYSZ' in self._dynamic:
             arr_start = self._dynamic['DT_FINI_ARRAY']
             arr_end = arr_start + self._dynamic['DT_FINI_ARRAYSZ']
