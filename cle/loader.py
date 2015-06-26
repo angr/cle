@@ -87,8 +87,23 @@ class Loader(object):
     def __repr__(self):
         return '<Loaded %s, maps [%#x:%#x]>' % (os.path.basename(self._main_binary_path), self.min_addr(), self.max_addr())
 
+    def get_initializers(self):
+        '''
+         Return a list of all the initializers that should be run before execution reaches
+         the entry point, in the order they should be run.
+        '''
+        return sum(map(lambda x: x.get_initializers(), self.all_objects), [])
+
+    def get_finalizers(self):
+        '''
+         Return a list of all the finalizers that should be run before the program exits.
+         I'm not sure what order they should be run in.
+        '''
+        return sum(map(lambda x: x.get_initializers(), self.all_objects), [])
+
     def _load_main_binary(self):
         self.main_bin = self.load_object(self._main_binary_path, self._main_opts)
+        self.main_bin.is_main_bin = True    # this is a bit of a hack. can we pass this in more cleanly?
         self.memory = Clemory(self.main_bin.arch, root=True)
         base_addr = self._main_opts.get('custom_base_addr', None)
         if base_addr is None and self.main_bin.requested_base is not None:

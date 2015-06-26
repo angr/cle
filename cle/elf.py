@@ -92,6 +92,11 @@ class ELF(MetaELF):
         self._dynamic = {}
         self.deps = []
         self.rela_type = None
+        self._preinit_arr = []
+        self._init_func = None
+        self._init_arr = []
+        self._fini_func = None
+        self._fini_arr = []
 
         self._symbol_cache = {}
         self.symbols_by_addr = {}
@@ -113,6 +118,55 @@ class ELF(MetaELF):
         self._ppc64_abiv1_entry_fix()
         self._load_plt()
 
+    def get_symbol(self, symid):
+        """
+        Gets a Symbol object for the specified symbol
+
+        @param symid: either an index into .dynsym or the name of a symbol.
+        """
+        if isinstance(symid, (int, long)):
+            re_sym = self.dynsym.get_symbol(symid)
+            if re_sym.name in self._symbol_cache:
+                return self._symbol_cache[re_sym.name]
+            symbol = ELFSymbol(self, re_sym)
+            self._symbol_cache[re_sym.name] = symbol
+            return symbol
+        elif isinstance(symid, str):
+            if symid in self._symbol_cache:
+                return self._symbol_cache[symid]
+            if self.hashtable is None:
+                return None
+            re_sym = self.hashtable.get(symid)
+            if re_sym is None:
+                return None
+            symbol = ELFSymbol(self, re_sym)
+            self._symbol_cache[symid] = symbol
+            return symbol
+        elif isinstance(symid, sections.Symbol):
+            if symid.name in self._symbol_cache:
+                return self._symbol_cache[symid.name]
+            symbol = ELFSymbol(self, symid)
+            self._symbol_cache[symid.name] = symbol
+            return symbol
+        else:
+            raise CLEError("Bad symbol identifier: %s" % symid)
+
+    def get_initializers(self):
+        out = []
+        if self.is_main_bin:
+            out.extend(map(self._rebase_addr, self._preinit_arr))
+        if self._init_func is not None:
+            out.append(self._init_func + self.rebase_addr)
+        out.extend(map(self._rebase_addr, self._init_arr))
+        return out
+
+    def get_finalizers(self):
+        out = []
+        if self._fini_func is not None:
+            out.append(self._fini_func + self.rebase_addr)
+        out.extend(map(self._rebase_addr, self._fini_arr))
+        return out
+
     def __register_segments(self):
         for seg_readelf in self.reader.iter_segments():
             if seg_readelf.header.p_type == 'PT_LOAD':
@@ -121,6 +175,9 @@ class ELF(MetaELF):
                 self.__register_dyn(seg_readelf)
             elif seg_readelf.header.p_type == 'PT_TLS':
                 self.__register_tls(seg_readelf)
+
+    def _rebase_addr(self, addr):
+        return addr + self.rebase_addr
 
     def _load_segment(self, seg):
         '''
@@ -143,6 +200,27 @@ class ELF(MetaELF):
             # For tags that may appear more than once, handle them here
             if tagstr == 'DT_NEEDED':
                 self.deps.append(tag.entry.d_val)
+
+        # Extract the initializers and finalizers
+        if 'DT_PREINIT_ARRAY' in self._dynamic and 'DT_PREINIT_ARRAYSZ' in self._dynamic:
+            arr_start = self._dynamic['DT_PREINIT_ARRAY']
+            arr_end = arr_start + self._dynamic['DT_PREINIT_ARRAYSZ']
+            arr_entsize = self.arch.bytes
+            self._preinit_arr = map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize))
+        if 'DT_INIT' in self._dynamic:
+            self._init_func = self.memory.read_addr_at(self._dynamic['DT_INIT'])
+        if 'DT_INIT_ARRAY' in self._dynamic and 'DT_INIT_ARRAYSZ' in self._dynamic:
+            arr_start = self._dynamic['DT_INIT_ARRAY']
+            arr_end = arr_start + self._dynamic['DT_INIT_ARRAYSZ']
+            arr_entsize = self.arch.bytes
+            self._init_arr = map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize))
+        if 'DT_FINI' in self._dynamic:
+            self._fini_func = self.memory.read_addr_at(self._dynamic['DT_FINI'])
+        if 'DT_FINI_ARRAY' in self._dynamic and 'DT_FINI_ARRAYSZ' in self._dynamic:
+            arr_start = self._dynamic['DT_FINI_ARRAY']
+            arr_end = arr_start + self._dynamic['DT_FINI_ARRAYSZ']
+            arr_entsize = self.arch.bytes
+            self._fini_arr = map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize))
 
         # None of the following things make sense without a string table
         if 'DT_STRTAB' in self._dynamic:
@@ -270,39 +348,6 @@ class ELF(MetaELF):
                 self.relocs.append(reloc)
         return relocs
 
-
-    def get_symbol(self, symid):
-        """
-        Gets a Symbol object for the specified symbol
-
-        @param symid: either an index into .dynsym or the name of a symbol.
-        """
-        if isinstance(symid, (int, long)):
-            re_sym = self.dynsym.get_symbol(symid)
-            if re_sym.name in self._symbol_cache:
-                return self._symbol_cache[re_sym.name]
-            symbol = ELFSymbol(self, re_sym)
-            self._symbol_cache[re_sym.name] = symbol
-            return symbol
-        elif isinstance(symid, str):
-            if symid in self._symbol_cache:
-                return self._symbol_cache[symid]
-            if self.hashtable is None:
-                return None
-            re_sym = self.hashtable.get(symid)
-            if re_sym is None:
-                return None
-            symbol = ELFSymbol(self, re_sym)
-            self._symbol_cache[symid] = symbol
-            return symbol
-        elif isinstance(symid, sections.Symbol):
-            if symid.name in self._symbol_cache:
-                return self._symbol_cache[symid.name]
-            symbol = ELFSymbol(self, symid)
-            self._symbol_cache[symid.name] = symbol
-            return symbol
-        else:
-            raise CLEError("Bad symbol identifier: %s" % symid)
 
     def __register_tls(self, seg_readelf):
         bss_size = seg_readelf.header.p_memsz - seg_readelf.header.p_filesz
