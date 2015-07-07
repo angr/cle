@@ -92,6 +92,8 @@ class ELF(MetaELF):
         self._dynamic = {}
         self.deps = []
         self.rela_type = None
+
+        self._inits_extracted = False
         self._preinit_arr = []
         self._init_func = None
         self._init_arr = []
@@ -156,16 +158,42 @@ class ELF(MetaELF):
         else:
             raise CLEError("Bad symbol identifier: %s" % symid)
 
+    def _extract_init_fini(self):
+        # Extract the initializers and finalizers
+        if 'DT_PREINIT_ARRAY' in self._dynamic and 'DT_PREINIT_ARRAYSZ' in self._dynamic:
+            arr_start = self._dynamic['DT_PREINIT_ARRAY']
+            arr_end = arr_start + self._dynamic['DT_PREINIT_ARRAYSZ']
+            arr_entsize = self.arch.bytes
+            self._preinit_arr = map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize))
+        if 'DT_INIT' in self._dynamic:
+            self._init_func = self._dynamic['DT_INIT']
+        if 'DT_INIT_ARRAY' in self._dynamic and 'DT_INIT_ARRAYSZ' in self._dynamic:
+            arr_start = self._dynamic['DT_INIT_ARRAY']
+            arr_end = arr_start + self._dynamic['DT_INIT_ARRAYSZ']
+            arr_entsize = self.arch.bytes
+            self._init_arr = map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize))
+        if 'DT_FINI' in self._dynamic:
+            self._fini_func = self._dynamic['DT_FINI']
+        if 'DT_FINI_ARRAY' in self._dynamic and 'DT_FINI_ARRAYSZ' in self._dynamic:
+            arr_start = self._dynamic['DT_FINI_ARRAY']
+            arr_end = arr_start + self._dynamic['DT_FINI_ARRAYSZ']
+            arr_entsize = self.arch.bytes
+            self._fini_arr = map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize))
+        self._inits_extracted = True
+
+
     def get_initializers(self):
+        if not self._inits_extracted: self._extract_init_fini()
         out = []
         if self.is_main_bin:
-            out.extend(map(self._rebase_addr, self._preinit_arr))
+            out.extend(self._preinit_arr)
         if self._init_func is not None:
             out.append(self._init_func + self.rebase_addr)
-        out.extend(map(self._rebase_addr, self._init_arr))
+        out.extend(self._init_arr)
         return out
 
     def get_finalizers(self):
+        if not self._inits_extracted: self._extract_init_fini()
         out = []
         if self._fini_func is not None:
             out.append(self._fini_func + self.rebase_addr)
@@ -205,27 +233,6 @@ class ELF(MetaELF):
             # For tags that may appear more than once, handle them here
             if tagstr == 'DT_NEEDED':
                 self.deps.append(tag.entry.d_val)
-
-        # Extract the initializers and finalizers
-        if 'DT_PREINIT_ARRAY' in self._dynamic and 'DT_PREINIT_ARRAYSZ' in self._dynamic:
-            arr_start = self._dynamic['DT_PREINIT_ARRAY']
-            arr_end = arr_start + self._dynamic['DT_PREINIT_ARRAYSZ']
-            arr_entsize = self.arch.bytes
-            self._preinit_arr = map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize))
-        if 'DT_INIT' in self._dynamic:
-            self._init_func = self._dynamic['DT_INIT']
-        if 'DT_INIT_ARRAY' in self._dynamic and 'DT_INIT_ARRAYSZ' in self._dynamic:
-            arr_start = self._dynamic['DT_INIT_ARRAY']
-            arr_end = arr_start + self._dynamic['DT_INIT_ARRAYSZ']
-            arr_entsize = self.arch.bytes
-            self._init_arr = map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize))
-        if 'DT_FINI' in self._dynamic:
-            self._fini_func = self._dynamic['DT_FINI']
-        if 'DT_FINI_ARRAY' in self._dynamic and 'DT_FINI_ARRAYSZ' in self._dynamic:
-            arr_start = self._dynamic['DT_FINI_ARRAY']
-            arr_end = arr_start + self._dynamic['DT_FINI_ARRAYSZ']
-            arr_entsize = self.arch.bytes
-            self._fini_arr = map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize))
 
         # None of the following things make sense without a string table
         if 'DT_STRTAB' in self._dynamic:
