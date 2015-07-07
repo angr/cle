@@ -116,6 +116,10 @@ class Symbol(object):
         return self.sh_info is not None and (self.binding == 'STB_GLOBAL' or \
                                              self.binding == 'STB_WEAK')
 
+    @property
+    def is_function(self):
+        return self.type == 'STT_FUNC'
+
 class Relocation(object):
     """
     A representation of a relocation in a binary file. Smart enough to
