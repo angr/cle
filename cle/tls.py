@@ -9,7 +9,7 @@ TLSArchinfo = namedtuple('TLSArchInfo', ('variant', 'tcbhead_size', 'head_offset
 tls_archinfo = {
         'AMD64':            TLSArchinfo(    2,      704,            [16],           [8],            [0]     ),
         'X86':              TLSArchinfo(    2,      56,             [8],            [4],            [0]     ),
-        'AArch64':          TLSArchinfo(    1,      32,             [],             [0],            []      ),
+        'AARCH64':          TLSArchinfo(    1,      32,             [],             [0],            []      ),
         'ARM':              TLSArchinfo(    1,      32,             [],             [0],            []      ),
         'ARMEL':            TLSArchinfo(    1,      8,              [],             [0],            []      ),
         'ARMHF':            TLSArchinfo(    1,      8,              [],             [0],            []      ),
