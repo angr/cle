@@ -124,6 +124,8 @@ class Symbol(object):
     def is_weak(self):
         return self.binding == 'STB_WEAK'
 
+reloc_warnings = {}
+
 class Relocation(object):
     """
     A representation of a relocation in a binary file. Smart enough to
@@ -186,7 +188,11 @@ class Relocation(object):
         elif self.type in self.arch.reloc_tls_offset:
             return self.reloc_tls_offset()
         else:
-            l.warning("Unknown reloc type: %d", self.type)
+            if not self.owner_obj.arch.name in reloc_warnings:
+                reloc_warnings[self.owner_obj.arch.name] = set()
+            if not self.type in reloc_warnings[self.owner_obj.arch.name]:
+                l.warning("Unknown reloc type: %d", self.type)
+                reloc_warnings[self.owner_obj.arch.name].add(self.type)
 
     def reloc_global(self, solist):
         if not self.resolve_symbol(solist):
