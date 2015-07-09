@@ -186,10 +186,14 @@ class ELF(MetaELF):
         if not self._inits_extracted: self._extract_init_fini()
         out = []
         if self.is_main_bin:
+            # Preinitializers are ignored in shared objects.
             out.extend(self._preinit_arr)
-        if self._init_func is not None:
-            out.append(self._init_func + self.rebase_addr)
-        out.extend(self._init_arr)
+        else:
+            # The init func and the init array in the dynamic section are only run by the dynamic loader in shared objects.
+            # In the main binary they are run by libc_csu_init.
+            if self._init_func is not None:
+                out.append(self._init_func + self.rebase_addr)
+            out.extend(self._init_arr)
         return out
 
     def get_finalizers(self):
