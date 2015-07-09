@@ -75,6 +75,7 @@ class Loader(object):
         self._ignore_import_version_numbers = ignore_import_version_numbers
         self._rebase_granularity = rebase_granularity
         self._except_missing_libs = except_missing_libs
+        self._relocated_objects = set()
 
         self.memory = None
         self.main_bin = None
@@ -86,7 +87,7 @@ class Loader(object):
         self._load_main_binary()
         self._load_dependencies()
         self._load_tls()
-        self._perform_reloc()
+        self._perform_reloc(self.main_bin)
         self._finalize_tls()
 
     def __repr__(self):
@@ -261,13 +262,22 @@ class Loader(object):
                             yield os.path.realpath(os.path.join(libdir, libname))
                 except OSError: pass
 
-    def _perform_reloc(self):
-        for obj in self.all_objects:
-            if isinstance(obj, IDABin):
-                pass
-            elif isinstance(obj, (MetaELF, PE)):
-                for reloc in obj.relocs:
-                    reloc.relocate(self.all_objects)
+    def _perform_reloc(self, obj):
+        if obj.binary in self._relocated_objects:
+            continue
+        self._relocated_objects.add(obj.binary)
+
+        for dep_name in obj.deps:
+            if dep_name not in self.shared_objects:
+                continue
+            dep_obj = self.shared_objects[dep_name]
+            self._perform_reloc(dep_obj)
+
+        if isinstance(obj, IDABin):
+            pass
+        elif isinstance(obj, (MetaELF, PE)):
+            for reloc in obj.relocs:
+                reloc.relocate(self.all_objects)
 
     def _get_safe_rebase_addr(self):
         """
