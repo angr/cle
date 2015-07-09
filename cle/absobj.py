@@ -120,6 +120,10 @@ class Symbol(object):
     def is_function(self):
         return self.type == 'STT_FUNC'
 
+    @property
+    def is_weak(self):
+        return self.binding == 'STB_WEAK'
+
 class Relocation(object):
     """
     A representation of a relocation in a binary file. Smart enough to
