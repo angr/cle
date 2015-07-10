@@ -13,6 +13,7 @@ class MetaELF(AbsObj):
 
         self._plt = {}
         self.elfflags = 0
+        self.ppc64_initial_rtoc = None
 
     supported_filetypes = ['elf']
 
@@ -74,6 +75,10 @@ class MetaELF(AbsObj):
         if name in self._plt.keys():
             return self._plt[name]
 
+    @property
+    def is_ppc64_abiv1(self):
+        return self.arch.name == 'PPC64' and self.elfflags & 3 < 2
+
     def _ppc64_abiv1_entry_fix(self):
         """
         On powerpc64, the e_flags elf header entry's lowest two bits determine
@@ -84,8 +89,7 @@ class MetaELF(AbsObj):
         Utter bollocks, but this function should fix it.
         """
 
-        if self.arch.name != 'PPC64': return
-        if self.elfflags & 3 < 2:
+        if self.is_ppc64_abiv1:
             ep_offset = self._entry
             self._entry = self.memory.read_addr_at(ep_offset)
             self.ppc64_initial_rtoc = self.memory.read_addr_at(ep_offset+8)
