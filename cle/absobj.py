@@ -197,7 +197,19 @@ class Relocation(object):
     def reloc_global(self, solist):
         if not self.resolve_symbol(solist):
             return False
-        self.owner_obj.memory.write_addr_at(self.addr, self.resolvedby.rebased_addr)
+
+        if self.type == 21 and self.owner_obj.is_ppc64_abiv1:
+            # R_PPC64_JMP_SLOT
+            # http://osxr.org/glibc/source/sysdeps/powerpc/powerpc64/dl-machine.h?v=glibc-2.15#0405
+            # copy an entire function descriptor struct
+            addr = self.resolvedby.owner_obj.memory.read_addr_at(self.resolvedby.addr)
+            toc = self.resolvedby.owner_obj.memory.read_addr_at(self.resolvedby.addr + 8)
+            aux = self.resolvedby.owner_obj.memory.read_addr_at(self.resolvedby.addr + 16)
+            self.owner_obj.memory.write_addr_at(self.addr, addr)
+            self.owner_obj.memory.write_addr_at(self.addr + 8, toc)
+            self.owner_obj.memory.write_addr_at(self.addr + 16, aux)
+        else:
+            self.owner_obj.memory.write_addr_at(self.addr, self.resolvedby.rebased_addr)
         return True
 
     def reloc_absolute(self, solist):
@@ -336,7 +348,6 @@ class AbsObj(object):
         self.provides = None
 
         self.memory = None
-        self.ppc64_initial_rtoc = None
 
         custom_arch = kwargs.get('custom_arch', None)
         if custom_arch is None:

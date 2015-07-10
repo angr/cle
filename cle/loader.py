@@ -264,7 +264,7 @@ class Loader(object):
 
     def _perform_reloc(self, obj):
         if obj.binary in self._relocated_objects:
-            continue
+            return
         self._relocated_objects.add(obj.binary)
 
         for dep_name in obj.deps:
