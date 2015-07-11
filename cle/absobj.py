@@ -182,11 +182,11 @@ class Relocation(object):
         elif self.type in self.arch.reloc_copy:
             return self.reloc_copy(solist)
         elif self.type in self.arch.reloc_tls_mod_id:
-            return self.reloc_tls_mod_id()
+            return self.reloc_tls_mod_id(solist)
         elif self.type in self.arch.reloc_tls_doffset:
             return self.reloc_tls_doffset()
         elif self.type in self.arch.reloc_tls_offset:
-            return self.reloc_tls_offset()
+            return self.reloc_tls_offset(solist)
         else:
             if not self.owner_obj.arch.name in reloc_warnings:
                 reloc_warnings[self.owner_obj.arch.name] = set()
@@ -230,9 +230,14 @@ class Relocation(object):
         self.owner_obj.memory.write_addr_at(self.addr, val)
         return True
 
-    def reloc_tls_mod_id(self):
-        self.owner_obj.memory.write_addr_at(self.addr, self.owner_obj.tls_module_id)
-        self.resolve(None)
+    def reloc_tls_mod_id(self, solist):
+        if self.symbol.type == 'STT_NOTYPE':
+            self.owner_obj.memory.write_addr_at(self.addr, self.owner_obj.tls_module_id)
+            self.resolve(None)
+        else:
+            if not self.resolve_symbol(solist):
+                return False
+            self.owner_obj.memory.write_addr_at(self.addr, self.resolvedby.owner_obj.tls_module_id)
         return True
 
     def reloc_tls_doffset(self):
@@ -240,9 +245,14 @@ class Relocation(object):
         self.resolve(None)
         return True
 
-    def reloc_tls_offset(self):
-        self.owner_obj.memory.write_addr_at(self.addr, self.owner_obj.tls_block_offset + self.addend + self.symbol.addr)
-        self.resolve(None)
+    def reloc_tls_offset(self, solist):
+        if self.symbol.type == 'STT_NOTYPE':
+            self.owner_obj.memory.write_addr_at(self.addr, self.owner_obj.tls_block_offset + self.addend + self.symbol.addr)
+            self.resolve(None)
+        else:
+            if not self.resolve_symbol(solist):
+                return False
+            self.owner_obj.memory.write_addr_at(self.addr, self.resolvedby.owner_obj.tls_block_offset + self.addend + self.symbol.addr)
         return True
 
     def reloc_mips_global(self, solist):
