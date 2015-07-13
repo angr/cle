@@ -1,6 +1,7 @@
 *.o
 *.so
 *.pyc
+*.swp
 build
 __pycache__
 

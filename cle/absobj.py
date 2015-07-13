@@ -1,7 +1,6 @@
 import archinfo
 from .errors import CLEOperationError, CLECompatibilityError, CLEError
 from .memory import Clemory
-from abc import ABCMeta
 import os
 
 import logging
@@ -309,10 +308,8 @@ class Relocation(object):
         return False
 
 class AbsObj(object):
-    __metaclass__ = ABCMeta
-
     """
-        Main abstract class for CLE binary objects.
+        Main base class for CLE binary objects.
     """
 
     def __init__(self, binary, is_main_bin=False, compatible_with=None, filetype='unknown', **kwargs):
