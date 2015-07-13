@@ -117,8 +117,7 @@ class Loader(object):
         return None
 
     def _load_main_binary(self):
-        self.main_bin = self.load_object(self._main_binary_path, self._main_opts)
-        self.main_bin.is_main_bin = True    # this is a bit of a hack. can we pass this in more cleanly?
+        self.main_bin = self.load_object(self._main_binary_path, self._main_opts, is_main_bin=True)
         self.memory = Clemory(self.main_bin.arch, root=True)
         base_addr = self._main_opts.get('custom_base_addr', None)
         if base_addr is None and self.main_bin.requested_base is not None:
@@ -154,21 +153,27 @@ class Loader(object):
             self.shared_objects[obj.provides] = obj
 
     @staticmethod
-    def load_object(path, options=None, compatible_with=None):
+    def load_object(path, options=None, compatible_with=None, is_main_bin=False):
+        # Try to find the filetype of the object. Also detect if you were given a bad filepath
         try:
             filetype = Loader.identify_object(path)
         except OSError:
             raise CLEFileNotFoundError('File %s does not exist!' % path)
 
+        # Verify that that filetype is acceptable
         if compatible_with is not None and filetype != compatible_with.filetype:
             raise CLECompatibilityError('File %s is not compatible with %s' % (path, compatible_with))
 
+        # Check if the user specified a backend as...
         backend_option = options.get('backend', None)
         if isinstance(backend_option, type) and issubclass(backend_option, AbsObj):
+            # ...an actual backend class
             backends = [backend_option]
         elif backend_option in BACKENDS:
+            # ...the name of a backend class
             backends = [BACKENDS[backend_option]]
         elif isinstance(backend_option, (list, tuple)):
+            # ...a list of backends containing either names or classes
             backends = []
             for backend_option_item in backend_option:
                 if isinstance(backend_option_item, type) and issubclass(backend_option_item, AbsObj):
@@ -188,7 +193,7 @@ class Loader(object):
 
         for backend in backends:
             try:
-                loaded = backend(path, compatible_with=compatible_with, filetype=filetype, **options)
+                loaded = backend(path, compatible_with=compatible_with, filetype=filetype, is_main_bin=is_main_bin, **options)
                 return loaded
             except CLECompatibilityError:
                 raise
