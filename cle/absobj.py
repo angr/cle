@@ -374,7 +374,7 @@ class AbsObj(object):
     def offset_to_addr(self, offset):
         for s in self.segments:
             if s.contains_offset(offset):
-                return s.offset_to_addr(offset)
+                return s.offset_to_addr(offset) + self.rebase_addr
 
     def get_min_addr(self):
         """ This returns the lowest virtual address contained in any loaded
