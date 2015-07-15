@@ -73,7 +73,7 @@ class MetaELF(AbsObj):
             raise CLEOperationError("FIXME: this doesn't work on PPC/ARM")
 
         if name in self._plt.keys():
-            return self._plt[name]
+            return self._plt[name] + self.rebase_addr
 
     @property
     def is_ppc64_abiv1(self):
