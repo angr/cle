@@ -11,7 +11,7 @@ class MetaELF(AbsObj):
     def __init__(self, *args, **kwargs):
         super(MetaELF, self).__init__(*args, **kwargs)
 
-        self.plt = {}
+        self._plt = {}
         self.elfflags = 0
 
     supported_filetypes = ['elf']
@@ -23,7 +23,7 @@ class MetaELF(AbsObj):
         for name in self.jmprel:
             #FIXME: shouldn't we use get_call_stub_addr(name) instead ??
             addr = self._get_plt_stub_addr(name)
-            self.plt[name] = addr
+            self._plt[name] = addr
 
     def _get_plt_stub_addr(self, name):
         """
@@ -58,6 +58,10 @@ class MetaELF(AbsObj):
         elif self.arch.name == 'MIPS32':
             return addr
 
+    @property
+    def plt(self):
+        return {k: v + self.rebase_addr for (k, v) in self._plt.items()}
+
     def get_call_stub_addr(self, name):
         """
         Usually, the PLT stub is called when jumping to an external function.
@@ -67,8 +71,8 @@ class MetaELF(AbsObj):
         if self.arch.name in ('ARMEL', 'ARMHF', 'PPC32', 'PPC64'):
             raise CLEOperationError("FIXME: this doesn't work on PPC/ARM")
 
-        if name in self.plt.keys():
-            return self.plt[name]
+        if name in self._plt.keys():
+            return self._plt[name]
 
     def _ppc64_abiv1_entry_fix(self):
         """
