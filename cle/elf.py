@@ -125,6 +125,33 @@ class ELF(MetaELF):
         self._ppc64_abiv1_entry_fix()
         self._load_plt()
 
+    def __getstate__(self):
+        self.reader = None
+        self.strtab = None
+        self.dynsym = None
+        self.hashtable = None
+        return self.__dict__
+
+    def __setstate__(self, data):
+        self.__dict__.update(data)
+        self.reader = elffile.ELFFile(open(self.binary, 'rb'))
+        if self._dynamic and 'DT_STRTAB' in self._dynamic:
+            fakestrtabheader = {
+                'sh_offset': self._dynamic['DT_STRTAB']
+            }
+            self.strtab = elffile.StringTableSection(fakestrtabheader, 'strtab_cle', self.memory)
+            if 'DT_SYMTAB' in self._dynamic and 'DT_SYMENT' in self._dynamic:
+                fakesymtabheader = {
+                    'sh_offset': self._dynamic['DT_SYMTAB'],
+                    'sh_entsize': self._dynamic['DT_SYMENT'],
+                    'sh_size': 0
+                } # bogus size: no iteration allowed
+                self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.memory, self.reader, self.strtab)
+                if 'DT_GNU_HASH' in self._dynamic:
+                    self.hashtable = GNUHashTable(self.dynsym, self.memory, self._dynamic['DT_GNU_HASH'], self.arch)
+                elif 'DT_HASH' in self._dynamic:
+                    self.hashtable = ELFHashTable(self.dynsym, self.memory, self._dynamic['DT_HASH'], self.arch)
+
     def get_symbol(self, symid):
         """
         Gets a Symbol object for the specified symbol

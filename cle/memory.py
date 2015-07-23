@@ -89,24 +89,12 @@ class Clemory(object):
             return False
 
     def __getstate__(self):
-        out = { 'updates': {k:ord(v) for k,v in self._updates.iteritems()}, 'backers': [] }
-        for start, data in self._backers:
-            if isinstance(data, str):
-                out['backers'].append((start, {'type': 'str', 'data': data}))
-            elif isinstance(data, Clemory):
-                out['backers'].append((start, {'type': 'Clemory', 'data': data.__getstate__()}))
-
-    def __setstate__(self, s):
-        self._updates = {k:chr(v) for k,v in s['updates'].iteritems()}
-        self._backers = []
-        for start, serialdata in s['backers']:
-            if serialdata['type'] == 'str':
-                self._backers.append((start, serialdata['data']))
-            elif serialdata['type'] == 'Clemory':
-                subdata = Clemory(self._arch)
-                subdata.__setstate__(serialdata['data'])
-                self._backers.append((start, subdata))
+        self._cbackers = [ ]
         self._needs_flattening_personal = True
+        return self.__dict__
+
+    def __setstate__(self, data):
+        self.__dict__.update(data)
 
     def read_bytes(self, addr, n):
         """ Read @n bytes at address @addr in memory and return an array of bytes
