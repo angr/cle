@@ -323,7 +323,7 @@ class Loader(object):
                 continue
 
             if type(obj.memory) is str:
-                if addr >= obj.get_min_addr() and addr < obj.get_max_addr() :
+                if addr - obj.rebase_addr < len(obj.memory):
                     return obj
 
             elif isinstance(obj.memory, Clemory):
