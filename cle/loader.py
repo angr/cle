@@ -319,8 +319,20 @@ class Loader(object):
 
     def addr_belongs_to_object(self, addr):
         for obj in self.all_objects:
-            if addr - obj.rebase_addr in obj.memory:
-                return obj
+            if not (addr >= obj.get_min_addr() and addr < obj.get_max_addr()):
+                continue
+
+            if type(obj.memory) is str:
+                if addr - obj.rebase_addr < len(obj.memory):
+                    return obj
+
+            elif isinstance(obj.memory, Clemory):
+                if addr - obj.rebase_addr in obj.memory:
+                    return obj
+
+            else:
+                raise CLEError('Unsupported memory type %s' % type(obj.memory))
+
         return None
 
     def max_addr(self):
