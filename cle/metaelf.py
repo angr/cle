@@ -18,7 +18,7 @@ class MetaELF(AbsObj):
     supported_filetypes = ['elf']
 
     def _load_plt(self):
-        if self.arch.name in ('ARMEL', 'ARMHF', 'MIPS32'):
+        if self.arch.name in ('ARMEL', 'ARMHF', 'ARM', 'AARCH64', 'MIPS32', 'MIPS64'):
             return
 
         for name in self.jmprel:
@@ -31,10 +31,12 @@ class MetaELF(AbsObj):
         Guess the address of the PLT stub for function @name.
         Functions must have a know GOT entry in self.jmprel
 
+        It should be safe to call regardless of if you've resolved simprocedures
+        or not, since those modifications are on the root clemory, and we're manipulating
+        one of its backers here.
+
         NOTE: you probably want to call get_call_stub_addr() instead.
         TODO: sections fallback for statically linked binaries
-        WARNING: call this after loading the binary image, but *before* resolving
-        SimProcedures.
         """
         if name not in self.jmprel.keys():
             return None
@@ -50,13 +52,13 @@ class MetaELF(AbsObj):
             # 0x6 is the size of the plt's jmpq instruction in x86_64
             return addr - 0x6
 
-        elif self.arch.name in ('ARMEL', 'ARMHF'):
+        elif self.arch.name in ('ARMEL', 'ARMHF', 'ARM', 'AARCH64'):
             return addr
 
         elif self.arch.name in ('PPC32', 'PPC64'):
             return got
 
-        elif self.arch.name == 'MIPS32':
+        elif self.arch.name in ('MIPS32', 'MIPS64'):
             return addr
 
     @property
@@ -69,7 +71,7 @@ class MetaELF(AbsObj):
         """
         # FIXME: this doesn't work on PPC. It will return .plt address of the
         # function, but it is not what is called in practice...
-        if self.arch.name in ('ARMEL', 'ARMHF', 'PPC32', 'PPC64'):
+        if self.arch.name in ('ARMEL', 'ARMHF', 'ARM', 'AARCH64', 'PPC32', 'PPC64'):
             raise CLEOperationError("FIXME: this doesn't work on PPC/ARM")
 
         if name in self._plt.keys():
