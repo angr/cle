@@ -60,6 +60,15 @@ class Clemory(object):
         else:
             raise ValueError("Can't find backer to remove")
 
+    def __iter__(self):
+        for start, string in self._backers:
+            if isinstance(string, str):
+                for x in xrange(len(string)):
+                    yield start + x
+            else:
+                for x in string:
+                    yield start + x
+
     def __getitem__(self, k):
         if k in self._updates:
             return self._updates[k]
