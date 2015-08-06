@@ -1,4 +1,4 @@
-Clé loads binaries and their associated libraries, resolves imports and
+CLE loads binaries and their associated libraries, resolves imports and
 provides an abstraction of process memory the same way as if it was loader by
 the OS's loader.
 
@@ -79,13 +79,6 @@ There are several backends that can be used to load a single file:
     - ELF, as its name says, loads ELF binaries. ELF files loaded this way are
       statically parsed using PyElfTools.
 
-    - CLEExtract is a mostly unsupported backend that audits the actual linux
-      dynamic loader to get the dependencies, rebase address, and relocations
-      for each binary. With Elf, the addresses are selected to be well-aligned
-      and non-overlapping. With CLEExtract, they are the same as they could be
-      loaded if you run the binary with qemu-{arch} (e.g., qemu-x86_64) as
-      provided by the qemu-user package.
-
     - IdaBin relies on IDA (through IdaLink) to get information from the
       binaries. At the moment, it works in a bare-bones fashion, but is
       mostly unsupported.
@@ -102,20 +95,19 @@ unspecified, the loader will pick a reasonable default.
 
 # Finding shared libraries
 
-    - If the `auto_load_libs` option is set to False, the Loader will not
-      automatically load libraries requested by loaded objects. Otherwise...
-    - The loader determines which shared objects are needed when loading
-      binaries, and searches for them in the following order:
-        - in the current working directory
-        - in folders specified in the `custom_ld_path` option
-        - in the same folder as the main binary
-        - in the system (in the corresponding library path for the architecture
-          of the binary, e.g., /usr/arm-linux-gnueabi/lib for ARM, note that
-          you need to install cross libraries for this, e.g.,
-          libc6-powerpc-cross on Debian - needs emdebian repos)
-        - in the system, but with mismatched version numbers from what is specified
-          as a dependency, if the `ignore_import_version_numbers` option is True
+- If the `auto_load_libs` option is set to False, the Loader will not
+  automatically load libraries requested by loaded objects. Otherwise...
+- The loader determines which shared objects are needed when loading
+  binaries, and searches for them in the following order:
+    - in the current working directory
+    - in folders specified in the `custom_ld_path` option
+    - in the same folder as the main binary
+    - in the system (in the corresponding library path for the architecture
+      of the binary, e.g., /usr/arm-linux-gnueabi/lib for ARM, note that
+      you need to install cross libraries for this, e.g.,
+      libc6-powerpc-cross on Debian - needs emdebian repos)
+    - in the system, but with mismatched version numbers from what is specified
+      as a dependency, if the `ignore_import_version_numbers` option is True
 
-       If no binary is found with the correct architecture, the loader raises an
-       exception, unless the `except_missing_libs` option is False
-
+- If no binary is found with the correct architecture, the loader raises an
+  exception, unless the `except_missing_libs` option is False
