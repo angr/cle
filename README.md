@@ -110,4 +110,5 @@ unspecified, the loader will pick a reasonable default.
       as a dependency, if the `ignore_import_version_numbers` option is True
 
 - If no binary is found with the correct architecture, the loader raises an
-  exception, unless the `except_missing_libs` option is False
+  exception if `except_missing_libs` option is True. Otherwise it simply
+  leaves the dependencies unresolevd.
