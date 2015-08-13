@@ -5,7 +5,7 @@ __all__ = ('MetaELF',)
 
 class MetaELF(AbsObj):
     """
-    A metaclass that implements functions used by all backends that can load
+    A base classt that implements functions used by all backends that can load
     an ELF.
     """
     def __init__(self, *args, **kwargs):
@@ -22,7 +22,6 @@ class MetaELF(AbsObj):
             return
 
         for name in self.jmprel:
-            #FIXME: shouldn't we use get_call_stub_addr(name) instead ??
             addr = self._get_plt_stub_addr(name)
             self._plt[name] = addr
 
@@ -38,7 +37,7 @@ class MetaELF(AbsObj):
         NOTE: you probably want to call get_call_stub_addr() instead.
         TODO: sections fallback for statically linked binaries
         """
-        if name not in self.jmprel.keys():
+        if name not in self.jmprel:
             return None
 
         # What's in the got slot for @name ?
@@ -63,7 +62,7 @@ class MetaELF(AbsObj):
 
     @property
     def plt(self):
-        return {k: v + self.rebase_addr for (k, v) in self._plt.items()}
+        return {k: v + self.rebase_addr for (k, v) in self._plt.iteritems()}
 
     def get_call_stub_addr(self, name):
         """
@@ -74,7 +73,7 @@ class MetaELF(AbsObj):
         if self.arch.name in ('ARMEL', 'ARMHF', 'ARM', 'AARCH64', 'PPC32', 'PPC64'):
             raise CLEOperationError("FIXME: this doesn't work on PPC/ARM")
 
-        if name in self._plt.keys():
+        if name in self._plt.keys:
             return self._plt[name] + self.rebase_addr
 
     @property
