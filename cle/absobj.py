@@ -129,6 +129,15 @@ class Relocation(object):
     """
     A representation of a relocation in a binary file. Smart enough to
     relocate itself.
+
+    Properties you may care about:
+    - owner_obj: the binary this relocation was originaly found in, as a cle object
+    - symbol: the Symbol object this relocation refers to
+    - addr: the address in owner_obj this relocation would like to write to
+    - rebased_addr: the address in the global memory space this relocation would like to write to
+    - resolvedby: If the symbol this relocation refers to is an import symbol and that import has been resolved,
+                  this attribute holds the symbol from a different binary that was used to resolve the import.
+    - resolved: Whether the application of this relocation was succesful
     """
     def __init__(self, owner, symbol, addr, r_type, addend=None):
         super(Relocation, self).__init__()
