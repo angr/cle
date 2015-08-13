@@ -73,7 +73,7 @@ class MetaELF(AbsObj):
         if self.arch.name in ('ARMEL', 'ARMHF', 'ARM', 'AARCH64', 'PPC32', 'PPC64'):
             raise CLEOperationError("FIXME: this doesn't work on PPC/ARM")
 
-        if name in self._plt.keys:
+        if name in self._plt:
             return self._plt[name] + self.rebase_addr
 
     @property
