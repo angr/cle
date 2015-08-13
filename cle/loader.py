@@ -30,7 +30,7 @@ class Loader(object):
        tls_object         An object dealing with the region of memory allocated for thread-local storage
 
     When reference is made to a dictionary of options, it require a dictionary with zero or more of the following keys:
-        backend             "elf", "cleextract", "pe", "ida", "blob": which loader backend to use
+        backend             "elf", "pe", "ida", "blob": which loader backend to use
         custom_arch         The archinfo.Arch object to use for the binary
         custom_base_addr    The address to rebase the object at
         custom_entry_point  The entry point to use for the object
@@ -516,7 +516,6 @@ class Loader(object):
 from .absobj import AbsObj
 from .elf import ELF
 from .metaelf import MetaELF
-from .cleextractor import CLEExtractor
 from .pe import PE
 from .idabin import IDABin
 from .blob import Blob
@@ -528,7 +527,6 @@ BACKENDS = OrderedDict((
     ('pe', PE),
     ('cgc', CGC),
     ('backedcgc', BackedCGC),
-    ('cleextract', CLEExtractor),
     ('ida', IDABin),
     ('blob', Blob)
 ))
