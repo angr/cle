@@ -4,19 +4,19 @@ import struct
 from .absobj import AbsObj
 from .memory import Clemory
 
-TLSArchinfo = namedtuple('TLSArchInfo', ('variant', 'tcbhead_size', 'head_offsets', 'dtv_offsets', 'pthread_offsets'))
+TLSArchInfo = namedtuple('TLSArchInfo', ('variant', 'tcbhead_size', 'head_offsets', 'dtv_offsets', 'pthread_offsets'))
 
 tls_archinfo = {
-        'AMD64':            TLSArchinfo(    2,      704,            [16],           [8],            [0]     ),
-        'X86':              TLSArchinfo(    2,      56,             [8],            [4],            [0]     ),
-        'AARCH64':          TLSArchinfo(    1,      32,             [],             [0],            []      ),
-        'ARM':              TLSArchinfo(    1,      32,             [],             [0],            []      ),
-        'ARMEL':            TLSArchinfo(    1,      8,              [],             [0],            []      ),
-        'ARMHF':            TLSArchinfo(    1,      8,              [],             [0],            []      ),
-        'MIPS32':           TLSArchinfo(    1,      8,              [],             [0],            []      ),
-        'MIPS64':           TLSArchinfo(    1,      16,             [],             [0],            []      ),
-        'PPC32':            TLSArchinfo(    1,      52,             [],             [48],           []      ),
-        'PPC64':            TLSArchinfo(    1,      92,             [],             [84],           []      ),
+        'AMD64':            TLSArchInfo(    2,      704,            [16],           [8],            [0]     ),
+        'X86':              TLSArchInfo(    2,      56,             [8],            [4],            [0]     ),
+        'AARCH64':          TLSArchInfo(    1,      32,             [],             [0],            []      ),
+        'ARM':              TLSArchInfo(    1,      32,             [],             [0],            []      ),
+        'ARMEL':            TLSArchInfo(    1,      8,              [],             [0],            []      ),
+        'ARMHF':            TLSArchInfo(    1,      8,              [],             [0],            []      ),
+        'MIPS32':           TLSArchInfo(    1,      8,              [],             [0],            []      ),
+        'MIPS64':           TLSArchInfo(    1,      16,             [],             [0],            []      ),
+        'PPC32':            TLSArchInfo(    1,      52,             [],             [48],           []      ),
+        'PPC64':            TLSArchInfo(    1,      92,             [],             [84],           []      ),
 }
 
 TLS_BLOCK_ALIGN = 0x10
