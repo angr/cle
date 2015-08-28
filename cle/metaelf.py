@@ -62,7 +62,13 @@ class MetaELF(AbsObj):
 
     @property
     def plt(self):
+        ''' Maps names to addresses '''
         return {k: v + self.rebase_addr for (k, v) in self._plt.iteritems()}
+
+    @property
+    def reverse_plt(self):
+        ''' Maps addresses to names '''
+        return {v + self.rebase_addr: k for (k, v) in self._plt.iteritems()}
 
     def get_call_stub_addr(self, name):
         """

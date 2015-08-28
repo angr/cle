@@ -322,7 +322,7 @@ class Loader(object):
             if not (addr >= obj.get_min_addr() and addr < obj.get_max_addr()):
                 continue
 
-            if type(obj.memory) is str:
+            if isinstance(obj.memory, str):
                 return obj
 
             elif isinstance(obj.memory, Clemory):
@@ -356,15 +356,14 @@ class Loader(object):
                 return so.symbols_by_addr[addr - so.rebase_addr].name
         return None
 
-    def guess_function_name(self, addr):
+    def find_plt_stub_name(self, addr):
+        """ Return the name of the PLT stub starting at addr.
         """
-        Try to guess the name of the function at @addr
-        WARNING: this is approximate
-        """
-        for o in self.all_objects:
-            name = o.guess_function_name(addr)
-            if name is not None:
-                return name
+        for so in self.all_objects:
+            if isinstance(so, MetaELF):
+                if addr in so.reverse_plt:
+                    return so.reverse_plt[addr]
+        return None
 
     def find_module_name(self, addr):
         for o in self.all_objects:
