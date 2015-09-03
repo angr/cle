@@ -343,7 +343,6 @@ class AbsObj(object):
         self.resolved_imports = []
         self.relocs = []
         self.jmprel = {}
-        self.symbols = None # Object's symbols
         self.arch = None
         self.filetype = filetype
         self.os = 'windows' if self.filetype == 'pe' else 'unix'
