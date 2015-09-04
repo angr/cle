@@ -5,6 +5,7 @@ import logging
 import shutil
 import subprocess
 import struct
+import re
 from collections import OrderedDict
 
 from .errors import CLEError, CLEOperationError, CLEFileNotFoundError, CLECompatibilityError
@@ -41,7 +42,7 @@ class Loader(object):
                  force_load_libs=None, skip_libs=None,
                  main_opts=None, lib_opts=None, custom_ld_path=None,
                  ignore_import_version_numbers=True, rebase_granularity=0x1000000,
-                 except_missing_libs=False):
+                 except_missing_libs=False, gdb_map=None):
         """
         @param main_binary      The path to the main binary you're loading
         @param auto_load_libs   Whether to automatically load shared libraries that
@@ -83,6 +84,10 @@ class Loader(object):
         self.all_objects = []
         self.requested_objects = set()
         self.tls_object = None
+
+        if gdb_map is not None:
+           gdb_lib_opts = self._gdb_load_options(gdb_map)
+           self._lib_opts = self._merge_opts(gdb_lib_opts, self._lib_opts)
 
         self._load_main_binary()
         self._load_dependencies()
@@ -511,6 +516,55 @@ class Loader(object):
             raise CLEFileNotFoundError("File %s does not exist :(. Please check that the"
                                        " path is correct" % path)
         return dest
+
+    def _parse_gdb_map(self, gdb_map):
+        """
+        Parser for gdb's `info proc mappings`
+        """
+        if os.path.exists(gdb_map):
+            data = open(gdb_map, 'rb').readlines()
+            gmap = []
+            for l in data:
+                nl = re.split(" *", l)
+                if len(nl) < 5:
+                    continue
+                d = {
+                    "start_addr": int(nl[1],16),
+                    "end_addr" : int(nl[2],16),
+                    "size" : int(nl[3], 16),
+                    "offset": int(nl[4], 16),
+                    "objfile": os.path.basename(nl[5]).strip()
+                    }
+                gmap.append(d)
+            return gmap
+
+    def _gdb_load_options(self, gdb_map_path):
+        """
+        Generate library options from a gdb proc mapping.
+        """
+        lib_opts={}
+        gdb_map = self._parse_gdb_map(gdb_map_path)
+
+        # Find lib names
+        lst = set(map(lambda x: x['objfile'], gdb_map))
+        libnames = [n for n in lst if ".so" in n]
+
+        # Find base addr for each lib (each lib is mapped to several segments,
+        # we take the segment that is loaded at the smallest address).
+        for l in libnames:
+            addr = min(set([e["start_addr"] for e in gdb_map if e["objfile"] == l]))
+            lib_opts[l] = {"custom_base_addr":addr}
+        return lib_opts
+
+    def _merge_opts(self, opts, dest):
+        """
+        Return a new dict corresponding to merging @opts into @dest.
+        This makes sure we don't override previous options.
+        """
+        for k,v in opts.iteritems():
+            if k in dest.keys() and v in dest[k].keys():
+                raise CLEError("%s/%s is overriden by gdb's" % (k,v))
+        return dict(opts.items() + dest.items())
 
 from .absobj import AbsObj
 from .elf import ELF
