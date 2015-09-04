@@ -117,9 +117,20 @@ class Loader(object):
         for obj in self.all_objects:
             if obj.provides is None:
                 continue
-            if 'ld.so' in obj.provides or 'ld64.so' in obj.provides or 'ld-linux' in obj.provides:
+            if self._is_linux_loader_name(obj.provides) is True:
                 return obj
         return None
+
+    def _is_linux_loader_name(self, name):
+        """
+        ld can have different names such as ld-2.19.so or ld-linux-x86-64.so.2
+        depending on symlinks and whatnot.
+        This determines if @name is a suitable candidate for ld.
+        """
+        if 'ld.so' in name or 'ld64.so' in name or 'ld-linux' in name:
+            return True
+        else:
+            return False
 
     def _load_main_binary(self):
         self.main_bin = self.load_object(self._main_binary_path, self._main_opts, is_main_bin=True)
@@ -534,7 +545,7 @@ class Loader(object):
                     "end_addr" : int(nl[2],16),
                     "size" : int(nl[3], 16),
                     "offset": int(nl[4], 16),
-                    "objfile": os.path.basename(nl[5]).strip()
+                    "objfile": nl[5].strip()
                     }
                 gmap.append(d)
             return gmap
@@ -548,14 +559,24 @@ class Loader(object):
 
         # Find lib names
         lst = set(map(lambda x: x['objfile'], gdb_map))
-        libnames = [n for n in lst if ".so" in n]
+        libpaths = [n for n in lst if ".so" in n]
 
         # Find base addr for each lib (each lib is mapped to several segments,
         # we take the segment that is loaded at the smallest address).
-        for l in libnames:
-            addr = min(set([e["start_addr"] for e in gdb_map if e["objfile"] == l]))
-            lib_opts[l] = {"custom_base_addr":addr}
+        for l in libpaths:
+            soname = self._get_soname(l) if self._get_soname(l) is not None else os.path.basename(l)
+            addrs = set([e["start_addr"] for e in gdb_map if e["objfile"] == l])
+            if len(addrs) == 0:
+                continue
+            addr = min(addrs)
+
+            lib_opts[soname] = {"custom_base_addr":addr}
         return lib_opts
+
+    def _get_soname(self, path):
+        if os.path.exists(path):
+            e = ELF(path)
+            return e.provides
 
     def _merge_opts(self, opts, dest):
         """
