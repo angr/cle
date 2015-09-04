@@ -526,7 +526,8 @@ class Loader(object):
             gmap = []
             for l in data:
                 nl = re.split(" *", l)
-                if len(nl) < 5:
+                # Get rid of title line
+                if len(nl) < 5 or nl[1] == 'Start':
                     continue
                 d = {
                     "start_addr": int(nl[1],16),
