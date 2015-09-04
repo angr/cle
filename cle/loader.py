@@ -524,16 +524,20 @@ class Loader(object):
         if os.path.exists(gdb_map):
             data = open(gdb_map, 'rb').readlines()
             gmap = []
-            for l in data:
-                nl = re.split(" *", l)
-                if len(nl) < 5:
+            for i, line in enumerate(data):
+                line_items = line.split()
+                if len(line_items) < 5:
                     continue
+                elif len(line_items) > 5:
+                    l.warning('Line %d of %s is malformed', i + 1, gdb_map)
+                    continue
+                start_addr, end_addr, size, offset, objfile = line_items
                 d = {
-                    "start_addr": int(nl[1],16),
-                    "end_addr" : int(nl[2],16),
-                    "size" : int(nl[3], 16),
-                    "offset": int(nl[4], 16),
-                    "objfile": os.path.basename(nl[5]).strip()
+                        "start_addr": int(start_addr, 16),
+                        "end_addr" : int(end_addr, 16),
+                        "size" : int(size, 16),
+                        "offset": int(offset, 16),
+                        "objfile": os.path.basename(objfile).strip()
                     }
                 gmap.append(d)
             return gmap
@@ -542,18 +546,18 @@ class Loader(object):
         """
         Generate library options from a gdb proc mapping.
         """
-        lib_opts={}
+        lib_opts = {}
         gdb_map = self._parse_gdb_map(gdb_map_path)
 
         # Find lib names
         lst = set(map(lambda x: x['objfile'], gdb_map))
-        libnames = [n for n in lst if ".so" in n]
+        libnames = filter(lambda n: '.so' in n, lst)
 
         # Find base addr for each lib (each lib is mapped to several segments,
         # we take the segment that is loaded at the smallest address).
         for l in libnames:
-            addr = min(set([e["start_addr"] for e in gdb_map if e["objfile"] == l]))
-            lib_opts[l] = {"custom_base_addr":addr}
+            addr = min(e["start_addr"] for e in gdb_map if e["objfile"] == l)
+            lib_opts[l] = {"custom_base_addr": addr}
         return lib_opts
 
     def _merge_opts(self, opts, dest):
@@ -562,7 +566,7 @@ class Loader(object):
         This makes sure we don't override previous options.
         """
         for k,v in opts.iteritems():
-            if k in dest.keys() and v in dest[k].keys():
+            if k in dest and v in dest[k]:
                 raise CLEError("%s/%s is overriden by gdb's" % (k,v))
         return dict(opts.items() + dest.items())
 
