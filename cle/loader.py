@@ -117,20 +117,9 @@ class Loader(object):
         for obj in self.all_objects:
             if obj.provides is None:
                 continue
-            if self._is_linux_loader_name(obj.provides) is True:
+            if 'ld.so' in obj.provides or 'ld64.so' in obj.provides or 'ld-linux' in obj.provides:
                 return obj
         return None
-
-    def _is_linux_loader_name(self, name):
-        """
-        ld can have different names such as ld-2.19.so or ld-linux-x86-64.so.2
-        depending on symlinks and whatnot.
-        This determines if @name is a suitable candidate for ld.
-        """
-        if 'ld.so' in name or 'ld64.so' in name or 'ld-linux' in name:
-            return True
-        else:
-            return False
 
     def _load_main_binary(self):
         self.main_bin = self.load_object(self._main_binary_path, self._main_opts, is_main_bin=True)
@@ -535,17 +524,20 @@ class Loader(object):
         if os.path.exists(gdb_map):
             data = open(gdb_map, 'rb').readlines()
             gmap = []
-            for l in data:
-                nl = re.split(" *", l)
-                # Get rid of title line
-                if len(nl) < 5 or nl[1] == 'Start':
+            for i, line in enumerate(data):
+                line_items = line.split()
+                if len(line_items) < 5:
                     continue
+                elif len(line_items) > 5:
+                    l.warning('Line %d of %s is malformed', i + 1, gdb_map)
+                    continue
+                start_addr, end_addr, size, offset, objfile = line_items
                 d = {
-                    "start_addr": int(nl[1],16),
-                    "end_addr" : int(nl[2],16),
-                    "size" : int(nl[3], 16),
-                    "offset": int(nl[4], 16),
-                    "objfile": nl[5].strip()
+                        "start_addr": int(start_addr, 16),
+                        "end_addr" : int(end_addr, 16),
+                        "size" : int(size, 16),
+                        "offset": int(offset, 16),
+                        "objfile": os.path.basename(objfile).strip()
                     }
                 gmap.append(d)
             return gmap
@@ -554,29 +546,19 @@ class Loader(object):
         """
         Generate library options from a gdb proc mapping.
         """
-        lib_opts={}
+        lib_opts = {}
         gdb_map = self._parse_gdb_map(gdb_map_path)
 
         # Find lib names
         lst = set(map(lambda x: x['objfile'], gdb_map))
-        libpaths = [n for n in lst if ".so" in n]
+        libnames = filter(lambda n: '.so' in n, lst)
 
         # Find base addr for each lib (each lib is mapped to several segments,
         # we take the segment that is loaded at the smallest address).
-        for l in libpaths:
-            soname = self._get_soname(l) if self._get_soname(l) is not None else os.path.basename(l)
-            addrs = set([e["start_addr"] for e in gdb_map if e["objfile"] == l])
-            if len(addrs) == 0:
-                continue
-            addr = min(addrs)
-
-            lib_opts[soname] = {"custom_base_addr":addr}
+        for l in libnames:
+            addr = min(e["start_addr"] for e in gdb_map if e["objfile"] == l)
+            lib_opts[l] = {"custom_base_addr": addr}
         return lib_opts
-
-    def _get_soname(self, path):
-        if os.path.exists(path):
-            e = ELF(path)
-            return e.provides
 
     def _merge_opts(self, opts, dest):
         """
@@ -584,7 +566,7 @@ class Loader(object):
         This makes sure we don't override previous options.
         """
         for k,v in opts.iteritems():
-            if k in dest.keys() and v in dest[k].keys():
+            if k in dest and v in dest[k]:
                 raise CLEError("%s/%s is overriden by gdb's" % (k,v))
         return dict(opts.items() + dest.items())
 
