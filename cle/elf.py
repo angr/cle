@@ -118,6 +118,8 @@ class ELF(MetaELF):
         self.tls_tdata_start = None
         self.tls_tdata_size = None
 
+        self.nx_enabled = None
+
         self.__register_segments()
         self.__register_sections()
 
@@ -239,6 +241,8 @@ class ELF(MetaELF):
                 self.__register_dyn(seg_readelf)
             elif seg_readelf.header.p_type == 'PT_TLS':
                 self.__register_tls(seg_readelf)
+            elif seg_readelf.header.p_type == 'PT_GNU_STACK':
+                self.nx_enabled = not bool(seg_readelf.header.p_flags & 1)
 
     def _rebase_addr(self, addr):
         return addr + self.rebase_addr
