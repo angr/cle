@@ -73,7 +73,7 @@ class TLSObj(AbsObj):
         for off in self.tlsinfo.dtv_offsets:
             drop_int(self.rebase_addr + self.dtv_start, off + self.tp_offset)
         for off in self.tlsinfo.pthread_offsets:
-            drop_int(self.thread_pointer + self.tlsinfo.tcbhead_size, off + self.tp_offset)
+            drop_int(self.thread_pointer, off + self.tp_offset)     # ?????
 
         # Write the init images from each of the modules' tdata sections
         for module in self.modules:
