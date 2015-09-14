@@ -334,6 +334,24 @@ class Loader(object):
 
         return None
 
+    def whats_at(self, addr):
+        """
+        Tells you what's at @addr in terms of the offset in one of the loaded
+        binary objects.
+        """
+        o = self.addr_belongs_to_object(addr)
+
+        if o is None:
+            return None
+
+        off = addr - o.rebase_addr
+
+        if addr in o.plt.values():
+            for k,v in o.plt.iteritems():
+                return  "PLT stub of %s in %s (offset 0x%x)" % (k, o.provides, off)
+
+        return "Offset 0x%x in %s" % (off, o.provides)
+
     def max_addr(self):
         """ The maximum address loaded as part of any loaded object
         (i.e., the whole address space)
