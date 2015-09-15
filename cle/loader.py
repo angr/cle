@@ -348,7 +348,8 @@ class Loader(object):
 
         if addr in o.plt.values():
             for k,v in o.plt.iteritems():
-                return  "PLT stub of %s in %s (offset 0x%x)" % (k, o.provides, off)
+                if v == addr:
+                    return  "PLT stub of %s in %s (offset 0x%x)" % (k, o.provides, off)
 
         return "Offset 0x%x in %s" % (off, o.provides)
 
