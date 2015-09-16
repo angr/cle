@@ -123,6 +123,7 @@ class Loader(object):
         if base_addr is None and self.main_bin.requested_base is not None:
             base_addr = self.main_bin.requested_base
         if base_addr is None and self.main_bin.pic:
+            l.warning("The main binary is a position-independant executable. It is being loaded with a base address of 0x400000.")
             base_addr = 0x400000
         if base_addr is None:
             base_addr = 0
