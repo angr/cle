@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import struct
 import re
+import elftools
 from collections import OrderedDict
 
 from .errors import CLEError, CLEOperationError, CLEFileNotFoundError, CLECompatibilityError
@@ -568,7 +569,7 @@ class Loader(object):
                         "end_addr" : int(end_addr, 16),
                         "size" : int(size, 16),
                         "offset": int(offset, 16),
-                        "objfile": os.path.basename(objfile).strip()
+                        "objfile": objfile.strip()
                     }
                 gmap.append(d)
             return gmap
@@ -598,8 +599,12 @@ class Loader(object):
 
     def _get_soname(self, path):
         if os.path.exists(path):
-            e = ELF(path)
-            return e.provides
+            f = open(path, 'rb')
+            e = elftools.elf.elffile.ELFFile(f)
+            dyn = e.get_section_by_name('.dynamic')
+            #strtab = e.get_section_by_name('.dynstr')
+            soname = [ x.soname for x in list(dyn.iter_tags()) if x.entry.d_tag == 'DT_SONAME']
+            return soname[0]
 
     def _merge_opts(self, opts, dest):
         """
