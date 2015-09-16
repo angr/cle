@@ -139,6 +139,7 @@ class Loader(object):
         if base_addr is None and self.main_bin.requested_base is not None:
             base_addr = self.main_bin.requested_base
         if base_addr is None and self.main_bin.pic:
+            l.warning("The main binary is a position-independant executable. It is being loaded with a base address of 0x400000.")
             base_addr = 0x400000
         if base_addr is None:
             base_addr = 0
@@ -349,6 +350,25 @@ class Loader(object):
                 raise CLEError('Unsupported memory type %s' % type(obj.memory))
 
         return None
+
+    def whats_at(self, addr):
+        """
+        Tells you what's at @addr in terms of the offset in one of the loaded
+        binary objects.
+        """
+        o = self.addr_belongs_to_object(addr)
+
+        if o is None:
+            return None
+
+        off = addr - o.rebase_addr
+
+        if addr in o.plt.values():
+            for k,v in o.plt.iteritems():
+                if v == addr:
+                    return  "PLT stub of %s in %s (offset 0x%x)" % (k, o.provides, off)
+
+        return "Offset 0x%x in %s" % (off, o.provides)
 
     def max_addr(self):
         """ The maximum address loaded as part of any loaded object

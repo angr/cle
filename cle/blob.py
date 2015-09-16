@@ -36,6 +36,7 @@ class Blob(AbsObj):
 
         self._entry = self._custom_entry_point
         self._max_addr = 0
+        self.os = 'unknown'
 
         self._load(self.custom_offset)
 
