@@ -5,6 +5,8 @@ import logging
 import shutil
 import subprocess
 import struct
+import re
+import elftools
 from collections import OrderedDict
 
 from .errors import CLEError, CLEOperationError, CLEFileNotFoundError, CLECompatibilityError
@@ -41,7 +43,7 @@ class Loader(object):
                  force_load_libs=None, skip_libs=None,
                  main_opts=None, lib_opts=None, custom_ld_path=None,
                  ignore_import_version_numbers=True, rebase_granularity=0x1000000,
-                 except_missing_libs=False):
+                 except_missing_libs=False, gdb_map=None):
         """
         @param main_binary      The path to the main binary you're loading
         @param auto_load_libs   Whether to automatically load shared libraries that
@@ -84,6 +86,10 @@ class Loader(object):
         self.requested_objects = set()
         self.tls_object = None
 
+        if gdb_map is not None:
+           gdb_lib_opts = self._gdb_load_options(gdb_map)
+           self._lib_opts = self._merge_opts(gdb_lib_opts, self._lib_opts)
+
         self._load_main_binary()
         self._load_dependencies()
         self._load_tls()
@@ -112,9 +118,20 @@ class Loader(object):
         for obj in self.all_objects:
             if obj.provides is None:
                 continue
-            if 'ld.so' in obj.provides or 'ld64.so' in obj.provides or 'ld-linux' in obj.provides:
+            if self._is_linux_loader_name(obj.provides) is True:
                 return obj
         return None
+
+    def _is_linux_loader_name(self, name):
+        """
+        ld can have different names such as ld-2.19.so or ld-linux-x86-64.so.2
+        depending on symlinks and whatnot.
+        This determines if @name is a suitable candidate for ld.
+        """
+        if 'ld.so' in name or 'ld64.so' in name or 'ld-linux' in name:
+            return True
+        else:
+            return False
 
     def _load_main_binary(self):
         self.main_bin = self.load_object(self._main_binary_path, self._main_opts, is_main_bin=True)
@@ -531,6 +548,65 @@ class Loader(object):
             raise CLEFileNotFoundError("File %s does not exist :(. Please check that the"
                                        " path is correct" % path)
         return dest
+
+    def _parse_gdb_map(self, gdb_map):
+        """
+        Parser for gdb's `info proc mappings`
+        """
+        if os.path.exists(gdb_map):
+            data = open(gdb_map, 'rb').readlines()
+            gmap = []
+            for i, line in enumerate(data):
+                line_items = line.split()
+                if line_items[0] == "Start": # Get read of titles
+                    continue
+                addr, objfile = line_items[0], line_items[-1]
+                gmap.append({
+                        "start_addr": int(addr, 16),
+                        "objfile": objfile.strip()
+                            })
+            return gmap
+
+    def _gdb_load_options(self, gdb_map_path):
+        """
+        Generate library options from a gdb proc mapping.
+        """
+        lib_opts = {}
+        gdb_map = self._parse_gdb_map(gdb_map_path)
+
+        # Find lib names
+        lst = set(map(lambda x: x['objfile'], gdb_map))
+        libnames = filter(lambda n: '.so' in n, lst)
+
+        # Find base addr for each lib (each lib is mapped to several segments,
+        # we take the segment that is loaded at the smallest address).
+        for l in libnames:
+            soname = self._get_soname(l) if self._get_soname(l) is not None else os.path.basename(l)
+            addrs = set([e["start_addr"] for e in gdb_map if e["objfile"] == l])
+            if len(addrs) == 0:
+                continue
+            addr = min(addrs)
+
+            lib_opts[soname] = {"custom_base_addr":addr}
+        return lib_opts
+
+    def _get_soname(self, path):
+        if os.path.exists(path):
+            f = open(path, 'rb')
+            e = elftools.elf.elffile.ELFFile(f)
+            dyn = e.get_section_by_name('.dynamic')
+            soname = [ x.soname for x in list(dyn.iter_tags()) if x.entry.d_tag == 'DT_SONAME']
+            return soname[0]
+
+    def _merge_opts(self, opts, dest):
+        """
+        Return a new dict corresponding to merging @opts into @dest.
+        This makes sure we don't override previous options.
+        """
+        for k,v in opts.iteritems():
+            if k in dest and v in dest[k]:
+                raise CLEError("%s/%s is overriden by gdb's" % (k,v))
+        return dict(opts.items() + dest.items())
 
 from .absobj import AbsObj
 from .elf import ELF
