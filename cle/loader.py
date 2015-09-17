@@ -635,7 +635,7 @@ class Loader(object):
         soname = [ x.soname for x in list(dyn.iter_tags()) if x.entry.d_tag == 'DT_SONAME']
         return soname[0]
 
-    def __check_compatibility(self, path):
+    def _check_compatibility(self, path):
         """
         This checks whether the object at @path is binary compatible with the
         main binary
@@ -661,7 +661,7 @@ class Loader(object):
             raise CLEFileNotFoundError("Invalid path or soname: %s" % libname)
         paths = list(self._possible_paths(os.path.basename(libname)))
         for p in paths:
-            if self.__check_compatibility(p):
+            if self._check_compatibility(p):
                 return p
 
     def _merge_opts(self, opts, dest):
