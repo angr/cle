@@ -43,7 +43,7 @@ class Loader(object):
                  force_load_libs=None, skip_libs=None,
                  main_opts=None, lib_opts=None, custom_ld_path=None,
                  ignore_import_version_numbers=True, rebase_granularity=0x1000000,
-                 except_missing_libs=False, gdb_map=None):
+                 except_missing_libs=False, gdb_map=None, gdb_fix=False):
         """
         @param main_binary      The path to the main binary you're loading
         @param auto_load_libs   Whether to automatically load shared libraries that
@@ -65,6 +65,12 @@ class Loader(object):
                                 The alignment to use for rebasing shared objects
         @param except_missing_libs
                                 Throw an exception when a shared library can't be found
+        @param gdb_map          The output of `info proc mappings` or `info sharedlibrary` in gdb
+                                This will be used to determine the base address of libraries
+        @param gdb_fix          If `info sharedlibrary` was used, the addresses
+                                gdb gives us are in fact the addresses of the
+                                .text sections. We need to fix them to get
+                                the real load addresses.
         """
 
         self._main_binary_path = os.path.realpath(str(main_binary))
@@ -87,7 +93,7 @@ class Loader(object):
         self.tls_object = None
 
         if gdb_map is not None:
-           gdb_lib_opts = self._gdb_load_options(gdb_map)
+           gdb_lib_opts = self._gdb_load_options(gdb_map, gdb_fix)
            self._lib_opts = self._merge_opts(gdb_lib_opts, self._lib_opts)
 
         self._load_main_binary()
@@ -549,30 +555,50 @@ class Loader(object):
                                        " path is correct" % path)
         return dest
 
-    def _parse_gdb_map(self, gdb_map):
+    def _parse_gdb_map(self, gdb_map, fix):
         """
-        Parser for gdb's `info proc mappings`
+        Parser for gdb's `info proc mappings`, or `info sharedlibs`, or custom
+        mapping file of the form base_addr : /path/to/lib.
         """
         if os.path.exists(gdb_map):
             data = open(gdb_map, 'rb').readlines()
             gmap = []
             for i, line in enumerate(data):
                 line_items = line.split()
-                if line_items[0] == "Start": # Get read of titles
+                if line == '\n':
                     continue
-                addr, objfile = line_items[0], line_items[-1]
+                if line_items[0] == "Start" or line_items[0] == "From": # Get read of titles
+                    continue
+                elif "linux-vdso" in line_items[-1]:
+                    continue
+                addr, objfile = int(line_items[0], 16), line_items[-1].strip()
+
+                # info sharedlibs in gdb gives the address of .text and not
+                # the actual base address...
+                if fix is True:
+                    addr = addr - self._get_text_offset(objfile)
+
                 gmap.append({
-                        "start_addr": int(addr, 16),
-                        "objfile": objfile.strip()
+                        "start_addr": addr,
+                        "objfile": objfile
                             })
             return gmap
 
-    def _gdb_load_options(self, gdb_map_path):
+    def _get_text_offset(self, path):
+        """
+        Offset of .text in the binary
+        """
+        if os.path.exists(path):
+            f = open(path, 'rb')
+            e = elftools.elf.elffile.ELFFile(f)
+            return e.get_section_by_name(".text").header.sh_offset
+
+    def _gdb_load_options(self, gdb_map_path, fix):
         """
         Generate library options from a gdb proc mapping.
         """
         lib_opts = {}
-        gdb_map = self._parse_gdb_map(gdb_map_path)
+        gdb_map = self._parse_gdb_map(gdb_map_path, fix)
 
         # Find lib names
         lst = set(map(lambda x: x['objfile'], gdb_map))
@@ -591,12 +617,16 @@ class Loader(object):
         return lib_opts
 
     def _get_soname(self, path):
-        if os.path.exists(path):
-            f = open(path, 'rb')
-            e = elftools.elf.elffile.ELFFile(f)
-            dyn = e.get_section_by_name('.dynamic')
-            soname = [ x.soname for x in list(dyn.iter_tags()) if x.entry.d_tag == 'DT_SONAME']
-            return soname[0]
+        if not os.path.exists(path):
+            raise CLEError("The gdb mapping file you provided contains an"
+                                    " invalid library path. Note that it requires full"
+                                    " paths to work properly")
+
+        f = open(path, 'rb')
+        e = elftools.elf.elffile.ELFFile(f)
+        dyn = e.get_section_by_name('.dynamic')
+        soname = [ x.soname for x in list(dyn.iter_tags()) if x.entry.d_tag == 'DT_SONAME']
+        return soname[0]
 
     def _merge_opts(self, opts, dest):
         """
