@@ -91,12 +91,13 @@ class Loader(object):
         self.all_objects = []
         self.requested_objects = set()
         self.tls_object = None
+        self._load_main_binary()
 
         if gdb_map is not None:
-           gdb_lib_opts = self._gdb_load_options(gdb_map, gdb_fix)
-           self._lib_opts = self._merge_opts(gdb_lib_opts, self._lib_opts)
+            self._gdb_fix = gdb_fix
+            gdb_lib_opts = self._gdb_load_options(gdb_map)
+            self._lib_opts = self._merge_opts(gdb_lib_opts, self._lib_opts)
 
-        self._load_main_binary()
         self._load_dependencies()
         self._load_tls()
         self._perform_reloc(self.main_bin)
@@ -159,6 +160,8 @@ class Loader(object):
                 continue
             if self._ignore_import_version_numbers and dep.strip('.0123456789') in self._satisfied_deps:
                 continue
+
+            path = self._get_lib_path(dep)
             for path in self._possible_paths(dep):
                 libname = os.path.basename(path)
                 options = self._lib_opts.get(libname, {})
@@ -555,14 +558,14 @@ class Loader(object):
                                        " path is correct" % path)
         return dest
 
-    def _parse_gdb_map(self, gdb_map, fix):
+    def _parse_gdb_map(self, gdb_map):
         """
         Parser for gdb's `info proc mappings`, or `info sharedlibs`, or custom
         mapping file of the form base_addr : /path/to/lib.
         """
         if os.path.exists(gdb_map):
             data = open(gdb_map, 'rb').readlines()
-            gmap = []
+            gmap = {}
             for i, line in enumerate(data):
                 line_items = line.split()
                 if line == '\n':
@@ -573,60 +576,93 @@ class Loader(object):
                     continue
                 addr, objfile = int(line_items[0], 16), line_items[-1].strip()
 
-                # info sharedlibs in gdb gives the address of .text and not
-                # the actual base address...
-                if fix is True:
-                    addr = addr - self._get_text_offset(objfile)
-
-                gmap.append({
-                        "start_addr": addr,
-                        "objfile": objfile
-                            })
+                # Get the smallest address of each libs' mappings
+                try:
+                    gmap[objfile] = min(gmap[objfile], addr)
+                except KeyError:
+                    gmap[objfile] = addr
             return gmap
 
-    def _get_text_offset(self, path):
-        """
-        Offset of .text in the binary
-        """
-        if os.path.exists(path):
-            f = open(path, 'rb')
-            e = elftools.elf.elffile.ELFFile(f)
-            return e.get_section_by_name(".text").header.sh_offset
-
-    def _gdb_load_options(self, gdb_map_path, fix):
+    def _gdb_load_options(self, gdb_map_path):
         """
         Generate library options from a gdb proc mapping.
         """
         lib_opts = {}
-        gdb_map = self._parse_gdb_map(gdb_map_path, fix)
+        gmap = self._parse_gdb_map(gdb_map_path)
 
         # Find lib names
-        lst = set(map(lambda x: x['objfile'], gdb_map))
-        libnames = filter(lambda n: '.so' in n, lst)
+        #libnames = filter(lambda n: '.so' in n, gmap.keys())
 
         # Find base addr for each lib (each lib is mapped to several segments,
         # we take the segment that is loaded at the smallest address).
-        for l in libnames:
-            soname = self._get_soname(l) if self._get_soname(l) is not None else os.path.basename(l)
-            addrs = set([e["start_addr"] for e in gdb_map if e["objfile"] == l])
-            if len(addrs) == 0:
+        for lib, addr in gmap.items():
+            if not ".so" in lib:
                 continue
-            addr = min(addrs)
+            if not os.path.exists(lib):
+                lib = self._get_lib_path(lib)
+
+            soname = self._extract_soname(lib)
+
+            # address of .text -> base address of the library
+            if self._gdb_fix:
+                addr = addr - self._get_text_offset(lib)
 
             lib_opts[soname] = {"custom_base_addr":addr}
         return lib_opts
 
-    def _get_soname(self, path):
+    @staticmethod
+    def _get_text_offset(path):
+        """
+        Offset of .text in the binary
+        """
         if not os.path.exists(path):
-            raise CLEError("The gdb mapping file you provided contains an"
-                                    " invalid library path. Note that it requires full"
-                                    " paths to work properly")
+            raise CLEError("Path %s does not exist" % path)
+        f = open(path, 'rb')
+        e = elftools.elf.elffile.ELFFile(f)
+        return e.get_section_by_name(".text").header.sh_offset
+
+    @staticmethod
+    def _extract_soname(path):
+        """
+        Extracts the soname from an Elf binary
+        """
+        if not os.path.exists(path):
+            raise CLEError("Invalid path: %s" % path)
 
         f = open(path, 'rb')
         e = elftools.elf.elffile.ELFFile(f)
         dyn = e.get_section_by_name('.dynamic')
         soname = [ x.soname for x in list(dyn.iter_tags()) if x.entry.d_tag == 'DT_SONAME']
         return soname[0]
+
+    def __check_compatibility(self, path):
+        """
+        This checks whether the object at @path is binary compatible with the
+        main binary
+        """
+        try:
+            filetype = Loader.identify_object(path)
+        except OSError:
+            raise CLEFileNotFoundError('File %s does not exist!' % path)
+
+        return self.main_bin.filetype == filetype
+
+    def _get_lib_path(self, libname):
+        """
+        Get a path for libname.
+        We pick the first plausible candidate that is binary compatible
+        """
+        # Valid path
+        if os.path.exists(libname) and self._check_compatibility(libname):
+            return libname
+
+        # Wrong path and not a lib name
+        elif not os.path.exists(libname) and libname != os.path.basename(libname):
+            raise CLEFileNotFoundError("Invalid path or soname: %s" % libname)
+        paths = list(self._possible_paths(os.path.basename(libname)))
+        for p in paths:
+            if self.__check_compatibility(p):
+                return p
 
     def _merge_opts(self, opts, dest):
         """
