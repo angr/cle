@@ -558,20 +558,13 @@ class Loader(object):
             gmap = []
             for i, line in enumerate(data):
                 line_items = line.split()
-                if len(line_items) < 5:
+                if line_items[0] == "Start": # Get read of titles
                     continue
-                elif len(line_items) > 5:
-                    l.warning('Line %d of %s is malformed', i + 1, gdb_map)
-                    continue
-                start_addr, end_addr, size, offset, objfile = line_items
-                d = {
-                        "start_addr": int(start_addr, 16),
-                        "end_addr" : int(end_addr, 16),
-                        "size" : int(size, 16),
-                        "offset": int(offset, 16),
+                addr, objfile = line_items[0], line_items[-1]
+                gmap.append({
+                        "start_addr": int(addr, 16),
                         "objfile": objfile.strip()
-                    }
-                gmap.append(d)
+                            })
             return gmap
 
     def _gdb_load_options(self, gdb_map_path):
@@ -602,7 +595,6 @@ class Loader(object):
             f = open(path, 'rb')
             e = elftools.elf.elffile.ELFFile(f)
             dyn = e.get_section_by_name('.dynamic')
-            #strtab = e.get_section_by_name('.dynstr')
             soname = [ x.soname for x in list(dyn.iter_tags()) if x.entry.d_tag == 'DT_SONAME']
             return soname[0]
 
