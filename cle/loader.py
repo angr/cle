@@ -376,9 +376,13 @@ class Loader(object):
         if addr in o.plt.values():
             for k,v in o.plt.iteritems():
                 if v == addr:
-                    return  "PLT stub of %s in %s (offset 0x%x)" % (k, o.provides, off)
+                    return  "PLT stub of %s in %s (offset %#x)" % (k, o.provides, off)
 
-        return "Offset 0x%x in %s" % (off, o.provides)
+        if off in o.symbols_by_addr:
+            name = o.symbols_by_addr[off].name
+            return "%s (offset %#x) in %s" % (name, off, o.provides)
+
+        return "Offset %#x in %s" % (off, o.provides)
 
     def max_addr(self):
         """ The maximum address loaded as part of any loaded object
@@ -500,7 +504,7 @@ class Loader(object):
             f.close()
             l.debug("---")
             for o, a in libs.iteritems():
-                l.debug(" -> Dependency: %s @ 0x%x)", o, a)
+                l.debug(" -> Dependency: %s @ %#x)", o, a)
 
             l.debug("---")
             os.remove(log)
