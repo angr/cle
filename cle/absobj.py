@@ -302,6 +302,12 @@ class Relocation(object):
                     return True
                 elif weak_result is None:
                     weak_result = symbol
+            elif symbol is not None and not symbol.is_import and so is self.owner_obj:
+                if not symbol.is_weak:
+                    self.resolve(symbol)
+                    return True
+                elif weak_result is None:
+                    weak_result = symbol
 
         if weak_result is not None:
             self.resolve(weak_result)
