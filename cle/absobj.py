@@ -223,7 +223,7 @@ class Relocation(object):
     def reloc_absolute(self, solist):
         if not self.resolve_symbol(solist):
             return False
-        self.owner_obj.memory.write_addr_at(self.addr, self.resolvedby.rebased_addr)
+        self.owner_obj.memory.write_addr_at(self.addr, self.addend + self.resolvedby.rebased_addr)
         return True
 
     def reloc_relative(self):
