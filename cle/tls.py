@@ -1,7 +1,7 @@
 from collections import namedtuple, defaultdict
 import struct
 
-from .absobj import AbsObj
+from .backend import AbsObj
 from .memory import Clemory
 
 TLSArchInfo = namedtuple('TLSArchInfo', ('variant', 'tcbhead_size', 'head_offsets', 'dtv_offsets', 'pthread_offsets'))

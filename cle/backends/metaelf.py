@@ -1,5 +1,5 @@
-from .absobj import AbsObj
-from .errors import CLEOperationError
+from ..backend import AbsObj
+from ..errors import CLEOperationError
 
 __all__ = ('MetaELF',)
 

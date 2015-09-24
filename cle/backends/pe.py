@@ -1,7 +1,7 @@
 import pefile
 import archinfo
 import os
-from .absobj import AbsObj, Symbol, Relocation
+from ..backend import AbsObj, Symbol, Relocation
 
 __all__ = ('PE',)
 

@@ -1,5 +1,5 @@
-from .absobj import AbsObj
-from .errors import CLEError
+from ..backend import AbsObj
+from ..errors import CLEError
 import logging
 import os
 

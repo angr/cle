@@ -5,13 +5,7 @@ import logging
 import shutil
 import subprocess
 import struct
-import re
 import elftools
-from collections import OrderedDict
-
-from .errors import CLEError, CLEOperationError, CLEFileNotFoundError, CLECompatibilityError
-from .memory import Clemory
-from .tls import TLSObj
 
 __all__ = ('Loader',)
 
@@ -129,7 +123,8 @@ class Loader(object):
                 return obj
         return None
 
-    def _is_linux_loader_name(self, name):
+    @staticmethod
+    def _is_linux_loader_name(name):
         """
         ld can have different names such as ld-2.19.so or ld-linux-x86-64.so.2
         depending on symlinks and whatnot.
@@ -196,21 +191,21 @@ class Loader(object):
         if isinstance(backend_option, type) and issubclass(backend_option, AbsObj):
             # ...an actual backend class
             backends = [backend_option]
-        elif backend_option in BACKENDS:
+        elif backend_option in ALL_BACKENDS:
             # ...the name of a backend class
-            backends = [BACKENDS[backend_option]]
+            backends = [ALL_BACKENDS[backend_option]]
         elif isinstance(backend_option, (list, tuple)):
             # ...a list of backends containing either names or classes
             backends = []
             for backend_option_item in backend_option:
                 if isinstance(backend_option_item, type) and issubclass(backend_option_item, AbsObj):
                     backends.append(backend_option_item)
-                elif backend_option_item in BACKENDS:
-                    backends.append(BACKENDS[backend_option_item])
+                elif backend_option_item in ALL_BACKENDS:
+                    backends.append(ALL_BACKENDS[backend_option_item])
                 else:
                     raise CLEError('Invalid backend: %s' % backend_option_item)
         elif backend_option is None:
-            backends = BACKENDS.values()
+            backends = ALL_BACKENDS.values()
         else:
             raise CLEError('Invalid backend: %s' % backend_option)
 
@@ -305,9 +300,7 @@ class Loader(object):
             dep_obj = self.shared_objects[dep_name]
             self._perform_reloc(dep_obj)
 
-        if isinstance(obj, IDABin):
-            pass
-        elif isinstance(obj, (MetaELF, PE)):
+        if isinstance(obj, (MetaELF, PE)):
             for reloc in obj.relocs:
                 reloc.relocate(self.all_objects)
 
@@ -562,7 +555,8 @@ class Loader(object):
                                        " path is correct" % path)
         return dest
 
-    def _parse_gdb_map(self, gdb_map):
+    @staticmethod
+    def _parse_gdb_map(gdb_map):
         """
         Parser for gdb's `info proc mappings`, or `info sharedlibs`, or custom
         mapping file of the form base_addr : /path/to/lib.
@@ -570,7 +564,7 @@ class Loader(object):
         if os.path.exists(gdb_map):
             data = open(gdb_map, 'rb').readlines()
             gmap = {}
-            for i, line in enumerate(data):
+            for line in data:
                 line_items = line.split()
                 if line == '\n':
                     continue
@@ -669,7 +663,8 @@ class Loader(object):
             if self._check_compatibility(p):
                 return p
 
-    def _merge_opts(self, opts, dest):
+    @staticmethod
+    def _merge_opts(opts, dest):
         """
         Return a new dict corresponding to merging @opts into @dest.
         This makes sure we don't override previous options.
@@ -679,21 +674,8 @@ class Loader(object):
                 raise CLEError("%s/%s is overriden by gdb's" % (k,v))
         return dict(opts.items() + dest.items())
 
-from .absobj import AbsObj
-from .elf import ELF
-from .metaelf import MetaELF
-from .pe import PE
-from .idabin import IDABin
-from .blob import Blob
-from .cgc import CGC
-from .backedcgc import BackedCGC
-
-BACKENDS = OrderedDict((
-    ('elf', ELF),
-    ('pe', PE),
-    ('cgc', CGC),
-    ('backedcgc', BackedCGC),
-    ('ida', IDABin),
-    ('blob', Blob)
-))
-
+from .errors import CLEError, CLEOperationError, CLEFileNotFoundError, CLECompatibilityError
+from .memory import Clemory
+from .tls import TLSObj
+from .backend import AbsObj
+from .backends import IDABin, MetaELF, ELF, PE, ALL_BACKENDS

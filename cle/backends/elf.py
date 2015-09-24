@@ -2,9 +2,9 @@ import struct
 from elftools.elf import elffile, sections
 import archinfo
 
-from .absobj import Symbol, Relocation, Segment, Section
+from ..backend import Symbol, Relocation, Segment, Section
+from ..errors import CLEError, CLEInvalidBinaryError
 from .metaelf import MetaELF
-from .errors import CLEError, CLEInvalidBinaryError
 
 import logging
 l = logging.getLogger('cle.elf')

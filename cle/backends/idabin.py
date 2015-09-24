@@ -5,8 +5,8 @@ try:
 except ImportError:
     idalink = None
 
-from .errors import CLEError
-from .absobj import AbsObj
+from ..errors import CLEError
+from ..backend import AbsObj
 
 l = logging.getLogger("cle.idabin")
 
@@ -283,4 +283,4 @@ class IDABin(AbsObj):
         else:
             return "dynamic"
 
-from .loader import Loader
+from ..loader import Loader
