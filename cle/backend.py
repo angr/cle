@@ -6,7 +6,7 @@ import os
 import logging
 l = logging.getLogger('cle.generic')
 
-__all__ = ('Region', 'Segment', 'Section', 'Symbol', 'Relocation', 'AbsObj')
+__all__ = ('Region', 'Segment', 'Section', 'Symbol', 'Relocation', 'Backend')
 
 class Region(object):
     """
@@ -326,18 +326,12 @@ class Relocation(object):
                 return True
         return False
 
-class AbsObj(object):
+class Backend(object):
     """
-        Main base class for CLE binary objects.
+    Main base class for CLE binary objects.
     """
 
     def __init__(self, binary, is_main_bin=False, compatible_with=None, filetype='unknown', **kwargs):
-        """
-        args: binary
-        kwargs: {load=True, custom_base_addr=None, custom_entry_point=None,
-                 custom_offset=None}
-        """
-
         # Unfold the kwargs and convert them to class attributes
         for k,v in kwargs.iteritems():
             setattr(self, k, v)

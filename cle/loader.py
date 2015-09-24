@@ -188,7 +188,7 @@ class Loader(object):
 
         # Check if the user specified a backend as...
         backend_option = options.get('backend', None)
-        if isinstance(backend_option, type) and issubclass(backend_option, AbsObj):
+        if isinstance(backend_option, type) and issubclass(backend_option, Backend):
             # ...an actual backend class
             backends = [backend_option]
         elif backend_option in ALL_BACKENDS:
@@ -198,7 +198,7 @@ class Loader(object):
             # ...a list of backends containing either names or classes
             backends = []
             for backend_option_item in backend_option:
-                if isinstance(backend_option_item, type) and issubclass(backend_option_item, AbsObj):
+                if isinstance(backend_option_item, type) and issubclass(backend_option_item, Backend):
                     backends.append(backend_option_item)
                 elif backend_option_item in ALL_BACKENDS:
                     backends.append(ALL_BACKENDS[backend_option_item])
@@ -677,5 +677,5 @@ class Loader(object):
 from .errors import CLEError, CLEOperationError, CLEFileNotFoundError, CLECompatibilityError
 from .memory import Clemory
 from .tls import TLSObj
-from .backend import AbsObj
+from .backend import Backend
 from .backends import IDABin, MetaELF, ELF, PE, ALL_BACKENDS

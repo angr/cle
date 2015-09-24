@@ -1,7 +1,7 @@
 import pefile
 import archinfo
 import os
-from ..backend import AbsObj, Symbol, Relocation
+from ..backend import Backend, Symbol, Relocation
 
 __all__ = ('PE',)
 
@@ -30,7 +30,7 @@ class WinReloc(Relocation):
     def relocate(self, solist):
         return self.reloc_global([x for x in solist if self.resolvewith == x.soname])
 
-class PE(AbsObj):
+class PE(Backend):
     """
     Representation of a PE (i.e. Windows) binary
     """

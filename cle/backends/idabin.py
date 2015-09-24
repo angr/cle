@@ -6,13 +6,13 @@ except ImportError:
     idalink = None
 
 from ..errors import CLEError
-from ..backend import AbsObj
+from ..backend import Backend
 
 l = logging.getLogger("cle.idabin")
 
 __all__ = ('IDABin',)
 
-class IDABin(AbsObj):
+class IDABin(Backend):
     '''
      Get informations from binaries using IDA.
     '''
