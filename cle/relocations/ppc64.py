@@ -1,6 +1,7 @@
 from . import generic
 from . import Relocation
 
+# http://refspecs.linuxfoundation.org/ELF/ppc64/PPC-elf64abi-1.9.pdf
 arch = 'PPC64'
 
 class R_PPC64_JMP_SLOT(Relocation):
