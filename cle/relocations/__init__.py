@@ -39,6 +39,8 @@ def load_relocations():
             ALL_RELOCATIONS[arch_name][archinfo.defines[item_name]] = item
 
 def get_relocation(arch, r_type):
+    if r_type == 0:
+        return None
     try:
         return ALL_RELOCATIONS[arch][r_type]
     except KeyError:

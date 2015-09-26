@@ -1,4 +1,4 @@
-from collections import OrderedDict
+from collections import OrderedDict as _ordered_dict
 import os
 
 import archinfo
@@ -7,8 +7,6 @@ from ..memory import Clemory
 
 import logging
 l = logging.getLogger('cle.backends')
-
-__all__ = ('Region', 'Segment', 'Section', 'Symbol', 'Backend', 'ALL_BACKENDS')
 
 class Region(object):
     """
@@ -294,7 +292,7 @@ from .cgc import CGC
 from .backedcgc import BackedCGC
 from .metaelf import MetaELF
 
-ALL_BACKENDS = OrderedDict((
+ALL_BACKENDS = _ordered_dict((
     ('elf', ELF),
     ('pe', PE),
     ('cgc', CGC),

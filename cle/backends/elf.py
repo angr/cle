@@ -345,6 +345,7 @@ class ELF(MetaELF):
                     readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.memory, self.reader)
                     self.jmprel = {reloc.symbol.name: reloc for reloc in self.__register_relocs(readelf_jmprelsec)}
 
+
     def __register_relocs(self, section):
         relocs = []
         for readelf_reloc in section.iter_relocations():

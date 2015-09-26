@@ -4,7 +4,7 @@ from . import Relocation
 arch = 'PPC64'
 
 class R_PPC64_JMP_SLOT(Relocation):
-    def resolve(self, solist):
+    def relocate(self, solist):
         if not self.resolve_symbol(solist):
             return False
 
