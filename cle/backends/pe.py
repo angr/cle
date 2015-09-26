@@ -1,7 +1,8 @@
 import pefile
 import archinfo
 import os
-from ..backend import Backend, Symbol, Relocation
+from ..backends import Backend, Symbol
+from ..relocations import Relocation
 
 __all__ = ('PE',)
 
@@ -24,11 +25,15 @@ class WinSymbol(Symbol):
 
 class WinReloc(Relocation):
     def __init__(self, owner, symbol, addr, resolvewith):
-        super(WinReloc, self).__init__(owner, symbol, addr, None, None)
+        super(WinReloc, self).__init__(owner, symbol, addr, None)
         self.resolvewith = resolvewith
 
-    def relocate(self, solist):
-        return self.reloc_global([x for x in solist if self.resolvewith == x.soname])
+    def resolve_symbol(self, solist):
+        return super(WinReloc, self).resolve_symbol([x for x in solist if self.resolvewith == x.soname])
+
+    @property
+    def value(self):
+        return self.resolvedby.rebased_addr
 
 class PE(Backend):
     """
@@ -64,7 +69,7 @@ class PE(Backend):
 
         self.memory.add_backer(0, self._pe.get_memory_mapped_image())
 
-        l.warning('The PE module is not well, supported. Good luck!')
+        l.warning('The PE module is not well-supported. Good luck!')
 
     supported_filetypes = ['pe']
 

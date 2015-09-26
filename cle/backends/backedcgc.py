@@ -1,4 +1,4 @@
-from ..backend import Segment
+from ..backends import Segment
 from .cgc import CGC
 
 class FakeSegment(Segment):

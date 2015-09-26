@@ -1,13 +1,12 @@
-import logging
-
 try:
     idalink = __import__('idalink').idalink
 except ImportError:
     idalink = None
 
 from ..errors import CLEError
-from ..backend import Backend
+from ..backends import Backend
 
+import logging
 l = logging.getLogger("cle.idabin")
 
 __all__ = ('IDABin',)

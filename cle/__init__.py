@@ -7,4 +7,3 @@ from .loader import *
 from .memory import *
 from .errors import *
 from .backends import *
-from .backend import *

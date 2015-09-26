@@ -1,4 +1,4 @@
-from ..backend import Backend
+from ..backends import Backend
 from ..errors import CLEOperationError
 
 __all__ = ('MetaELF',)
