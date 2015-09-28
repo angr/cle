@@ -574,7 +574,8 @@ class Loader(object):
                 line_items = line.split()
                 if line == '\n':
                     continue
-                if line_items[0] == "Start" or line_items[0] == "From": # Get read of titles
+                # Get rid of all metadata, just extract lines containing addresses
+                if "0x" not in line_items[0]:
                     continue
                 elif "linux-vdso" in line_items[-1]:
                     continue
