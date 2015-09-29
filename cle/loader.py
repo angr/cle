@@ -172,7 +172,7 @@ class Loader(object):
                 elif soname in self._lib_opts.keys():
                     options = self._lib_opts[soname]
                 else:
-                    options = None
+                    options = {}
 
                 try:
                     obj = self.load_object(path, options, compatible_with=self.main_bin)
