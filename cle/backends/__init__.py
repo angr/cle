@@ -1,12 +1,12 @@
-import archinfo
-from .errors import CLEOperationError, CLECompatibilityError, CLEError
-from .memory import Clemory
+from collections import OrderedDict as _ordered_dict
 import os
 
-import logging
-l = logging.getLogger('cle.generic')
+import archinfo
+from ..errors import CLECompatibilityError, CLEError
+from ..memory import Clemory
 
-__all__ = ('Region', 'Segment', 'Section', 'Symbol', 'Relocation', 'AbsObj')
+import logging
+l = logging.getLogger('cle.backends')
 
 class Region(object):
     """
@@ -123,221 +123,13 @@ class Symbol(object):
     def is_weak(self):
         return self.binding == 'STB_WEAK'
 
-reloc_warnings = {}
 
-class Relocation(object):
+class Backend(object):
     """
-    A representation of a relocation in a binary file. Smart enough to
-    relocate itself.
-
-    Properties you may care about:
-    - owner_obj: the binary this relocation was originaly found in, as a cle object
-    - symbol: the Symbol object this relocation refers to
-    - addr: the address in owner_obj this relocation would like to write to
-    - rebased_addr: the address in the global memory space this relocation would like to write to
-    - resolvedby: If the symbol this relocation refers to is an import symbol and that import has been resolved,
-                  this attribute holds the symbol from a different binary that was used to resolve the import.
-    - resolved: Whether the application of this relocation was succesful
-    """
-    def __init__(self, owner, symbol, addr, r_type, addend=None):
-        super(Relocation, self).__init__()
-        self.owner_obj = owner
-        self.arch = owner.arch
-        self.symbol = symbol
-        self.addr = addr
-        self.type = r_type
-        self.is_rela = addend is not None
-        self._addend = addend
-        self.resolvedby = None
-        self.resolved = False
-        if self.symbol is not None and self.symbol.is_import:
-            self.owner_obj.imports[self.symbol.name] = self
-
-    @property
-    def addend(self):
-        if self.is_rela:
-            return self._addend
-        else:
-            return self.owner_obj.memory.read_addr_at(self.addr)
-
-    def resolve(self, obj):
-        self.resolvedby = obj
-        self.resolved = True
-        if self.symbol is not None:
-            self.symbol.resolve(obj)
-
-    @property
-    def rebased_addr(self):
-        return self.addr + self.owner_obj.rebase_addr
-
-    def relocate(self, solist):
-        """
-        Applies this relocation. Will make changes to the memory object of the
-        object it came from.
-
-        @param solist       A list of objects from which to resolve symbols
-        """
-        if self.type == 'mips_local':
-            return self.reloc_mips_local()
-        elif self.type == 'mips_global':
-            return self.reloc_mips_global(solist)
-        elif self.type in self.arch.reloc_s:
-            return self.reloc_global(solist)
-        elif self.type in self.arch.reloc_s_a:
-            return self.reloc_absolute(solist)
-        elif self.type in self.arch.reloc_b_a:
-            return self.reloc_relative()
-        elif self.type in self.arch.reloc_copy:
-            return self.reloc_copy(solist)
-        elif self.type in self.arch.reloc_tls_mod_id:
-            return self.reloc_tls_mod_id(solist)
-        elif self.type in self.arch.reloc_tls_doffset:
-            return self.reloc_tls_doffset()
-        elif self.type in self.arch.reloc_tls_offset:
-            return self.reloc_tls_offset(solist)
-        else:
-            if not self.owner_obj.arch.name in reloc_warnings:
-                reloc_warnings[self.owner_obj.arch.name] = set()
-            if not self.type in reloc_warnings[self.owner_obj.arch.name]:
-                l.warning("Unknown reloc type: %d", self.type)
-                reloc_warnings[self.owner_obj.arch.name].add(self.type)
-
-    def reloc_global(self, solist):
-        if not self.resolve_symbol(solist):
-            return False
-
-        if self.type == 21 and self.owner_obj.is_ppc64_abiv1:
-            # R_PPC64_JMP_SLOT
-            # http://osxr.org/glibc/source/sysdeps/powerpc/powerpc64/dl-machine.h?v=glibc-2.15#0405
-            # copy an entire function descriptor struct
-            addr = self.resolvedby.owner_obj.memory.read_addr_at(self.resolvedby.addr)
-            toc = self.resolvedby.owner_obj.memory.read_addr_at(self.resolvedby.addr + 8)
-            aux = self.resolvedby.owner_obj.memory.read_addr_at(self.resolvedby.addr + 16)
-            self.owner_obj.memory.write_addr_at(self.addr, addr)
-            self.owner_obj.memory.write_addr_at(self.addr + 8, toc)
-            self.owner_obj.memory.write_addr_at(self.addr + 16, aux)
-        else:
-            self.owner_obj.memory.write_addr_at(self.addr, self.resolvedby.rebased_addr)
-        return True
-
-    def reloc_absolute(self, solist):
-        if not self.resolve_symbol(solist):
-            return False
-        if self.addend < 0x100:
-            # HORRIBLE AWFUL HACK PLEASE BURN IT
-            self.owner_obj.memory.write_addr_at(self.addr, self.addend + self.resolvedby.rebased_addr)
-        else:
-            self.owner_obj.memory.write_addr_at(self.addr, self.resolvedby.rebased_addr)
-        return True
-
-    def reloc_relative(self):
-        self.owner_obj.memory.write_addr_at(self.addr, self.addend + self.owner_obj.rebase_addr)
-        self.resolve(None)
-        return True
-
-    def reloc_copy(self, solist):
-        if not self.resolve_symbol(solist):
-            return False
-        val = self.resolvedby.owner_obj.memory.read_addr_at(self.resolvedby.addr)
-        self.owner_obj.memory.write_addr_at(self.addr, val)
-        return True
-
-    def reloc_tls_mod_id(self, solist):
-        if self.symbol.type == 'STT_NOTYPE':
-            self.owner_obj.memory.write_addr_at(self.addr, self.owner_obj.tls_module_id)
-            self.resolve(None)
-        else:
-            if not self.resolve_symbol(solist):
-                return False
-            self.owner_obj.memory.write_addr_at(self.addr, self.resolvedby.owner_obj.tls_module_id)
-        return True
-
-    def reloc_tls_doffset(self):
-        self.owner_obj.memory.write_addr_at(self.addr, self.addend + self.symbol.addr)
-        self.resolve(None)
-        return True
-
-    def reloc_tls_offset(self, solist):
-        if self.symbol.type == 'STT_NOTYPE':
-            self.owner_obj.memory.write_addr_at(self.addr, self.owner_obj.tls_block_offset + self.addend + self.symbol.addr)
-            self.resolve(None)
-        else:
-            if not self.resolve_symbol(solist):
-                return False
-            self.owner_obj.memory.write_addr_at(self.addr, self.resolvedby.owner_obj.tls_block_offset + self.addend + self.symbol.addr)
-        return True
-
-    def reloc_mips_global(self, solist):
-        if not self.resolve_symbol(solist):
-            return False
-        #delta = -self.owner_obj._dynamic['DT_MIPS_BASE_ADDRESS']
-        addr = self.addr #+ delta
-        # this causes crashes when not using the ld_fallback, for some reason
-        self.owner_obj.memory.write_addr_at(addr, self.resolvedby.rebased_addr)
-        return True
-
-    def reloc_mips_local(self):
-        if self.owner_obj.rebase_addr == 0:
-            self.resolve(None)
-            return True                     # don't touch local relocations on the main bin
-        delta = self.owner_obj.rebase_addr - self.owner_obj._dynamic['DT_MIPS_BASE_ADDRESS']
-        if delta == 0:
-            self.resolve(None)
-            return True
-        elif delta < 0:
-            raise CLEOperationError("We are relocating a MIPS object at a lower address than"
-                                    " its static base address. This is weird.")
-        val = self.owner_obj.memory.read_addr_at(self.addr)
-        if val == 0:
-            l.error("Address in local GOT at %#x is 0?", self.rebased_addr)
-            return False
-        newval = val + delta
-        self.owner_obj.memory.write_addr_at(self.addr, newval)
-        self.resolve(None)
-        return True
-
-    def resolve_symbol(self, solist):
-        weak_result = None
-        for so in solist:
-            symbol = so.get_symbol(self.symbol.name)
-            if symbol is not None and symbol.is_export:
-                if symbol.binding == 'STB_GLOBAL':
-                    self.resolve(symbol)
-                    return True
-                elif weak_result is None:
-                    weak_result = symbol
-            elif symbol is not None and not symbol.is_import and so is self.owner_obj:
-                if not symbol.is_weak:
-                    self.resolve(symbol)
-                    return True
-                elif weak_result is None:
-                    weak_result = symbol
-
-        if weak_result is not None:
-            self.resolve(weak_result)
-            return True
-
-        # If that doesn't do it, we also look into local symbols
-        for so in solist:
-            symbol = so.get_symbol(self.symbol.name)
-            if symbol is not None and symbol is not self.symbol and symbol.addr != 0:
-                l.warning("Matched %s to local symbol of %s. Is this possible?", self.symbol.name, so.binary)
-                self.resolve(symbol)
-                return True
-        return False
-
-class AbsObj(object):
-    """
-        Main base class for CLE binary objects.
+    Main base class for CLE binary objects.
     """
 
     def __init__(self, binary, is_main_bin=False, compatible_with=None, filetype='unknown', **kwargs):
-        """
-        args: binary
-        kwargs: {load=True, custom_base_addr=None, custom_entry_point=None,
-                 custom_offset=None}
-        """
-
         # Unfold the kwargs and convert them to class attributes
         for k,v in kwargs.iteritems():
             setattr(self, k, v)
@@ -491,4 +283,21 @@ class AbsObj(object):
          Stub function. Implement to find the symbol with name `name`.
         '''
         return None
+
+from .elf import ELF
+from .pe import PE
+from .idabin import IDABin
+from .blob import Blob
+from .cgc import CGC
+from .backedcgc import BackedCGC
+from .metaelf import MetaELF
+
+ALL_BACKENDS = _ordered_dict((
+    ('elf', ELF),
+    ('pe', PE),
+    ('cgc', CGC),
+    ('backedcgc', BackedCGC),
+    ('ida', IDABin),
+    ('blob', Blob)
+))
 

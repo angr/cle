@@ -1,7 +1,7 @@
 from collections import namedtuple, defaultdict
 import struct
 
-from .absobj import AbsObj
+from .backends import Backend
 from .memory import Clemory
 
 TLSArchInfo = namedtuple('TLSArchInfo', ('variant', 'tcbhead_size', 'head_offsets', 'dtv_offsets', 'pthread_offsets'))
@@ -32,7 +32,7 @@ def roundup(val, to=TLS_BLOCK_ALIGN):
     #return val
     return val - 1 + (to - ((val - 1) % to))
 
-class TLSObj(AbsObj):
+class TLSObj(Backend):
     def __init__(self, modules):
         super(TLSObj, self).__init__('##cle_tls##')
         self.modules = modules
