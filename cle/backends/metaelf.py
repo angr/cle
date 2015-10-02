@@ -1,9 +1,9 @@
-from .absobj import AbsObj
-from .errors import CLEOperationError
+from ..backends import Backend
+from ..errors import CLEOperationError
 
 __all__ = ('MetaELF',)
 
-class MetaELF(AbsObj):
+class MetaELF(Backend):
     """
     A base classt that implements functions used by all backends that can load
     an ELF.

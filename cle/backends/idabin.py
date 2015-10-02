@@ -1,18 +1,17 @@
-import logging
-
 try:
     idalink = __import__('idalink').idalink
 except ImportError:
     idalink = None
 
-from .errors import CLEError
-from .absobj import AbsObj
+from ..errors import CLEError
+from ..backends import Backend
 
+import logging
 l = logging.getLogger("cle.idabin")
 
 __all__ = ('IDABin',)
 
-class IDABin(AbsObj):
+class IDABin(Backend):
     '''
      Get informations from binaries using IDA.
     '''
@@ -283,4 +282,4 @@ class IDABin(AbsObj):
         else:
             return "dynamic"
 
-from .loader import Loader
+from ..loader import Loader

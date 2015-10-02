@@ -1,5 +1,5 @@
-from .absobj import AbsObj
-from .errors import CLEError
+from ..backends import Backend
+from ..errors import CLEError
 import logging
 import os
 
@@ -7,7 +7,7 @@ l = logging.getLogger("cle.blob")
 
 __all__ = ('Blob',)
 
-class Blob(AbsObj):
+class Blob(Backend):
     """
         Representation of a binary blob, i.e. an executable in an unknown file
         format.

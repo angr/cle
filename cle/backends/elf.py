@@ -2,9 +2,11 @@ import struct
 from elftools.elf import elffile, sections
 import archinfo
 
-from .absobj import Symbol, Relocation, Segment, Section
+from ..backends import Symbol, Segment, Section
+from ..errors import CLEError, CLEInvalidBinaryError
 from .metaelf import MetaELF
-from .errors import CLEError, CLEInvalidBinaryError
+from ..relocations import get_relocation
+from ..relocations.generic import MipsGlobalReloc, MipsLocalReloc
 
 import logging
 l = logging.getLogger('cle.elf')
@@ -21,15 +23,6 @@ class ELFSymbol(Symbol):
                                         symb.entry.st_info.bind,
                                         realtype,
                                         symb.entry.st_shndx)
-
-class ELFRelocation(Relocation):
-    def __init__(self, readelf_reloc, owner, symbol):
-        addend = readelf_reloc.entry.r_addend if readelf_reloc.is_RELA() else None
-        super(ELFRelocation, self).__init__(owner,
-                                            symbol,
-                                            readelf_reloc.entry.r_offset,
-                                            readelf_reloc.entry.r_info_type,
-                                            addend)
 
 class ELFSegment(Segment):
     def __init__(self, readelf_seg):
@@ -352,6 +345,7 @@ class ELF(MetaELF):
                     readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.memory, self.reader)
                     self.jmprel = {reloc.symbol.name: reloc for reloc in self.__register_relocs(readelf_jmprelsec)}
 
+
     def __register_relocs(self, section):
         relocs = []
         for readelf_reloc in section.iter_relocations():
@@ -373,26 +367,37 @@ class ELF(MetaELF):
 
                 if type_1 != 0:
                     readelf_reloc.entry.r_info_type = type_1
-                    reloc = ELFRelocation(readelf_reloc, self, symbol)
-                    relocs.append(reloc)
-                    self.relocs.append(reloc)
+                    reloc = self._make_reloc(readelf_reloc, symbol)
+                    if reloc is not None:
+                        relocs.append(reloc)
+                        self.relocs.append(reloc)
                 if type_2 != 0:
                     readelf_reloc.entry.r_info_type = type_2
-                    reloc = ELFRelocation(readelf_reloc, self, symbol)
-                    relocs.append(reloc)
-                    self.relocs.append(reloc)
+                    reloc = self._make_reloc(readelf_reloc, symbol)
+                    if reloc is not None:
+                        relocs.append(reloc)
+                        self.relocs.append(reloc)
                 if type_3 != 0:
                     readelf_reloc.entry.r_info_type = type_3
-                    reloc = ELFRelocation(readelf_reloc, self, symbol)
-                    relocs.append(reloc)
-                    self.relocs.append(reloc)
+                    reloc = self._make_reloc(readelf_reloc, symbol)
+                    if reloc is not None:
+                        relocs.append(reloc)
+                        self.relocs.append(reloc)
             else:
                 symbol = self.get_symbol(readelf_reloc.entry.r_info_sym)
-                reloc = ELFRelocation(readelf_reloc, self, symbol)
-                relocs.append(reloc)
-                self.relocs.append(reloc)
+                reloc = self._make_reloc(readelf_reloc, symbol)
+                if reloc is not None:
+                    relocs.append(reloc)
+                    self.relocs.append(reloc)
         return relocs
 
+    def _make_reloc(self, readelf_reloc, symbol):
+        addend = readelf_reloc.entry.r_addend if readelf_reloc.is_RELA() else None
+        RelocClass = get_relocation(self.arch.name, readelf_reloc.entry.r_info_type)
+        if RelocClass is None:
+            return None
+
+        return RelocClass(self, symbol, readelf_reloc.entry.r_offset, addend)
 
     def __register_tls(self, seg_readelf):
         self.tls_used = True
@@ -424,12 +429,12 @@ class ELF(MetaELF):
         gotaddr = self._dynamic['DT_PLTGOT']
         wordsize = self.arch.bytes
         for i in range(got_local_num):
-            reloc = Relocation(self, None, gotaddr + i*wordsize, 'mips_local')
+            reloc = MipsLocalReloc(self, None, gotaddr + i*wordsize)
             self.relocs.append(reloc)
 
         for i in range(symbol_count - symtab_got_idx):
             symbol = self.get_symbol(i + symtab_got_idx)
-            reloc = Relocation(self, symbol, gotaddr + (i + got_local_num)*wordsize, 'mips_global')
+            reloc = MipsGlobalReloc(self, symbol, gotaddr + (i + got_local_num)*wordsize)
             self.relocs.append(reloc)
             self.jmprel[symbol.name] = reloc
         return True

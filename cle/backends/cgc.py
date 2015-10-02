@@ -1,5 +1,5 @@
 from .elf import ELF
-from .loader import Loader
+from ..loader import Loader
 
 ELF_HEADER = "7f45 4c46 0101 0100 0000 0000 0000 0000".replace(" ","").decode('hex')
 
