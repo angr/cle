@@ -157,9 +157,18 @@ class Loader(object):
                 continue
 
             path = self._get_lib_path(dep)
+
             for path in self._possible_paths(dep):
                 libname = os.path.basename(path)
-                options = self._lib_opts.get(libname, {})
+                soname = self._extract_soname(path)
+
+                if libname in self._lib_opts.keys():
+                    options = self._lib_opts[libname]
+                elif soname in self._lib_opts.keys():
+                    options = self._lib_opts[soname]
+                else:
+                    options = {}
+
                 try:
                     obj = self.load_object(path, options, compatible_with=self.main_bin)
                     break
