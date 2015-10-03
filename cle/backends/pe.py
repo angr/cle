@@ -23,6 +23,13 @@ class WinSymbol(Symbol):
     def is_export(self):
         return self._is_export
 
+    @property
+    def is_function(self):
+        """
+        All symbols in PE files point to functions
+        """
+        return True
+
 class WinReloc(Relocation):
     def __init__(self, owner, symbol, addr, resolvewith):
         super(WinReloc, self).__init__(owner, symbol, addr, None)
