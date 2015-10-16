@@ -3,7 +3,7 @@ from elftools.elf import elffile, sections
 import archinfo
 
 from ..backends import Symbol, Segment, Section
-from ..errors import CLEError, CLEInvalidBinaryError
+from ..errors import CLEError, CLEInvalidBinaryError, CLECompatibilityError
 from .metaelf import MetaELF
 from ..relocations import get_relocation
 from ..relocations.generic import MipsGlobalReloc, MipsLocalReloc
@@ -63,7 +63,10 @@ class ELF(MetaELF):
     '''
     def __init__(self, binary, **kwargs):
         super(ELF, self).__init__(binary, **kwargs)
-        self.reader = elffile.ELFFile(open(self.binary, 'rb'))
+        try:
+            self.reader = elffile.ELFFile(open(self.binary, 'rb'))
+        except common.exceptions.ELFError:
+            raise CLECompatibilityError
 
         # Get an appropriate archinfo.Arch for this binary, unless the user specified one
         if self.arch is None:

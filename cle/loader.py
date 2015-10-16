@@ -638,10 +638,15 @@ class Loader(object):
             raise CLEError("Invalid path: %s" % path)
 
         f = open(path, 'rb')
-        e = elftools.elf.elffile.ELFFile(f)
-        dyn = e.get_section_by_name('.dynamic')
-        soname = [ x.soname for x in list(dyn.iter_tags()) if x.entry.d_tag == 'DT_SONAME']
-        return soname[0]
+        try:
+            e = elftools.elf.elffile.ELFFile(f)
+            dyn = e.get_section_by_name('.dynamic')
+            soname = [ x.soname for x in list(dyn.iter_tags()) if x.entry.d_tag == 'DT_SONAME']
+            return soname[0]
+        except elftools.common.exceptions.ELFError:
+            return None
+        finally:
+            f.close()
 
     def _check_compatibility(self, path):
         """
