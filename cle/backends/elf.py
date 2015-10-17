@@ -1,5 +1,6 @@
 import struct
 from elftools.elf import elffile, sections
+from elftools.common.exceptions import ELFError
 import archinfo
 
 from ..backends import Symbol, Segment, Section
@@ -65,7 +66,7 @@ class ELF(MetaELF):
         super(ELF, self).__init__(binary, **kwargs)
         try:
             self.reader = elffile.ELFFile(open(self.binary, 'rb'))
-        except common.exceptions.ELFError:
+        except ELFError:
             raise CLECompatibilityError
 
         # Get an appropriate archinfo.Arch for this binary, unless the user specified one
