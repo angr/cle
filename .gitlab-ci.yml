@@ -25,3 +25,9 @@ cle_lint:
     script: "angr-test lint"
     tags:
         - "angr"
+
+docs:
+    script: "angr-test docs"
+    tags:
+        - "angr"
+
