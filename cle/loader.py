@@ -236,10 +236,12 @@ class Loader(object):
     def identify_object(path):
         '''
          Returns the filetype of the file at path. Will be one of the strings
-         in {'elf', 'pe', 'mach-o', 'unknown'}
+         in {'elf', 'elfcore', 'pe', 'mach-o', 'unknown'}
         '''
         identstring = open(path, 'rb').read(0x1000)
         if identstring.startswith('\x7fELF'):
+            if elftools.elf.elffile.ELFFile(open(path, 'rb')).header['e_type'] == 'ET_CORE':
+                return 'elfcore'
             return 'elf'
         elif identstring.startswith('MZ') and len(identstring) > 0x40:
             peptr = struct.unpack('I', identstring[0x3c:0x40])[0]
