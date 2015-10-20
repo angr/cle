@@ -688,6 +688,10 @@ class Loader(object):
                 raise CLEError("%s/%s is overriden by gdb's" % (k,v))
         return dict(opts.items() + dest.items())
 
+    @property
+    def all_elf_objects(self):
+        return [o for o in self.all_objects if type(o) is ELF]
+
 from .errors import CLEError, CLEOperationError, CLEFileNotFoundError, CLECompatibilityError
 from .memory import Clemory
 from .tls import TLSObj
