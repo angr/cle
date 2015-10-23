@@ -373,10 +373,10 @@ class Loader(object):
         if o is None:
             return None
 
-        if type(o) is not ELF:
-            return repr(type(o))
-
         off = addr - o.rebase_addr
+
+        if type(o) is not ELF:
+            return "Offset %#x in %s" % (off, o.provides)
 
         if addr in o.plt.values():
             for k,v in o.plt.iteritems():
