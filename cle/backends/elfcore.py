@@ -34,6 +34,8 @@ class ELFCore(ELF):
     def __init__(self, binary, **kwargs):
         super(ELFCore, self).__init__(binary, **kwargs)
 
+        self.notes = [ ]
+
         # siginfo
         self.si_signo = None
         self.si_code = None
@@ -60,7 +62,14 @@ class ELFCore(ELF):
 
         self.__register_registers()
 
+        if not self.pr_fpvalid is None:
+            if not bool(self.pr_fpvalid):
+                l.warning("No SSE registers could be loaded from core file")
+
     supported_filetypes = ['elfcore']
+
+    def initial_register_values(self):
+        return self.registers.iteritems()
 
     def __register_registers(self):
         for seg_readelf in self.reader.iter_segments():
@@ -77,8 +86,6 @@ class ELFCore(ELF):
 
         blob = seg.data()
 
-        notes = [ ]
-
         note_pos = 0
         while note_pos < len(blob):
             name_sz, desc_sz, n_type = struct.unpack("<3I", blob[note_pos:note_pos+12])
@@ -91,11 +98,11 @@ class ELFCore(ELF):
             name = blob[note_pos+12:note_pos+12+name_sz-1]
             desc = blob[note_pos+12+name_sz_rounded:note_pos+12+name_sz_rounded+desc_sz]
 
-            notes.append(CoreNote(n_type, name, desc))
+            self.notes.append(CoreNote(n_type, name, desc))
             note_pos += n_size
 
         # prstatus
-        prstatus = filter(lambda x: x.n_type == 'NT_PRSTATUS', notes)
+        prstatus = filter(lambda x: x.n_type == 'NT_PRSTATUS', self.notes)
         if len(prstatus) > 1:
             raise CLEError("Multiple occurences of NT_PRSTATUS notes in core file")
         prstatus = prstatus[0]
@@ -144,7 +151,7 @@ class ELFCore(ELF):
 
         # parse out general purpose registers
         if self.arch.name == 'AMD64':
-            # reigster names as they appear in dump
+            # register names as they appear in dump
             rnames = ['r15', 'r14', 'r13', 'r12', 'rbp', 'rbx', 'r11', 'r10', 'r9', 'r8', 'rax', 'rcx', \
                     'rdx', 'rsi', 'rdi', 'xxx', 'rip', 'cs', 'eflags', 'rsp', 'ss', 'xxx', 'xxx', 'ds', 'es', \
                     'fs', 'gs']
