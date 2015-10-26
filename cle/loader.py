@@ -375,17 +375,15 @@ class Loader(object):
 
         off = addr - o.rebase_addr
 
-        if type(o) is not ELF:
-            return "Offset %#x in %s" % (off, o.provides)
+        if isinstance(o, ELF):
+            if addr in o.plt.values():
+                for k,v in o.plt.iteritems():
+                    if v == addr:
+                        return  "PLT stub of %s in %s (offset %#x)" % (k, o.provides, off)
 
-        if addr in o.plt.values():
-            for k,v in o.plt.iteritems():
-                if v == addr:
-                    return  "PLT stub of %s in %s (offset %#x)" % (k, o.provides, off)
-
-        if off in o.symbols_by_addr:
-            name = o.symbols_by_addr[off].name
-            return "%s (offset %#x) in %s" % (name, off, o.provides)
+            if off in o.symbols_by_addr:
+                name = o.symbols_by_addr[off].name
+                return "%s (offset %#x) in %s" % (name, off, o.provides)
 
         return "Offset %#x in %s" % (off, o.provides)
 
