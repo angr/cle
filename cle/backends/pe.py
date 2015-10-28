@@ -36,7 +36,7 @@ class WinReloc(Relocation):
         self.resolvewith = resolvewith
 
     def resolve_symbol(self, solist):
-        return super(WinReloc, self).resolve_symbol([x for x in solist if self.resolvewith == x.soname])
+        return super(WinReloc, self).resolve_symbol([x for x in solist if self.resolvewith == x.provides])
 
     @property
     def value(self):
@@ -63,9 +63,9 @@ class PE(Backend):
         else:
             self.deps = []
 
-        self.soname = os.path.basename(self.binary)
-        if not self.soname.endswith('.dll'):
-            self.soname = None
+        self.provides = os.path.basename(self.binary)
+        if not self.provides.endswith('.dll'):
+            self.provides = None
 
         self._exports = {}
         self._handle_imports()
@@ -81,10 +81,10 @@ class PE(Backend):
     supported_filetypes = ['pe']
 
     def get_min_addr(self):
-        return min(section.VirtualAddress - self.requested_base + self.rebase_addr for section in self._pe.sections)
+        return min(section.VirtualAddress + self.rebase_addr for section in self._pe.sections)
 
     def get_max_addr(self):
-        return max(section.VirtualAddress - self.requested_base + self.rebase_addr + section.Misc_VirtualSize - 1
+        return max(section.VirtualAddress + self.rebase_addr + section.Misc_VirtualSize - 1
                    for section in self._pe.sections)
 
     def get_symbol(self, name):
@@ -106,5 +106,5 @@ class PE(Backend):
         if hasattr(self._pe, 'DIRECTORY_ENTRY_EXPORT'):
             symbols = self._pe.DIRECTORY_ENTRY_EXPORT.symbols
             for exp in symbols:
-                symb = WinSymbol(self, exp.name, exp.address - self.requested_base, False, True)
+                symb = WinSymbol(self, exp.name, exp.address, False, True)
                 self._exports[exp.name] = symb
