@@ -160,7 +160,10 @@ class Loader(object):
 
             for path in self._possible_paths(dep):
                 libname = os.path.basename(path)
-                soname = self._extract_soname(path)
+                if self.identify_object(path) == 'elf':
+                    soname = self._extract_soname(path)
+                else:
+                    soname = libname
 
                 if libname in self._lib_opts.keys():
                     options = self._lib_opts[libname]
