@@ -26,6 +26,9 @@ class CoreNote(object):
         self.name = name
         self.desc = desc
 
+    def __repr__(self):
+        return "<Note %s %s %#x>" % (self.name, self.n_type, len(self.desc))
+
 class ELFCore(ELF):
     '''
      Loader class for ELF core files.
@@ -60,7 +63,7 @@ class ELFCore(ELF):
 
         self.pr_fpvalid = None
 
-        self.__register_registers()
+        self.__extract_note_info()
 
         if not self.pr_fpvalid is None:
             if not bool(self.pr_fpvalid):
@@ -71,7 +74,11 @@ class ELFCore(ELF):
     def initial_register_values(self):
         return self.registers.iteritems()
 
-    def __register_registers(self):
+    def __extract_note_info(self):
+        '''
+        all meaningful information about the process's state at crashtime is stored in the note
+        segment
+        '''
         for seg_readelf in self.reader.iter_segments():
             if seg_readelf.header.p_type == 'PT_NOTE':
                 self.__parse_notes(seg_readelf)
@@ -110,6 +117,13 @@ class ELFCore(ELF):
         self.__parse_prstatus(prstatus)
 
     def __parse_prstatus(self, prstatus):
+        '''
+        parse out the prstatus, accumulating the general purpose register values.
+        supports AMD64, X86, ARM, and AARCH64 at the moment.
+        TODO: support all architecutres angr supports
+
+        :param prstatus: a note object of type NT_PRSTATUS
+        '''
 
         # extract siginfo from prstatus
         self.si_signo, self.si_code, self.si_errno = struct.unpack("<3I", prstatus.desc[:12])
