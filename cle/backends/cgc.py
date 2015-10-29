@@ -12,5 +12,6 @@ class CGC(ELF):
         super(CGC, self).__init__(self.elf_path, *args, **kwargs)
         self.binary = self.elf_path
         self.os = 'cgc'
+        self.execstack = True # the stack is always executable in CGC
 
     supported_filetypes = ['cgc']
