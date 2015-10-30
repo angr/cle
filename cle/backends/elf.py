@@ -426,13 +426,14 @@ class ELF(MetaELF):
     def __relocate_mips(self):
         if 'DT_MIPS_BASE_ADDRESS' not in self._dynamic:
             return False
+        # The MIPS GOT is an array of addresses, simple as that.
         got_local_num = self._dynamic['DT_MIPS_LOCAL_GOTNO'] # number of local GOT entries
         # a.k.a the index of the first global GOT entry
         symtab_got_idx = self._dynamic['DT_MIPS_GOTSYM']   # index of first symbol w/ GOT entry
         symbol_count = self._dynamic['DT_MIPS_SYMTABNO']
         gotaddr = self._dynamic['DT_PLTGOT']
         wordsize = self.arch.bytes
-        for i in range(got_local_num):
+        for i in range(2, got_local_num):
             reloc = MipsLocalReloc(self, None, gotaddr + i*wordsize)
             self.relocs.append(reloc)
 
