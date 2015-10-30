@@ -67,6 +67,18 @@ class GenericTLSOffsetReloc(Relocation):
             self.owner_obj.memory.write_addr_at(self.addr, self.resolvedby.owner_obj.tls_block_offset + self.addend + self.symbol.addr)
         return True
 
+class GenericIRelativeReloc(Relocation):
+    def relocate(self, solist):
+        if self.symbol.type == 'STT_NOTYPE':
+            self.owner_obj.irelatives.append((self.owner_obj.rebase_addr + self.addend, self.addr))
+            self.resolve(None)
+            return True
+
+        if not self.resolve_symbol(solist):
+            return False
+
+        self.owner_obj.irelatives.append((self.resolvedby.rebased_addr, self.addr))
+
 class MipsGlobalReloc(GenericAbsoluteReloc):
     pass
 

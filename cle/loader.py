@@ -696,6 +696,13 @@ class Loader(object):
     def all_elf_objects(self):
         return [o for o in self.all_objects if type(o) is ELF]
 
+    def perform_irelative_relocs(self, resolver_func):
+        for obj in self.all_objects:
+            for resolver, dest in obj.irelatives:
+                val = resolver_func(resolver)
+                if val is not None:
+                    obj.memory.write_addr_at(dest, val)
+
 from .errors import CLEError, CLEOperationError, CLEFileNotFoundError, CLECompatibilityError
 from .memory import Clemory
 from .tls import TLSObj
