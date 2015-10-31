@@ -27,5 +27,6 @@ R_PPC64_DTPMOD64 = generic.GenericTLSModIdReloc
 R_PPC64_DTPREL64 = generic.GenericTLSDoffsetReloc
 R_PPC64_TPREL64 = generic.GenericTLSOffsetReloc
 R_PPC64_RELATIVE = generic.GenericRelativeReloc
+R_PPC64_IRELATIVE = generic.GenericIRelativeReloc
 R_PPC64_ADDR64 = generic.GenericAbsoluteAddendReloc
 R_PPC64_GLOB_DAT = generic.GenericJumpslotReloc

@@ -144,6 +144,7 @@ class Backend(object):
         self.imports = {}
         self.resolved_imports = []
         self.relocs = []
+        self.irelatives = []    # list of tuples (resolver, destination), dest w/o rebase
         self.jmprel = {}
         self.arch = None
         self.filetype = filetype
