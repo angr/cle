@@ -184,7 +184,7 @@ class ELFCore(ELF):
             rnames.append('xxx')
             nreg = 34
         else:
-            raise CLECompatibilityError("Architecture '%s' unsupported by ELFCore", self.arch.name)
+            raise CLECompatibilityError("Architecture '%s' unsupported by ELFCore" % self.arch.name)
 
         regvals = [ ]
         for idx in range(pos, pos+nreg*arch_bytes, arch_bytes):
