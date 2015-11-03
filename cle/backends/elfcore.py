@@ -65,7 +65,7 @@ class ELFCore(ELF):
 
         self.__extract_note_info()
 
-        if not self.pr_fpvalid is None:
+        if not self.pr_fpvalid is None and (self.arch.name == 'X86' or self.arch.name == 'AMD64'):
             if not bool(self.pr_fpvalid):
                 l.warning("No SSE registers could be loaded from core file")
 
@@ -183,6 +183,14 @@ class ELFCore(ELF):
             rnames.append('pc')
             rnames.append('xxx')
             nreg = 34
+        elif self.arch.name == 'MIPS32':
+            rnames = ['xxx', 'xxx', 'xxx', 'xxx', 'xxx', 'xxx', \
+                    'zero', 'at', 'v0', 'v1', 'a0', 'a1', 'a2', 'a3', \
+                    't0', 't1', 't2', 't3', 't4', 't5', 't6', 't7', \
+                    's0', 's1', 's2', 's3', 's4', 's5', 's6', 's7', \
+                    't8', 't9', 'k0', 'k1', 'gp', 'sp', 's8', 'ra', \
+                    'lo', 'hi', 'pc', 'bad', 'sr', 'status', 'cuase']
+            nreg = 45
         else:
             raise CLECompatibilityError("Architecture '%s' unsupported by ELFCore" % self.arch.name)
 
