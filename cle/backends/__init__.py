@@ -286,6 +286,7 @@ class Backend(object):
         return None
 
 from .elf import ELF
+from .elfcore import ELFCore
 from .pe import PE
 from .idabin import IDABin
 from .blob import Blob
@@ -295,6 +296,7 @@ from .metaelf import MetaELF
 
 ALL_BACKENDS = _ordered_dict((
     ('elf', ELF),
+    ('elfcore', ELFCore),
     ('pe', PE),
     ('cgc', CGC),
     ('backedcgc', BackedCGC),
