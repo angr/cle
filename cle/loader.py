@@ -160,7 +160,10 @@ class Loader(object):
 
             for path in self._possible_paths(dep):
                 libname = os.path.basename(path)
-                soname = self._extract_soname(path)
+                if self.identify_object(path) == 'elf':
+                    soname = self._extract_soname(path)
+                else:
+                    soname = libname
 
                 if libname in self._lib_opts.keys():
                     options = self._lib_opts[libname]
@@ -377,14 +380,15 @@ class Loader(object):
 
         off = addr - o.rebase_addr
 
-        if addr in o.plt.values():
-            for k,v in o.plt.iteritems():
-                if v == addr:
-                    return  "PLT stub of %s in %s (offset %#x)" % (k, o.provides, off)
+        if isinstance(o, ELF):
+            if addr in o.plt.values():
+                for k,v in o.plt.iteritems():
+                    if v == addr:
+                        return  "PLT stub of %s in %s (offset %#x)" % (k, o.provides, off)
 
-        if off in o.symbols_by_addr:
-            name = o.symbols_by_addr[off].name
-            return "%s (offset %#x) in %s" % (name, off, o.provides)
+            if off in o.symbols_by_addr:
+                name = o.symbols_by_addr[off].name
+                return "%s (offset %#x) in %s" % (name, off, o.provides)
 
         return "Offset %#x in %s" % (off, o.provides)
 
@@ -689,6 +693,17 @@ class Loader(object):
             if k in dest and v in dest[k]:
                 raise CLEError("%s/%s is overriden by gdb's" % (k,v))
         return dict(opts.items() + dest.items())
+
+    @property
+    def all_elf_objects(self):
+        return [o for o in self.all_objects if type(o) is ELF]
+
+    def perform_irelative_relocs(self, resolver_func):
+        for obj in self.all_objects:
+            for resolver, dest in obj.irelatives:
+                val = resolver_func(resolver)
+                if val is not None:
+                    obj.memory.write_addr_at(dest, val)
 
 from .errors import CLEError, CLEOperationError, CLEFileNotFoundError, CLECompatibilityError
 from .memory import Clemory
