@@ -1,4 +1,5 @@
 import struct
+import subprocess
 from elftools.elf import elffile, sections
 from elftools.common.exceptions import ELFError
 import archinfo
@@ -99,6 +100,7 @@ class ELF(MetaELF):
 
         self._symbol_cache = {}
         self.symbols_by_addr = {}
+        self.demangled_names = {}
         self.imports = {}
         self.resolved_imports = []
 
@@ -121,6 +123,8 @@ class ELF(MetaELF):
         # call the methods defined by MetaELF
         self._ppc64_abiv1_entry_fix()
         self._load_plt()
+
+        self._populate_demangled_names()
 
     def __getstate__(self):
         self.reader = None
@@ -443,6 +447,25 @@ class ELF(MetaELF):
             self.relocs.append(reloc)
             self.jmprel[symbol.name] = reloc
         return True
+
+    def _populate_demangled_names(self):
+        '''
+        TODO: remove this once a python implementation of a name demangler has
+        been implemented, then update self.demangled_names in Symbol
+        '''
+
+        names = [self.symbols_by_addr[s].name for s in self.symbols_by_addr]
+        names = filter(lambda n: n.startswith("_Z"), names)
+        lookup_names = map(lambda n: n.split("@@")[0], names)
+        # this monstrosity taken from stackoverflow
+        # http://stackoverflow.com/questions/6526500/c-name-mangling-library-for-python
+        args = ['c++filt']
+        args.extend(lookup_names)
+        pipe = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        stdout, _ = pipe.communicate()
+        demangled = stdout.split("\n")[:-1]
+
+        self.demangled_names = dict(zip(names, demangled))
 
 class ELFHashTable(object):
     """
