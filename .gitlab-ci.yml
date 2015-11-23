@@ -21,6 +21,11 @@ angrop:
     tags:
         - "angr"
 
+tracer:
+    script: "angr-test tracer"
+    tags:
+        - "angr"
+
 cle_lint:
     script: "angr-test lint"
     tags:
@@ -30,4 +35,3 @@ docs:
     script: "angr-test docs"
     tags:
         - "angr"
-
