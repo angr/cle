@@ -59,6 +59,14 @@ class ELFSection(Section):
                                          readelf_sec.header.sh_info,
                                          readelf_sec.header.sh_addralign)
 
+    def __repr__(self):
+        return "<%s | offset %#x, vaddr %#x, size %#x>" % (
+            self.name if self.name else "Unnamed",
+            self.offset,
+            self.vaddr,
+            self.memsize
+        )
+
 class ELF(MetaELF):
     '''
      The main loader class for statically loading elves. Uses the pyreadelf library where useful.
