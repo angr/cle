@@ -174,6 +174,7 @@ class Backend(object):
         self.filetype = filetype
         self.os = 'windows' if self.filetype == 'pe' else 'unix'
         self.compatible_with = compatible_with
+        self._symbol_cache = {}
 
         # These are set by cle, and should not be overriden manually
         self.rebase_addr = 0 # not to be set manually - used by CLE
@@ -319,6 +320,8 @@ class Backend(object):
         '''
          Stub function. Implement to find the symbol with name `name`.
         '''
+        if name in self._symbol_cache:
+            return self._symbol_cache[name]
         return None
 
 from .elf import ELF
