@@ -125,6 +125,8 @@ class ELF(MetaELF):
         self.tls_tdata_start = None
         self.tls_tdata_size = None
 
+        self.__parsed_reloc_tables = set()
+
         self.__register_segments()
         self.__register_sections()
 
@@ -161,14 +163,17 @@ class ELF(MetaELF):
                 elif 'DT_HASH' in self._dynamic:
                     self.hashtable = ELFHashTable(self.dynsym, self.memory, self._dynamic['DT_HASH'], self.arch)
 
-    def get_symbol(self, symid):
+    def get_symbol(self, symid, symbol_table=None):
         """
         Gets a Symbol object for the specified symbol
 
         @param symid: either an index into .dynsym or the name of a symbol.
         """
+        if symbol_table is None:
+            symbol_table = self.dynsym
+
         if isinstance(symid, (int, long)):
-            re_sym = self.dynsym.get_symbol(symid)
+            re_sym = symbol_table.get_symbol(symid)
             if re_sym.name in self._symbol_cache:
                 return self._symbol_cache[re_sym.name]
             symbol = ELFSymbol(self, re_sym)
@@ -363,6 +368,10 @@ class ELF(MetaELF):
 
 
     def __register_relocs(self, section):
+        if section.header['sh_offset'] in self.__parsed_reloc_tables:
+            return
+        self.__parsed_reloc_tables.add(section.header['sh_offset'])
+
         relocs = []
         for readelf_reloc in section.iter_relocations():
             # MIPS64 is just plain old fucked up
@@ -400,7 +409,8 @@ class ELF(MetaELF):
                         relocs.append(reloc)
                         self.relocs.append(reloc)
             else:
-                symbol = self.get_symbol(readelf_reloc.entry.r_info_sym)
+                symtab = self.reader.get_section(section.header['sh_link']) if 'sh_link' in section.header else None
+                symbol = self.get_symbol(readelf_reloc.entry.r_info_sym, symtab)
                 reloc = self._make_reloc(readelf_reloc, symbol)
                 if reloc is not None:
                     relocs.append(reloc)
@@ -428,6 +438,15 @@ class ELF(MetaELF):
             self.sections_map[section.name] = section
             if isinstance(sec_readelf, elffile.SymbolTableSection):
                 self.__register_section_symbols(sec_readelf)
+            if isinstance(sec_readelf, elffile.RelocationSection):
+                self.__register_relocs(sec_readelf)
+
+            if sec_readelf.header['sh_flags'] & 2:      # alloc flag - stick in memory maybe!
+                if sec_readelf.header['sh_addr'] not in self.memory:        # only allocate if not already allocated (i.e. by program header)
+                    if sec_readelf.header['sh_type'] == 'SH_NOBITS':
+                        self.memory.add_backer(sec_readelf.header['sh_addr'], '\0'*sec_readelf.header['sh_size'])
+                    else: #elif sec_readelf.header['sh_type'] == 'SH_PROGBITS':
+                        self.memory.add_backer(sec_readelf.header['sh_addr'], sec_readelf.data())
 
     def __register_section_symbols(self, sec_re):
         for sym_re in sec_re.iter_symbols():

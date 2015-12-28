@@ -262,6 +262,12 @@ class Backend(object):
         for segment in self.segments:
             if out is None or segment.min_addr < out:
                 out = segment.min_addr
+
+        if out is None:
+            for section in self.sections:
+                if out is None or section.min_addr < out:
+                    out = section.min_addr
+
         return out + self.rebase_addr
 
     def get_max_addr(self):
@@ -273,6 +279,12 @@ class Backend(object):
         for segment in self.segments:
             if out is None or segment.max_addr > out:
                 out = segment.max_addr
+
+        if out is None:
+            for section in self.sections:
+                if out is None or section.max_addr > out:
+                    out = section.max_addr
+
         return out + self.rebase_addr
 
     def set_got_entry(self, symbol_name, newaddr):
