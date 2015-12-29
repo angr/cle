@@ -12,3 +12,8 @@ R_386_IRELATIVE = generic.GenericIRelativeReloc
 R_386_TLS_DTPMOD32 = generic.GenericTLSModIdReloc
 R_386_TLS_TPOFF = generic.GenericTLSOffsetReloc
 R_386_TLS_DTPOFF32 = generic.GenericTLSDoffsetReloc
+
+class R_386_PC32(generic.Relocation):
+    @property
+    def value(self):
+        return self.resolvedby.rebased_addr + self.addend - self.rebased_addr
