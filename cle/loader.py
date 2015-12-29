@@ -318,6 +318,18 @@ class Loader(object):
             for reloc in obj.relocs:
                 reloc.relocate(self.all_objects)
 
+    def provide_symbol(self, owner, name, offset, size=0, binding='STB_GLOBAL', st_type='STT_FUNC', st_info='CLE'):
+        newsymbol = Symbol(owner, name, offset, size, binding, st_type, st_info)
+        owner._symbol_cache[name] = newsymbol
+        solist = [owner]
+
+        for obj in self.all_objects:
+            if isinstance(obj, (MetaELF, PE)):
+                for reloc in obj.relocs:
+                    if reloc.symbol and reloc.symbol.name == name:
+                        reloc.relocate(solist)
+
+
     def _get_safe_rebase_addr(self):
         """
         Get a "safe" rebase addr, i.e., that won't overlap with already loaded stuff.
@@ -708,4 +720,4 @@ class Loader(object):
 from .errors import CLEError, CLEOperationError, CLEFileNotFoundError, CLECompatibilityError
 from .memory import Clemory
 from .tls import TLSObj
-from .backends import IDABin, MetaELF, ELF, PE, ALL_BACKENDS, Backend
+from .backends import IDABin, MetaELF, ELF, PE, ALL_BACKENDS, Backend, Symbol

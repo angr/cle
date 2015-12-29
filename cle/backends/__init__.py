@@ -174,6 +174,7 @@ class Backend(object):
         self.filetype = filetype
         self.os = 'windows' if self.filetype == 'pe' else 'unix'
         self.compatible_with = compatible_with
+        self._symbol_cache = {}
 
         # These are set by cle, and should not be overriden manually
         self.rebase_addr = 0 # not to be set manually - used by CLE
@@ -262,6 +263,12 @@ class Backend(object):
         for segment in self.segments:
             if out is None or segment.min_addr < out:
                 out = segment.min_addr
+
+        if out is None:
+            for section in self.sections:
+                if out is None or section.min_addr < out:
+                    out = section.min_addr
+
         return out + self.rebase_addr
 
     def get_max_addr(self):
@@ -273,6 +280,12 @@ class Backend(object):
         for segment in self.segments:
             if out is None or segment.max_addr > out:
                 out = segment.max_addr
+
+        if out is None:
+            for section in self.sections:
+                if out is None or section.max_addr > out:
+                    out = section.max_addr
+
         return out + self.rebase_addr
 
     def set_got_entry(self, symbol_name, newaddr):
@@ -307,6 +320,8 @@ class Backend(object):
         '''
          Stub function. Implement to find the symbol with name `name`.
         '''
+        if name in self._symbol_cache:
+            return self._symbol_cache[name]
         return None
 
 from .elf import ELF

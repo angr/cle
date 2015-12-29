@@ -271,10 +271,16 @@ class Clemory(object):
 
     @property
     def _needs_flattening(self):
+        '''
+        WARNING:
+        ONLY use this property if you're going to flatten it immediately after seeing a True result
+        This is what is expected
+        debuggers beware
+        '''
         out = self._needs_flattening_personal
         for backer in self._backers:
-            if isinstance(backer, Clemory):
-                out |= backer._needs_flattening
+            if isinstance(backer[1], Clemory):
+                out |= backer[1]._needs_flattening
 
         self._needs_flattening_personal = False
         return out
