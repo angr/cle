@@ -1,13 +1,15 @@
 import pefile
 import archinfo
 import os
-from ..backends import Backend, Symbol
+from ..backends import Backend, Symbol, Section
 from ..relocations import Relocation
 
 __all__ = ('PE',)
 
 import logging
 l = logging.getLogger('cle.pe')
+
+# Reference: https://msdn.microsoft.com/en-us/library/ms809762.aspx
 
 class WinSymbol(Symbol):
     def __init__(self, owner, name, addr, is_import, is_export):
@@ -42,6 +44,33 @@ class WinReloc(Relocation):
     def value(self):
         return self.resolvedby.rebased_addr
 
+class PESection(Section):
+    def __init__(self, pe_section):
+        super(PESection, self).__init__(
+            pe_section.Name,
+            pe_section.Misc_PhysicalAddress,
+            pe_section.VirtualAddress,
+            pe_section.Misc_VirtualSize,
+        )
+
+        self.characteristics = pe_section.Characteristics
+
+    #
+    # Public properties
+    #
+
+    @property
+    def is_readable(self):
+        return self.characteristics & 0x40000000
+
+    @property
+    def is_writable(self):
+        return self.characteristics & 0x20000000
+
+    @property
+    def is_executable(self):
+        return self.characteristics & 0x20000000
+
 class PE(Backend):
     """
     Representation of a PE (i.e. Windows) binary
@@ -70,6 +99,7 @@ class PE(Backend):
         self._exports = {}
         self._handle_imports()
         self._handle_exports()
+        self._register_sections()
         self.linking = 'dynamic' if len(self.deps) > 0 else 'static'
 
         self.jmprel = self._get_jmprel()
@@ -80,6 +110,10 @@ class PE(Backend):
 
     supported_filetypes = ['pe']
 
+    #
+    # Public methods
+    #
+
     def get_min_addr(self):
         return min(section.VirtualAddress + self.rebase_addr for section in self._pe.sections)
 
@@ -89,6 +123,10 @@ class PE(Backend):
 
     def get_symbol(self, name):
         return self._exports.get(name, None)
+
+    #
+    # Private methods
+    #
 
     def _get_jmprel(self):
         return self.imports
@@ -108,3 +146,13 @@ class PE(Backend):
             for exp in symbols:
                 symb = WinSymbol(self, exp.name, exp.address, False, True)
                 self._exports[exp.name] = symb
+
+    def _register_sections(self):
+        """
+        Wrap self._pe.sections in PESection objects, and add them to self.sections
+        :return: None
+        """
+
+        for pe_section in self._pe.sections:
+            section = PESection(pe_section)
+            self.sections.append(section)
