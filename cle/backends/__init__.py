@@ -245,17 +245,21 @@ class Backend(object):
                 return True
         return False
 
-    def find_segment_containing(self, vaddr):
-        """ Returns the segment that contains @vaddr, or None """
+    def find_segment_containing(self, addr):
+        """ Returns the segment that contains @addr, or None """
         for s in self.segments:
-            if s.contains_addr(vaddr - self.rebase_addr):
+            if s.contains_addr(addr - self.rebase_addr):
                 return s
 
-    def find_section_containing(self, vaddr):
-        """ Returns the section that contains @vaddr, or None """
+        return None
+
+    def find_section_containing(self, addr):
+        """ Returns the section that contains @addr, or None """
         for s in self.sections:
-            if s.contains_addr(vaddr - self.rebase_addr):
+            if s.contains_addr(addr - self.rebase_addr):
                 return s
+
+        return None
 
     def addr_to_offset(self, addr):
         for s in self.segments:
