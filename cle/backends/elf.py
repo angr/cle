@@ -47,25 +47,41 @@ class ELFSegment(Segment):
         return self.flags & 1 != 0
 
 class ELFSection(Section):
-    def __init__(self, readelf_sec):
-        super(ELFSection, self).__init__(readelf_sec.name,
-                                         readelf_sec.header.sh_offset,
-                                         readelf_sec.header.sh_addr,
-                                         readelf_sec.header.sh_size,
-                                         readelf_sec.header.sh_type,
-                                         readelf_sec.header.sh_entsize,
-                                         readelf_sec.header.sh_flags,
-                                         readelf_sec.header.sh_link,
-                                         readelf_sec.header.sh_info,
-                                         readelf_sec.header.sh_addralign)
+    SHF_WRITE = 0x1
+    SHF_ALLOC = 0x2
+    SHF_EXECINSTR = 0x4
+    SHF_STRINGS = 0x20
 
-    def __repr__(self):
-        return "<%s | offset %#x, vaddr %#x, size %#x>" % (
-            self.name if self.name else "Unnamed",
-            self.offset,
-            self.vaddr,
-            self.memsize
+    def __init__(self, readelf_sec):
+        super(ELFSection, self).__init__(
+            readelf_sec.name,
+            readelf_sec.header.sh_offset,
+            readelf_sec.header.sh_addr,
+            readelf_sec.header.sh_size
         )
+
+        self.type = readelf_sec.header.sh_type
+        self.entsize = readelf_sec.header.sh_entsize
+        self.flags = readelf_sec.header.sh_flags
+        self.link = readelf_sec.header.sh_link
+        self.info = readelf_sec.header.sh_info
+        self.align = readelf_sec.header.sh_addralign
+
+    @property
+    def is_writable(self):
+        return self.flags & self.SHF_WRITE != 0
+
+    @property
+    def occupies_memory(self):
+        return self.flags & self.SHF_ALLOC != 0
+
+    @property
+    def is_executable(self):
+        return self.flags & self.SHF_EXECINSTR != 0
+
+    @property
+    def is_strings(self):
+        return self.flags & self.SHF_STRINGS != 0
 
 class ELF(MetaELF):
     '''

@@ -63,16 +63,30 @@ class Segment(Region):
     pass
 
 class Section(Region):
-    """ Simple representation of an ELF file section"""
-    def __init__(self, name, offset, vaddr, size, sectype, entsize, flags, link, info, align):
+    """ Simple representation of a section"""
+    def __init__(self, name, offset, vaddr, size):
         super(Section, self).__init__(offset, vaddr, size, size)
         self.name = name
-        self.type = sectype
-        self.entsize = entsize
-        self.flags = flags
-        self.link = link
-        self.info = info
-        self.align = align
+
+    @property
+    def is_readable(self):
+        raise NotImplementedError()
+
+    @property
+    def is_writable(self):
+        raise NotImplementedError()
+
+    @property
+    def is_readable(self):
+        raise NotImplementedError()
+
+    def __repr__(self):
+        return "<%s | offset %#x, vaddr %#x, size %#x>" % (
+            self.name if self.name else "Unnamed",
+            self.offset,
+            self.vaddr,
+            self.memsize
+        )
 
 class Symbol(object):
     """
