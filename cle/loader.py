@@ -633,6 +633,7 @@ class Loader(object):
             if self._gdb_fix:
                 addr = addr - self._get_text_offset(lib)
 
+            l.info("gdb_plugin: mapped %s to 0x%x" % (lib, addr))
             lib_opts[soname] = {"custom_base_addr":addr}
         return lib_opts
 
