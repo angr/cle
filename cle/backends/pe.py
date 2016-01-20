@@ -135,9 +135,12 @@ class PE(Backend):
         if hasattr(self._pe, 'DIRECTORY_ENTRY_IMPORT'):
             for entry in self._pe.DIRECTORY_ENTRY_IMPORT:
                 for imp in entry.imports:
-                    symb = WinSymbol(self, imp.name, 0, True, False)
+                    imp_name = imp.name
+                    if imp_name is None: # must be an import by ordinal
+                        imp_name = "%s.ordinal_import.%d" % (entry.dll, imp.ordinal)
+                    symb = WinSymbol(self, imp_name, 0, True, False)
                     reloc = WinReloc(self, symb, imp.address - self.requested_base, entry.dll)
-                    self.imports[imp.name] = reloc
+                    self.imports[imp_name] = reloc
                     self.relocs.append(reloc)
 
     def _handle_exports(self):
