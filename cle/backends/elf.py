@@ -121,6 +121,7 @@ class ELF(MetaELF):
         self._init_arr = []
         self._fini_func = None
         self._fini_arr = []
+        self._nullsymbol = Symbol(self, '', 0, 0, None, 'STT_NONE', 0)
 
         self._symbol_cache = {}
         self.symbols_by_addr = {}
@@ -189,6 +190,9 @@ class ELF(MetaELF):
             symbol_table = self.dynsym
 
         if isinstance(symid, (int, long)):
+            if symid == 0:
+                # special case the null symbol, this is important for static binaries
+                return self._nullsymbol
             re_sym = symbol_table.get_symbol(symid)
             if re_sym.name in self._symbol_cache:
                 return self._symbol_cache[re_sym.name]
