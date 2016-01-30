@@ -96,16 +96,16 @@ class ELF(MetaELF):
 
         # Get an appropriate archinfo.Arch for this binary, unless the user specified one
         if self.arch is None:
-            if self.reader.header.e_machine == 'EM_ARM' and \
-                    self.reader.header.e_flags & 0x200:
-                self.set_arch(archinfo.ArchARMEL('Iend_LE' if 'LSB' in self.reader.header.e_ident.EI_DATA else 'Iend_BE'))
-            elif self.reader.header.e_machine == 'EM_ARM' and \
-                    self.reader.header.e_flags & 0x400:
-                self.set_arch(archinfo.ArchARMHF('Iend_LE' if 'LSB' in self.reader.header.e_ident.EI_DATA else 'Iend_BE'))
+            arch_str = self.reader['e_machine']
+            if arch_str == 'ARM':
+                if self.reader.header.e_flags & 0x200:
+                    self.set_arch(archinfo.ArchARMEL('Iend_LE' if self.reader.little_endian else 'Iend_BE'))
+                elif self.reader.header.e_flags & 0x400:
+                    self.set_arch(archinfo.ArchARMHF('Iend_LE' if self.reader.little_endian else 'Iend_BE'))
             else:
-                self.set_arch(archinfo.arch_from_id(self.reader.header.e_machine,
-                                                self.reader.header.e_ident.EI_DATA,
-                                                self.reader.header.e_ident.EI_CLASS))
+                self.set_arch(archinfo.arch_from_id(arch_str,
+                                                'le' if self.reader.little_endian else 'be',
+                                                self.reader.elfclass))
 
         self.strtab = None
         self.dynsym = None
