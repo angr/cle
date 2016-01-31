@@ -42,7 +42,10 @@ class MetaELF(Backend):
 
         # What's in the got slot for @name ?
         got = self.jmprel[name].addr
-        addr = self.memory.read_addr_at(got)
+        try:
+            addr = self.memory.read_addr_at(got)
+        except KeyError:
+            return None
 
         # This is the address of the next second instruction in the PLT stub
         # This is hackish but it works
@@ -81,6 +84,7 @@ class MetaELF(Backend):
 
         if name in self._plt:
             return self._plt[name] + self.rebase_addr
+        return None
 
     @property
     def is_ppc64_abiv1(self):
