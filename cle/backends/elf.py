@@ -363,6 +363,9 @@ class ELF(MetaELF):
                 # try to parse relocations out of a table of type DT_REL{,A}
                 if 'DT_' + self.rela_type in self._dynamic:
                     reloffset = self._dynamic['DT_' + self.rela_type]
+                    if 'DT_' + self.rela_type + 'SZ' not in self._dynamic:
+                        raise CLEInvalidBinaryError('Dynamic section contains DT_' + self.rela_type +
+                                ', but DT_' + self.rela_type + 'SZ is not present')
                     relsz = self._dynamic['DT_' + self.rela_type + 'SZ']
                     fakerelheader = {
                         'sh_offset': reloffset,
