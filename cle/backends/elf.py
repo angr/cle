@@ -376,6 +376,8 @@ class ELF(MetaELF):
                 # try to parse relocations out of a table of type DT_JMPREL
                 if 'DT_JMPREL' in self._dynamic:
                     jmpreloffset = self._dynamic['DT_JMPREL']
+                    if 'DT_PLTRELSZ' not in self._dynamic:
+                        raise CLEInvalidBinaryError('Dynamic section contains DT_JMPREL, but DT_PLTRELSZ is not present')
                     jmprelsz = self._dynamic['DT_PLTRELSZ']
                     fakejmprelheader = {
                         'sh_offset': jmpreloffset,
