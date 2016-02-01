@@ -121,7 +121,7 @@ class ELF(MetaELF):
         self._init_arr = []
         self._fini_func = None
         self._fini_arr = []
-        self._nullsymbol = Symbol(self, '', 0, 0, None, 'STT_NONE', 0)
+        self._nullsymbol = Symbol(self, '', 0, 0, None, 'STT_NOTYPE', 0)
 
         self._symbol_cache = {}
         self.symbols_by_addr = {}
