@@ -96,16 +96,16 @@ class ELF(MetaELF):
 
         # Get an appropriate archinfo.Arch for this binary, unless the user specified one
         if self.arch is None:
-            if self.reader.header.e_machine == 'EM_ARM' and \
-                    self.reader.header.e_flags & 0x200:
-                self.set_arch(archinfo.ArchARMEL('Iend_LE' if 'LSB' in self.reader.header.e_ident.EI_DATA else 'Iend_BE'))
-            elif self.reader.header.e_machine == 'EM_ARM' and \
-                    self.reader.header.e_flags & 0x400:
-                self.set_arch(archinfo.ArchARMHF('Iend_LE' if 'LSB' in self.reader.header.e_ident.EI_DATA else 'Iend_BE'))
+            arch_str = self.reader['e_machine']
+            if arch_str == 'ARM':
+                if self.reader.header.e_flags & 0x200:
+                    self.set_arch(archinfo.ArchARMEL('Iend_LE' if self.reader.little_endian else 'Iend_BE'))
+                elif self.reader.header.e_flags & 0x400:
+                    self.set_arch(archinfo.ArchARMHF('Iend_LE' if self.reader.little_endian else 'Iend_BE'))
             else:
-                self.set_arch(archinfo.arch_from_id(self.reader.header.e_machine,
-                                                self.reader.header.e_ident.EI_DATA,
-                                                self.reader.header.e_ident.EI_CLASS))
+                self.set_arch(archinfo.arch_from_id(arch_str,
+                                                'le' if self.reader.little_endian else 'be',
+                                                self.reader.elfclass))
 
         self.strtab = None
         self.dynsym = None
@@ -363,6 +363,9 @@ class ELF(MetaELF):
                 # try to parse relocations out of a table of type DT_REL{,A}
                 if 'DT_' + self.rela_type in self._dynamic:
                     reloffset = self._dynamic['DT_' + self.rela_type]
+                    if 'DT_' + self.rela_type + 'SZ' not in self._dynamic:
+                        raise CLEInvalidBinaryError('Dynamic section contains DT_' + self.rela_type +
+                                ', but DT_' + self.rela_type + 'SZ is not present')
                     relsz = self._dynamic['DT_' + self.rela_type + 'SZ']
                     fakerelheader = {
                         'sh_offset': reloffset,
@@ -376,6 +379,8 @@ class ELF(MetaELF):
                 # try to parse relocations out of a table of type DT_JMPREL
                 if 'DT_JMPREL' in self._dynamic:
                     jmpreloffset = self._dynamic['DT_JMPREL']
+                    if 'DT_PLTRELSZ' not in self._dynamic:
+                        raise CLEInvalidBinaryError('Dynamic section contains DT_JMPREL, but DT_PLTRELSZ is not present')
                     jmprelsz = self._dynamic['DT_PLTRELSZ']
                     fakejmprelheader = {
                         'sh_offset': jmpreloffset,
