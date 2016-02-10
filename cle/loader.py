@@ -308,15 +308,13 @@ class Loader(object):
             return
         self._relocated_objects.add(obj.binary)
 
-        for dep_name in obj.deps:
-            if dep_name not in self.shared_objects:
-                continue
-            dep_obj = self.shared_objects[dep_name]
+        dep_objs = [self.shared_objects[dep_name] for dep_name in obj.deps if dep_name in self.shared_objects]
+        for dep_obj in dep_objs:
             self._perform_reloc(dep_obj)
 
         if isinstance(obj, (MetaELF, PE)):
             for reloc in obj.relocs:
-                reloc.relocate(self.all_objects)
+                reloc.relocate(dep_objs + [obj])
 
     def provide_symbol(self, owner, name, offset, size=0, binding='STB_GLOBAL', st_type='STT_FUNC', st_info='CLE'):
         newsymbol = Symbol(owner, name, offset, size, binding, st_type, st_info)
@@ -633,7 +631,7 @@ class Loader(object):
             if self._gdb_fix:
                 addr = addr - self._get_text_offset(lib)
 
-            l.info("gdb_plugin: mapped %s to 0x%x" % (lib, addr))
+            l.info("gdb_plugin: mapped %s to %#x", lib, addr)
             lib_opts[soname] = {"custom_base_addr":addr}
         return lib_opts
 
@@ -709,7 +707,7 @@ class Loader(object):
 
     @property
     def all_elf_objects(self):
-        return [o for o in self.all_objects if type(o) is ELF]
+        return [o for o in self.all_objects if isinstance(o, MetaELF)]
 
     def perform_irelative_relocs(self, resolver_func):
         for obj in self.all_objects:
