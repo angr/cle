@@ -28,7 +28,7 @@ class WinSymbol(Symbol):
     @property
     def is_function(self):
         """
-        All symbols in PE files point to functions
+        All symbols in PE files point to functions.
         """
         return True
 
@@ -73,7 +73,7 @@ class PESection(Section):
 
 class PE(Backend):
     """
-    Representation of a PE (i.e. Windows) binary
+    Representation of a PE (i.e. Windows) binary.
     """
 
     def __init__(self, *args, **kwargs):
@@ -152,8 +152,7 @@ class PE(Backend):
 
     def _register_sections(self):
         """
-        Wrap self._pe.sections in PESection objects, and add them to self.sections
-        :return: None
+        Wrap self._pe.sections in PESection objects, and add them to self.sections.
         """
 
         for pe_section in self._pe.sections:

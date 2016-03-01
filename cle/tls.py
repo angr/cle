@@ -102,8 +102,8 @@ class TLSObj(Backend):
         return TLS_ALLOC_SIZE + self.rebase_addr
 
     def get_addr(self, module_id, offset):
-        '''
+        """
          basically __tls_get_addr
-        '''
+        """
         return self.thread_pointer + self.modules[module_id-1].tls_block_offset + offset
 

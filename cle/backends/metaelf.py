@@ -5,8 +5,7 @@ __all__ = ('MetaELF',)
 
 class MetaELF(Backend):
     """
-    A base classt that implements functions used by all backends that can load
-    an ELF.
+    A base class that implements functions used by all backends that can load an ELF.
     """
     def __init__(self, *args, **kwargs):
         super(MetaELF, self).__init__(*args, **kwargs)
@@ -27,16 +26,15 @@ class MetaELF(Backend):
 
     def _get_plt_stub_addr(self, name):
         """
-        Guess the address of the PLT stub for function @name.
-        Functions must have a know GOT entry in self.jmprel
+        Guess the address of the PLT stub for function *name*. Functions must have a know GOT entry in self.jmprel.
 
-        It should be safe to call regardless of if you've resolved simprocedures
-        or not, since those modifications are on the root clemory, and we're manipulating
-        one of its backers here.
+        It should be safe to call regardless of if you've resolved simprocedures or not, since those modifications are
+        on the root clemory, and we're manipulating one of its backers here.
 
         NOTE: you probably want to call get_call_stub_addr() instead.
-        TODO: sections fallback for statically linked binaries
         """
+        # TODO: sections fallback for statically linked binaries.
+
         if name not in self.jmprel:
             return None
 
@@ -62,17 +60,24 @@ class MetaELF(Backend):
 
     @property
     def plt(self):
-        ''' Maps names to addresses '''
+        """
+        Maps names to addresses.
+        """
         return {k: v + self.rebase_addr for (k, v) in self._plt.iteritems()}
 
     @property
     def reverse_plt(self):
-        ''' Maps addresses to names '''
+        """
+        Maps addresses to names.
+        """
         return {v + self.rebase_addr: k for (k, v) in self._plt.iteritems()}
 
     def get_call_stub_addr(self, name):
         """
         Usually, the PLT stub is called when jumping to an external function.
+
+        :param name: The name of a function.
+        :return:     The address of the call stub.
         """
         # FIXME: this doesn't work on PPC. It will return .plt address of the
         # function, but it is not what is called in practice...
@@ -84,13 +89,17 @@ class MetaELF(Backend):
 
     @property
     def is_ppc64_abiv1(self):
+        """
+        Returns whether the arch is powerpc64 ABIv1.
+
+        :return: True if powerpc64 ABIv1, False otherwise.
+        """
         return self.arch.name == 'PPC64' and self.elfflags & 3 < 2
 
     def _ppc64_abiv1_entry_fix(self):
         """
-        On powerpc64, the e_flags elf header entry's lowest two bits determine
-        the ABI type. in ABIv1, the entry point given in the elf headers is not
-        actually the entry point, but rather the address in memory where there
+        On powerpc64, the e_flags elf header entry's lowest two bits determine the ABI type. in ABIv1, the entry point
+        given in the elf headers is not actually the entry point, but rather the address in memory where there
         exists a pointer to the entry point.
 
         Utter bollocks, but this function should fix it.

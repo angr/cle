@@ -13,10 +13,10 @@ class Region(object):
     """
     A region of memory that is mapped in the object's file.
 
-    offset is the offset into the file the region starts
-    vaddr (or just addr) is the virtual address
-    filesize (or just size) is the size of the region in the file
-    memsize (or vsize) is the size of the region when loaded into memory
+    :ivar offset:             The offset into the file the region starts.
+    :ivar addr or vaddr:      The virtual address.
+    :ivar size or filesize:   The size of the region in the file.
+    :ivar memsize or vsize:   The size of the region when loaded into memory.
     """
     def __init__(self, offset, vaddr, size, vsize):
         self.vaddr = vaddr
@@ -59,11 +59,15 @@ class Region(object):
 
 
 class Segment(Region):
-    """ Simple representation of an ELF file segment"""
+    """
+    Simple representation of an ELF file segment.
+    """
     pass
 
 class Section(Region):
-    """ Simple representation of a section"""
+    """
+    Simple representation of a section.
+    """
     def __init__(self, name, offset, vaddr, size):
         super(Section, self).__init__(offset, vaddr, size, size)
         self.name = name
@@ -92,9 +96,8 @@ class Symbol(object):
     """
     Representation of a symbol from a binary file. Smart enough to rebase itself.
 
-    There should never be more than one Symbol instance representing a single
-    symbol. To make sure of this, only use the get_symbol method in the backend
-    objects.
+    There should never be more than one Symbol instance representing a single symbol. To make sure of this, only use
+    the get_symbol method in the backend objects.
     """
     def __init__(self, owner, name, addr, size, binding, sym_type, sh_info):
         super(Symbol, self).__init__()
@@ -110,11 +113,11 @@ class Symbol(object):
         if self.addr != 0:
             self.owner_obj.symbols_by_addr[self.addr] = self
             # would be nice if we could populate demangled_names here...
-            '''
-            demangled = self.demangled_name
-            if demangled is not None:
-                self.owner_obj.demangled_names[self.name] = demangled
-            '''
+
+            #demangled = self.demangled_name
+            #if demangled is not None:
+            #    self.owner_obj.demangled_names[self.name] = demangled
+
 
     def resolve(self, obj):
         self.resolved = True
@@ -237,8 +240,8 @@ class Backend(object):
         return self._entry + self.rebase_addr
 
     def contains_addr(self, addr):
-        """ Is @vaddr in one of the binary's segments we have loaded ?
-        (i.e., is it mapped into memory ?)
+        """
+        Is `vaddr` in one of the binary's segments we have loaded ? (i.e. is it mapped into memory ?)
         """
         for i in self.segments:
             if i.contains_addr(addr - self.rebase_addr):
@@ -246,7 +249,9 @@ class Backend(object):
         return False
 
     def find_segment_containing(self, addr):
-        """ Returns the segment that contains @addr, or None """
+        """
+        Returns the segment that contains `addr`, or ``None``.
+        """
         for s in self.segments:
             if s.contains_addr(addr - self.rebase_addr):
                 return s
@@ -254,7 +259,9 @@ class Backend(object):
         return None
 
     def find_section_containing(self, addr):
-        """ Returns the section that contains @addr, or None """
+        """
+        Returns the section that contains `addr` or ``None``.
+        """
         for s in self.sections:
             if s.contains_addr(addr - self.rebase_addr):
                 return s
@@ -273,8 +280,8 @@ class Backend(object):
                 return s.offset_to_addr(offset) + self.rebase_addr
 
     def get_min_addr(self):
-        """ This returns the lowest virtual address contained in any loaded
-        segment of the binary.
+        """
+        This returns the lowest virtual address contained in any loaded segment of the binary.
         """
 
         out = None
@@ -290,8 +297,8 @@ class Backend(object):
         return out + self.rebase_addr
 
     def get_max_addr(self):
-        """ This returns the highest virtual address contained in any loaded
-        segment of the binary.
+        """
+        This returns the highest virtual address contained in any loaded segment of the binary.
         """
 
         out = None
@@ -307,11 +314,10 @@ class Backend(object):
         return out + self.rebase_addr
 
     def set_got_entry(self, symbol_name, newaddr):
-        '''
-         This overrides the address of the function defined by @symbol with
-         the new address @newaddr.
-         This is used to call simprocedures instead of actual code
-        '''
+        """
+        This overrides the address of the function defined by *symbol* with the new address *newaddr*. This is used to
+        call simprocedures instead of actual code,
+        """
 
         if symbol_name not in self.imports:
             l.warning("Could not override the address of symbol %s: symbol entry not "
@@ -321,23 +327,22 @@ class Backend(object):
         self.memory.write_addr_at(self.imports[symbol_name].addr, newaddr)
 
     def get_initializers(self): # pylint: disable=no-self-use
-        '''
-         Stub function. Should be overridden by backends that can provide
-         initializer functions that ought to be run before execution reaches
-         the entry point. Addresses should be rebased.
-        '''
+        """
+        Stub function. Should be overridden by backends that can provide initializer functions that ought to be run
+        before execution reaches the entry point. Addresses should be rebased.
+        """
         return []
 
     def get_finalizers(self): # pylint: disable=no-self-use
-        '''
-         Stub function. Like get_initializers, but with finalizers.
-        '''
+        """
+        Stub function. Like get_initializers, but with finalizers.
+        """
         return []
 
     def get_symbol(self, name): # pylint: disable=no-self-use,unused-argument
-        '''
-         Stub function. Implement to find the symbol with name `name`.
-        '''
+        """
+        Stub function. Implement to find the symbol with name `name`.
+        """
         if name in self._symbol_cache:
             return self._symbol_cache[name]
         return None

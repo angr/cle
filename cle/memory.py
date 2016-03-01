@@ -8,9 +8,8 @@ __all__ = ('Clemory',)
 
 class Clemory(object):
     """
-    An object representing a memory space. Uses "backers" and "updates"
-    to separate the concepts of loaded and written memory and make
-    lookups more efficient.
+    An object representing a memory space. Uses "backers" and "updates" to separate the concepts of loaded and written
+    memory and make lookups more efficient.
 
     Accesses can be made with [index] notation.
     """
@@ -28,8 +27,8 @@ class Clemory(object):
         """
         Adds a backer to the memory.
 
-        @param start        The address where the backer should be loaded
-        @param data         The backer itself. Can be either a string or another Clemory
+        :param start:   The address where the backer should be loaded.
+        :param data:    The backer itself. Can be either a string or another Clemory.
         """
         if not isinstance(data, (str, Clemory)):
             raise TypeError("Data must be a string or a Clemory")
@@ -106,7 +105,7 @@ class Clemory(object):
         self.__dict__.update(data)
 
     def read_bytes(self, addr, n):
-        """ Read @n bytes at address @addr in memory and return an array of bytes
+        """ Read *n* bytes at address *addr* in memory and return an array of bytes.
         """
         b = []
         for i in range(addr, addr+n):
@@ -115,15 +114,15 @@ class Clemory(object):
 
     def write_bytes(self, addr, data):
         """
-        Write bytes from @data at address @addr
+        Write bytes from *data* at address *addr*.
         """
         for i, c in enumerate(data):
             self[addr+i] = c
 
     def write_bytes_to_backer(self, addr, data):
         """
-        Write bytes from @data at address @addr to backer instead of self._updates
-        This is only needed when writing a huge amount of data
+        Write bytes from @data at address *addr* to backer instead of self._updates. This is only needed when writing a
+        huge amount of data.
         """
 
         pos = addr
@@ -178,14 +177,13 @@ class Clemory(object):
 
     def read_addr_at(self, where):
         """
-        Read addr stored in memory as a serie of bytes starting at @where
+        Read addr stored in memory as a series of bytes starting at *where*.
         """
         return struct.unpack(self._arch.struct_fmt(), ''.join(self.read_bytes(where, self._arch.bytes)))[0]
 
     def write_addr_at(self, where, addr):
         """
-        Writes @addr into a serie of bytes in memory at @where
-        @archinfo is an cle.Archinfo instance
+        Writes *addr* into a series of bytes in memory at *where*.
         """
         by = struct.pack(self._arch.struct_fmt(), addr % (2**self._arch.bits))
         self.write_bytes(where, by)
@@ -210,26 +208,24 @@ class Clemory(object):
     @property
     def stride_repr(self):
         """
-        Returns a representation of memory in a list of (start, end, data)
-        where data is a string.
+        Returns a representation of memory in a list of (start, end, data) where data is a string.
         """
         return map(lambda (start, bytearr): (start, start+len(bytearr), str(bytearr)), self._stride_repr)
 
     def seek(self, value):
         """
-        The stream-like function that sets the "file's" current position.
-        Use with read().
+        The stream-like function that sets the "file's" current position. Use with read().
 
-        @param value        The position to seek to
+        :param value:        The position to seek to.
         """
         self._pointer = value
 
     def read(self, nbytes):
         """
-        The stream-like function that reads a number of bytes starting from the
-        current position and updates the current position. Use with seek().
+        The stream-like function that reads a number of bytes starting from the current position and updates the current
+        position. Use with seek().
 
-        @param nbytes   The number of bytes to read
+        :param nbytes:   The number of bytes to read.
         """
         if nbytes == 1:
             self._pointer += 1
@@ -252,7 +248,7 @@ class Clemory(object):
 
     def _flatten_to_c(self):
         """
-        Flattens memory backers to C-backed strings
+        Flattens memory backers to C-backed strings.
         """
 
         if not self._root:
@@ -271,12 +267,12 @@ class Clemory(object):
 
     @property
     def _needs_flattening(self):
-        '''
+        """
         WARNING:
         ONLY use this property if you're going to flatten it immediately after seeing a True result
         This is what is expected
         debuggers beware
-        '''
+        """
         out = self._needs_flattening_personal
         for backer in self._backers:
             if isinstance(backer[1], Clemory):
@@ -288,7 +284,8 @@ class Clemory(object):
 
     def read_bytes_c(self, addr):
         """
-        Read @n bytes at address @addr in cbacked memory, and returns a cffi buffer pointer.
+        Read *n* bytes at address *addr* in cbacked memory, and returns a cffi buffer pointer.
+
         Note: We don't support reading across segments for performance concerns.
         """
 

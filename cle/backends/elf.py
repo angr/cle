@@ -84,9 +84,9 @@ class ELFSection(Section):
         return self.flags & self.SHF_STRINGS != 0
 
 class ELF(MetaELF):
-    '''
-     The main loader class for statically loading elves. Uses the pyreadelf library where useful.
-    '''
+    """
+    The main loader class for statically loading elves. Uses the pyreadelf library where useful.
+    """
     def __init__(self, binary, **kwargs):
         super(ELF, self).__init__(binary, **kwargs)
         try:
@@ -182,9 +182,9 @@ class ELF(MetaELF):
 
     def get_symbol(self, symid, symbol_table=None):
         """
-        Gets a Symbol object for the specified symbol
+        Gets a Symbol object for the specified symbol.
 
-        @param symid: either an index into .dynsym or the name of a symbol.
+        :param symid: either an index into .dynsym or the name of a symbol.
         """
         if symbol_table is None:
             symbol_table = self.dynsym
@@ -280,9 +280,9 @@ class ELF(MetaELF):
         return addr + self.rebase_addr
 
     def _load_segment(self, seg):
-        '''
-         Loads a segment based on a LOAD directive in the program header table
-        '''
+        """
+        Loads a segment based on a LOAD directive in the program header table.
+        """
         self.segments.append(ELFSegment(seg))
         seg_data = seg.data()
         if seg.header.p_memsz > seg.header.p_filesz:
@@ -290,9 +290,9 @@ class ELF(MetaELF):
         self.memory.add_backer(seg.header.p_vaddr, seg_data)
 
     def __register_dyn(self, seg_readelf):
-        '''
-         Parse the dynamic section for dynamically linked objects
-        '''
+        """
+        Parse the dynamic section for dynamically linked objects.
+        """
         for tag in seg_readelf.iter_tags():
             # Create a dictionary, self._dynamic, mapping DT_* strings to their values
             tagstr = self.arch.translate_dynamic_tag(tag.entry.d_tag)
@@ -496,10 +496,10 @@ class ELF(MetaELF):
         return True
 
     def _populate_demangled_names(self):
-        '''
+        """
         TODO: remove this once a python implementation of a name demangler has
         been implemented, then update self.demangled_names in Symbol
-        '''
+        """
 
         names = [self.symbols_by_addr[s].name for s in self.symbols_by_addr]
         names = filter(lambda n: n.startswith("_Z"), names)
@@ -522,10 +522,10 @@ class ELFHashTable(object):
     """
     def __init__(self, symtab, stream, offset, arch):
         """
-        @param symtab       The symbol table to perform lookups from (as a pyelftools SymbolTableSection)
-        @param stream       A file-like object to read from the ELF's memory
-        @param offset       The offset in the object where the table starts
-        @param arch         The ArchInfo object for the ELF file
+        :param symtab:  The symbol table to perform lookups from (as a pyelftools SymbolTableSection).
+        :param stream:  A file-like object to read from the ELF's memory.
+        :param offset:  The offset in the object where the table starts.
+        :param arch:    The ArchInfo object for the ELF file.
         """
         self.symtab = symtab
         fmt = '<' if arch.memory_endness == 'Iend_LE' else '>'
@@ -538,7 +538,7 @@ class ELFHashTable(object):
         """
         Perform a lookup. Returns a pyelftools Symbol object, or None if there is no match.
 
-        @param k        The string to look up
+        :param k:   The string to look up.
         """
         hval = self.elf_hash(k) % self.nbuckets
         symndx = self.buckets[hval]
@@ -570,10 +570,10 @@ class GNUHashTable(object):
     """
     def __init__(self, symtab, stream, offset, arch):
         """
-        @param symtab       The symbol table to perform lookups from (as a pyelftools SymbolTableSection)
-        @param stream       A file-like object to read from the ELF's memory
-        @param offset       The offset in the object where the table starts
-        @param arch         The ArchInfo object for the ELF file
+        :param symtab:       The symbol table to perform lookups from (as a pyelftools SymbolTableSection).
+        :param stream:       A file-like object to read from the ELF's memory.
+        :param offset:       The offset in the object where the table starts.
+        :param arch:         The ArchInfo object for the ELF file.
         """
         self.symtab = symtab
         fmt = '<' if arch.memory_endness == 'Iend_LE' else '>'
@@ -598,7 +598,7 @@ class GNUHashTable(object):
         """
         Perform a lookup. Returns a pyelftools Symbol object, or None if there is no match.
 
-        @param k        The string to look up
+        :param k:        The string to look up
         """
         h = self.gnu_hash(k)
         if not self._matches_bloom(h):
