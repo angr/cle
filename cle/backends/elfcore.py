@@ -30,9 +30,9 @@ class CoreNote(object):
         return "<Note %s %s %#x>" % (self.name, self.n_type, len(self.desc))
 
 class ELFCore(ELF):
-    '''
+    """
      Loader class for ELF core files.
-    '''
+    """
 
     def __init__(self, binary, **kwargs):
         super(ELFCore, self).__init__(binary, **kwargs)
@@ -75,10 +75,9 @@ class ELFCore(ELF):
         return self.registers.iteritems()
 
     def __extract_note_info(self):
-        '''
-        all meaningful information about the process's state at crashtime is stored in the note
-        segment
-        '''
+        """
+        All meaningful information about the process's state at crashtime is stored in the note segment.
+        """
         for seg_readelf in self.reader.iter_segments():
             if seg_readelf.header.p_type == 'PT_NOTE':
                 self.__parse_notes(seg_readelf)
@@ -87,9 +86,9 @@ class ELFCore(ELF):
             l.warning("Could not find note segment, cannot initialize registers")
 
     def __parse_notes(self, seg):
-        '''
-        this exists, because note parsing in elftools is not good.
-        '''
+        """
+        This exists, because note parsing in elftools is not good.
+        """
 
         blob = seg.data()
 
@@ -117,13 +116,14 @@ class ELFCore(ELF):
         self.__parse_prstatus(prstatus)
 
     def __parse_prstatus(self, prstatus):
-        '''
-        parse out the prstatus, accumulating the general purpose register values.
-        supports AMD64, X86, ARM, and AARCH64 at the moment.
-        TODO: support all architecutres angr supports
+        """
+        Parse out the prstatus, accumulating the general purpose register values. Supports AMD64, X86, ARM, and AARCH64
+        at the moment.
 
-        :param prstatus: a note object of type NT_PRSTATUS
-        '''
+        :param prstatus: a note object of type NT_PRSTATUS.
+        """
+
+        # TODO: support all architectures angr supports
 
         # extract siginfo from prstatus
         self.si_signo, self.si_code, self.si_errno = struct.unpack("<3I", prstatus.desc[:12])

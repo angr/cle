@@ -67,16 +67,16 @@ class Blob(Backend):
         self._max_addr = len(string)
 
     def function_name(self, addr): #pylint: disable=unused-argument,no-self-use
-        '''
+        """
         Blobs don't support function names.
-        '''
+        """
         return None
 
     def contains_addr(self, addr):
         return addr in self.memory
 
     def in_which_segment(self, addr): #pylint: disable=unused-argument,no-self-use
-        '''
+        """
         Blobs don't support segments.
-        '''
+        """
         return None

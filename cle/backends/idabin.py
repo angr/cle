@@ -12,9 +12,9 @@ l = logging.getLogger("cle.idabin")
 __all__ = ('IDABin',)
 
 class IDABin(Backend):
-    '''
+    """
      Get informations from binaries using IDA.
-    '''
+    """
     def __init__(self, binary, *args, **kwargs):
         if idalink is None:
             raise CLEError("Install the idalink module to use the IDABin backend!")
@@ -61,15 +61,17 @@ class IDABin(Backend):
     supported_filetypes = ['elf', 'pe', 'mach-o']
 
     def in_which_segment(self, addr):
-        """ Return the segment name at address @addr (IDA)"""
+        """
+        Return the segment name at address `addr` ( (IDA).
+        """
         seg = self.ida.idc.SegName(addr)
         if len(seg) == 0:
             seg = "unknown"
         return seg
 
     def _find_got(self):
-        """ Locate the section (e.g., .got) that should be updated when
-        relocating functions (that's where we want to write absolute addresses).
+        """ Locate the section (e.g. .got) that should be updated when relocating functions (that's where we want to
+        write absolute addresses).
         """
         sec_name = self.arch.got_section_name
         self.got_begin = None
@@ -88,19 +90,26 @@ class IDABin(Backend):
         return True
 
     def _in_proper_section(self, addr):
-        """ Is @addr in the proper section for this architecture ?"""
+        """
+        Is `addr` in the proper section for this architecture ?
+        """
         return self.got_begin < addr < self.got_end
 
     def function_name(self, addr):
-        """ Return the function name at address @addr (IDA) """
+        """
+        Return the function name at address `addr` (IDA).
+        """
         name = self.ida.idc.GetFunctionName(addr)
         if len(name) == 0:
             name = "UNKNOWN"
         return name
 
     def _lookup_symbols(self, symbols):
-        """ Resolves a bunch of symbols denoted by the list @symbols
-            Returns: a dict of the form {symb:addr}"""
+        """
+        Resolves a bunch of symbols denoted by the list `symbols`.
+
+        :returns: a dict of the form {symb:addr}.
+        """
         addrs = {}
 
         for sym in symbols:
@@ -112,8 +121,10 @@ class IDABin(Backend):
         return addrs
 
     def get_symbol_addr(self, sym):
-        """ Get the address of the symbol @sym from IDA
-            Returns: an address
+        """
+        Get the address of the symbol `sym` from IDA.
+
+        :returns: an address
         """
         #addr = self.ida.idaapi.get_name_ea(self.ida.idc.BADADDR, sym)
         addr = self.ida.idc.LocByName(sym)
@@ -122,7 +133,9 @@ class IDABin(Backend):
         return addr
 
     def _get_exports(self):
-        """ Get binary's exports names from IDA and return a list"""
+        """
+        Get the binary exports names from IDA and return a list.
+        """
         exports = {}
         for item in list(self.ida.idautils.Entries()):
             name = item[-1]
@@ -134,7 +147,9 @@ class IDABin(Backend):
         return exports
 
     def _get_ida_imports(self):
-        """ Extract imports from binary (IDA)"""
+        """
+        Extract imports from binary (IDA).
+        """
         l.warning("TODO: improve this: IDA mixes functions and global data in exports, this will cause issues.")
         import_modules_count = self.ida.idaapi.get_import_module_qty()
         self.raw_imports = {}
@@ -144,14 +159,18 @@ class IDABin(Backend):
             self.ida.idaapi.enum_import_names(i, self._import_entry_callback)
 
     def _import_entry_callback(self, ea, name, entry_ord): # pylint: disable=unused-argument
-        """ Callback function for IDA's enum_import_names"""
+        """
+        Callback function for IDA's enum_import_names.
+        """
         self.raw_imports[name] = ea
         return True
 
     def _get_imports(self):
-        """ Extract imports from the binary. This uses the exports we get from IDA,
-        and then tries to find the GOT entries related to them.
-        It returns a dict {import:got_address}
+        """
+        Extract imports from the binary. This uses the exports we get from IDA and then tries to find the GOT
+        entries related to them.
+
+        :returns:   a dict of the form {import:got_address}.
         """
         # Get the list of imports from IDA
         self._get_ida_imports()
@@ -164,7 +183,9 @@ class IDABin(Backend):
         # Locate the GOT on this architecture. If we can't, let's just default
         # to IDA's imports (which gives stub addresses instead).
         if not self._find_got():
-            l.warning("We could not identify the GOT section. This looks like a stripped binary. IDA'll probably give us PLT stubs instead, so keep in mind that Ld.find_symbol_got_entry() and friends won't work with actual GOT addresses. If that's a problem, use the ELF backend instead.")
+            l.warning("We could not identify the GOT section. This looks like a stripped binary. IDA'll probably give "
+                      "us PLT stubs instead, so keep in mind that Ld.find_symbol_got_entry() and friends won't work "
+                      "with actual GOT addresses. If that's a problem, use the ELF backend instead.")
             return self.raw_imports
 
         # Then process it to get the correct addresses
@@ -184,7 +205,9 @@ class IDABin(Backend):
         return imports
 
     def get_min_addr(self):
-        """ Get the min address of the binary (IDA)"""
+        """
+        Get the min address of the binary (IDA).
+        """
         nm = self.ida.idc.NextAddr(0)
         pm = self.ida.idc.PrevAddr(nm)
 
@@ -194,7 +217,9 @@ class IDABin(Backend):
             return pm
 
     def get_max_addr(self):
-        """ Get the max address of the binary (IDA)"""
+        """
+        Get the max address of the binary (IDA).
+        """
         pm = self.ida.idc.PrevAddr(self.ida.idc.MAXADDR)
         nm = self.ida.idc.NextAddr(pm)
 
@@ -210,10 +235,10 @@ class IDABin(Backend):
         return self.ida.idc.BeginEA() + self.rebase_addr
 
     def resolve_import_dirty(self, sym, new_val):
-        """ Resolve import for symbol @sym the dirty way, i.e. find all
-        references to it in the code and replace it with the address @new_val
-        inline (instead of updating GOT slots)
-        Don't use this unless you really have to, use resolve_import_with instead.
+        """
+        Resolve import for symbol *sym* the dirty way, i.e. find all references to it in the code and replace it with
+        the address *new_val* inline (instead of updating GOT slots). Don't use this unless you really have to, use
+        resolve_import_with instead.
         """
 
         #l.debug("\t %s resolves to 0x%x", sym, new_val)
@@ -246,8 +271,7 @@ class IDABin(Backend):
         l.warning("Could not find references to symbol %s (IDA)", sym)
 
     def set_got_entry(self, name, newaddr):
-        """ Resolve import @name with address @newaddr, that is, update the GOT
-            entry for @name with @newaddr
+        """ Resolve import *name* with address *newaddr*, That is, update the GOT entry for *name* with *newaddr*.
         """
         if name not in self.imports:
             l.warning("%s not in imports", name)
@@ -257,13 +281,17 @@ class IDABin(Backend):
         self.memory.write_addr_at(addr, newaddr)
 
     def is_thumb(self, addr):
-        """ Is the address @addr in thumb mode ? (ARM) """
+        """
+        Is the address `addr` in thumb mode ? (ARM).
+        """
         if not "arm" in self.arch:
             return False
         return self.ida.idc.GetReg(addr, "T") == 1
 
     def get_strings(self):
-        """ Extract strings from binary (IDA) """
+        """
+        Extract strings from binary (IDA).
+        """
         ss = self.ida.idautils.Strings()
         string_list = []
         for s in ss:
@@ -272,11 +300,12 @@ class IDABin(Backend):
         return string_list
 
     def _get_linking_type(self):
-        """ Define whether a binary is sattically or dynamically linked based on
-        its imports.
-        TODO: this is not the best, and with the Elf class we actually look for
-        the presence of a dynamic table. We should do it with IDA too.
         """
+        Define whether a binary is statically or dynamically linked based on its imports.
+        """
+        # TODO: this is not the best, and with the Elf class we actually look for the presence of a dynamic table. We
+        # should do it with IDA too.
+
         if len(self.raw_imports) == 0:
             return "static"
         else:

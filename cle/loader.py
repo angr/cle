@@ -12,25 +12,27 @@ __all__ = ('Loader',)
 l = logging.getLogger("cle.loader")
 
 class Loader(object):
-    """ CLE ELF loader
-    The loader loads all the objects and exports an abstraction of the memory of
-    the process. What you see here is an address space with loaded and rebased
-    binaries.
+    """
+    The loader loads all the objects and exports an abstraction of the memory of the process. What you see here is an
+    address space with loaded and rebased binaries.
 
-    Class variables:
-       memory             The loaded, rebased, and relocated memory of the program
-       main_bin           The object representing the main binary (i.e., the executable)
-       shared_objects     A dictionary mapping loaded library names to the objects representing them
-       all_objects        A list containing representations of all the different objects loaded
-       requested_objects  A set containing the names of all the different shared libraries that were marked as a dependancy by somebody
-       tls_object         An object dealing with the region of memory allocated for thread-local storage
+    Class variables :
 
-    When reference is made to a dictionary of options, it require a dictionary with zero or more of the following keys:
-        backend             "elf", "pe", "ida", "blob": which loader backend to use
-        custom_arch         The archinfo.Arch object to use for the binary
-        custom_base_addr    The address to rebase the object at
-        custom_entry_point  The entry point to use for the object
-        ???                 More, defined on a per-backend basis
+    :ivar memory:               The loaded, rebased, and relocated memory of the program.
+    :ivar main_bin:             The object representing the main binary (i.e., the executable).
+    :ivar shared_objects:       A dictionary mapping loaded library names to the objects representing them.
+    :ivar all_objects:          A list containing representations of all the different objects loaded.
+    :ivar requested_objects:    A set containing the names of all the different shared libraries that were marked as a
+                                dependency by somebody.
+    :ivar tls_object:           An object dealing with the region of memory allocated for thread-local storage.
+
+    When reference is made to a dictionary of options, it requires a dictionary with zero or more of the following keys:
+
+    * backend             "elf", "pe", "ida", "blob": which loader backend to use
+    * custom_arch         The archinfo.Arch object to use for the binary
+    * custom_base_addr    The address to rebase the object at
+    * custom_entry_point  The entry point to use for the object
+    * ???                 More, defined on a per-backend basis
     """
 
     def __init__(self, main_binary, auto_load_libs=True,
@@ -39,32 +41,28 @@ class Loader(object):
                  ignore_import_version_numbers=True, rebase_granularity=0x1000000,
                  except_missing_libs=False, gdb_map=None, gdb_fix=False):
         """
-        @param main_binary      The path to the main binary you're loading
-        @param auto_load_libs   Whether to automatically load shared libraries that
-                                loaded objects depend on
-        @param force_load_libs  A list of libraries to load regardless of if they're
-                                required by a loaded object
-        @param skip_libs        A list of libraries to never load, even if they're
-                                required by a loaded object
-        @param main_opts        A dictionary of options to be used loading the
-                                main binary
-        @param lib_opts         A dictionary mapping library names to the dictionaries
-                                of options to be used when loading them
-        @param custom_ld_path   A list of paths in which we can search for shared libraries
-        @param ignore_import_version_numbers
-                                Whether libraries with different version numbers in the
-                                filename will be considered equivilant, for example
-                                libc.so.6 and libc.so.0
-        @param rebase_granularity
-                                The alignment to use for rebasing shared objects
-        @param except_missing_libs
-                                Throw an exception when a shared library can't be found
-        @param gdb_map          The output of `info proc mappings` or `info sharedlibrary` in gdb
-                                This will be used to determine the base address of libraries
-        @param gdb_fix          If `info sharedlibrary` was used, the addresses
-                                gdb gives us are in fact the addresses of the
-                                .text sections. We need to fix them to get
-                                the real load addresses.
+        Constructor.
+
+        :param main_binary:      The path to the main binary you're loading.
+
+        The following parameters are optional.
+
+        :param auto_load_libs:      Whether to automatically load shared libraries that loaded objects depend on.
+        :param force_load_libs:     A list of libraries to load regardless of if they're required by a loaded object.
+        :param skip_libs:           A list of libraries to never load, even if they're required by a loaded object.
+        :param main_opts:           A dictionary of options to be used loading the main binary.
+        :param lib_opts:            A dictionary mapping library names to the dictionaries of options to be used when
+                                    loading them.
+        :param custom_ld_path:      A list of paths in which we can search for shared libraries.
+        :param ignore_import_version_numbers:
+                                    Whether libraries with different version numbers in the filename will be considered
+                                    equivalent, for example libc.so.6 and libc.so.0
+        :param rebase_granularity:  The alignment to use for rebasing shared objects
+        :param except_missing_libs: Throw an exception when a shared library can't be found.
+        :param gdb_map:             The output of `info proc mappings` or `info sharedlibrary` in gdb. This will be used
+                                    to determine the base address of libraries.
+        :param gdb_fix:             If `info sharedlibrary` was used, the addresses gdb gives us are in fact the
+                                    addresses of the .text sections. We need to fix them to get the real load addresses.
         """
 
         self._main_binary_path = os.path.realpath(str(main_binary))
@@ -101,17 +99,17 @@ class Loader(object):
         return '<Loaded %s, maps [%#x:%#x]>' % (os.path.basename(self._main_binary_path), self.min_addr(), self.max_addr())
 
     def get_initializers(self):
-        '''
-         Return a list of all the initializers that should be run before execution reaches
-         the entry point, in the order they should be run.
-        '''
+        """
+        Return a list of all the initializers that should be run before execution reaches the entry point, in the order
+        they should be run.
+        """
         return sum(map(lambda x: x.get_initializers(), self.all_objects), [])
 
     def get_finalizers(self):
-        '''
-         Return a list of all the finalizers that should be run before the program exits.
-         I'm not sure what order they should be run in.
-        '''
+        """
+        Return a list of all the finalizers that should be run before the program exits.
+        I'm not sure what order they should be run in.
+        """
         return sum(map(lambda x: x.get_initializers(), self.all_objects), [])
 
     @property
@@ -126,9 +124,8 @@ class Loader(object):
     @staticmethod
     def _is_linux_loader_name(name):
         """
-        ld can have different names such as ld-2.19.so or ld-linux-x86-64.so.2
-        depending on symlinks and whatnot.
-        This determines if @name is a suitable candidate for ld.
+        ld can have different names such as ld-2.19.so or ld-linux-x86-64.so.2 depending on symlinks and whatnot.
+        This determines if `name` is a suitable candidate for ld.
         """
         if 'ld.so' in name or 'ld64.so' in name or 'ld-linux' in name:
             return True
@@ -237,10 +234,10 @@ class Loader(object):
 
     @staticmethod
     def identify_object(path):
-        '''
-         Returns the filetype of the file at path. Will be one of the strings
-         in {'elf', 'elfcore', 'pe', 'mach-o', 'unknown'}
-        '''
+        """
+        Returns the filetype of the file `path`. Will be one of the strings in {'elf', 'elfcore', 'pe', 'mach-o',
+        'unknown'}.
+        """
         identstring = open(path, 'rb').read(0x1000)
         if identstring.startswith('\x7fELF'):
             if elftools.elf.elffile.ELFFile(open(path, 'rb')).header['e_type'] == 'ET_CORE':
@@ -260,11 +257,10 @@ class Loader(object):
         return 'unknown'
 
     def add_object(self, obj, base_addr=None):
-        '''
-         Add object obj to the memory map, rebased at base_addr.
-         If base_addr is None CLE will pick a safe one.
-         Registers all its dependencies.
-        '''
+        """
+        Add object `obj` to the memory map, rebased at `base_add`*. If `base_addr` is None CLE will pick a safe one.
+        Registers all its dependencies.
+        """
 
         if self._auto_load_libs:
             self._unsatisfied_deps += obj.deps
@@ -330,18 +326,17 @@ class Loader(object):
 
     def _get_safe_rebase_addr(self):
         """
-        Get a "safe" rebase addr, i.e., that won't overlap with already loaded stuff.
-        This is used as a fallback when we cannot use LD to tell use where to load
-        a binary object. It is also a workaround to IDA crashes when we try to
+        Get a "safe" rebase addr, i.e., that won't overlap with already loaded stuff. This is used as a fallback when we
+        cannot use LD to tell use where to load a binary object. It is also a workaround to IDA crashes when we try to
         rebase binaries at too high addresses.
         """
         granularity = self._rebase_granularity
         return self.max_addr() + (granularity - self.max_addr() % granularity)
 
     def _load_tls(self):
-        '''
-         Set up an object to store TLS data in
-        '''
+        """
+        Set up an object to store TLS data in,
+        """
         modules = []
         for obj in self.all_objects:
             if not isinstance(obj, MetaELF):
@@ -355,9 +350,9 @@ class Loader(object):
         self.add_object(self.tls_object)
 
     def _finalize_tls(self):
-        '''
-         Lay out the TLS initialization images into memory
-        '''
+        """
+        Lay out the TLS initialization images into memory.
+        """
         if self.tls_object is not None:
             self.tls_object.finalize()
 
@@ -380,8 +375,7 @@ class Loader(object):
 
     def whats_at(self, addr):
         """
-        Tells you what's at @addr in terms of the offset in one of the loaded
-        binary objects.
+        Tells you what's at `addr` in terms of the offset in one of the loaded binary objects.
         """
         o = self.addr_belongs_to_object(addr)
 
@@ -403,21 +397,22 @@ class Loader(object):
         return "Offset %#x in %s" % (off, o.provides)
 
     def max_addr(self):
-        """ The maximum address loaded as part of any loaded object
-        (i.e., the whole address space)
+        """
+        The maximum address loaded as part of any loaded object (i.e., the whole address space).
         """
         return max(map(lambda x: x.get_max_addr(), self.all_objects))
 
     def min_addr(self):
-        """ The minimum address loaded as part of any loaded object
-        i.e., the whole address space)
+        """
+        The minimum address loaded as part of any loaded object (i.e., the whole address space).
         """
         return min(map(lambda x: x.get_min_addr(), self.all_objects))
 
     # Search functions
 
     def find_symbol_name(self, addr):
-        """ Return the name of the function starting at addr.
+        """
+        Return the name of the function starting at `addr`.
         """
         for so in self.all_objects:
             if addr - so.rebase_addr in so.symbols_by_addr:
@@ -425,7 +420,8 @@ class Loader(object):
         return None
 
     def find_plt_stub_name(self, addr):
-        """ Return the name of the PLT stub starting at addr.
+        """
+        Return the name of the PLT stub starting at `addr`.
         """
         for so in self.all_objects:
             if isinstance(so, MetaELF):
@@ -434,14 +430,18 @@ class Loader(object):
         return None
 
     def find_module_name(self, addr):
+        """
+        Return the name of the loaded module containing `addr`.
+        """
         for o in self.all_objects:
             # The Elf class only works with static non-relocated addresses
             if o.contains_addr(addr - o.rebase_addr):
                 return os.path.basename(o.binary)
 
     def find_symbol_got_entry(self, symbol):
-        """ Look for the address of a GOT entry for symbol @symbol.
-        If found, return the address, otherwise, return None
+        """ Look for the address of a GOT entry for symbol *symbol*.
+
+        :returns;   The address of the symbol if found, None otherwise.
         """
         if isinstance(self.main_bin, IDABin):
             if symbol in self.main_bin.imports:
@@ -451,7 +451,9 @@ class Loader(object):
                 return self.main_bin.jmprel[symbol].addr
 
     def _ld_so_addr(self):
-        """ Use LD_AUDIT to find object dependencies and relocation addresses"""
+        """
+        Use LD_AUDIT to find object dependencies and relocation addresses.
+        """
 
         qemu = 'qemu-%s' % self.main_bin.arch.qemu_name
         env_p = os.getenv("VIRTUAL_ENV", "/")
@@ -537,12 +539,10 @@ class Loader(object):
 
     def _binary_screwup_copy(self, path):
         """
-        When LD_AUDIT cannot load CLE's auditing library, it unfortunately falls
-        back to executing the target, which we don't want ! This is a problem
-        specific to GNU LD, we can't fix this.
+        When LD_AUDIT cannot load CLE's auditing library, it unfortunately falls back to executing the target, which we
+        don't want ! This is a problem specific to GNU LD, we can't fix this.
 
-        This is a simple hack to work around it: set the address of the entry
-        point to 0 in the program header
+        This is a simple hack to work around it: set the address of the entry point to 0 in the program header
         This will cause the main binary to segfault if executed.
         """
 
@@ -565,7 +565,9 @@ class Loader(object):
 
     @staticmethod
     def _make_tmp_copy(path, suffix=None):
-        """ Makes a copy of obj into CLE's tmp directory """
+        """
+        Makes a copy of obj into CLE's tmp directory.
+        """
         if not os.path.exists('/tmp/cle'):
             os.mkdir('/tmp/cle')
         if os.path.exists(path):
@@ -638,7 +640,7 @@ class Loader(object):
     @staticmethod
     def _get_text_offset(path):
         """
-        Offset of .text in the binary
+        Offset of .text in the binary.
         """
         if not os.path.exists(path):
             raise CLEError("Path %s does not exist" % path)
@@ -649,7 +651,7 @@ class Loader(object):
     @staticmethod
     def _extract_soname(path):
         """
-        Extracts the soname from an Elf binary
+        Extracts the soname from the ELF binary at `path`.
         """
         if not os.path.exists(path):
             raise CLEError("Invalid path: %s" % path)
@@ -667,8 +669,7 @@ class Loader(object):
 
     def _check_compatibility(self, path):
         """
-        This checks whether the object at @path is binary compatible with the
-        main binary
+        This checks whether the object at `path` is binary compatible with the main binary.
         """
         try:
             filetype = Loader.identify_object(path)
@@ -679,8 +680,7 @@ class Loader(object):
 
     def _get_lib_path(self, libname):
         """
-        Get a path for libname.
-        We pick the first plausible candidate that is binary compatible
+        Get a path for *libname*. We pick the first plausible candidate that is binary compatible.
         """
         # Valid path
         if os.path.exists(libname) and self._check_compatibility(libname):
@@ -697,8 +697,8 @@ class Loader(object):
     @staticmethod
     def _merge_opts(opts, dest):
         """
-        Return a new dict corresponding to merging @opts into @dest.
-        This makes sure we don't override previous options.
+        Return a new dict corresponding to merging *opts* into *dest*. This makes sure we don't override previous
+        options.
         """
         for k,v in opts.iteritems():
             if k in dest and v in dest[k]:
