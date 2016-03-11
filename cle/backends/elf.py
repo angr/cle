@@ -199,7 +199,7 @@ class ELF(MetaELF):
             symbol = ELFSymbol(self, re_sym)
             self._symbol_cache[re_sym.name] = symbol
             return symbol
-        elif isinstance(symid, str):
+        elif isinstance(symid, (str,unicode)):
             if symid in self._symbol_cache:
                 return self._symbol_cache[symid]
             if self.hashtable is None:
