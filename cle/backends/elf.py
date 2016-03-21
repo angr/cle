@@ -15,7 +15,11 @@ l = logging.getLogger('cle.elf')
 
 __all__ = ('ELFSymbol', 'ELF')
 
+
 class ELFSymbol(Symbol):
+    """
+    Represents a symbol for the ELF format.
+    """
     def __init__(self, owner, symb):
         realtype = owner.arch.translate_symbol_type(symb.entry.st_info.type)
         super(ELFSymbol, self).__init__(owner,
@@ -26,7 +30,11 @@ class ELFSymbol(Symbol):
                                         realtype,
                                         symb.entry.st_shndx)
 
+
 class ELFSegment(Segment):
+    """
+    Represents a segment for the ELF format.
+    """
     def __init__(self, readelf_seg):
         self.flags = readelf_seg.header.p_flags
         super(ELFSegment, self).__init__(readelf_seg.header.p_offset,
@@ -45,6 +53,7 @@ class ELFSegment(Segment):
     @property
     def is_executable(self):
         return self.flags & 1 != 0
+
 
 class ELFSection(Section):
     SHF_WRITE = 0x1
@@ -83,9 +92,10 @@ class ELFSection(Section):
     def is_strings(self):
         return self.flags & self.SHF_STRINGS != 0
 
+
 class ELF(MetaELF):
     """
-    The main loader class for statically loading elves. Uses the pyreadelf library where useful.
+    The main loader class for statically loading ELF executables. Uses the pyreadelf library where useful.
     """
     def __init__(self, binary, **kwargs):
         super(ELF, self).__init__(binary, **kwargs)
@@ -184,7 +194,7 @@ class ELF(MetaELF):
         """
         Gets a Symbol object for the specified symbol.
 
-        :param symid: either an index into .dynsym or the name of a symbol.
+        :param symid: Either an index into .dynsym or the name of a symbol.
         """
         if symbol_table is None:
             symbol_table = self.dynsym

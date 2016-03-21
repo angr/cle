@@ -11,6 +11,7 @@ ALL_RELOCATIONS = defaultdict(dict)
 complaint_log = set()
 path = os.path.dirname(os.path.abspath(__file__))
 
+
 def load_relocations():
     for filename in os.listdir(path):
         if not filename.endswith('.py'):
@@ -38,6 +39,7 @@ def load_relocations():
 
             ALL_RELOCATIONS[arch_name][archinfo.defines[item_name]] = item
 
+
 def get_relocation(arch, r_type):
     if r_type == 0:
         return None
@@ -49,19 +51,21 @@ def get_relocation(arch, r_type):
             l.warning("Unknown reloc %d on %s", r_type, arch)
         return None
 
+
 class Relocation(object):
     """
     A representation of a relocation in a binary file. Smart enough to
     relocate itself.
 
-    Properties you may care about:
-    - owner_obj: the binary this relocation was originaly found in, as a cle object
-    - symbol: the Symbol object this relocation refers to
-    - addr: the address in owner_obj this relocation would like to write to
-    - rebased_addr: the address in the global memory space this relocation would like to write to
-    - resolvedby: If the symbol this relocation refers to is an import symbol and that import has been resolved,
-                  this attribute holds the symbol from a different binary that was used to resolve the import.
-    - resolved: Whether the application of this relocation was succesful
+    Properties you may care about :
+
+    :ivar owner_obj:    The binary this relocation was originaly found in, as a cle object
+    :ivar symbol:       The Symbol object this relocation refers to
+    :ivar addr:         The address in owner_obj this relocation would like to write to
+    :ivar rebased_addr: The address in the global memory space this relocation would like to write to
+    :ivar resolvedby:   If the symbol this relocation refers to is an import symbol and that import has been resolved,
+                        this attribute holds the symbol from a different binary that was used to resolve the import.
+    :ivar resolved:     Whether the application of this relocation was succesful
     """
     def __init__(self, owner, symbol, addr, addend=None):
         super(Relocation, self).__init__()
@@ -132,7 +136,7 @@ class Relocation(object):
 
         This implementation is a generic version that can be overridden in subclasses.
 
-        @param solist       A list of objects from which to resolve symbols
+        :param solist:       A list of objects from which to resolve symbols.
         """
         if not self.resolve_symbol(solist):
             return False

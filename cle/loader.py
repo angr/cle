@@ -28,11 +28,12 @@ class Loader(object):
 
     When reference is made to a dictionary of options, it requires a dictionary with zero or more of the following keys:
 
-    * backend             "elf", "pe", "ida", "blob": which loader backend to use
-    * custom_arch         The archinfo.Arch object to use for the binary
-    * custom_base_addr    The address to rebase the object at
-    * custom_entry_point  The entry point to use for the object
-    * ???                 More, defined on a per-backend basis
+    - backend :             "elf", "pe", "ida", "blob": which loader backend to use
+    - custom_arch :         The archinfo.Arch object to use for the binary
+    - custom_base_addr :    The address to rebase the object at
+    - custom_entry_point :  The entry point to use for the object
+
+    More keys are defined on a per-backend basis.
     """
 
     def __init__(self, main_binary, auto_load_libs=True,
@@ -258,7 +259,7 @@ class Loader(object):
 
     def add_object(self, obj, base_addr=None):
         """
-        Add object `obj` to the memory map, rebased at `base_add`*. If `base_addr` is None CLE will pick a safe one.
+        Add object `obj` to the memory map, rebased at `base_add`. If `base_addr` is None CLE will pick a safe one.
         Registers all its dependencies.
         """
 
@@ -439,9 +440,10 @@ class Loader(object):
                 return os.path.basename(o.binary)
 
     def find_symbol_got_entry(self, symbol):
-        """ Look for the address of a GOT entry for symbol *symbol*.
+        """
+        Look for the address of a GOT entry for `symbol`.
 
-        :returns;   The address of the symbol if found, None otherwise.
+        :returns:   The address of the symbol if found, None otherwise.
         """
         if isinstance(self.main_bin, IDABin):
             if symbol in self.main_bin.imports:
@@ -585,7 +587,7 @@ class Loader(object):
     @staticmethod
     def _parse_gdb_map(gdb_map):
         """
-        Parser for gdb's `info proc mappings`, or `info sharedlibs`, or custom
+        Parser for gdb's ``info proc mappings``, or ``info sharedlibs``, or custom
         mapping file of the form base_addr : /path/to/lib.
         """
         if os.path.exists(gdb_map):
@@ -680,7 +682,7 @@ class Loader(object):
 
     def _get_lib_path(self, libname):
         """
-        Get a path for *libname*. We pick the first plausible candidate that is binary compatible.
+        Get a path for `libname`. We pick the first plausible candidate that is binary compatible.
         """
         # Valid path
         if os.path.exists(libname) and self._check_compatibility(libname):

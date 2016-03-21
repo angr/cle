@@ -11,7 +11,11 @@ l = logging.getLogger('cle.pe')
 
 # Reference: https://msdn.microsoft.com/en-us/library/ms809762.aspx
 
+
 class WinSymbol(Symbol):
+    """
+    Represents a symbol for the PE format.
+    """
     def __init__(self, owner, name, addr, is_import, is_export):
         super(WinSymbol, self).__init__(owner, name, addr, owner.arch.bytes, None, None, None)
         self._is_import = is_import
@@ -33,6 +37,9 @@ class WinSymbol(Symbol):
         return True
 
 class WinReloc(Relocation):
+    """
+    Represents a relocation for the PE format.
+    """
     def __init__(self, owner, symbol, addr, resolvewith):
         super(WinReloc, self).__init__(owner, symbol, addr, None)
         self.resolvewith = resolvewith
@@ -45,6 +52,9 @@ class WinReloc(Relocation):
         return self.resolvedby.rebased_addr
 
 class PESection(Section):
+    """
+    Represents a section for the PE format.
+    """
     def __init__(self, pe_section):
         super(PESection, self).__init__(
             pe_section.Name,

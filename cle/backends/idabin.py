@@ -11,9 +11,10 @@ l = logging.getLogger("cle.idabin")
 
 __all__ = ('IDABin',)
 
+
 class IDABin(Backend):
     """
-     Get informations from binaries using IDA.
+    Get information from binaries using IDA.
     """
     def __init__(self, binary, *args, **kwargs):
         if idalink is None:
@@ -62,7 +63,7 @@ class IDABin(Backend):
 
     def in_which_segment(self, addr):
         """
-        Return the segment name at address `addr` ( (IDA).
+        Return the segment name at address `addr` (IDA).
         """
         seg = self.ida.idc.SegName(addr)
         if len(seg) == 0:
@@ -70,7 +71,8 @@ class IDABin(Backend):
         return seg
 
     def _find_got(self):
-        """ Locate the section (e.g. .got) that should be updated when relocating functions (that's where we want to
+        """
+        Locate the section (e.g. .got) that should be updated when relocating functions (that's where we want to
         write absolute addresses).
         """
         sec_name = self.arch.got_section_name
@@ -108,7 +110,7 @@ class IDABin(Backend):
         """
         Resolves a bunch of symbols denoted by the list `symbols`.
 
-        :returns: a dict of the form {symb:addr}.
+        :returns: A dict of the form {symb:addr}.
         """
         addrs = {}
 
@@ -124,7 +126,7 @@ class IDABin(Backend):
         """
         Get the address of the symbol `sym` from IDA.
 
-        :returns: an address
+        :returns: An address.
         """
         #addr = self.ida.idaapi.get_name_ea(self.ida.idc.BADADDR, sym)
         addr = self.ida.idc.LocByName(sym)
@@ -236,9 +238,9 @@ class IDABin(Backend):
 
     def resolve_import_dirty(self, sym, new_val):
         """
-        Resolve import for symbol *sym* the dirty way, i.e. find all references to it in the code and replace it with
-        the address *new_val* inline (instead of updating GOT slots). Don't use this unless you really have to, use
-        resolve_import_with instead.
+        Resolve import for symbol `sym` the dirty way, i.e. find all references to it in the code and replace it with
+        the address `new_val` inline (instead of updating GOT slots). Don't use this unless you really have to, use
+        :func:`resolve_import_with` instead.
         """
 
         #l.debug("\t %s resolves to 0x%x", sym, new_val)
@@ -271,7 +273,8 @@ class IDABin(Backend):
         l.warning("Could not find references to symbol %s (IDA)", sym)
 
     def set_got_entry(self, name, newaddr):
-        """ Resolve import *name* with address *newaddr*, That is, update the GOT entry for *name* with *newaddr*.
+        """
+        Resolve import `name` with address `newaddr`. That is, update the GOT entry for `name` with `newaddr`.
         """
         if name not in self.imports:
             l.warning("%s not in imports", name)
@@ -291,6 +294,8 @@ class IDABin(Backend):
     def get_strings(self):
         """
         Extract strings from binary (IDA).
+
+        :returns:   An array of strings.
         """
         ss = self.ida.idautils.Strings()
         string_list = []
@@ -301,7 +306,7 @@ class IDABin(Backend):
 
     def _get_linking_type(self):
         """
-        Define whether a binary is statically or dynamically linked based on its imports.
+        Returns whether a binary is statically or dynamically linked based on its imports.
         """
         # TODO: this is not the best, and with the Elf class we actually look for the presence of a dynamic table. We
         # should do it with IDA too.
