@@ -1,8 +1,5 @@
-#!/usr/bin/env python
-
 import os
 import logging
-import shutil
 import subprocess
 import struct
 import elftools
@@ -41,7 +38,8 @@ class Loader(object):
                  ignore_import_version_numbers=True, rebase_granularity=0x1000000,
                  except_missing_libs=False, gdb_map=None, gdb_fix=False):
         """
-        :param main_binary:      The path to the main binary you're loading.
+        :param main_binary:         The path to the main binary you're loading, or a file-like object with the binary
+                                    in it.
 
         The following parameters are optional.
 
@@ -63,7 +61,12 @@ class Loader(object):
                                     addresses of the .text sections. We need to fix them to get the real load addresses.
         """
 
-        self._main_binary_path = os.path.realpath(str(main_binary))
+        if hasattr(main_binary, 'seek') and hasattr(main_binary, 'read'):
+            self._main_binary_path = None
+            self._main_binary_stream = main_binary
+        else:
+            self._main_binary_path = os.path.realpath(str(main_binary))
+            self._main_binary_stream = None
         self._auto_load_libs = auto_load_libs
         self._unsatisfied_deps = [] if force_load_libs is None else force_load_libs
         self._satisfied_deps = set([] if skip_libs is None else skip_libs)
@@ -94,7 +97,10 @@ class Loader(object):
         self._finalize_tls()
 
     def __repr__(self):
-        return '<Loaded %s, maps [%#x:%#x]>' % (os.path.basename(self._main_binary_path), self.min_addr(), self.max_addr())
+        if self._main_binary_stream is None:
+            return '<Loaded %s, maps [%#x:%#x]>' % (os.path.basename(self._main_binary_path), self.min_addr(), self.max_addr())
+        else:
+            return '<Loaded from stream, maps [%#x:%#x]>' % (self.min_addr(), self.max_addr())
 
     def get_initializers(self):
         """
@@ -125,19 +131,21 @@ class Loader(object):
         ld can have different names such as ld-2.19.so or ld-linux-x86-64.so.2 depending on symlinks and whatnot.
         This determines if `name` is a suitable candidate for ld.
         """
-        if 'ld.so' in name or 'ld64.so' in name or 'ld-linux' in name:
-            return True
-        else:
-            return False
+        return 'ld.so' in name or 'ld64.so' in name or 'ld-linux' in name
 
     def _load_main_binary(self):
-        self.main_bin = self.load_object(self._main_binary_path, self._main_opts, is_main_bin=True)
+        self.main_bin = self.load_object(self._main_binary_path
+                                            if self._main_binary_stream is None
+                                            else self._main_binary_stream,
+                                        self._main_opts,
+                                        is_main_bin=True)
         self.memory = Clemory(self.main_bin.arch, root=True)
         base_addr = self._main_opts.get('custom_base_addr', None)
         if base_addr is None and self.main_bin.requested_base is not None:
             base_addr = self.main_bin.requested_base
         if base_addr is None and self.main_bin.pic:
-            l.warning("The main binary is a position-independant executable. It is being loaded with a base address of 0x400000.")
+            l.warning("The main binary is a position-independant executable. "
+                      "It is being loaded with a base address of 0x400000.")
             base_addr = 0x400000
         if base_addr is None:
             base_addr = 0
@@ -250,9 +258,17 @@ class Loader(object):
         Returns the filetype of the file `path`. Will be one of the strings in {'elf', 'elfcore', 'pe', 'mach-o',
         'unknown'}.
         """
-        identstring = open(path, 'rb').read(0x1000)
+        if hasattr(path, 'seek') and hasattr(path, 'read'):
+            path.seek(0)
+            stream = path
+        else:
+            stream = open(path, 'rb')
+
+        identstring = stream.read(0x1000)
+        stream.seek(0)
+
         if identstring.startswith('\x7fELF'):
-            if elftools.elf.elffile.ELFFile(open(path, 'rb')).header['e_type'] == 'ET_CORE':
+            if elftools.elf.elffile.ELFFile(stream).header['e_type'] == 'ET_CORE':
                 return 'elfcore'
             return 'elf'
         elif identstring.startswith('MZ') and len(identstring) > 0x40:
@@ -291,7 +307,7 @@ class Loader(object):
             else:
                 base_addr = self._get_safe_rebase_addr()
 
-        l.info("[Rebasing %s @%#x]", os.path.basename(obj.binary), base_addr)
+        l.info("[Rebasing %s @%#x]", obj.binary, base_addr)
         self.memory.add_backer(base_addr, obj.memory)
         obj.rebase_addr = base_addr
 
@@ -299,7 +315,8 @@ class Loader(object):
         if os.path.exists(path): yield path
         dirs = []                   # if we say dirs = blah, we modify the original
         dirs += self._custom_ld_path
-        dirs += [os.path.dirname(self._main_binary_path)]
+        if self._main_binary_path is not None:
+            dirs += [os.path.dirname(self._main_binary_path)]
         dirs += self.main_bin.arch.library_search_path()
         for libdir in dirs:
             fullpath = os.path.realpath(os.path.join(libdir, path))
@@ -309,12 +326,13 @@ class Loader(object):
                     for libname in os.listdir(libdir):
                         if libname.strip('.0123456789') == path.strip('.0123456789'):
                             yield os.path.realpath(os.path.join(libdir, libname))
-                except OSError: pass
+                except (IOError, OSError): pass
 
     def _perform_reloc(self, obj):
-        if obj.binary in self._relocated_objects:
-            return
-        self._relocated_objects.add(obj.binary)
+        if obj.binary is not None:
+            if obj.binary in self._relocated_objects:
+                return
+            self._relocated_objects.add(obj.binary)
 
         dep_objs = [self.shared_objects[dep_name] for dep_name in obj.deps if dep_name in self.shared_objects]
         for dep_obj in dep_objs:
@@ -448,7 +466,7 @@ class Loader(object):
         for o in self.all_objects:
             # The Elf class only works with static non-relocated addresses
             if o.contains_addr(addr - o.rebase_addr):
-                return os.path.basename(o.binary)
+                return o.provides
 
     def find_symbol_got_entry(self, symbol):
         """
@@ -477,7 +495,7 @@ class Loader(object):
 
         #LD_LIBRARY_PATH
         ld_path = os.getenv("LD_LIBRARY_PATH")
-        if ld_path == None:
+        if ld_path is None:
             ld_path = bin_p
         else:
             ld_path = ld_path + ":" + bin_p
@@ -583,16 +601,28 @@ class Loader(object):
         """
         if not os.path.exists('/tmp/cle'):
             os.mkdir('/tmp/cle')
-        if os.path.exists(path):
-            bn = os.urandom(5).encode('hex')
-            if suffix is not None:
-                bn += suffix
-            dest = os.path.join('/tmp/cle', bn)
-            l.info("\t -> copy obj %s to %s", path, dest)
-            shutil.copy(path, dest)
+
+        if hasattr(path, 'seek') and hasattr(path, 'read'):
+            stream = path
         else:
-            raise CLEFileNotFoundError("File %s does not exist :(. Please check that the"
-                                       " path is correct" % path)
+            try:
+                stream = open(path, 'rb')
+            except IOError:
+                raise CLEFileNotFoundError("File %s does not exist :(. Please check that the"
+                                           " path is correct" % path)
+        bn = os.urandom(5).encode('hex')
+        if suffix is not None:
+            bn += suffix
+        dest = os.path.join('/tmp/cle', bn)
+        l.info("\t -> copy obj %s to %s", path, dest)
+
+        with open(dest, 'wb') as dest_stream:
+            while True:
+                dat = stream.read(1024*1024)
+                if len(dat) == 0:
+                    break
+                dest_stream.write(dat)
+
         return dest
 
     @staticmethod

@@ -291,7 +291,15 @@ class Backend(object):
         for k,v in kwargs.iteritems():
             setattr(self, k, v)
 
-        self.binary = binary
+        if hasattr(binary, 'seek') and hasattr(binary, 'read'):
+            self.binary = None
+            self.binary_stream = binary
+        else:
+            self.binary = binary
+            try:
+                self.binary_stream = open(binary, 'rb')
+            except IOError:
+                self.binary_stream = None
         self.is_main_bin = is_main_bin
         self._entry = None
         self.segments = [] # List of segments
@@ -340,7 +348,10 @@ class Backend(object):
     supported_filetypes = []
 
     def __repr__(self):
-        return '<%s Object %s, maps [%#x:%#x]>' % (self.__class__.__name__, os.path.basename(self.binary), self.get_min_addr(), self.get_max_addr())
+        if self.binary is not None:
+            return '<%s Object %s, maps [%#x:%#x]>' % (self.__class__.__name__, os.path.basename(self.binary), self.get_min_addr(), self.get_max_addr())
+        else:
+            return '<%s Object from stream, maps [%#x:%#x]>' % (self.__class__.__name__, self.get_min_addr(), self.get_max_addr())
 
     def set_arch(self, arch):
         if self.compatible_with is not None and self.compatible_with.arch != arch:

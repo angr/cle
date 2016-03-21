@@ -22,6 +22,8 @@ class IDABin(Backend):
 
         super(IDABin, self).__init__(binary, *args, **kwargs)
 
+        if self.binary is None:
+            raise CLEError("You can't use a file stream with the ida backend, for what I hope are obvious reasons")
         if self.arch is None:
             raise CLEError("You must specify a custom_arch in order to use the IDABin backend")
 
