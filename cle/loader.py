@@ -68,7 +68,7 @@ class Loader(object):
             self._main_binary_path = os.path.realpath(str(main_binary))
             self._main_binary_stream = None
         self._auto_load_libs = auto_load_libs
-        self._unsatisfied_deps = [] if force_load_libs is None else force_load_libs
+        self._unsatisfied_deps = [] if force_load_libs is None else list(force_load_libs)
         self._satisfied_deps = set([] if skip_libs is None else skip_libs)
         self._main_opts = {} if main_opts is None else main_opts
         self._lib_opts = {} if lib_opts is None else lib_opts
@@ -154,40 +154,43 @@ class Loader(object):
     def _load_dependencies(self):
         while len(self._unsatisfied_deps) > 0:
             dep = self._unsatisfied_deps.pop(0)
-            if os.path.basename(dep) in self._satisfied_deps:
-                continue
-            if self._ignore_import_version_numbers and dep.strip('.0123456789') in self._satisfied_deps:
-                continue
-
-            path = self._get_lib_path(dep)
-
-            for path in self._possible_paths(dep):
-                libname = os.path.basename(path)
-                if self.identify_object(path) == 'elf':
-                    soname = self._extract_soname(path)
-                else:
-                    soname = libname
-
-                if libname in self._lib_opts.keys():
-                    options = self._lib_opts[libname]
-                elif soname in self._lib_opts.keys():
-                    options = self._lib_opts[soname]
-                else:
-                    options = {}
-
-                try:
-                    obj = self.load_object(path, options, compatible_with=self.main_bin)
-                    break
-                except (CLECompatibilityError, CLEFileNotFoundError):
+            options = {}
+            if isinstance(dep, (str, unicode)):
+                if os.path.basename(dep) in self._satisfied_deps:
                     continue
+                if self._ignore_import_version_numbers and dep.strip('.0123456789') in self._satisfied_deps:
+                    continue
+
+                path = self._get_lib_path(dep)
+
+                for path in self._possible_paths(dep):
+                    libname = os.path.basename(path)
+                    if self.identify_object(path) == 'elf':
+                        soname = self._extract_soname(path)
+                    else:
+                        soname = libname
+
+                    if libname in self._lib_opts.keys():
+                        options = self._lib_opts[libname]
+                    elif soname in self._lib_opts.keys():
+                        options = self._lib_opts[soname]
+
+                    try:
+                        obj = self.load_object(path, options, compatible_with=self.main_bin)
+                        break
+                    except (CLECompatibilityError, CLEFileNotFoundError):
+                        continue
+                else:
+                    if self._except_missing_libs:
+                        raise CLEFileNotFoundError("Could not find shared library: %s" % dep)
+                    continue
+            elif isinstance(dep, Backend):
+                obj = dep
             else:
-                if self._except_missing_libs:
-                    raise CLEFileNotFoundError("Could not find shared library: %s" % dep)
-                continue
+                raise CLEError("Bad library: %s" % path)
 
             base_addr = options.get('custom_base_addr', None)
             self.add_object(obj, base_addr)
-            self.shared_objects[obj.provides] = obj
 
     @staticmethod
     def load_object(path, options=None, compatible_with=None, is_main_bin=False):
@@ -206,6 +209,8 @@ class Loader(object):
         :param bool is_main_bin:    Whether this file is the main executable of whatever process we are loading
         """
         # Try to find the filetype of the object. Also detect if you were given a bad filepath
+        if options is None:
+            options = {}
         try:
             filetype = Loader.identify_object(path)
         except OSError:
@@ -300,6 +305,8 @@ class Loader(object):
                 self._satisfied_deps.add(obj.provides.strip('.0123456789'))
 
         self.all_objects.append(obj)
+        if obj.provides is not None:
+            self.shared_objects[obj.provides] = obj
 
         if base_addr is None:
             if obj.requested_base is not None and self.addr_belongs_to_object(obj.requested_base) is None:
@@ -328,11 +335,20 @@ class Loader(object):
                             yield os.path.realpath(os.path.join(libdir, libname))
                 except (IOError, OSError): pass
 
+    def relocate(self):
+        """
+        Attemts to resolve all yet-unresolved relocations in all loaded objects.
+        It is appropriate to call this repeatedly.
+        """
+
+        self._relocated_objects = set()
+        for obj in self.all_objects:
+            self._perform_reloc(obj)
+
     def _perform_reloc(self, obj):
-        if obj.binary is not None:
-            if obj.binary in self._relocated_objects:
-                return
-            self._relocated_objects.add(obj.binary)
+        if id(obj) in self._relocated_objects:
+            return
+        self._relocated_objects.add(id(obj))
 
         dep_objs = [self.shared_objects[dep_name] for dep_name in obj.deps if dep_name in self.shared_objects]
         for dep_obj in dep_objs:
@@ -340,7 +356,8 @@ class Loader(object):
 
         if isinstance(obj, (MetaELF, PE)):
             for reloc in obj.relocs:
-                reloc.relocate(dep_objs + [obj])
+                if not reloc.resolved:
+                    reloc.relocate(dep_objs + [obj])
 
     def provide_symbol(self, owner, name, offset, size=0, binding='STB_GLOBAL', st_type='STT_FUNC', st_info='CLE'):
         newsymbol = Symbol(owner, name, offset, size, binding, st_type, st_info)
@@ -413,18 +430,19 @@ class Loader(object):
             return None
 
         off = addr - o.rebase_addr
+        nameof = 'main binary' if o is self.main_bin else o.provides
 
         if isinstance(o, ELF):
             if addr in o.plt.values():
                 for k,v in o.plt.iteritems():
                     if v == addr:
-                        return  "PLT stub of %s in %s (offset %#x)" % (k, o.provides, off)
+                        return  "PLT stub of %s in %s (offset %#x)" % (k, nameof, off)
 
             if off in o.symbols_by_addr:
                 name = o.symbols_by_addr[off].name
-                return "%s (offset %#x) in %s" % (name, off, o.provides)
+                return "%s (offset %#x) in %s" % (name, off, nameof)
 
-        return "Offset %#x in %s" % (off, o.provides)
+        return "Offset %#x in %s" % (off, nameof)
 
     def max_addr(self):
         """
