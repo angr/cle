@@ -316,4 +316,23 @@ class IDABin(Backend):
         else:
             return "dynamic"
 
+    # must be able to duck type as a MetaELF subclass
+
+    @property
+    def plt(self):
+        # I know there's a way to do this but BOY do I not want to do it right now
+        return {}
+
+    @property
+    def reverse_plt(self):
+        return {}
+
+    def get_call_stub_addr(self, name):
+        return None
+
+    @property
+    def is_ppc64_abiv1(self):
+        # IDA 6.9 segfaults when loading ppc64 abiv1 binaries so....
+        return False
+
 from ..loader import Loader
