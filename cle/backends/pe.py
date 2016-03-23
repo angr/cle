@@ -45,7 +45,7 @@ class WinReloc(Relocation):
         self.resolvewith = resolvewith
 
     def resolve_symbol(self, solist):
-        return super(WinReloc, self).resolve_symbol([x for x in solist if self.resolvewith == x.provides])
+        return super(WinReloc, self).resolve_symbol([x for x in solist if self.resolvewith == x.provides or x.provides == None])
 
     @property
     def value(self):
