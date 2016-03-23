@@ -250,10 +250,44 @@ class Backend(object):
     Main base class for CLE binary objects.
 
     An alternate interface to this constructor exists as the static method :meth:`cle.loader.Loader.load_object`
+
+    :ivar binary:           The path to the file this object is loaded from
+    :ivar is_main_bin:      Whether this binary is loaded as the main executable
+    :ivar segments:         A listing of all the loaded segments in this file
+    :ivar sections:         A listing of all the demarked sections in the file
+    :ivar sections_map:     A dict mapping from section name to section
+    :ivar symbols_by_addr:  A mapping from address to Symbol
+    :ivar imports:          A mapping from symbol name to import symbol
+    :ivar resolved_imports: A list of all the import symbols that are successfully resolved
+    :ivar relocs:           A list of all the relocations in this binary
+    :ivar irelatives:       A list of tuples representing all the irelative relocations that need to be performed. The
+                            first item in the tuple is the address of the resolver function, and the second item is the
+                            address of where to write the result. The destination address is not rebased.
+    :ivar jmprel:           A mapping from symbol name to the address of its jump slot relocation, i.e. its GOT entry.
+    :ivar arch:             The architecture of this binary
+    :vartype arch:          archinfo.arch.Arch
+    :ivar str filetype:     The filetype of this object
+    :ivar str os:           The operating system this binary is meant to run under
+    :ivar compatible_with:  Another Backend object this object must be compatibile with, or None
+    :ivar int rebase_addr:  The base address of this object in virtual memory
+    :ivar tls_module_id:    The thread-local storage module ID assigned to this binary
+    :ivar deps:             A list of names of shared libraries this binary depends on
+    :ivar linking:          'dynamic' or 'static'
+    :ivar requested_base:   The base address this object requests to be loaded at, or None
+    :ivar bool pic:         Whether this object is position-independant
+    :ivar bool execstack:   Whether this executable has an executable stack
+    :ivar str provides:     The name of the shared library dependancy that this object resolves
     """
 
     def __init__(self, binary, is_main_bin=False, compatible_with=None, filetype='unknown', **kwargs):
+        """
+        :param binary:          The path to the binary to load
+        :param is_main_bin:     Whether this binary should be loaded as the main executable
+        :param compatible_with: An optional Backend object to force compatibility with
+        :param filetype:        The format of the file to load
+        """
         # Unfold the kwargs and convert them to class attributes
+        # TODO: do we need to do this anymore?
         for k,v in kwargs.iteritems():
             setattr(self, k, v)
 
@@ -279,7 +313,6 @@ class Backend(object):
         self.rebase_addr = 0 # not to be set manually - used by CLE
         self.tls_module_id = None
 
-        self.object_type = None
         self.deps = []           # Needed shared objects (libraries dependencies)
         self.linking = None # Dynamic or static linking
         self.requested_base = None

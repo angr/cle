@@ -193,7 +193,7 @@ class Loader(object):
         :param dict options:        A dictionary of keyword arguments to the backend. Can contain a `backend` key to
                                     force the use of a specific backend
         :param compatiable_with:    Another backend object that this file must be compatible with.
-                                    This method will throw a :ref:`CLECompatibilityError <cle.errors.CLECompatibilityError>`
+                                    This method will throw a :class:`CLECompatibilityError <cle.errors.CLECompatibilityError>`
                                     if the file at the given path is not compatibile with this parameter.
         :param bool is_main_bin:    Whether this file is the main executable of whatever process we are loading
         """

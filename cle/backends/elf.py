@@ -77,6 +77,10 @@ class ELFSection(Section):
         self.align = readelf_sec.header.sh_addralign
 
     @property
+    def is_readable(self):
+        return True
+
+    @property
     def is_writable(self):
         return self.flags & self.SHF_WRITE != 0
 
@@ -190,7 +194,7 @@ class ELF(MetaELF):
                 elif 'DT_HASH' in self._dynamic:
                     self.hashtable = ELFHashTable(self.dynsym, self.memory, self._dynamic['DT_HASH'], self.arch)
 
-    def get_symbol(self, symid, symbol_table=None):
+    def get_symbol(self, symid, symbol_table=None): # pylint: disable=arguments-differ
         """
         Gets a Symbol object for the specified symbol.
 
@@ -276,11 +280,13 @@ class ELF(MetaELF):
         return out
 
     def __register_segments(self):
+        self.linking = 'static'
         for seg_readelf in self.reader.iter_segments():
             if seg_readelf.header.p_type == 'PT_LOAD':
                 self._load_segment(seg_readelf)
             elif seg_readelf.header.p_type == 'PT_DYNAMIC':
                 self.__register_dyn(seg_readelf)
+                self.linking = 'dynamic'
             elif seg_readelf.header.p_type == 'PT_TLS':
                 self.__register_tls(seg_readelf)
             elif seg_readelf.header.p_type == 'PT_GNU_STACK':
@@ -569,8 +575,8 @@ class ELFHashTable(object):
     def elf_hash(key):
         h = 0
         x = 0
-        for i in range(len(key)):
-            h = (h << 4) + ord(key[i])
+        for c in key:
+            h = (h << 4) + ord(c)
             x = h & 0xF0000000
             if x != 0:
                 h ^= (x >> 24)

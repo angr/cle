@@ -4,6 +4,7 @@ __all__ = (
     'CLEFileNotFoundError',
     'CLEInvalidBinaryError',
     'CLEOperationError',
+    'CLECompatibilityError',
 )
 
 class CLEError(Exception):
