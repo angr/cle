@@ -26,7 +26,7 @@ the OS's loader.
 '0x61c1c0'
 >>> import pyvex
 >>> some_text_data = ''.join(ld.memory.read_bytes(ld.main_bin.entry, 0x100))
->>> irsb = pyvex.IRSB(bytes=some_text_data, arch=ld.main_bin.arch, mem_addr=ld.main_bin.entry)
+>>> irsb = pyvex.IRSB(some_text_data, ld.main_bin.entry, ld.main_bin.arch)
 >>> irsb.pp()
 IRSB {
    t0:Ity_I32 t1:Ity_I32 t2:Ity_I32 t3:Ity_I64 t4:Ity_I64 t5:Ity_I64 t6:Ity_I32 t7:Ity_I64 t8:Ity_I32 t9:Ity_I64 t10:Ity_I64 t11:Ity_I64 t12:Ity_I64 t13:Ity_I64 t14:Ity_I64
