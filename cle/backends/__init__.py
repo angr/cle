@@ -13,30 +13,47 @@ class Region(object):
     """
     A region of memory that is mapped in the object's file.
 
-    :ivar offset:             The offset into the file the region starts.
-    :ivar addr or vaddr:      The virtual address.
-    :ivar size or filesize:   The size of the region in the file.
-    :ivar memsize or vsize:   The size of the region when loaded into memory.
+    :ivar offset:       The offset into the file the region starts.
+    :ivar vaddr:        The virtual address.
+    :ivar filesize:     The size of the region in the file.
+    :ivar memsize:      The size of the region when loaded into memory.
+
+    The prefix `v-` on a variable or parameter name indicates that it refers to the virtual, loaded memory space,
+    while a corresponding variable without the `v-` refers to the flat zero-based memory of the file.
+
+    When used next to each other, `addr` and `offset` refer to virtual memory address and file offset, respectively.
     """
-    def __init__(self, offset, vaddr, size, vsize):
+    def __init__(self, offset, vaddr, filesize, memsize):
         self.vaddr = vaddr
-        self.memsize = vsize
-        self.filesize = size
+        self.memsize = memsize
+        self.filesize = filesize
         self.offset = offset
 
     def contains_addr(self, addr):
+        """
+        Does this region contain this virtual address?
+        """
         return (addr >= self.vaddr) and (addr < self.vaddr + self.memsize)
 
     def contains_offset(self, offset):
+        """
+        Does this region contain this offset into the file?
+        """
         return (offset >= self.offset) and (offset < self.offset + self.filesize)
 
     def addr_to_offset(self, addr):
+        """
+        Convert a virtual memory address into a file offset
+        """
         offset = addr - self.vaddr + self.offset
         if not self.contains_offset(offset):
             return None
         return offset
 
     def offset_to_addr(self, offset):
+        """
+        Convert a file offset into a virtual memory address
+        """
         addr = offset - self.offset + self.vaddr
         if not self.contains_addr(addr):
             return None
@@ -44,17 +61,29 @@ class Region(object):
 
     @property
     def max_addr(self):
+        """
+        The maximum virtual address of this region
+        """
         return self.vaddr + self.memsize - 1
 
     @property
     def min_addr(self):
+        """
+        The minimum virtual address of this region
+        """
         return self.vaddr
 
     @property
     def max_offset(self):
+        """
+        The maximum file offset of this region
+        """
         return self.offset + self.filesize - 1
 
     def min_offset(self):
+        """
+        The minimum file offset of this region
+        """
         return self.offset
 
 
@@ -66,22 +95,39 @@ class Segment(Region):
 
 class Section(Region):
     """
-    Simple representation of a section.
+    Simple representation of a loaded section.
+
+    :ivar str name:     The name of the section
     """
     def __init__(self, name, offset, vaddr, size):
+        """
+        :param str name:    The name of the section
+        :param int offset:  The offset into the binary file this section begins
+        :param int vaddr:   The address in virtual memory this section begins
+        :param int size:    How large this section is
+        """
         super(Section, self).__init__(offset, vaddr, size, size)
         self.name = name
 
     @property
     def is_readable(self):
+        """
+        Whether this section has read permissions
+        """
         raise NotImplementedError()
 
     @property
     def is_writable(self):
+        """
+        Whether this section has write permissions
+        """
         raise NotImplementedError()
 
     @property
-    def is_readable(self):
+    def is_executable(self):
+        """
+        Whether this section has execute permissions
+        """
         raise NotImplementedError()
 
     def __repr__(self):
@@ -97,9 +143,24 @@ class Symbol(object):
     Representation of a symbol from a binary file. Smart enough to rebase itself.
 
     There should never be more than one Symbol instance representing a single symbol. To make sure of this, only use
-    the :func:`get_symbol` method in the backend objects.
+    the :meth:`cle.backends.Backend.get_symbol()` to create new symbols.
+
+    :ivar owner_obj:        The object that contains this symbol
+    :vartype owner_obj:     cle.backends.Backend
+    :ivar str name:         The name of this symbol
+    :ivar int addr:         The address of this symbol
+    :iver int size:         The size of this symbol
+    :ivar str binding:      The binding of this symbol as an ELF enum string
+    :ivar str type:         The type of this symbol as an ELF enum string
+    :ivar sh_info:          The info field of a symbol
+    :ivar bool resolved:    Whether this import symbol has been resolved to a real symbol
+    :ivar resolvedby:       The real symbol this import symbol has been resolve to
+    :vartype resolvedby:    None or cle.backends.Symbol
     """
     def __init__(self, owner, name, addr, size, binding, sym_type, sh_info):
+        """
+        Not documenting this since if you try calling it, you're wrong.
+        """
         super(Symbol, self).__init__()
         self.owner_obj = owner
         self.name = name
@@ -125,29 +186,49 @@ class Symbol(object):
 
     @property
     def rebased_addr(self):
+        """
+        The address of this symbol in the global memory space
+        """
         return self.addr + self.owner_obj.rebase_addr
 
     @property
     def is_import(self):
+        """
+        Whether this symbol is an import symbol
+        """
         return self.sh_info is None and (self.binding == 'STB_GLOBAL' or \
                                          self.binding == 'STB_WEAK' or \
                                          self.binding == 'STT_FUNC')
 
     @property
     def is_export(self):
+        """
+        Whether this symbol is an export symbol
+        """
         return self.sh_info is not None and (self.binding == 'STB_GLOBAL' or \
                                              self.binding == 'STB_WEAK')
 
     @property
     def is_function(self):
+        """
+        Whether this symbol is a function
+        """
         return self.type == 'STT_FUNC'
 
     @property
     def is_weak(self):
+        """
+        Whether this symbol has weak binding, i.e. it can go unresolved and the world won't end
+        """
         return self.binding == 'STB_WEAK'
 
     @property
     def demangled_name(self):
+        """
+        The name of this symbol, run through a C++ demangler
+
+        Warning: this calls out to the external program `c++filt` and will fail loudly if it's not installed
+        """
         # make sure it's mangled
         if self.name.startswith("_Z"):
             name = self.name
@@ -167,6 +248,8 @@ class Symbol(object):
 class Backend(object):
     """
     Main base class for CLE binary objects.
+
+    An alternate interface to this constructor exists as the static method :meth:`cle.loader.Loader.load_object`
     """
 
     def __init__(self, binary, is_main_bin=False, compatible_with=None, filetype='unknown', **kwargs):

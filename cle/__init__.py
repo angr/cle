@@ -1,7 +1,3 @@
-"""
-CLE
-"""
-
 import logging
 logging.getLogger("cle").addHandler(logging.NullHandler())
 

@@ -16,9 +16,8 @@ class Loader(object):
     The loader loads all the objects and exports an abstraction of the memory of the process. What you see here is an
     address space with loaded and rebased binaries.
 
-    Class variables :
-
     :ivar memory:               The loaded, rebased, and relocated memory of the program.
+    :vartype memory:            cle.memory.Clemory
     :ivar main_bin:             The object representing the main binary (i.e., the executable).
     :ivar shared_objects:       A dictionary mapping loaded library names to the objects representing them.
     :ivar all_objects:          A list containing representations of all the different objects loaded.
@@ -42,8 +41,6 @@ class Loader(object):
                  ignore_import_version_numbers=True, rebase_granularity=0x1000000,
                  except_missing_libs=False, gdb_map=None, gdb_fix=False):
         """
-        Constructor.
-
         :param main_binary:      The path to the main binary you're loading.
 
         The following parameters are optional.
@@ -186,6 +183,20 @@ class Loader(object):
 
     @staticmethod
     def load_object(path, options=None, compatible_with=None, is_main_bin=False):
+        """
+        Load a file with some backend. Try to identify the type of the file to autodetect which backend to use.
+
+        :param str path:            The path to the file to load
+
+        The following parameters are optional.
+
+        :param dict options:        A dictionary of keyword arguments to the backend. Can contain a `backend` key to
+                                    force the use of a specific backend
+        :param compatiable_with:    Another backend object that this file must be compatible with.
+                                    This method will throw a :ref:`CLECompatibilityError <cle.errors.CLECompatibilityError>`
+                                    if the file at the given path is not compatibile with this parameter.
+        :param bool is_main_bin:    Whether this file is the main executable of whatever process we are loading
+        """
         # Try to find the filetype of the object. Also detect if you were given a bad filepath
         try:
             filetype = Loader.identify_object(path)

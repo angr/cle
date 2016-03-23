@@ -57,8 +57,6 @@ class Relocation(object):
     A representation of a relocation in a binary file. Smart enough to
     relocate itself.
 
-    Properties you may care about :
-
     :ivar owner_obj:    The binary this relocation was originaly found in, as a cle object
     :ivar symbol:       The Symbol object this relocation refers to
     :ivar addr:         The address in owner_obj this relocation would like to write to
