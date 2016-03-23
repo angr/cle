@@ -7,19 +7,16 @@ l = logging.getLogger("cle.blob")
 
 __all__ = ('Blob',)
 
+
 class Blob(Backend):
     """
-        Representation of a binary blob, i.e. an executable in an unknown file
-        format.
+    Representation of a binary blob, i.e. an executable in an unknown file format.
     """
-
     def __init__(self, path, custom_arch=None, custom_offset=None, *args, **kwargs):
         """
-        Arguments we expect in kwargs:
-            @custom_arch: required, an archinfo.Arch for the binary blob
-            @custom_offset: skip this many bytes from the beginning of the file
+        :param custom_arch:   (required) an :class:`archinfo.Arch` for the binary blob.
+        :param custom_offset: Skip this many bytes from the beginning of the file.
         """
-
 
         if custom_arch is None:
             raise CLEError("Must specify custom_arch when loading blob!")
@@ -49,7 +46,9 @@ class Blob(Backend):
         return self._max_addr
 
     def _load(self, offset, size=None):
-        """ Load a segment into memory """
+        """
+        Load a segment into memory.
+        """
         try:
             f = open(self.binary, 'rb')
         except IOError:

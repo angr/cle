@@ -97,7 +97,7 @@ class Symbol(object):
     Representation of a symbol from a binary file. Smart enough to rebase itself.
 
     There should never be more than one Symbol instance representing a single symbol. To make sure of this, only use
-    the get_symbol method in the backend objects.
+    the :func:`get_symbol` method in the backend objects.
     """
     def __init__(self, owner, name, addr, size, binding, sym_type, sh_info):
         super(Symbol, self).__init__()
@@ -117,7 +117,6 @@ class Symbol(object):
             #demangled = self.demangled_name
             #if demangled is not None:
             #    self.owner_obj.demangled_names[self.name] = demangled
-
 
     def resolve(self, obj):
         self.resolved = True

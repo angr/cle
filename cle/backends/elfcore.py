@@ -6,8 +6,11 @@ from ..errors import CLEError, CLECompatibilityError
 import logging
 l = logging.getLogger('cle.elfcore')
 
-class CoreNote(object):
 
+class CoreNote(object):
+    """
+    This class is used when parsing the NOTES section of a core file.
+    """
     n_type_lookup = {
             1: 'NT_PRSTATUS',
             2: 'NT_PRFPREG',
@@ -29,9 +32,10 @@ class CoreNote(object):
     def __repr__(self):
         return "<Note %s %s %#x>" % (self.name, self.n_type, len(self.desc))
 
+
 class ELFCore(ELF):
     """
-     Loader class for ELF core files.
+    Loader class for ELF core files.
     """
 
     def __init__(self, binary, **kwargs):
@@ -149,19 +153,19 @@ class ELFCore(ELF):
         usec = struct.unpack("<" + fmt, prstatus.desc[pos:pos+arch_bytes])[0] * 1000
         self.pr_utime_usec = struct.unpack("<" + fmt, prstatus.desc[pos+arch_bytes:pos+arch_bytes*2])[0] + usec
 
-        pos = pos + arch_bytes*2
+        pos += arch_bytes * 2
         usec = struct.unpack("<" + fmt, prstatus.desc[pos:pos+arch_bytes])[0] * 1000
         self.pr_stime_usec = struct.unpack("<" + fmt, prstatus.desc[pos+arch_bytes:pos+arch_bytes*2])[0] + usec
 
-        pos = pos + arch_bytes*2
+        pos += arch_bytes * 2
         usec = struct.unpack("<" + fmt, prstatus.desc[pos:pos+arch_bytes])[0] * 1000
         self.pr_cutime_usec = struct.unpack("<" + fmt, prstatus.desc[pos+arch_bytes:pos+arch_bytes*2])[0] + usec
 
-        pos = pos + arch_bytes*2
+        pos += arch_bytes * 2
         usec = struct.unpack("<" + fmt, prstatus.desc[pos:pos+arch_bytes])[0] * 1000
         self.pr_cstime_usec = struct.unpack("<" + fmt, prstatus.desc[pos+arch_bytes:pos+arch_bytes*2])[0] + usec
 
-        pos = pos + arch_bytes*2
+        pos += arch_bytes * 2
 
         # parse out general purpose registers
         if self.arch.name == 'AMD64':
@@ -200,5 +204,5 @@ class ELFCore(ELF):
         self.registers = dict(zip(rnames, regvals))
         del self.registers['xxx']
 
-        pos = pos + nreg * arch_bytes
+        pos += nreg * arch_bytes
         self.pr_fpvalid = struct.unpack("<I", prstatus.desc[pos:pos+4])[0]

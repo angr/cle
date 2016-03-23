@@ -25,14 +25,15 @@ TLS_HEAD_ALIGN = 0x10000
 TLS_DTV_INITIAL_CAPACITY = 0x10
 TLS_ALLOC_SIZE = 0x30000
 
+
 def roundup(val, to=TLS_BLOCK_ALIGN):
-    #val -= 1
-    #diff = to - (val % to)
-    #val += diff
-    #return val
     return val - 1 + (to - ((val - 1) % to))
 
+
 class TLSObj(Backend):
+    """
+    This class is used when parsing the Thread Local Storage of a binary.
+    """
     def __init__(self, modules):
         super(TLSObj, self).__init__('##cle_tls##')
         self.modules = modules
@@ -103,7 +104,7 @@ class TLSObj(Backend):
 
     def get_addr(self, module_id, offset):
         """
-         basically __tls_get_addr
+        basically ``__tls_get_addr``.
         """
         return self.thread_pointer + self.modules[module_id-1].tls_block_offset + offset
 

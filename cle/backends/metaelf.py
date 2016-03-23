@@ -3,6 +3,7 @@ from ..errors import CLEOperationError
 
 __all__ = ('MetaELF',)
 
+
 class MetaELF(Backend):
     """
     A base class that implements functions used by all backends that can load an ELF.
@@ -26,10 +27,10 @@ class MetaELF(Backend):
 
     def _get_plt_stub_addr(self, name):
         """
-        Guess the address of the PLT stub for function *name*. Functions must have a know GOT entry in self.jmprel.
+        Guess the address of the PLT stub for function `name`. Functions must have a known GOT entry in self.jmprel.
 
-        It should be safe to call regardless of if you've resolved simprocedures or not, since those modifications are
-        on the root clemory, and we're manipulating one of its backers here.
+        It should be safe to call regardless of if you haveve resolved simprocedures or not, since those modifications
+        are on the root :class:`Clemory`, and we're manipulating one of its backers here.
 
         NOTE: you probably want to call get_call_stub_addr() instead.
         """

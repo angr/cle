@@ -28,7 +28,7 @@ class Clemory(object):
         Adds a backer to the memory.
 
         :param start:   The address where the backer should be loaded.
-        :param data:    The backer itself. Can be either a string or another Clemory.
+        :param data:    The backer itself. Can be either a string or another :class:`Clemory`.
         """
         if not isinstance(data, (str, Clemory)):
             raise TypeError("Data must be a string or a Clemory")
@@ -105,7 +105,8 @@ class Clemory(object):
         self.__dict__.update(data)
 
     def read_bytes(self, addr, n):
-        """ Read *n* bytes at address *addr* in memory and return an array of bytes.
+        """
+        Read `n` bytes at address `addr` in memory and return an array of bytes.
         """
         b = []
         for i in range(addr, addr+n):
@@ -114,14 +115,14 @@ class Clemory(object):
 
     def write_bytes(self, addr, data):
         """
-        Write bytes from *data* at address *addr*.
+        Write bytes from `data` at address `addr`.
         """
         for i, c in enumerate(data):
             self[addr+i] = c
 
     def write_bytes_to_backer(self, addr, data):
         """
-        Write bytes from @data at address *addr* to backer instead of self._updates. This is only needed when writing a
+        Write bytes from `data` at address `addr` to backer instead of self._updates. This is only needed when writing a
         huge amount of data.
         """
 
@@ -177,13 +178,13 @@ class Clemory(object):
 
     def read_addr_at(self, where):
         """
-        Read addr stored in memory as a series of bytes starting at *where*.
+        Read addr stored in memory as a series of bytes starting at `where`.
         """
         return struct.unpack(self._arch.struct_fmt(), ''.join(self.read_bytes(where, self._arch.bytes)))[0]
 
     def write_addr_at(self, where, addr):
         """
-        Writes *addr* into a series of bytes in memory at *where*.
+        Writes `addr` into a series of bytes in memory at `where`.
         """
         by = struct.pack(self._arch.struct_fmt(), addr % (2**self._arch.bits))
         self.write_bytes(where, by)
@@ -214,7 +215,7 @@ class Clemory(object):
 
     def seek(self, value):
         """
-        The stream-like function that sets the "file's" current position. Use with read().
+        The stream-like function that sets the "file's" current position. Use with :func:`read()`.
 
         :param value:        The position to seek to.
         """
@@ -223,7 +224,7 @@ class Clemory(object):
     def read(self, nbytes):
         """
         The stream-like function that reads a number of bytes starting from the current position and updates the current
-        position. Use with seek().
+        position. Use with :func:`seek`.
 
         :param nbytes:   The number of bytes to read.
         """
@@ -284,7 +285,7 @@ class Clemory(object):
 
     def read_bytes_c(self, addr):
         """
-        Read *n* bytes at address *addr* in cbacked memory, and returns a cffi buffer pointer.
+        Read `n` bytes at address `addr` in cbacked memory, and returns a cffi buffer pointer.
 
         Note: We don't support reading across segments for performance concerns.
         """
