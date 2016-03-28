@@ -2,6 +2,7 @@ import os
 
 from .elf import ELF
 from ..loader import Loader
+from ..errors import CLEError
 
 ELF_HEADER = "7f45 4c46 0101 0100 0000 0000 0000 0000".replace(" ","").decode('hex')
 CGC_HEADER = "7f43 4743 0101 0143 014d 6572 696e 6f00".replace(" ","").decode('hex')
@@ -14,6 +15,9 @@ class CGC(ELF):
     See : https://github.com/CyberGrandChallenge/libcgcef/blob/master/cgc_executable_format.md
     """
     def __init__(self, path, *args, **kwargs):
+        if hasattr(path, 'seek'):
+            raise CLEError("CGC backend can't be used with a file stream")
+
         self.cgc_path = path
         self.elf_path = self.make_elf_copy(path)
         f = open(self.elf_path, 'r+b')

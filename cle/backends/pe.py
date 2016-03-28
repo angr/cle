@@ -97,7 +97,10 @@ class PE(Backend):
 
         super(PE, self).__init__(*args, **kwargs)
 
-        self._pe = pefile.PE(self.binary)
+        if self.binary is not None:
+            self._pe = pefile.PE(data=self.binary_stream.read())
+        else:
+            self._pe = pefile.PE(self.binary)
 
         if self.arch is None:
             self.set_arch(archinfo.arch_from_id(pefile.MACHINE_TYPE[self._pe.FILE_HEADER.Machine]))
@@ -110,8 +113,9 @@ class PE(Backend):
         else:
             self.deps = []
 
-        self.provides = os.path.basename(self.binary)
-        if not self.provides.endswith('.dll'):
+        if self.binary is not None and self.binary.endswith('.dll'):
+            self.provides = os.path.basename(self.binary)
+        else:
             self.provides = None
 
         self._exports = {}

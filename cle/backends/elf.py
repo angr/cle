@@ -104,7 +104,7 @@ class ELF(MetaELF):
     def __init__(self, binary, **kwargs):
         super(ELF, self).__init__(binary, **kwargs)
         try:
-            self.reader = elffile.ELFFile(open(self.binary, 'rb'))
+            self.reader = elffile.ELFFile(self.binary_stream)
         except ELFError:
             raise CLECompatibilityError
 
@@ -168,6 +168,9 @@ class ELF(MetaELF):
         self._populate_demangled_names()
 
     def __getstate__(self):
+        if self.binary is None:
+            raise ValueError("Can't pickle an object loaded from a stream")
+        self.binary_stream = None
         self.reader = None
         self.strtab = None
         self.dynsym = None
@@ -176,7 +179,8 @@ class ELF(MetaELF):
 
     def __setstate__(self, data):
         self.__dict__.update(data)
-        self.reader = elffile.ELFFile(open(self.binary, 'rb'))
+        self.binary_stream = open(self.binary, 'rb')
+        self.reader = elffile.ELFFile(self.binary_stream)
         if self._dynamic and 'DT_STRTAB' in self._dynamic:
             fakestrtabheader = {
                 'sh_offset': self._dynamic['DT_STRTAB']

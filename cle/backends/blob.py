@@ -7,11 +7,11 @@ l = logging.getLogger("cle.blob")
 
 __all__ = ('Blob',)
 
-
 class Blob(Backend):
     """
     Representation of a binary blob, i.e. an executable in an unknown file format.
     """
+
     def __init__(self, path, custom_arch=None, custom_offset=None, *args, **kwargs):
         """
         :param custom_arch:   (required) an :class:`archinfo.Arch` for the binary blob.
@@ -49,19 +49,12 @@ class Blob(Backend):
         """
         Load a segment into memory.
         """
-        try:
-            f = open(self.binary, 'rb')
-        except IOError:
-            raise IOError("\tFile %s does not exist" % self.binary)
 
-        if size == 0:
-            size = os.path.getsize(self.binary)
-
-        f.seek(offset)
+        self.binary_stream.seek(offset)
         if size is None:
-            string = f.read()
+            string = self.binary_stream.read()
         else:
-            string = f.read(size)
+            string = self.binary_stream.read(size)
         self.memory.add_backer(0, string)
         self._max_addr = len(string)
 
