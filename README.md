@@ -84,7 +84,7 @@ There are several backends that can be used to load a single file:
       mostly unsupported.
 
     - PE is a backend to load Microsoft's Portable Executable format,
-      effectively Windows binaries.
+      effectively Windows binaries. It uses the (optional) `pefile` module.
 
     - Blob is a backend to load unknown data. It requires that you specify
       the architecture it would be run on, in the form of a class from

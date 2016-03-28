@@ -1,8 +1,13 @@
-import pefile
+try:
+    import pefile
+except ImportError:
+    pefile = None
+
 import archinfo
 import os
 from ..backends import Backend, Symbol, Section
 from ..relocations import Relocation
+from ..errors import CLEError
 
 __all__ = ('PE',)
 
@@ -45,7 +50,7 @@ class WinReloc(Relocation):
         self.resolvewith = resolvewith
 
     def resolve_symbol(self, solist):
-        return super(WinReloc, self).resolve_symbol([x for x in solist if self.resolvewith == x.provides or x.provides == None])
+        return super(WinReloc, self).resolve_symbol([x for x in solist if self.resolvewith == x.provides or x.provides is None])
 
     @property
     def value(self):
@@ -87,6 +92,9 @@ class PE(Backend):
     """
 
     def __init__(self, *args, **kwargs):
+        if pefile is None:
+            raise CLEError("Install the pefile module to use the PE backend!")
+
         super(PE, self).__init__(*args, **kwargs)
 
         self._pe = pefile.PE(self.binary)
