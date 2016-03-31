@@ -43,4 +43,8 @@ class CGC(ELF):
             data['binary'] = data['elf_path']
         super(CGC, self).__setstate__(data)
 
+    def _load_segment(self, seg):
+        if seg.header.p_memsz > 0:
+            super(CGC, self)._load_segment(seg)
+
     supported_filetypes = ['cgc']
