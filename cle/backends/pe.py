@@ -76,15 +76,15 @@ class PESection(Section):
 
     @property
     def is_readable(self):
-        return self.characteristics & 0x40000000
+        return self.characteristics & 0x40000000 != 0
 
     @property
     def is_writable(self):
-        return self.characteristics & 0x20000000
+        return self.characteristics & 0x20000000 != 0
 
     @property
     def is_executable(self):
-        return self.characteristics & 0x20000000
+        return self.characteristics & 0x20000000 != 0
 
 class PE(Backend):
     """
