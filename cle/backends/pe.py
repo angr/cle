@@ -80,7 +80,7 @@ class PESection(Section):
 
     @property
     def is_writable(self):
-        return self.characteristics & 0x20000000 != 0
+        return self.characteristics & 0x80000000 != 0
 
     @property
     def is_executable(self):
