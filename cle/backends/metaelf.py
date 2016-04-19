@@ -3,7 +3,6 @@ from ..errors import CLEOperationError
 
 __all__ = ('MetaELF',)
 
-
 class MetaELF(Backend):
     """
     A base class that implements functions used by all backends that can load an ELF.
@@ -18,49 +17,41 @@ class MetaELF(Backend):
     supported_filetypes = ['elf']
 
     def _load_plt(self):
-        if self.arch.name in ('ARMEL', 'ARMHF', 'ARM', 'AARCH64', 'MIPS32', 'MIPS64'):
-            return
-
-        for name in self.jmprel:
-            addr = self._get_plt_stub_addr(name)
-            self._plt[name] = addr
-
-    def _get_plt_stub_addr(self, name):
-        """
-        Guess the address of the PLT stub for function `name`. Functions must have a known GOT entry in self.jmprel.
-
-        It should be safe to call regardless of if you haveve resolved simprocedures or not, since those modifications
-        are on the root :class:`Clemory`, and we're manipulating one of its backers here.
-
-        NOTE: you probably want to call get_call_stub_addr() instead.
-        """
-        # TODO: sections fallback for statically linked binaries.
-
-        if name not in self.jmprel:
-            return None
-
-        # What's in the got slot for @name ?
-        got = self.jmprel[name].addr
-        try:
-            addr = self.memory.read_addr_at(got)
-        except KeyError:
-            return None
-
-        # This is the address of the next second instruction in the PLT stub
-        # This is hackish but it works
+        # The main problem here is that there's literally no good way to do this.
+        # like, I read through the binutils source and they have a hacked up solution for each arch.
+        # it's pretty bad.
 
         if self.arch.name in ('X86', 'AMD64'):
-            # 0x6 is the size of the plt's jmpq instruction in x86_64
-            return addr - 0x6
+            # this is not the solution that binutils uses
+            # binutils actually just assumes that there exists a header of
+            # lazy-resolver-code at the top of .plt, and then for each
+            # n bytes after that, there's a plt stub
+            # The way we're doing it is assuming that the lazy-resolver stub lives
+            # immediately after the plt stub, which is a single jump instruction.
+            for name, reloc in self.jmprel.iteritems():
+                self._plt[name] = self.memory.read_addr_at(reloc.addr) - 6
 
-        elif self.arch.name in ('ARMEL', 'ARMHF', 'ARM', 'AARCH64'):
-            return addr
+        elif self.arch.name in ('ARM', 'ARMEL', 'ARMHF', 'AARCH64', 'MIPS32', 'MIPS64'):
+            # ARM and MIPS are nice enough to store the PLT stub addr in the
+            # import symbol itself. Sweet!
+            for name, reloc in self.jmprel.iteritems():
+                self._plt[name] = reloc.symbol.addr
 
-        elif self.arch.name in ('PPC32', 'PPC64'):
-            return got
+        elif self.arch.name in ('PPC32',):
+            # Yikes, ok. so for this one we just gotta assume that there are 16-byte
+            # stubs packed together right before the resolution stubs??????????
+            # binutils does some terrifying stuff with actually looking at the
+            # bytes of the instructions in parts of the text section
+            resolver_stubs = sorted((self.memory.read_addr_at(reloc.addr), name) for name, reloc in self.jmprel.iteritems())
+            stubs_table = resolver_stubs[0][0] - 16 * len(resolver_stubs)
+            for i, (_, name) in enumerate(resolver_stubs):
+                self._plt[name] = stubs_table + i*16
 
-        elif self.arch.name in ('MIPS32', 'MIPS64'):
-            return addr
+        elif self.arch.name in ('PPC64',):
+            # ??????????????????????????
+            # ????????????????????????????????????????????????
+            # confused sobbing noises????????????
+            pass
 
     @property
     def plt(self):
@@ -78,15 +69,10 @@ class MetaELF(Backend):
 
     def get_call_stub_addr(self, name):
         """
-        Usually, the PLT stub is called when jumping to an external function.
-
-        :param name: The name of a function.
-        :return:     The address of the call stub.
+        Takes the name of an imported function and returns the address of the stub function that jumps to it.
         """
-        # FIXME: this doesn't work on PPC. It will return .plt address of the
-        # function, but it is not what is called in practice...
-        if self.arch.name in ('ARMEL', 'ARMHF', 'ARM', 'AARCH64', 'PPC32', 'PPC64'):
-            raise CLEOperationError("FIXME: this doesn't work on PPC/ARM")
+        if self.arch.name in ('PPC64',):
+            raise CLEOperationError("FIXME: this doesn't work on PPC64")
 
         if name in self._plt:
             return self._plt[name] + self.rebase_addr
