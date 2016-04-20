@@ -1,5 +1,6 @@
 import struct
 import subprocess
+from collections import OrderedDict
 from elftools.elf import elffile, sections
 from elftools.common.exceptions import ELFError
 import archinfo
@@ -409,7 +410,7 @@ class ELF(MetaELF):
                         'sh_size': jmprelsz
                     }
                     readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.memory, self.reader)
-                    self.jmprel = {reloc.symbol.name: reloc for reloc in self.__register_relocs(readelf_jmprelsec)}
+                    self.jmprel = OrderedDict((reloc.symbol.name, reloc) for reloc in self.__register_relocs(readelf_jmprelsec) if reloc.symbol.name != '')
 
 
     def __register_relocs(self, section):
