@@ -10,6 +10,7 @@ from ..errors import CLEError, CLEInvalidBinaryError, CLECompatibilityError
 from .metaelf import MetaELF
 from ..relocations import get_relocation
 from ..relocations.generic import MipsGlobalReloc, MipsLocalReloc
+from ..patched_stream import PatchedStream
 
 import logging
 l = logging.getLogger('cle.elf')
@@ -104,10 +105,26 @@ class ELF(MetaELF):
     """
     def __init__(self, binary, **kwargs):
         super(ELF, self).__init__(binary, **kwargs)
+
+        patch_undo = None
         try:
             self.reader = elffile.ELFFile(self.binary_stream)
         except ELFError:
-            raise CLECompatibilityError
+            self.binary_stream.seek(5)
+            ty = self.binary_stream.read(1)
+            if ty not in ('\1', '\2'):
+                raise CLECompatibilityError
+
+            patch_data = (0x20, '\0\0\0\0') if ty == '\1' else (0x28, '\0\0\0\0\0\0\0\0')
+            self.binary_stream.seek(patch_data[0])
+            patch_undo = (patch_data[0], self.binary_stream.read(len(patch_data[1])))
+            self.binary_stream = PatchedStream(self.binary_stream, [patch_data])
+            l.error("PyReadELF couldn't load this file. Trying again without section headers...")
+
+            try:
+                self.reader = elffile.ELFFile(self.binary_stream)
+            except ELFError:
+                raise CLECompatibilityError
 
         # Get an appropriate archinfo.Arch for this binary, unless the user specified one
         if self.arch is None:
@@ -168,10 +185,16 @@ class ELF(MetaELF):
 
         self._populate_demangled_names()
 
+        if patch_undo is not None:
+            self.memory.write_bytes(self.get_min_addr() + patch_undo[0], patch_undo[1])
+
     def __getstate__(self):
         if self.binary is None:
             raise ValueError("Can't pickle an object loaded from a stream")
-        self.binary_stream = None
+        if type(self.binary_stream) is PatchedStream:
+            self.binary_stream.stream = None
+        else:
+            self.binary_stream = None
         self.reader = None
         self.strtab = None
         self.dynsym = None
@@ -180,7 +203,10 @@ class ELF(MetaELF):
 
     def __setstate__(self, data):
         self.__dict__.update(data)
-        self.binary_stream = open(self.binary, 'rb')
+        if self.binary_stream is None:
+            self.binary_stream = open(self.binary, 'rb')
+        else:
+            self.binary_stream.stream = open(self.binary, 'rb')
         self.reader = elffile.ELFFile(self.binary_stream)
         if self._dynamic and 'DT_STRTAB' in self._dynamic:
             fakestrtabheader = {
@@ -484,7 +510,8 @@ class ELF(MetaELF):
             self.sections_map[section.name] = section
             if isinstance(sec_readelf, elffile.SymbolTableSection):
                 self.__register_section_symbols(sec_readelf)
-            if isinstance(sec_readelf, elffile.RelocationSection):
+            if isinstance(sec_readelf, elffile.RelocationSection) and not \
+                    ('DT_REL' in self._dynamic or 'DT_RELA' in self._dynamic or 'DT_JMPREL' in self._dynamic):
                 self.__register_relocs(sec_readelf)
 
             if sec_readelf.header['sh_flags'] & 2:      # alloc flag - stick in memory maybe!
@@ -526,6 +553,9 @@ class ELF(MetaELF):
         TODO: remove this once a python implementation of a name demangler has
         been implemented, then update self.demangled_names in Symbol
         """
+
+        if not len(self.symbols_by_addr):
+            return
 
         names = [self.symbols_by_addr[s].name for s in self.symbols_by_addr]
         names = filter(lambda n: n.startswith("_Z"), names)

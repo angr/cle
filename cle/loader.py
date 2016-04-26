@@ -103,6 +103,10 @@ class Loader(object):
         self._perform_reloc(self.main_bin)
         self._finalize_tls()
 
+    def close(self):
+        for obj in self.all_objects:
+            obj.close()
+
     def __repr__(self):
         if self._main_binary_stream is None:
             return '<Loaded %s, maps [%#x:%#x]>' % (os.path.basename(self._main_binary_path), self.min_addr(), self.max_addr())
@@ -153,7 +157,7 @@ class Loader(object):
         if base_addr is None and self.main_bin.requested_base is not None:
             base_addr = self.main_bin.requested_base
         if base_addr is None and self.main_bin.pic:
-            l.warning("The main binary is a position-independant executable. "
+            l.warning("The main binary is a position-independent executable. "
                       "It is being loaded with a base address of 0x400000.")
             base_addr = 0x400000
         if base_addr is None:
@@ -289,15 +293,19 @@ class Loader(object):
         if hasattr(path, 'seek') and hasattr(path, 'read'):
             path.seek(0)
             stream = path
+            plsclose = False
         else:
             stream = open(path, 'rb')
+            plsclose = True
 
         identstring = stream.read(0x1000)
         stream.seek(0)
 
         if identstring.startswith('\x7fELF'):
             if elftools.elf.elffile.ELFFile(stream).header['e_type'] == 'ET_CORE':
+                if plsclose: stream.close()
                 return 'elfcore'
+            if plsclose: stream.close()
             return 'elf'
         elif identstring.startswith('MZ') and len(identstring) > 0x40:
             peptr = struct.unpack('I', identstring[0x3c:0x40])[0]
@@ -380,7 +388,7 @@ class Loader(object):
         if isinstance(obj, (MetaELF, PE)):
             for reloc in obj.relocs:
                 if not reloc.resolved:
-                    reloc.relocate(dep_objs + [obj])
+                    reloc.relocate(([self.main_bin] if self.main_bin is not obj else []) + dep_objs + [obj])
 
     def provide_symbol(self, owner, name, offset, size=0, binding='STB_GLOBAL', st_type='STT_FUNC', st_info='CLE'):
         newsymbol = Symbol(owner, name, offset, size, binding, st_type, st_info)
@@ -405,19 +413,29 @@ class Loader(object):
 
     def _load_tls(self):
         """
-        Set up an object to store TLS data in,
+        Set up an object to store TLS data in.
         """
-        modules = []
+        elf_modules = []
+        pe_modules = []
+
         for obj in self.all_objects:
-            if not isinstance(obj, MetaELF):
-                continue
-            if not obj.tls_used:
-                continue
-            modules.append(obj)
-        if len(modules) == 0:
-            return
-        self.tls_object = TLSObj(modules)
-        self.add_object(self.tls_object)
+            if isinstance(obj, MetaELF) and obj.tls_used:
+                elf_modules.append(obj)
+            elif isinstance(obj, PE) and obj.tls_used:
+                pe_modules.append(obj)
+        num_elf_modules = len(elf_modules)
+        num_pe_modules = len(pe_modules)
+
+        # TODO: This assert ensures that we have either ELF or PE modules, but not both.
+        # Do we need to handle the case where we have both ELF and PE modules?
+        assert num_elf_modules != num_pe_modules or num_elf_modules == 0 or num_pe_modules == 0
+        if len(elf_modules) > 0:
+            self.tls_object = ELFTLSObj(elf_modules)
+        elif len(pe_modules) > 0:
+            self.tls_object = PETLSObj(pe_modules)
+
+        if self.tls_object:
+            self.add_object(self.tls_object)
 
     def _finalize_tls(self):
         """
@@ -588,12 +606,11 @@ class Loader(object):
         # If not we're in trouble
         if os.path.exists(log):
             libs = {}
-            f = open(log, 'r')
-            for i in f.readlines():
-                lib = i.split(",")
-                if lib[0] == "LIB":
-                    libs[lib[1]] = int(lib[2].strip(), 16)
-            f.close()
+            with open(log, 'r') as f:
+                for i in f.readlines():
+                    lib = i.split(",")
+                    if lib[0] == "LIB":
+                        libs[lib[1]] = int(lib[2].strip(), 16)
             l.debug("---")
             for o, a in libs.iteritems():
                 l.debug(" -> Dependency: %s @ %#x)", o, a)
@@ -620,20 +637,18 @@ class Loader(object):
 
         # Let's work on a copy of the main binary
         copy = self._make_tmp_copy(path, suffix=".screwed")
-        f = open(copy, 'r+b')
+        with open(copy, 'r+b') as f:
+            # Looking at elf.h, we can see that the the entry point's
+            # definition is always at the same place for all architectures.
+            off = 0x18
+            f.seek(off)
+            count = self.main_bin.arch.bits / 8
 
-        # Looking at elf.h, we can see that the the entry point's
-        # definition is always at the same place for all architectures.
-        off = 0x18
-        f.seek(off)
-        count = self.main_bin.arch.bits / 8
-
-        # Set the entry point to address 0
-        screw_char = "\x00"
-        screw = screw_char * count
-        f.write(screw)
-        f.close()
-        return copy
+            # Set the entry point to address 0
+            screw_char = "\x00"
+            screw = screw_char * count
+            f.write(screw)
+            return copy
 
     @staticmethod
     def _make_tmp_copy(path, suffix=None):
@@ -673,7 +688,8 @@ class Loader(object):
         mapping file of the form base_addr : /path/to/lib.
         """
         if os.path.exists(gdb_map):
-            data = open(gdb_map, 'rb').readlines()
+            with open(gdb_map, 'rb') as f:
+                data = f.readlines()
             gmap = {}
             for line in data:
                 line_items = line.split()
@@ -728,9 +744,10 @@ class Loader(object):
         """
         if not os.path.exists(path):
             raise CLEError("Path %s does not exist" % path)
-        f = open(path, 'rb')
-        e = elftools.elf.elffile.ELFFile(f)
-        return e.get_section_by_name(".text").header.sh_offset
+
+        with open(path, 'rb') as f:
+            e = elftools.elf.elffile.ELFFile(f)
+            return e.get_section_by_name(".text").header.sh_offset
 
     @staticmethod
     def _extract_soname(path):
@@ -738,18 +755,18 @@ class Loader(object):
         Extracts the soname from the ELF binary at `path`.
         """
         if not os.path.exists(path):
-            raise CLEError("Invalid path: %s" % path)
+            raise CLEError("Path %s does not exist" % path)
 
-        f = open(path, 'rb')
-        try:
-            e = elftools.elf.elffile.ELFFile(f)
-            dyn = e.get_section_by_name('.dynamic')
-            soname = [ x.soname for x in list(dyn.iter_tags()) if x.entry.d_tag == 'DT_SONAME']
-            return soname[0]
-        except elftools.common.exceptions.ELFError:
-            return None
-        finally:
-            f.close()
+        with open(path, 'rb') as f:
+            try:
+                e = elftools.elf.elffile.ELFFile(f)
+                dyn = e.get_section_by_name('.dynamic')
+                soname = [ x.soname for x in list(dyn.iter_tags()) if x.entry.d_tag == 'DT_SONAME']
+                if not soname:
+                    return os.path.basename(path)
+                return soname[0]
+            except elftools.common.exceptions.ELFError:
+                return None
 
     def _check_compatibility(self, path):
         """
@@ -802,5 +819,5 @@ class Loader(object):
 
 from .errors import CLEError, CLEOperationError, CLEFileNotFoundError, CLECompatibilityError
 from .memory import Clemory
-from .tls import TLSObj
+from .tls import ELFTLSObj, PETLSObj
 from .backends import IDABin, MetaELF, ELF, PE, ALL_BACKENDS, Backend, Symbol

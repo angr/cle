@@ -1,4 +1,5 @@
 from . import generic
+from . import generic_elf
 
 # http://www.polyomino.org.uk/publications/2011/Power-Arch-32-bit-ABI-supp-1.0-Unified.pdf
 arch = 'PPC32'

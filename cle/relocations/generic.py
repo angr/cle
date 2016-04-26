@@ -36,37 +36,6 @@ class GenericCopyReloc(Relocation):
     def value(self):
         return self.resolvedby.owner_obj.memory.read_addr_at(self.resolvedby.addr)
 
-class GenericTLSModIdReloc(Relocation):
-    def relocate(self, solist):
-        if self.symbol.type == 'STT_NOTYPE':
-            self.owner_obj.memory.write_addr_at(self.addr, self.owner_obj.tls_module_id)
-            self.resolve(None)
-        else:
-            if not self.resolve_symbol(solist):
-                return False
-            self.owner_obj.memory.write_addr_at(self.addr, self.resolvedby.owner_obj.tls_module_id)
-        return True
-
-class GenericTLSDoffsetReloc(Relocation):
-    @property
-    def value(self):
-        return self.addend + self.symbol.addr
-
-    def resolve_symbol(self, solist):   # pylint: disable=unused-argument
-        self.resolve(None)
-        return True
-
-class GenericTLSOffsetReloc(Relocation):
-    def relocate(self, solist):
-        if self.symbol.type == 'STT_NOTYPE':
-            self.owner_obj.memory.write_addr_at(self.addr, self.owner_obj.tls_block_offset + self.addend + self.symbol.addr)
-            self.resolve(None)
-        else:
-            if not self.resolve_symbol(solist):
-                return False
-            self.owner_obj.memory.write_addr_at(self.addr, self.resolvedby.owner_obj.tls_block_offset + self.addend + self.symbol.addr)
-        return True
-
 class GenericIRelativeReloc(Relocation):
     def relocate(self, solist):
         if self.symbol.type == 'STT_NOTYPE':
@@ -99,4 +68,3 @@ class MipsLocalReloc(Relocation):
         self.owner_obj.memory.write_addr_at(self.addr, newval)
         self.resolve(None)
         return True
-

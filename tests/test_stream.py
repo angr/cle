@@ -19,7 +19,7 @@ def test_stream():
     stream_ld = cle.Loader(open(filepath, 'rb'), auto_load_libs=False, force_load_libs=(lib1, lib2))
 
     nose.tools.assert_equal(path_ld.main_bin.entry, stream_ld.main_bin.entry)
-    nose.tools.assert_equal(path_ld.shared_objects.keys(), stream_ld.shared_objects.keys())
+    nose.tools.assert_equal([x for x in path_ld.shared_objects.keys() if x != 'fauxware'], stream_ld.shared_objects.keys())
     nose.tools.assert_equal(path_ld.memory.read_addr_at(path_ld.main_bin.entry),
                             stream_ld.memory.read_addr_at(stream_ld.main_bin.entry))
     strcmp_string = path_ld.whats_at(path_ld.memory.read_addr_at(0x804a000))

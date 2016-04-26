@@ -1,4 +1,5 @@
 from . import generic
+from . import generic_elf
 
 arch = 'X86'
 
