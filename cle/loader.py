@@ -3,6 +3,7 @@ import logging
 import subprocess
 import struct
 import elftools
+import claripy
 
 __all__ = ('Loader',)
 
@@ -36,7 +37,7 @@ class Loader(object):
                  force_load_libs=None, skip_libs=None,
                  main_opts=None, lib_opts=None, custom_ld_path=None,
                  ignore_import_version_numbers=True, rebase_granularity=0x1000000,
-                 except_missing_libs=False, gdb_map=None, gdb_fix=False):
+                 except_missing_libs=False, gdb_map=None, gdb_fix=False, aslr=False):
         """
         :param main_binary:         The path to the main binary you're loading, or a file-like object with the binary
                                     in it.
@@ -59,6 +60,7 @@ class Loader(object):
                                     to determine the base address of libraries.
         :param gdb_fix:             If `info sharedlibrary` was used, the addresses gdb gives us are in fact the
                                     addresses of the .text sections. We need to fix them to get the real load addresses.
+        :param aslr                 Load libraries in symbolic address space.
         """
 
         if hasattr(main_binary, 'seek') and hasattr(main_binary, 'read'):
@@ -78,6 +80,7 @@ class Loader(object):
         self._except_missing_libs = except_missing_libs
         self._relocated_objects = set()
 
+        self.aslr = aslr
         self.memory = None
         self.main_bin = None
         self.shared_objects = {}
@@ -138,7 +141,8 @@ class Loader(object):
                                             if self._main_binary_stream is None
                                             else self._main_binary_stream,
                                         self._main_opts,
-                                        is_main_bin=True)
+                                        is_main_bin=True,
+                                        aslr=self.aslr)
         self.memory = Clemory(self.main_bin.arch, root=True)
         base_addr = self._main_opts.get('custom_base_addr', None)
         if base_addr is None and self.main_bin.requested_base is not None:
@@ -176,7 +180,7 @@ class Loader(object):
                         options = self._lib_opts[soname]
 
                     try:
-                        obj = self.load_object(path, options, compatible_with=self.main_bin)
+                        obj = self.load_object(path, options, compatible_with=self.main_bin, aslr=self.aslr)
                         break
                     except (CLECompatibilityError, CLEFileNotFoundError):
                         continue
@@ -193,7 +197,7 @@ class Loader(object):
             self.add_object(obj, base_addr)
 
     @staticmethod
-    def load_object(path, options=None, compatible_with=None, is_main_bin=False):
+    def load_object(path, options=None, compatible_with=None, is_main_bin=False, aslr=False):
         """
         Load a file with some backend. Try to identify the type of the file to autodetect which backend to use.
 
@@ -249,13 +253,23 @@ class Loader(object):
 
         for backend in backends:
             try:
-                loaded = backend(path, compatible_with=compatible_with, filetype=filetype, is_main_bin=is_main_bin, **options)
+                loaded = backend(path, compatible_with=compatible_with, filetype=filetype, is_main_bin=is_main_bin, aslr=aslr, **options)
                 return loaded
             except CLECompatibilityError:
                 raise
             except CLEError:
                 l.exception("Loading error when loading %s with backend %s", path, backend.__name__)
         raise CLEError("All backends failed loading %s!" % path)
+
+    def get_loader_symbolic_constraints(self):
+        if not self.aslr:
+            return []
+        outputlist = []
+        for elf in self.all_objects:
+            #TODO Fix Symbolic for tls whatever
+            if elf.aslr and isinstance(elf.rebase_addr_symbolic, claripy.ast.BV):
+                outputlist.append(elf.rebase_addr_symbolic == elf.rebase_addr)
+        return outputlist
 
     @staticmethod
     def identify_object(path):
