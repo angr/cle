@@ -137,12 +137,13 @@ class Loader(object):
         return 'ld.so' in name or 'ld64.so' in name or 'ld-linux' in name
 
     def _load_main_binary(self):
+        options = dict(self._main_opts)
+        options['aslr'] = self.aslr
         self.main_bin = self.load_object(self._main_binary_path
                                             if self._main_binary_stream is None
                                             else self._main_binary_stream,
                                         self._main_opts,
-                                        is_main_bin=True,
-                                        aslr=self.aslr)
+                                        is_main_bin=True)
         self.memory = Clemory(self.main_bin.arch, root=True)
         base_addr = self._main_opts.get('custom_base_addr', None)
         if base_addr is None and self.main_bin.requested_base is not None:
@@ -175,12 +176,13 @@ class Loader(object):
                         soname = libname
 
                     if libname in self._lib_opts.keys():
-                        options = self._lib_opts[libname]
+                        options = dict(self._lib_opts[libname])
                     elif soname in self._lib_opts.keys():
-                        options = self._lib_opts[soname]
+                        options = dict(self._lib_opts[soname])
 
                     try:
-                        obj = self.load_object(path, options, compatible_with=self.main_bin, aslr=self.aslr)
+                        options['aslr'] = self.aslr
+                        obj = self.load_object(path, options, compatible_with=self.main_bin)
                         break
                     except (CLECompatibilityError, CLEFileNotFoundError):
                         continue
@@ -197,7 +199,7 @@ class Loader(object):
             self.add_object(obj, base_addr)
 
     @staticmethod
-    def load_object(path, options=None, compatible_with=None, is_main_bin=False, aslr=False):
+    def load_object(path, options=None, compatible_with=None, is_main_bin=False):
         """
         Load a file with some backend. Try to identify the type of the file to autodetect which backend to use.
 
@@ -253,7 +255,7 @@ class Loader(object):
 
         for backend in backends:
             try:
-                loaded = backend(path, compatible_with=compatible_with, filetype=filetype, is_main_bin=is_main_bin, aslr=aslr, **options)
+                loaded = backend(path, compatible_with=compatible_with, filetype=filetype, is_main_bin=is_main_bin, **options)
                 return loaded
             except CLECompatibilityError:
                 raise
@@ -265,10 +267,10 @@ class Loader(object):
         if not self.aslr:
             return []
         outputlist = []
-        for elf in self.all_objects:
+        for obj in self.all_objects:
             #TODO Fix Symbolic for tls whatever
-            if elf.aslr and isinstance(elf.rebase_addr_symbolic, claripy.ast.BV):
-                outputlist.append(elf.rebase_addr_symbolic == elf.rebase_addr)
+            if obj.aslr and isinstance(obj.rebase_addr_symbolic, claripy.ast.BV):
+                outputlist.append(obj.rebase_addr_symbolic == obj.rebase_addr)
         return outputlist
 
     @staticmethod
