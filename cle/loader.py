@@ -3,6 +3,7 @@ import logging
 import subprocess
 import struct
 import elftools
+import claripy
 
 __all__ = ('Loader',)
 
@@ -36,7 +37,7 @@ class Loader(object):
                  force_load_libs=None, skip_libs=None,
                  main_opts=None, lib_opts=None, custom_ld_path=None,
                  ignore_import_version_numbers=True, rebase_granularity=0x1000000,
-                 except_missing_libs=False, gdb_map=None, gdb_fix=False):
+                 except_missing_libs=False, gdb_map=None, gdb_fix=False, aslr=False):
         """
         :param main_binary:         The path to the main binary you're loading, or a file-like object with the binary
                                     in it.
@@ -59,6 +60,7 @@ class Loader(object):
                                     to determine the base address of libraries.
         :param gdb_fix:             If `info sharedlibrary` was used, the addresses gdb gives us are in fact the
                                     addresses of the .text sections. We need to fix them to get the real load addresses.
+        :param aslr                 Load libraries in symbolic address space.
         """
 
         if hasattr(main_binary, 'seek') and hasattr(main_binary, 'read'):
@@ -78,6 +80,7 @@ class Loader(object):
         self._except_missing_libs = except_missing_libs
         self._relocated_objects = set()
 
+        self.aslr = aslr
         self.memory = None
         self.main_bin = None
         self.shared_objects = {}
@@ -134,6 +137,8 @@ class Loader(object):
         return 'ld.so' in name or 'ld64.so' in name or 'ld-linux' in name
 
     def _load_main_binary(self):
+        options = dict(self._main_opts)
+        options['aslr'] = self.aslr
         self.main_bin = self.load_object(self._main_binary_path
                                             if self._main_binary_stream is None
                                             else self._main_binary_stream,
@@ -171,11 +176,12 @@ class Loader(object):
                         soname = libname
 
                     if libname in self._lib_opts.keys():
-                        options = self._lib_opts[libname]
+                        options = dict(self._lib_opts[libname])
                     elif soname in self._lib_opts.keys():
-                        options = self._lib_opts[soname]
+                        options = dict(self._lib_opts[soname])
 
                     try:
+                        options['aslr'] = self.aslr
                         obj = self.load_object(path, options, compatible_with=self.main_bin)
                         break
                     except (CLECompatibilityError, CLEFileNotFoundError):
@@ -256,6 +262,16 @@ class Loader(object):
             except CLEError:
                 l.exception("Loading error when loading %s with backend %s", path, backend.__name__)
         raise CLEError("All backends failed loading %s!" % path)
+
+    def get_loader_symbolic_constraints(self):
+        if not self.aslr:
+            return []
+        outputlist = []
+        for obj in self.all_objects:
+            #TODO Fix Symbolic for tls whatever
+            if obj.aslr and isinstance(obj.rebase_addr_symbolic, claripy.ast.BV):
+                outputlist.append(obj.rebase_addr_symbolic == obj.rebase_addr)
+        return outputlist
 
     @staticmethod
     def identify_object(path):

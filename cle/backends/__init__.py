@@ -3,6 +3,7 @@ import os
 
 import archinfo
 import subprocess
+import claripy
 from ..errors import CLECompatibilityError, CLEError
 from ..memory import Clemory
 
@@ -171,7 +172,7 @@ class Symbol(object):
         self.sh_info = sh_info if sh_info != 'SHN_UNDEF' else None
         self.resolved = False
         self.resolvedby = None
-        if self.addr != 0:
+        if isinstance(self.addr, claripy.ast.Base) or self.addr != 0:
             self.owner_obj.symbols_by_addr[self.addr] = self
             # would be nice if we could populate demangled_names here...
 
@@ -316,7 +317,9 @@ class Backend(object):
         self.os = 'windows' if self.filetype == 'pe' else 'unix'
         self.compatible_with = compatible_with
         self._symbol_cache = {}
+        self.aslr = kwargs['aslr'] if 'aslr' in kwargs else False
 
+        self.rebase_addr_symbolic = 0
         # These are set by cle, and should not be overriden manually
         self.rebase_addr = 0 # not to be set manually - used by CLE
         self.tls_module_id = None
