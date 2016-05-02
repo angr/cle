@@ -423,7 +423,10 @@ class Backend(object):
                 if out is None or section.min_addr < out:
                     out = section.min_addr
 
-        return out + self.rebase_addr
+        if out is None:
+            return self.rebase_addr
+        else:
+            return out + self.rebase_addr
 
     def get_max_addr(self):
         """
@@ -440,7 +443,10 @@ class Backend(object):
                 if out is None or section.max_addr > out:
                     out = section.max_addr
 
-        return out + self.rebase_addr
+        if out is None:
+            return self.rebase_addr
+        else:
+            return out + self.rebase_addr
 
     def set_got_entry(self, symbol_name, newaddr):
         """
