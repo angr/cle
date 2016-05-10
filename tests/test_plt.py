@@ -1,10 +1,13 @@
 import os
 import nose
 import subprocess
+import pickle
 import cle
 
 TESTS_BASE = '/home/angr/angr/binaries/tests/'
 TESTS_ARCHES = ['i386/libc.so.6', 'i386/fauxware', 'x86_64/libc.so.6', 'x86_64/fauxware', 'armel/libc.so.6', 'armel/fauxware', 'armhf/libc.so.6', 'ppc/libc.so.6', 'ppc/fauxware', 'mips/libc.so.6', 'mips/fauxware', 'mips64/libc.so.6', 'mips64/test_arrays', 'aarch64/libc.so.6', 'aarch64/test_arrays']
+
+BINUTILS_NOT_NEW_ENOUGH = pickle.load(open('/home/angr/angr/binaries/test_data/objdump-grep-plt.p'))
 
 def check_plt_entries(filename):
     ld = cle.Loader(filename, auto_load_libs=False)
@@ -34,11 +37,13 @@ def check_plt_entries(filename):
         nose.tools.assert_equal(ld.main_bin._plt, {'__libc_start_main': 4831841456, 'puts': 4831841440})
         return
 
-    p1 = subprocess.Popen(['objdump', '-d', filename], stdout=subprocess.PIPE)
-    p2 = subprocess.Popen(['grep', '@plt>:'], stdin=p1.stdout, stdout=subprocess.PIPE)
-    p1.stdout.close()
-    dat, _ = p2.communicate()
-    lines = dat.strip().split('\n')
+    #p1 = subprocess.Popen(['objdump', '-d', filename], stdout=subprocess.PIPE)
+    #p2 = subprocess.Popen(['grep', '@plt>:'], stdin=p1.stdout, stdout=subprocess.PIPE)
+    #p1.stdout.close()
+    #dat, _ = p2.communicate()
+    #lines = dat.strip().split('\n')
+    #BINUTILS_NOT_NEW_ENOUGH[filename] = lines
+    lines = BINUTILS_NOT_NEW_ENOUGH[filename]
 
     ideal_plt = {}
     for line in lines:
@@ -68,3 +73,6 @@ if __name__ == '__main__':
     for f, a in test_plt():
         print a
         f(a)
+
+    #import pickle
+    #pickle.dump(BINUTILS_NOT_NEW_ENOUGH, open('objdump-grep-plt.p', 'w'))
