@@ -43,3 +43,7 @@ rex:
 driller:
     script: "angr-test driller"
     tags: [angr]
+
+patcherex:
+    script: "angr-test patcherex"
+    tags: [angr]
