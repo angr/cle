@@ -3,9 +3,13 @@ import os
 
 import archinfo
 import subprocess
-import claripy
 from ..errors import CLECompatibilityError, CLEError
 from ..memory import Clemory
+
+try:
+    import claripy
+except ImportError:
+    claripy = None
 
 import logging
 l = logging.getLogger('cle.backends')
@@ -172,7 +176,7 @@ class Symbol(object):
         self.sh_info = sh_info if sh_info != 'SHN_UNDEF' else None
         self.resolved = False
         self.resolvedby = None
-        if isinstance(self.addr, claripy.ast.Base) or self.addr != 0:
+        if (claripy and isinstance(self.addr, claripy.ast.Base)) or self.addr != 0:
             self.owner_obj.symbols_by_addr[self.addr] = self
             # would be nice if we could populate demangled_names here...
 

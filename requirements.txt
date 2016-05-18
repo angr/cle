@@ -3,3 +3,4 @@ pefile
 cffi
 idalink
 archinfo
+pyvex

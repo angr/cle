@@ -3,7 +3,11 @@ import logging
 import subprocess
 import struct
 import elftools
-import claripy
+
+try:
+    import claripy
+except ImportError:
+    claripy = None
 
 __all__ = ('Loader',)
 
@@ -265,6 +269,9 @@ class Loader(object):
 
     def get_loader_symbolic_constraints(self):
         if not self.aslr:
+            return []
+        if not claripy:
+            l.error("Please install claripy to get symbolic constraints")
             return []
         outputlist = []
         for obj in self.all_objects:
