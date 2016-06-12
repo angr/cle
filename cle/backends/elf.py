@@ -418,12 +418,13 @@ class ELF(MetaELF):
             return
         self.__parsed_reloc_tables.add(section.header['sh_offset'])
 
+        symtab = self.reader.get_section(section.header['sh_link']) if 'sh_link' in section.header else None
         relocs = []
         for readelf_reloc in section.iter_relocations():
             # MIPS64 is just plain old fucked up
             # https://www.sourceware.org/ml/libc-alpha/2003-03/msg00153.html
             if self.arch.name == 'MIPS64':
-                # Little endian addionally needs one of its fields reversed... WHY
+                # Little endian additionally needs one of its fields reversed... WHY
                 if self.arch.memory_endness == 'Iend_LE':
                     readelf_reloc.entry.r_info_sym = readelf_reloc.entry.r_info & 0xFFFFFFFF
                     readelf_reloc.entry.r_info = struct.unpack('>Q', struct.pack('<Q', readelf_reloc.entry.r_info))[0]
@@ -434,7 +435,7 @@ class ELF(MetaELF):
                 extra_sym = readelf_reloc.entry.r_info >> 24 & 0xFF
                 if extra_sym != 0:
                     l.error('r_info_extra_sym is nonzero??? PLEASE SEND HELP')
-                symbol = self.get_symbol(readelf_reloc.entry.r_info_sym)
+                symbol = self.get_symbol(readelf_reloc.entry.r_info_sym, symtab)
 
                 if type_1 != 0:
                     readelf_reloc.entry.r_info_type = type_1
@@ -455,7 +456,6 @@ class ELF(MetaELF):
                         relocs.append(reloc)
                         self.relocs.append(reloc)
             else:
-                symtab = self.reader.get_section(section.header['sh_link']) if 'sh_link' in section.header else None
                 symbol = self.get_symbol(readelf_reloc.entry.r_info_sym, symtab)
                 reloc = self._make_reloc(readelf_reloc, symbol)
                 if reloc is not None:
