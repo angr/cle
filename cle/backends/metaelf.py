@@ -31,12 +31,6 @@ class MetaELF(Backend):
         try:
             if not sanity_check or self.jmprel[name].addr in [c.value for c in self._block(addr).all_constants]:
                 self._plt[name] = addr
-
-                if name in self._symbol_cache and self._symbol_cache[name].addr == 0:
-                    # Resolve the symbol that is previously not resolved
-                    self._symbol_cache[name].addr == addr
-                    self.symbols_by_addr[addr] = self._symbol_cache[name]
-
                 return True
         except (pyvex.PyVEXError, KeyError):
             pass
