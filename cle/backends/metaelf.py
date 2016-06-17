@@ -27,7 +27,7 @@ class MetaELF(Backend):
         return pyvex.IRSB(dat, addr, self.arch, bytes_offset=1 if thumb else 0)
 
     def _add_plt_stub(self, name, addr, sanity_check=True):
-        if addr == 0: return
+        if addr == 0: return False
         try:
             if not sanity_check or self.jmprel[name].addr in [c.value for c in self._block(addr).all_constants]:
                 self._plt[name] = addr
@@ -133,7 +133,8 @@ class MetaELF(Backend):
             except (AssertionError, KeyError, pyvex.PyVEXError):
                 pass
 
-        if self.jmprel.keys()[0] not in self._plt:
+        # if self.jmprel.keys()[0] not in self._plt:
+        if not set(self.jmprel.keys()).intersection(self._plt.keys()):
             # LAST TRY: check if we have a .plt section
             if '.plt' not in self.sections_map:
                 # WAHP WAHP
@@ -152,11 +153,25 @@ class MetaELF(Backend):
         last_good_idx = None
         stub_size = None
 
+        name, addr = plt_hitlist[0]
+        if addr is None:
+            # try to resolve the very first entry
+            tick.bailout_timer = 5
+            guessed_addr = plt_sec.vaddr
+            scan_forward(guessed_addr, name)
+            if name in self._plt:
+                # resolved :-)
+                plt_hitlist[0] = (name, self._plt[name])
+
         for i, (name, addr) in enumerate(plt_hitlist):
             if addr is not None:
                 last_good_idx = i
                 if stub_size is None:
-                    stub_size = self._block(addr).size
+                    b0 = self._block(addr)
+                    stub_size = b0.size
+                    if isinstance(b0.next, pyvex.expr.Const) and b0.next.con.value == addr + b0.size:
+                        b1 = self._block(addr + b0.size)
+                        stub_size += b1.size
                 continue
 
             if last_good_idx is None:
@@ -165,7 +180,6 @@ class MetaELF(Backend):
             tick.bailout_timer = 5
             guess_addr = plt_hitlist[last_good_idx][1] + (i - last_good_idx) * stub_size
             scan_forward(guess_addr, name)
-
 
 
     @property
