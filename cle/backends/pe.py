@@ -113,7 +113,7 @@ class PE(Backend):
         else:
             self.deps = []
 
-        if self.binary is not None and self.binary.endswith('.dll'):
+        if self.binary is not None and not self.is_main_bin:
             self.provides = os.path.basename(self.binary)
         else:
             self.provides = None
