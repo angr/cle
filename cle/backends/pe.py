@@ -6,7 +6,7 @@ except ImportError:
 import archinfo
 import os
 from ..backends import Backend, Symbol, Section
-from ..relocations import Relocation
+from ..relocations import get_relocation, Relocation
 from ..errors import CLEError
 
 __all__ = ('PE',)
@@ -45,16 +45,35 @@ class WinReloc(Relocation):
     """
     Represents a relocation for the PE format.
     """
-    def __init__(self, owner, symbol, addr, resolvewith):
+    def __init__(self, owner, symbol, addr, resolvewith, reloc_type):
         super(WinReloc, self).__init__(owner, symbol, addr, None)
         self.resolvewith = resolvewith
+        self.reloc_type = reloc_type
 
     def resolve_symbol(self, solist):
         return super(WinReloc, self).resolve_symbol([x for x in solist if self.resolvewith == x.provides or x.provides is None])
 
     @property
     def value(self):
-        return self.resolvedby.rebased_addr
+        if self.symbol is None:
+            import code
+            code.interact(local=locals())
+
+        else:
+            if self.resolved:
+                return self.resolvedby.rebased_addr
+
+    def relocate(self, solist):
+        if self.symbol is None:
+            # this is a relocation described in DIRECTORY_ENTRY_BASERELOC 
+            if self.reloc_type == 0: # IMAGE_REL_BASED_ABSOLUTE
+                pass
+            elif self.reloc_type == 3: # IMAGE_REL_BASED_HIGHLOW
+                self.owner_obj.memory.write_addr_at(self.dest_addr, self.value)
+            else:
+                pass
+        else:
+            return super(WinReloc, self).relocate(solist)
 
 class PESection(Section):
     """
@@ -121,6 +140,7 @@ class PE(Backend):
         self._exports = {}
         self._handle_imports()
         self._handle_exports()
+        self._handle_relocs()
         self._register_sections()
         self.linking = 'dynamic' if len(self.deps) > 0 else 'static'
 
@@ -161,7 +181,7 @@ class PE(Backend):
                     if imp_name is None: # must be an import by ordinal
                         imp_name = "%s.ordinal_import.%d" % (entry.dll, imp.ordinal)
                     symb = WinSymbol(self, imp_name, 0, True, False)
-                    reloc = WinReloc(self, symb, imp.address - self.requested_base, entry.dll)
+                    reloc = WinReloc(self, symb, imp.address - self.requested_base, entry.dll, 0)
                     self.imports[imp_name] = reloc
                     self.relocs.append(reloc)
 
@@ -171,6 +191,13 @@ class PE(Backend):
             for exp in symbols:
                 symb = WinSymbol(self, exp.name, exp.address, False, True)
                 self._exports[exp.name] = symb
+
+    def _handle_relocs(self):
+        if hasattr(self._pe, 'DIRECTORY_ENTRY_BASERELOC'):
+            for base_reloc in self._pe.DIRECTORY_ENTRY_BASERELOC:
+                for reloc_data in base_reloc.entries:
+                    reloc = WinReloc(self, None, reloc_data.rva, None, reloc_data.type)
+                    self.relocs.append(reloc)
 
     def _register_sections(self):
         """
