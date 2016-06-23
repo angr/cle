@@ -138,8 +138,7 @@ class Relocation(object):
         """
         if not self.resolve_symbol(solist):
             return False
-
-        print hex(self.dest_addr), hex(self.value)
+            
         self.owner_obj.memory.write_addr_at(self.dest_addr, self.value)
 
 load_relocations()

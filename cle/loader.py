@@ -380,8 +380,6 @@ class Loader(object):
         if isinstance(obj, (MetaELF, PE)):
             for reloc in obj.relocs:
                 if not reloc.resolved:
-                    #import code
-                    #code.interact(local=locals())
                     reloc.relocate(dep_objs + [obj])
 
     def provide_symbol(self, owner, name, offset, size=0, binding='STB_GLOBAL', st_type='STT_FUNC', st_info='CLE'):

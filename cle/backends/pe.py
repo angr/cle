@@ -5,6 +5,7 @@ except ImportError:
 
 import archinfo
 import os
+import struct
 from ..backends import Backend, Symbol, Section
 from ..relocations import get_relocation, Relocation
 from ..errors import CLEError
@@ -45,33 +46,34 @@ class WinReloc(Relocation):
     """
     Represents a relocation for the PE format.
     """
-    def __init__(self, owner, symbol, addr, resolvewith, reloc_type):
+    def __init__(self, owner, symbol, addr, resolvewith, reloc_type=None, next_rva=None):
         super(WinReloc, self).__init__(owner, symbol, addr, None)
         self.resolvewith = resolvewith
         self.reloc_type = reloc_type
+        self.next_rva = next_rva # only used for IMAGE_REL_BASED_HIGHADJ
 
     def resolve_symbol(self, solist):
         return super(WinReloc, self).resolve_symbol([x for x in solist if self.resolvewith == x.provides or x.provides is None])
 
     @property
     def value(self):
-        if self.symbol is None:
-            import code
-            code.interact(local=locals())
-
-        else:
-            if self.resolved:
-                return self.resolvedby.rebased_addr
+        if self.resolved:
+            return self.resolvedby.rebased_addr
 
     def relocate(self, solist):
+        # no symbol -> this is a relocation described in the DIRECTORY_ENTRY_BASERELOC table
         if self.symbol is None:
-            # this is a relocation described in DIRECTORY_ENTRY_BASERELOC 
             if self.reloc_type == 0: # IMAGE_REL_BASED_ABSOLUTE
+                # no work required
                 pass
             elif self.reloc_type == 3: # IMAGE_REL_BASED_HIGHLOW
-                self.owner_obj.memory.write_addr_at(self.dest_addr, self.value)
+                org_bytes = ''.join(self.owner_obj.memory.read_bytes(self.addr, 4))
+                org_value = struct.unpack('<I', org_bytes)[0]
+                rebased_value = org_value + self.owner_obj.rebase_addr - self.owner_obj.requested_base
+                rebased_bytes = struct.pack('<I', rebased_value)
+                self.owner_obj.memory.write_bytes(self.dest_addr, rebased_bytes)
             else:
-                pass
+                l.warning('PE contains unimplemented relocation type %d' % (self.reloc_type))
         else:
             return super(WinReloc, self).relocate(solist)
 
@@ -181,7 +183,7 @@ class PE(Backend):
                     if imp_name is None: # must be an import by ordinal
                         imp_name = "%s.ordinal_import.%d" % (entry.dll, imp.ordinal)
                     symb = WinSymbol(self, imp_name, 0, True, False)
-                    reloc = WinReloc(self, symb, imp.address - self.requested_base, entry.dll, 0)
+                    reloc = WinReloc(self, symb, imp.address - self.requested_base, entry.dll)
                     self.imports[imp_name] = reloc
                     self.relocs.append(reloc)
 
@@ -195,9 +197,20 @@ class PE(Backend):
     def _handle_relocs(self):
         if hasattr(self._pe, 'DIRECTORY_ENTRY_BASERELOC'):
             for base_reloc in self._pe.DIRECTORY_ENTRY_BASERELOC:
-                for reloc_data in base_reloc.entries:
-                    reloc = WinReloc(self, None, reloc_data.rva, None, reloc_data.type)
+                entry_idx = 0
+                while entry_idx < len(base_reloc.entries):
+                    reloc_data = base_reloc.entries[entry_idx]
+                    if reloc_data.type == 4: #IMAGE_REL_BASED_HIGHADJ, occupies 2 entries
+                        if entry_idx == len(base_reloc.entries):
+                            l.warning('PE contains corrupt relocation table')
+                            break
+                        next_entry = base_reloc.entries[entry_idx]
+                        entry_idx += 1
+                        reloc = WinReloc(self, None, reloc_data.rva, None, reloc_type=reloc_data.type, next_rva=next_entry.rva)
+                    else:
+                        reloc = WinReloc(self, None, reloc_data.rva, None, reloc_type=reloc_data.type)
                     self.relocs.append(reloc)
+                    entry_idx += 1
 
     def _register_sections(self):
         """
