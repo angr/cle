@@ -7,7 +7,7 @@ import archinfo
 import os
 import struct
 from ..backends import Backend, Symbol, Section
-from ..relocations import get_relocation, Relocation
+from ..relocations import Relocation
 from ..errors import CLEError
 
 __all__ = ('PE',)
