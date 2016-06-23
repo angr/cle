@@ -63,16 +63,16 @@ class WinReloc(Relocation):
     def relocate(self, solist):
         # no symbol -> this is a relocation described in the DIRECTORY_ENTRY_BASERELOC table
         if self.symbol is None:
-            if self.reloc_type == 0: # IMAGE_REL_BASED_ABSOLUTE
+            if self.reloc_type == pefile.RELOCATION_TYPE['IMAGE_REL_BASED_ABSOLUTE']:
                 # no work required
                 pass
-            elif self.reloc_type == 3: # IMAGE_REL_BASED_HIGHLOW
+            elif self.reloc_type == pefile.RELOCATION_TYPE['IMAGE_REL_BASED_HIGHLOW']:
                 org_bytes = ''.join(self.owner_obj.memory.read_bytes(self.addr, 4))
                 org_value = struct.unpack('<I', org_bytes)[0]
                 rebased_value = org_value + self.owner_obj.rebase_addr - self.owner_obj.requested_base
                 rebased_bytes = struct.pack('<I', rebased_value)
                 self.owner_obj.memory.write_bytes(self.dest_addr, rebased_bytes)
-            elif self.reloc_type == 10: #IMAGE_REL_BASED_DIR64
+            elif self.reloc_type == pefile.RELOCATION_TYPE['IMAGE_REL_BASED_DIR64']:
                 org_bytes = ''.join(self.owner_obj.memory.read_bytes(self.addr, 8))
                 org_value = struct.unpack('<Q', org_bytes)[0]
                 rebased_value = org_value + self.owner_obj.rebase_addr - self.owner_obj.requested_base
@@ -206,7 +206,7 @@ class PE(Backend):
                 entry_idx = 0
                 while entry_idx < len(base_reloc.entries):
                     reloc_data = base_reloc.entries[entry_idx]
-                    if reloc_data.type == 4: #IMAGE_REL_BASED_HIGHADJ, occupies 2 entries
+                    if reloc_data.type == pefile.RELOCATION_TYPE['IMAGE_REL_BASED_HIGHADJ']: #occupies 2 entries
                         if entry_idx == len(base_reloc.entries):
                             l.warning('PE contains corrupt relocation table')
                             break
