@@ -72,6 +72,12 @@ class WinReloc(Relocation):
                 rebased_value = org_value + self.owner_obj.rebase_addr - self.owner_obj.requested_base
                 rebased_bytes = struct.pack('<I', rebased_value)
                 self.owner_obj.memory.write_bytes(self.dest_addr, rebased_bytes)
+            elif self.reloc_type == 10: #IMAGE_REL_BASED_DIR64
+                org_bytes = ''.join(self.owner_obj.memory.read_bytes(self.addr, 8))
+                org_value = struct.unpack('<Q', org_bytes)[0]
+                rebased_value = org_value + self.owner_obj.rebase_addr - self.owner_obj.requested_base
+                rebased_bytes = struct.pack('<Q', rebased_value)
+                self.owner_obj.memory.write_bytes(self.dest_addr, rebased_bytes)
             else:
                 l.warning('PE contains unimplemented relocation type %d' % (self.reloc_type))
         else:
