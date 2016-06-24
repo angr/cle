@@ -23,13 +23,19 @@ class ELFSymbol(Symbol):
     """
     def __init__(self, owner, symb):
         realtype = owner.arch.translate_symbol_type(symb.entry.st_info.type)
+        sec_ndx, value = symb.entry.st_shndx, symb.entry.st_value
+
+        # A relocatable object's symbol's value is relative to its section's addr.
+        if owner.is_relocatable and isinstance(sec_ndx, (int, long)):
+            value += owner.sections[sec_ndx].remap_offset
+
         super(ELFSymbol, self).__init__(owner,
                                         symb.name,
-                                        symb.entry.st_value,
+                                        value,
                                         symb.entry.st_size,
                                         symb.entry.st_info.bind,
                                         realtype,
-                                        symb.entry.st_shndx)
+                                        sec_ndx)
 
 
 class ELFSegment(Segment):
@@ -62,11 +68,11 @@ class ELFSection(Section):
     SHF_EXECINSTR = 0x4
     SHF_STRINGS = 0x20
 
-    def __init__(self, readelf_sec):
+    def __init__(self, readelf_sec, remap_offset=0):
         super(ELFSection, self).__init__(
             readelf_sec.name,
             readelf_sec.header.sh_offset,
-            readelf_sec.header.sh_addr,
+            readelf_sec.header.sh_addr + remap_offset,
             readelf_sec.header.sh_size
         )
 
@@ -76,6 +82,7 @@ class ELFSection(Section):
         self.link = readelf_sec.header.sh_link
         self.info = readelf_sec.header.sh_info
         self.align = readelf_sec.header.sh_addralign
+        self.remap_offset = remap_offset
 
     @property
     def is_readable(self):
@@ -139,6 +146,7 @@ class ELF(MetaELF):
         self._nullsymbol = Symbol(self, '', 0, 0, None, 'STT_NOTYPE', 0)
 
         self._symbol_cache = {}
+        self._symbols_by_name = {}
         self.symbols_by_addr = {}
         self.demangled_names = {}
         self.imports = {}
@@ -148,7 +156,8 @@ class ELF(MetaELF):
         self.jmprel = {}
 
         self._entry = self.reader.header.e_entry
-        self.pic = self.reader.header.e_type == 'ET_DYN'
+        self.is_relocatable = self.reader.header.e_type == 'ET_REL'
+        self.pic = self.reader.header.e_type in ('ET_REL', 'ET_DYN')
 
         self.tls_used = False
         self.tls_module_id = None
@@ -199,6 +208,25 @@ class ELF(MetaELF):
                 elif 'DT_HASH' in self._dynamic:
                     self.hashtable = ELFHashTable(self.dynsym, self.memory, self._dynamic['DT_HASH'], self.arch)
 
+    def _cache_symbol_name(self, symbol):
+        name = symbol.name
+        if len(name) > 0:
+            if name in self._symbols_by_name:
+                old_symbol = self._symbols_by_name[name]
+                if not old_symbol.is_weak and symbol.is_weak:
+                    return
+            self._symbols_by_name[name] = symbol
+
+    @staticmethod
+    def _symbol_to_tuple(re_sym):
+        """
+        Returns a tuple of properties of the given PyELF symbol.
+        This is unique enough as a key for both symbol lookup and retrieval.
+        """
+        entry = re_sym.entry
+        return (entry.st_name, entry.st_value, entry.st_size, entry.st_info.bind,
+                entry.st_info.type, entry.st_shndx)
+
     def get_symbol(self, symid, symbol_table=None): # pylint: disable=arguments-differ
         """
         Gets a Symbol object for the specified symbol.
@@ -213,27 +241,38 @@ class ELF(MetaELF):
                 # special case the null symbol, this is important for static binaries
                 return self._nullsymbol
             re_sym = symbol_table.get_symbol(symid)
-            if re_sym.name in self._symbol_cache:
-                return self._symbol_cache[re_sym.name]
+            cache_key = self._symbol_to_tuple(re_sym)
+            cached = self._symbol_cache.get(cache_key, None)
+            if cached is not None:
+                return cached
             symbol = ELFSymbol(self, re_sym)
-            self._symbol_cache[re_sym.name] = symbol
+            self._symbol_cache[cache_key] = symbol
+            self._cache_symbol_name(symbol)
             return symbol
         elif isinstance(symid, (str,unicode)):
-            if symid in self._symbol_cache:
-                return self._symbol_cache[symid]
+            if not symid:
+                l.warn("Trying to resolve a symbol by its empty name")
+                return None
+            cached = self._symbols_by_name.get(symid, None)
+            if cached:
+                return cached
             if self.hashtable is None:
                 return None
             re_sym = self.hashtable.get(symid)
             if re_sym is None:
                 return None
             symbol = ELFSymbol(self, re_sym)
-            self._symbol_cache[symid] = symbol
+            self._symbol_cache[self._symbol_to_tuple(re_sym)] = symbol
+            self._cache_symbol_name(symbol)
             return symbol
         elif isinstance(symid, sections.Symbol):
-            if symid.name in self._symbol_cache:
-                return self._symbol_cache[symid.name]
+            cache_key = self._symbol_to_tuple(symid)
+            cached = self._symbol_cache.get(cache_key, None)
+            if cached is not None:
+                return cached
             symbol = ELFSymbol(self, symid)
-            self._symbol_cache[symid.name] = symbol
+            self._symbol_cache[cache_key] = symbol
+            self._cache_symbol_name(symbol)
             return symbol
         else:
             raise CLEError("Bad symbol identifier: %s" % symid)
@@ -286,6 +325,10 @@ class ELF(MetaELF):
 
     def __register_segments(self):
         self.linking = 'static'
+        if self.is_relocatable and self.reader.num_segments() > 0:
+            # WTF?
+            raise CLEError("Relocatable objects with segments are not supported.")
+
         for seg_readelf in self.reader.iter_segments():
             if seg_readelf.header.p_type == 'PT_LOAD':
                 self._load_segment(seg_readelf)
@@ -418,6 +461,26 @@ class ELF(MetaELF):
             return
         self.__parsed_reloc_tables.add(section.header['sh_offset'])
 
+        remap_offset = 0
+        if self.is_relocatable:
+            # Get the target section..
+            if section.is_RELA() and section.name[:5] == '.rela': # .relaNAME
+                dest_sec_name = section.name[5:]
+            elif not section.is_RELA() and section.name[:4] == '.rel': # .relNAME
+                dest_sec_name = section.name[4:]
+            else:
+                dest_sec_name = None
+                l.warn('unknown name for relocation section: %s', section.name)
+
+            # ..and its remapping offset for relocations
+            if dest_sec_name is not None:
+                try:
+                    dest_sec = self.sections_map[dest_sec_name]
+                except KeyError:
+                    l.warn('relocation section\'s name refers to unknown section: %s', section.name)
+                else:
+                    remap_offset = dest_sec.remap_offset
+
         symtab = self.reader.get_section(section.header['sh_link']) if 'sh_link' in section.header else None
         relocs = []
         for readelf_reloc in section.iter_relocations():
@@ -439,37 +502,37 @@ class ELF(MetaELF):
 
                 if type_1 != 0:
                     readelf_reloc.entry.r_info_type = type_1
-                    reloc = self._make_reloc(readelf_reloc, symbol)
+                    reloc = self._make_reloc(readelf_reloc, symbol, remap_offset)
                     if reloc is not None:
                         relocs.append(reloc)
                         self.relocs.append(reloc)
                 if type_2 != 0:
                     readelf_reloc.entry.r_info_type = type_2
-                    reloc = self._make_reloc(readelf_reloc, symbol)
+                    reloc = self._make_reloc(readelf_reloc, symbol, remap_offset)
                     if reloc is not None:
                         relocs.append(reloc)
                         self.relocs.append(reloc)
                 if type_3 != 0:
                     readelf_reloc.entry.r_info_type = type_3
-                    reloc = self._make_reloc(readelf_reloc, symbol)
+                    reloc = self._make_reloc(readelf_reloc, symbol, remap_offset)
                     if reloc is not None:
                         relocs.append(reloc)
                         self.relocs.append(reloc)
             else:
                 symbol = self.get_symbol(readelf_reloc.entry.r_info_sym, symtab)
-                reloc = self._make_reloc(readelf_reloc, symbol)
+                reloc = self._make_reloc(readelf_reloc, symbol, remap_offset)
                 if reloc is not None:
                     relocs.append(reloc)
                     self.relocs.append(reloc)
         return relocs
 
-    def _make_reloc(self, readelf_reloc, symbol):
+    def _make_reloc(self, readelf_reloc, symbol, remap_offset=0):
         addend = readelf_reloc.entry.r_addend if readelf_reloc.is_RELA() else None
         RelocClass = get_relocation(self.arch.name, readelf_reloc.entry.r_info_type)
         if RelocClass is None:
             return None
 
-        return RelocClass(self, symbol, readelf_reloc.entry.r_offset, addend)
+        return RelocClass(self, symbol, readelf_reloc.entry.r_offset + remap_offset, addend)
 
     def __register_tls(self, seg_readelf):
         self.tls_used = True
@@ -478,26 +541,54 @@ class ELF(MetaELF):
         self.tls_tdata_start = seg_readelf.header.p_vaddr
 
     def __register_sections(self):
+        new_addr = 0
+        sec_list = []
+        sec_by_addr = {}
+
         for sec_readelf in self.reader.iter_sections():
-            section = ELFSection(sec_readelf)
+            remap_offset = 0
+            if self.is_relocatable and sec_readelf.header['sh_flags'] & 2:      # alloc flag
+                # Relocatable objects' sections doesn't contain a valid address.
+                # We thus have to map them manually to valid virtual addresses like how linkers do.
+                sh_addr = sec_readelf.header['sh_addr']
+                if sh_addr != 0:
+                    # nonzero sh_addr found in a relocatable object - this case is unusual!
+                    if new_addr < sh_addr:   # In this case we can just follow the specified sh_addr
+                        new_addr = sh_addr
+                    else:     # extremely unusual case
+                        l.warn('unable to use specified sh_addr in a relocatable object - ignoring')
+                else:
+                    align = sec_readelf.header['sh_addralign']
+                    if align > 1:    # align=0 (no align) and align=1 (byte align) are basically the same.
+                        new_addr = (new_addr + (align - 1)) // align * align
+
+                remap_offset = new_addr - sh_addr
+                new_addr += sec_readelf.header['sh_size']    # address for next section
+
+            section = ELFSection(sec_readelf, remap_offset=remap_offset)
+            sec_list.append((sec_readelf, section))
+
+            # Register sections first, process later - this is required by relocatable objects
             self.sections.append(section)
             self.sections_map[section.name] = section
+
+            sec_by_addr[section.vaddr] = sec_readelf
+
+        for sec_readelf, section in sec_list:
             if isinstance(sec_readelf, elffile.SymbolTableSection):
                 self.__register_section_symbols(sec_readelf)
             if isinstance(sec_readelf, elffile.RelocationSection):
                 self.__register_relocs(sec_readelf)
 
-            if sec_readelf.header['sh_flags'] & 2:      # alloc flag - stick in memory maybe!
-                if sec_readelf.header['sh_addr'] not in self.memory:        # only allocate if not already allocated (i.e. by program header)
-                    if sec_readelf.header['sh_type'] == 'SH_NOBITS':
-                        self.memory.add_backer(sec_readelf.header['sh_addr'], '\0'*sec_readelf.header['sh_size'])
-                    else: #elif sec_readelf.header['sh_type'] == 'SH_PROGBITS':
-                        self.memory.add_backer(sec_readelf.header['sh_addr'], sec_readelf.data())
+            if section.occupies_memory:      # alloc flag - stick in memory maybe!
+                if section.vaddr not in self.memory:        # only allocate if not already allocated (i.e. by program header)
+                    if section.type == 'SHT_NOBITS':
+                        self.memory.add_backer(section.vaddr, '\0'*sec_readelf.header['sh_size'])
+                    else: #elif section.type == 'SHT_PROGBITS':
+                        self.memory.add_backer(section.vaddr, sec_readelf.data())
 
     def __register_section_symbols(self, sec_re):
         for sym_re in sec_re.iter_symbols():
-            if sym_re.name == '':
-                continue
             self.get_symbol(sym_re)
 
     def __relocate_mips(self):

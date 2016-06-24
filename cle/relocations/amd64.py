@@ -12,3 +12,12 @@ R_X86_64_IRELATIVE = generic.GenericIRelativeReloc
 R_X86_64_DTPMOD64 = generic.GenericTLSModIdReloc
 R_X86_64_DTPOFF64 = generic.GenericTLSDoffsetReloc
 R_X86_64_TPOFF64 = generic.GenericTLSOffsetReloc
+
+class R_X86_64_PC32(generic.RelocTruncate32Mixin, generic.GenericPCRelativeAddendReloc):
+    check_sign_extend = True
+
+class R_X86_64_32(generic.RelocTruncate32Mixin, generic.GenericAbsoluteAddendReloc):
+    check_zero_extend = True
+
+class R_X86_64_32S(generic.RelocTruncate32Mixin, generic.GenericAbsoluteAddendReloc):
+    check_sign_extend = True

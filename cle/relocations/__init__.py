@@ -86,6 +86,12 @@ class Relocation(object):
             return self.owner_obj.memory.read_addr_at(self.addr)
 
     def resolve_symbol(self, solist):
+        if self.symbol.is_static:
+            # Static symbols should only be resolved by itself.
+            # XXX: should we make hooking static symbols possible (i.e. overriding with AngrExternObj)?
+            self.resolve(self.symbol)
+            return True
+
         weak_result = None
         for so in solist:
             symbol = so.get_symbol(self.symbol.name)

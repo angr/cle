@@ -197,21 +197,25 @@ class Symbol(object):
         return self.addr + self.owner_obj.rebase_addr
 
     @property
+    def is_static(self):
+        """
+        Whether this symbol holds a valid address from the beginning and thus should not be resolved furthur.
+        """
+        return isinstance(self.sh_info, (int, long)) or self.sh_info == 'SHN_ABS'
+
+    @property
     def is_import(self):
         """
         Whether this symbol is an import symbol
         """
-        return self.sh_info is None and (self.binding == 'STB_GLOBAL' or \
-                                         self.binding == 'STB_WEAK' or \
-                                         self.binding == 'STT_FUNC')
+        return self.sh_info is None and self.binding in ('STB_GLOBAL', 'STB_WEAK')
 
     @property
     def is_export(self):
         """
         Whether this symbol is an export symbol
         """
-        return self.sh_info is not None and (self.binding == 'STB_GLOBAL' or \
-                                             self.binding == 'STB_WEAK')
+        return self.sh_info is not None and self.binding in ('STB_GLOBAL', 'STB_WEAK')
 
     @property
     def is_function(self):

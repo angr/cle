@@ -1,5 +1,6 @@
 from ..errors import CLEOperationError
 from . import Relocation
+import struct
 
 import logging
 l = logging.getLogger('cle.relocations.generic')
@@ -13,6 +14,11 @@ class GenericAbsoluteAddendReloc(Relocation):
     @property
     def value(self):
         return self.resolvedby.rebased_addr + self.addend
+
+class GenericPCRelativeAddendReloc(Relocation):
+    @property
+    def value(self):
+        return self.resolvedby.rebased_addr + self.addend - self.rebased_addr
 
 class GenericJumpslotReloc(Relocation):
     @property
@@ -100,3 +106,30 @@ class MipsLocalReloc(Relocation):
         self.resolve(None)
         return True
 
+
+class RelocTruncate32Mixin(object):
+    """
+    A mix-in class for relocations that cover a 32-bit field regardless of the architecture's word length.
+    """
+
+    # If True, truncated value must equal to its original when zero-extended
+    check_zero_extend = False
+
+    # If True, truncated value must equal to its original when sign-extended
+    check_sign_extend = False
+
+    def relocate(self, solist):
+        if not self.resolve_symbol(solist):
+            return False
+
+        arch_bits = self.owner_obj.arch.bits
+        assert arch_bits >= 32            # 16-bit makes no sense here
+
+        val = self.value % (2**arch_bits)   # we must truncate to native range first
+
+        if (self.check_zero_extend and val >> 32 != 0 or
+                self.check_sign_extend and val >> 32 != ((1 << (arch_bits - 32)) - 1) * ((val >> 31) & 1)):
+            raise CLEOperationError("relocation truncated to fit: %s; consider making relevant addresses fit in the 32-bit address space." % self.__class__.__name__)
+
+        by = struct.pack(self.owner_obj.arch.struct_fmt(32), val % (2**32))
+        self.owner_obj.memory.write_bytes(self.dest_addr, by)
