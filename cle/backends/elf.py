@@ -461,25 +461,26 @@ class ELF(MetaELF):
             return
         self.__parsed_reloc_tables.add(section.header['sh_offset'])
 
-        remap_offset = 0
-        if self.is_relocatable:
-            # Get the target section..
-            if section.is_RELA() and section.name[:5] == '.rela': # .relaNAME
-                dest_sec_name = section.name[5:]
-            elif not section.is_RELA() and section.name[:4] == '.rel': # .relNAME
-                dest_sec_name = section.name[4:]
-            else:
-                dest_sec_name = None
-                l.warn('unknown name for relocation section: %s', section.name)
+        dest_sec = None
+        # Get the target section..
+        if section.is_RELA() and section.name[:5] == '.rela': # .relaNAME
+            dest_sec_name = section.name[5:]
+        elif not section.is_RELA() and section.name[:4] == '.rel': # .relNAME
+            dest_sec_name = section.name[4:]
+        else:
+            dest_sec_name = None
+            l.warn('unknown name for relocation section: %s', section.name)
 
-            # ..and its remapping offset for relocations
-            if dest_sec_name is not None:
-                try:
-                    dest_sec = self.sections_map[dest_sec_name]
-                except KeyError:
-                    l.warn('relocation section\'s name refers to unknown section: %s', section.name)
-                else:
-                    remap_offset = dest_sec.remap_offset
+        # ..and its remapping offset for relocations
+        if dest_sec_name is not None:
+            try:
+                dest_sec = self.sections_map[dest_sec_name]
+            except KeyError:
+                l.warn('relocation section\'s name refers to unknown section: %s', section.name)
+            else:
+                if not dest_sec.occupies_memory:
+                    # XXX Record those relocations that does not affect memory?
+                    return
 
         symtab = self.reader.get_section(section.header['sh_link']) if 'sh_link' in section.header else None
         relocs = []
@@ -502,35 +503,40 @@ class ELF(MetaELF):
 
                 if type_1 != 0:
                     readelf_reloc.entry.r_info_type = type_1
-                    reloc = self._make_reloc(readelf_reloc, symbol, remap_offset)
+                    reloc = self._make_reloc(readelf_reloc, symbol, dest_sec)
                     if reloc is not None:
                         relocs.append(reloc)
                         self.relocs.append(reloc)
                 if type_2 != 0:
                     readelf_reloc.entry.r_info_type = type_2
-                    reloc = self._make_reloc(readelf_reloc, symbol, remap_offset)
+                    reloc = self._make_reloc(readelf_reloc, symbol, dest_sec)
                     if reloc is not None:
                         relocs.append(reloc)
                         self.relocs.append(reloc)
                 if type_3 != 0:
                     readelf_reloc.entry.r_info_type = type_3
-                    reloc = self._make_reloc(readelf_reloc, symbol, remap_offset)
+                    reloc = self._make_reloc(readelf_reloc, symbol, dest_sec)
                     if reloc is not None:
                         relocs.append(reloc)
                         self.relocs.append(reloc)
             else:
                 symbol = self.get_symbol(readelf_reloc.entry.r_info_sym, symtab)
-                reloc = self._make_reloc(readelf_reloc, symbol, remap_offset)
+                reloc = self._make_reloc(readelf_reloc, symbol, dest_sec)
                 if reloc is not None:
                     relocs.append(reloc)
                     self.relocs.append(reloc)
         return relocs
 
-    def _make_reloc(self, readelf_reloc, symbol, remap_offset=0):
+    def _make_reloc(self, readelf_reloc, symbol, dest_section=None):
         addend = readelf_reloc.entry.r_addend if readelf_reloc.is_RELA() else None
         RelocClass = get_relocation(self.arch.name, readelf_reloc.entry.r_info_type)
         if RelocClass is None:
             return None
+
+        if dest_section is not None:
+            remap_offset = dest_section.remap_offset
+        else:
+            remap_offset = 0
 
         return RelocClass(self, symbol, readelf_reloc.entry.r_offset + remap_offset, addend)
 
@@ -552,16 +558,17 @@ class ELF(MetaELF):
                 # We thus have to map them manually to valid virtual addresses like how linkers do.
                 sh_addr = sec_readelf.header['sh_addr']
                 if sh_addr != 0:
-                    # nonzero sh_addr found in a relocatable object - this case is unusual!
+                    l.info('nonzero sh_addr found in a relocatable object (unusual case)')
                     if new_addr < sh_addr:   # In this case we can just follow the specified sh_addr
                         new_addr = sh_addr
                     else:     # extremely unusual case
-                        l.warn('unable to use specified sh_addr in a relocatable object - ignoring')
+                        l.warn('unable to use specified sh_addr in a relocatable object')
                 else:
                     align = sec_readelf.header['sh_addralign']
                     if align > 1:    # align=0 (no align) and align=1 (byte align) are basically the same.
                         new_addr = (new_addr + (align - 1)) // align * align
 
+                l.debug("Section %s is allocated virtual address %#x" % (sec_readelf.name, new_addr))
                 remap_offset = new_addr - sh_addr
                 new_addr += sec_readelf.header['sh_size']    # address for next section
 
