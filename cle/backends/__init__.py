@@ -284,7 +284,7 @@ class Backend(object):
     :ivar str provides:     The name of the shared library dependancy that this object resolves
     """
 
-    def __init__(self, binary, is_main_bin=False, compatible_with=None, filetype='unknown', **kwargs):
+    def __init__(self, binary, is_main_bin=False, compatible_with=None, filetype='unknown', filename=None, **kwargs):
         """
         :param binary:          The path to the binary to load
         :param is_main_bin:     Whether this binary should be loaded as the main executable
@@ -297,7 +297,7 @@ class Backend(object):
             setattr(self, k, v)
 
         if hasattr(binary, 'seek') and hasattr(binary, 'read'):
-            self.binary = None
+            self.binary = filename
             self.binary_stream = binary
         else:
             self.binary = binary
@@ -305,6 +305,7 @@ class Backend(object):
                 self.binary_stream = open(binary, 'rb')
             except IOError:
                 self.binary_stream = None
+
         self.is_main_bin = is_main_bin
         self._entry = None
         self.segments = [] # List of segments
