@@ -568,7 +568,6 @@ class ELF(MetaELF):
                     if align > 1:    # align=0 (no align) and align=1 (byte align) are basically the same.
                         new_addr = (new_addr + (align - 1)) // align * align
 
-                l.debug("Section %s is allocated virtual address %#x" % (sec_readelf.name, new_addr))
                 remap_offset = new_addr - sh_addr
                 new_addr += sec_readelf.header['sh_size']    # address for next section
 

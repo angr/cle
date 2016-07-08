@@ -199,9 +199,16 @@ class Symbol(object):
     @property
     def is_static(self):
         """
-        Whether this symbol holds a valid address from the beginning and thus should not be resolved furthur.
+        Whether this symbol holds a valid address from the beginning and thus should not be resolved furthur
         """
         return isinstance(self.sh_info, (int, long)) or self.sh_info == 'SHN_ABS'
+
+    @property
+    def is_common(self):
+        """
+        Whether this symbol is a "common" symbol (such as Fortran COMMON or unallocated C external variables)
+        """
+        return self.sh_info == 'SHN_COMMON'
 
     @property
     def is_import(self):
