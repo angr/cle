@@ -79,7 +79,7 @@ class WinReloc(Relocation):
                 rebased_bytes = struct.pack('<Q', rebased_value)
                 self.owner_obj.memory.write_bytes(self.dest_addr, rebased_bytes)
             else:
-                l.warning('PE contains unimplemented relocation type %d' % (self.reloc_type))
+                l.warning('PE contains unimplemented relocation type %d', self.reloc_type)
         else:
             return super(WinReloc, self).relocate(solist)
 
