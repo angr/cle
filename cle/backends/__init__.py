@@ -355,6 +355,11 @@ class Backend(object):
 
     supported_filetypes = []
 
+    def close(self):
+        if self.binary_stream is not None:
+            self.binary_stream.close()
+            self.binary_stream = None
+
     def __repr__(self):
         if self.binary is not None:
             return '<%s Object %s, maps [%#x:%#x]>' % (self.__class__.__name__, os.path.basename(self.binary), self.get_min_addr(), self.get_max_addr())

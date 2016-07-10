@@ -40,3 +40,6 @@ class PatchedStream(object):
 
     def tell(self):
         return self._pos
+
+    def close(self):
+        return self.stream.close()
