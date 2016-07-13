@@ -553,6 +553,9 @@ class ELF(MetaELF):
         been implemented, then update self.demangled_names in Symbol
         """
 
+        if not len(self.symbols_by_addr):
+            return
+
         names = [self.symbols_by_addr[s].name for s in self.symbols_by_addr]
         names = filter(lambda n: n.startswith("_Z"), names)
         lookup_names = map(lambda n: n.split("@@")[0], names)
