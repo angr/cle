@@ -226,3 +226,4 @@ class PE(Backend):
         for pe_section in self._pe.sections:
             section = PESection(pe_section)
             self.sections.append(section)
+            self.sections_map[section.name] = section
