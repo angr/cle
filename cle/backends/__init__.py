@@ -380,11 +380,13 @@ class Backend(object):
         for i in self.segments:
             if i.contains_addr(addr - self.rebase_addr):
                 out = True
+                break
 
         if not out:
             for i in self.sections:
                 if i.contains_addr(addr - self.rebase_addr):
                     out = True
+                    break
 
         return out
 
@@ -413,11 +415,13 @@ class Backend(object):
         for s in self.segments:
             if s.contains_addr(addr - self.rebase_addr):
                 out = s.addr_to_offset(addr - self.rebase_addr)
+                break
 
         if out is None:
             for s in self.sections:
                 if s.contains_addr(addr - self.rebase_addr):
                     out = s.addr_to_offset(addr - self.rebase_addr)
+                    break
 
         return out
 
@@ -426,11 +430,13 @@ class Backend(object):
         for s in self.segments:
             if s.contains_offset(offset):
                 out = s.offset_to_addr(offset) + self.rebase_addr
+                break
 
         if out is None:
             for s in self.sections:
                 if s.contains_offset(offset):
                     out = s.offset_to_addr(offset) + self.rebase_addr
+                    break
 
         return out
 
