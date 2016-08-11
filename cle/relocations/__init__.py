@@ -83,7 +83,7 @@ class Relocation(object):
         if self.is_rela:
             return self._addend
         else:
-            return self.owner_obj.memory.read_addr_at(self.addr)
+            return self.owner_obj.memory.read_addr_at(self.addr, orig=True)
 
     def resolve_symbol(self, solist):
         weak_result = None
