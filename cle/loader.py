@@ -388,7 +388,7 @@ class Loader(object):
         if isinstance(obj, (MetaELF, PE)):
             for reloc in obj.relocs:
                 if not reloc.resolved:
-                    reloc.relocate(dep_objs + [obj])
+                    reloc.relocate(([self.main_bin] if self.main_bin is not obj else []) + dep_objs + [obj])
 
     def provide_symbol(self, owner, name, offset, size=0, binding='STB_GLOBAL', st_type='STT_FUNC', st_info='CLE'):
         newsymbol = Symbol(owner, name, offset, size, binding, st_type, st_info)
