@@ -380,12 +380,21 @@ class Backend(object):
 
     def contains_addr(self, addr):
         """
-        Is `vaddr` in one of the binary's segments we have loaded ? (i.e. is it mapped into memory ?)
+        Is `vaddr` in one of the binary's segments/sections we have loaded ? (i.e. is it mapped into memory ?)
         """
+        out = False
         for i in self.segments:
             if i.contains_addr(addr - self.rebase_addr):
-                return True
-        return False
+                out = True
+                break
+
+        if not out:
+            for i in self.sections:
+                if i.contains_addr(addr - self.rebase_addr):
+                    out = True
+                    break
+
+        return out
 
     def find_segment_containing(self, addr):
         """
@@ -408,15 +417,34 @@ class Backend(object):
         return None
 
     def addr_to_offset(self, addr):
+        out = None
         for s in self.segments:
             if s.contains_addr(addr - self.rebase_addr):
-                return s.addr_to_offset(addr - self.rebase_addr)
-        return None
+                out = s.addr_to_offset(addr - self.rebase_addr)
+                break
+
+        if out is None:
+            for s in self.sections:
+                if s.contains_addr(addr - self.rebase_addr):
+                    out = s.addr_to_offset(addr - self.rebase_addr)
+                    break
+
+        return out
 
     def offset_to_addr(self, offset):
+        out = None
         for s in self.segments:
             if s.contains_offset(offset):
-                return s.offset_to_addr(offset) + self.rebase_addr
+                out = s.offset_to_addr(offset) + self.rebase_addr
+                break
+
+        if out is None:
+            for s in self.sections:
+                if s.contains_offset(offset):
+                    out = s.offset_to_addr(offset) + self.rebase_addr
+                    break
+
+        return out
 
     def get_min_addr(self):
         """
