@@ -112,6 +112,8 @@ class Relocation(object):
         self.resolvedby = obj
         self.resolved = True
         if self.symbol is not None:
+            if obj is not None:
+                l.debug('%s from %s resolved by %s from %s at %#x', self.symbol.name, self.owner_obj.provides, obj.name, obj.owner_obj.provides, obj.rebased_addr)
             self.symbol.resolve(obj)
 
     @property

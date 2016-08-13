@@ -510,7 +510,8 @@ class ELF(MetaELF):
             self.sections_map[section.name] = section
             if isinstance(sec_readelf, elffile.SymbolTableSection):
                 self.__register_section_symbols(sec_readelf)
-            if isinstance(sec_readelf, elffile.RelocationSection):
+            if isinstance(sec_readelf, elffile.RelocationSection) and not \
+                    ('DT_REL' in self._dynamic or 'DT_RELA' in self._dynamic or 'DT_JMPREL' in self._dynamic):
                 self.__register_relocs(sec_readelf)
 
             if sec_readelf.header['sh_flags'] & 2:      # alloc flag - stick in memory maybe!
