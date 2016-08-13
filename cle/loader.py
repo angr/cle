@@ -753,6 +753,8 @@ class Loader(object):
                 e = elftools.elf.elffile.ELFFile(f)
                 dyn = e.get_section_by_name('.dynamic')
                 soname = [ x.soname for x in list(dyn.iter_tags()) if x.entry.d_tag == 'DT_SONAME']
+                if not soname:
+                    return os.path.basename(path)
                 return soname[0]
             except elftools.common.exceptions.ELFError:
                 return None
