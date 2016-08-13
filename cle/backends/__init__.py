@@ -337,7 +337,7 @@ class Backend(object):
 
         # Custom options
         self._custom_entry_point = kwargs.get('custom_entry_point', None)
-        self.provides = os.path.basename(self.binary)
+        self.provides = os.path.basename(self.binary) if self.binary is not None else None
 
         self.memory = None
 
