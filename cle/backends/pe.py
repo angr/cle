@@ -22,10 +22,11 @@ class WinSymbol(Symbol):
     """
     Represents a symbol for the PE format.
     """
-    def __init__(self, owner, name, addr, is_import, is_export):
+    def __init__(self, owner, name, addr, is_import, is_export, forwarder):
         super(WinSymbol, self).__init__(owner, name, addr, owner.arch.bytes, None, None, None)
         self._is_import = is_import
         self._is_export = is_export
+        self._forwarder = forwarder
 
     @property
     def is_import(self):
@@ -36,11 +37,27 @@ class WinSymbol(Symbol):
         return self._is_export
 
     @property
+    def is_forward(self):
+        return self._is_forward
+
+    @property
+    def forwarder_dll(self):
+        if self._forwarder is None:
+            return None
+        return self._forwarder.split('.')[0]
+
+    @property
+    def forwarder_function(self):
+        if self._forwarder is None:
+            return None
+        return self._forwarder.split('.')[1]
+
+    @property
     def is_function(self):
         """
         All symbols in PE files point to functions.
         """
-        return True
+        return self._forwarder is None
 
 class WinReloc(Relocation):
     """
@@ -188,7 +205,7 @@ class PE(Backend):
                     imp_name = imp.name
                     if imp_name is None: # must be an import by ordinal
                         imp_name = "%s.ordinal_import.%d" % (entry.dll, imp.ordinal)
-                    symb = WinSymbol(self, imp_name, 0, True, False)
+                    symb = WinSymbol(self, imp_name, 0, True, False, None)
                     reloc = WinReloc(self, symb, imp.address - self.requested_base, entry.dll)
                     self.imports[imp_name] = reloc
                     self.relocs.append(reloc)
@@ -197,7 +214,7 @@ class PE(Backend):
         if hasattr(self._pe, 'DIRECTORY_ENTRY_EXPORT'):
             symbols = self._pe.DIRECTORY_ENTRY_EXPORT.symbols
             for exp in symbols:
-                symb = WinSymbol(self, exp.name, exp.address, False, True)
+                symb = WinSymbol(self, exp.name, exp.address, False, True, exp.forwarder)
                 self._exports[exp.name] = symb
 
     def _handle_relocs(self):
