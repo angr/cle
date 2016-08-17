@@ -279,7 +279,7 @@ class Backend(object):
     :ivar deps:             A list of names of shared libraries this binary depends on
     :ivar linking:          'dynamic' or 'static'
     :ivar requested_base:   The base address this object requests to be loaded at, or None
-    :ivar bool pic:         Whether this object is position-independant
+    :ivar bool pic:         Whether this object is position-independent
     :ivar bool execstack:   Whether this executable has an executable stack
     :ivar str provides:     The name of the shared library dependancy that this object resolves
     """
