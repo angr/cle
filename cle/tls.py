@@ -56,8 +56,12 @@ class TLSObj(Backend):
             else:
                 module.tls_block_offset = -roundup(module.tls_block_size) - module.tls_block_offset
 
-        self.dtv_start = TLS_TOTAL_HEAD_SIZE + 2*self.arch.bytes
-        self.tp_offset = 0 if self.tlsinfo.variant == 1 else self.total_blocks_size
+        if self.tlsinfo.variant == 1:
+            self.dtv_start = TLS_TOTAL_HEAD_SIZE + self.total_blocks_size + 2*self.arch.bytes
+            self.tp_offset = 0
+        else:
+            self.dtv_start =  TLS_TOTAL_HEAD_SIZE + 2*self.arch.bytes
+            self.tp_offset = self.total_blocks_size
 
     def finalize(self):
         assert self.rebase_addr != 0
