@@ -528,6 +528,7 @@ from .blob import Blob
 from .cgc import CGC
 from .backedcgc import BackedCGC
 from .metaelf import MetaELF
+from .tls import TLSObj
 
 ALL_BACKENDS = _ordered_dict((
     ('elf', ELF),

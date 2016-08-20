@@ -810,5 +810,4 @@ class Loader(object):
 
 from .errors import CLEError, CLEOperationError, CLEFileNotFoundError, CLECompatibilityError
 from .memory import Clemory
-from .tls import TLSObj
-from .backends import IDABin, MetaELF, ELF, PE, ALL_BACKENDS, Backend, Symbol
+from .backends import IDABin, MetaELF, ELF, PE, ALL_BACKENDS, Backend, Symbol, TLSObj
