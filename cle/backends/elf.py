@@ -438,7 +438,7 @@ class ELF(MetaELF):
                         'sh_size': relsz
                     }
                     readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self.memory, self.reader)
-                    self.__register_relocs(readelf_relocsec)
+                    self.__register_relocs(readelf_relocsec, is_fake=True)
 
                 # try to parse relocations out of a table of type DT_JMPREL
                 if 'DT_JMPREL' in self._dynamic:
@@ -453,10 +453,10 @@ class ELF(MetaELF):
                         'sh_size': jmprelsz
                     }
                     readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.memory, self.reader)
-                    self.jmprel = OrderedDict((reloc.symbol.name, reloc) for reloc in self.__register_relocs(readelf_jmprelsec) if reloc.symbol.name != '')
+                    self.jmprel = OrderedDict((reloc.symbol.name, reloc) for reloc in self.__register_relocs(readelf_jmprelsec, is_fake=True) if reloc.symbol.name != '')
 
 
-    def __register_relocs(self, section):
+    def __register_relocs(self, section, is_fake=False):
         if section.header['sh_offset'] in self.__parsed_reloc_tables:
             return
         self.__parsed_reloc_tables.add(section.header['sh_offset'])
@@ -469,7 +469,8 @@ class ELF(MetaELF):
             dest_sec_name = section.name[4:]
         else:
             dest_sec_name = None
-            l.warn('unknown name for relocation section: %s', section.name)
+            if not is_fake:
+                l.warn('unknown name for relocation section: %s', section.name)
 
         # ..and its remapping offset for relocations
         if dest_sec_name is not None:
