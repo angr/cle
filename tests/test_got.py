@@ -24,7 +24,7 @@ def test_mipsel():
 
     # 1) check dependencies and loaded binaries
     nose.tools.assert_true(dep.issuperset({'libresolv.so.0', 'libgcc_s.so.1', 'libc.so.6', 'ld.so.1'}))
-    nose.tools.assert_equal(loadedlibs, {'libc.so.6', 'ld.so.1'})
+    nose.tools.assert_true(loadedlibs.issuperset({'libc.so.6', 'ld.so.1'}))
 
     # 2) Check GOT slot containts the right address
     # Cle: 4494036

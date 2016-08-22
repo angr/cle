@@ -69,7 +69,10 @@ class Clemory(object):
                     yield start + x
 
     def __getitem__(self, k):
-        if k in self._updates:
+        return self.get_byte(k)
+
+    def get_byte(self, k, orig=False):
+        if not orig and k in self._updates:
             return self._updates[k]
         else:
             for start, data in self._backers:
@@ -78,7 +81,7 @@ class Clemory(object):
                         return data[k - start]
                 elif isinstance(data, Clemory):
                     try:
-                        return data[k - start]
+                        return data.get_byte(k - start, orig=orig)
                     except KeyError:
                         pass
             raise KeyError(k)
@@ -104,13 +107,13 @@ class Clemory(object):
     def __setstate__(self, data):
         self.__dict__.update(data)
 
-    def read_bytes(self, addr, n):
+    def read_bytes(self, addr, n, orig=False):
         """
         Read `n` bytes at address `addr` in memory and return an array of bytes.
         """
         b = []
         for i in range(addr, addr+n):
-            b.append(self[i])
+            b.append(self.get_byte(i, orig=orig))
         return b
 
     def write_bytes(self, addr, data):
@@ -176,11 +179,11 @@ class Clemory(object):
         # Set the flattening_needed flag
         self._needs_flattening_personal = True
 
-    def read_addr_at(self, where):
+    def read_addr_at(self, where, orig=False):
         """
         Read addr stored in memory as a series of bytes starting at `where`.
         """
-        return struct.unpack(self._arch.struct_fmt(), ''.join(self.read_bytes(where, self._arch.bytes)))[0]
+        return struct.unpack(self._arch.struct_fmt(), ''.join(self.read_bytes(where, self._arch.bytes, orig=orig)))[0]
 
     def write_addr_at(self, where, addr):
         """
