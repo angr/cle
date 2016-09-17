@@ -489,9 +489,9 @@ class ELF(MetaELF):
 
         dest_sec = None
         # Get the target section..
-        if section.is_RELA() and section.name[:5] == '.rela': # .relaNAME
+        if section.is_RELA() is True and section.name[:5] == '.rela': # .relaNAME
             dest_sec_name = section.name[5:]
-        elif not section.is_RELA() and section.name[:4] == '.rel': # .relNAME
+        elif section.is_RELA() is False and section.name[:4] == '.rel': # .relNAME
             dest_sec_name = section.name[4:]
         else:
             dest_sec_name = None

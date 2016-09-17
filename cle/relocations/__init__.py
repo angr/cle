@@ -88,7 +88,7 @@ class Relocation(object):
     def resolve_symbol(self, solist):
         if self.symbol.is_static:
             # Static symbols should only be resolved by itself.
-            # XXX: should we make hooking static symbols possible (i.e. overriding with AngrExternObj)?
+            # XXX: should we make hooking static symbols possible (e.g. overriding with AngrExternObj)?
             self.resolve(self.symbol)
             return True
 

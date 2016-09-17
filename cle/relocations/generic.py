@@ -109,13 +109,13 @@ class MipsLocalReloc(Relocation):
 
 class RelocTruncate32Mixin(object):
     """
-    A mix-in class for relocations that cover a 32-bit field regardless of the architecture's word length.
+    A mix-in class for relocations that cover a 32-bit field regardless of the architecture's address word length.
     """
 
-    # If True, truncated value must equal to its original when zero-extended
+    # If True, 32-bit truncated value must equal to its original when zero-extended
     check_zero_extend = False
 
-    # If True, truncated value must equal to its original when sign-extended
+    # If True, 32-bit truncated value must equal to its original when sign-extended
     check_sign_extend = False
 
     def relocate(self, solist):
@@ -125,11 +125,13 @@ class RelocTruncate32Mixin(object):
         arch_bits = self.owner_obj.arch.bits
         assert arch_bits >= 32            # 16-bit makes no sense here
 
-        val = self.value % (2**arch_bits)   # we must truncate to native range first
+        val = self.value % (2**arch_bits)   # we must truncate it to native range first
 
         if (self.check_zero_extend and val >> 32 != 0 or
-                self.check_sign_extend and val >> 32 != ((1 << (arch_bits - 32)) - 1) * ((val >> 31) & 1)):
-            raise CLEOperationError("relocation truncated to fit: %s; consider making relevant addresses fit in the 32-bit address space." % self.__class__.__name__)
+                self.check_sign_extend and val >> 32 != ((1 << (arch_bits - 32)) - 1)
+                                                        if ((val >> 31) & 1) == 1 else 0):
+            raise CLEOperationError("relocation truncated to fit: %s; consider making"
+                                    " relevant addresses fit in the 32-bit address space." % self.__class__.__name__)
 
         by = struct.pack(self.owner_obj.arch.struct_fmt(32), val % (2**32))
         self.owner_obj.memory.write_bytes(self.dest_addr, by)

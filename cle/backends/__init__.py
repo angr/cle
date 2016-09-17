@@ -199,7 +199,7 @@ class Symbol(object):
     @property
     def is_static(self):
         """
-        Whether this symbol holds a valid address from the beginning and thus should not be resolved furthur
+        Whether this symbol would point to a local address and thus should not be resolved furthur by other objects (e.g. section symbols or exported symbols of shared libraries)
         """
         return isinstance(self.sh_info, (int, long)) or self.sh_info == 'SHN_ABS'
 
