@@ -6,7 +6,7 @@ except ImportError:
 setup(
     name='cle',
     description='CLE Loads Everything (at least, may binary formats!) and provides a Pythonic interface to analyze what they are and what they would look like in memory.',
-    version='4.6.6.28',
+    version='5.6.8.22',
     packages=['cle', 'cle.backends', 'cle.relocations'],
     install_requires=[ "pyelftools", "cffi", "idalink", "archinfo", "pyvex", "pefile" ]
 )

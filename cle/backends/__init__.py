@@ -290,7 +290,7 @@ class Backend(object):
     :ivar deps:             A list of names of shared libraries this binary depends on
     :ivar linking:          'dynamic' or 'static'
     :ivar requested_base:   The base address this object requests to be loaded at, or None
-    :ivar bool pic:         Whether this object is position-independant
+    :ivar bool pic:         Whether this object is position-independent
     :ivar bool execstack:   Whether this executable has an executable stack
     :ivar str provides:     The name of the shared library dependancy that this object resolves
     """
@@ -391,21 +391,13 @@ class Backend(object):
 
     def contains_addr(self, addr):
         """
-        Is `vaddr` in one of the binary's segments/sections we have loaded ? (i.e. is it mapped into memory ?)
+        Is `addr` in one of the binary's segments/sections we have loaded? (i.e. is it mapped into memory ?)
         """
-        out = False
-        for i in self.segments:
-            if i.contains_addr(addr - self.rebase_addr):
-                out = True
-                break
+        return self.find_loadable_containing(addr) is not None
 
-        if not out:
-            for i in self.sections:
-                if i.contains_addr(addr - self.rebase_addr):
-                    out = True
-                    break
-
-        return out
+    def find_loadable_containing(self, addr):
+        lookup = self.find_segment_containing if self.segments else self.find_section_containing
+        return lookup(addr)
 
     def find_segment_containing(self, addr):
         """
@@ -428,34 +420,24 @@ class Backend(object):
         return None
 
     def addr_to_offset(self, addr):
-        out = None
-        for s in self.segments:
-            if s.contains_addr(addr - self.rebase_addr):
-                out = s.addr_to_offset(addr - self.rebase_addr)
-                break
+        loadable = self.find_loadable_containing(addr)
 
-        if out is None:
-            for s in self.sections:
-                if s.contains_addr(addr - self.rebase_addr):
-                    out = s.addr_to_offset(addr - self.rebase_addr)
-                    break
-
-        return out
+        if loadable is not None:
+            return loadable.addr_to_offset(addr - self.rebase_addr)
+        else:
+            return None
 
     def offset_to_addr(self, offset):
-        out = None
-        for s in self.segments:
-            if s.contains_offset(offset):
-                out = s.offset_to_addr(offset) + self.rebase_addr
-                break
-
-        if out is None:
+        if self.segments:
+            for s in self.segments:
+                if s.contains_offset(offset):
+                    return s.offset_to_addr(offset) + self.rebase_addr
+        else:
             for s in self.sections:
                 if s.contains_offset(offset):
-                    out = s.offset_to_addr(offset) + self.rebase_addr
-                    break
+                    return s.offset_to_addr(offset) + self.rebase_addr
 
-        return out
+        return None
 
     def get_min_addr(self):
         """
