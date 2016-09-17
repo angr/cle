@@ -581,19 +581,12 @@ class ELF(MetaELF):
         for sec_readelf in self.reader.iter_sections():
             remap_offset = 0
             if self.is_relocatable and sec_readelf.header['sh_flags'] & 2:      # alloc flag
-                # Relocatable objects' sections doesn't contain a valid address.
-                # We thus have to map them manually to valid virtual addresses like how linkers do.
+                # Relocatable objects' section addresses are meaningless (they are meant to be relocated anyway)
+                # We thus have to map them manually to valid virtual addresses to emulate a linker's behaviour.
                 sh_addr = sec_readelf.header['sh_addr']
-                if sh_addr != 0:
-                    l.info('nonzero sh_addr found in a relocatable object (unusual case)')
-                    if new_addr < sh_addr:   # In this case we can just follow the specified sh_addr
-                        new_addr = sh_addr
-                    else:     # extremely unusual case
-                        l.warn('unable to use specified sh_addr in a relocatable object')
-                else:
-                    align = sec_readelf.header['sh_addralign']
-                    if align > 1:    # align=0 (no align) and align=1 (byte align) are basically the same.
-                        new_addr = (new_addr + (align - 1)) // align * align
+                align = sec_readelf.header['sh_addralign']
+                if align > 0:
+                    new_addr = (new_addr + (align - 1)) // align * align
 
                 remap_offset = new_addr - sh_addr
                 new_addr += sec_readelf.header['sh_size']    # address for next section
