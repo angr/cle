@@ -464,7 +464,7 @@ class ELF(MetaELF):
                         'sh_size': relsz
                     }
                     readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self.memory, self.reader)
-                    self.__register_relocs(readelf_relocsec, is_fake=True)
+                    self.__register_relocs(readelf_relocsec)
 
                 # try to parse relocations out of a table of type DT_JMPREL
                 if 'DT_JMPREL' in self._dynamic:
@@ -479,31 +479,22 @@ class ELF(MetaELF):
                         'sh_size': jmprelsz
                     }
                     readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.memory, self.reader)
-                    self.jmprel = OrderedDict((reloc.symbol.name, reloc) for reloc in self.__register_relocs(readelf_jmprelsec, is_fake=True) if reloc.symbol.name != '')
+                    self.jmprel = OrderedDict((reloc.symbol.name, reloc) for reloc in self.__register_relocs(readelf_jmprelsec) if reloc.symbol.name != '')
 
 
-    def __register_relocs(self, section, is_fake=False):
+    def __register_relocs(self, section):
         if section.header['sh_offset'] in self.__parsed_reloc_tables:
             return
         self.__parsed_reloc_tables.add(section.header['sh_offset'])
 
+        # Get the target section's remapping offset for relocations
         dest_sec = None
-        # Get the target section..
-        if section.is_RELA() is True and section.name[:5] == '.rela': # .relaNAME
-            dest_sec_name = section.name[5:]
-        elif section.is_RELA() is False and section.name[:4] == '.rel': # .relNAME
-            dest_sec_name = section.name[4:]
-        else:
-            dest_sec_name = None
-            if not is_fake:
-                l.warn('unknown name for relocation section: %s', section.name)
-
-        # ..and its remapping offset for relocations
-        if dest_sec_name is not None:
+        dest_sec_idx = section.header.get('sh_info', None)
+        if dest_sec_idx is not None:
             try:
-                dest_sec = self.sections_map[dest_sec_name]
-            except KeyError:
-                l.warn('relocation section\'s name refers to unknown section: %s', section.name)
+                dest_sec = self.sections[dest_sec_idx]
+            except IndexError:
+                l.warn('the relocation section %s refers to unknown section index: %d', section.name, dest_sec_idx)
             else:
                 if not dest_sec.occupies_memory:
                     # XXX Record those relocations that does not affect memory?
@@ -596,7 +587,6 @@ class ELF(MetaELF):
 
             # Register sections first, process later - this is required by relocatable objects
             self.sections.append(section)
-            self.sections_map[section.name] = section
 
             sec_by_addr[section.vaddr] = sec_readelf
 
