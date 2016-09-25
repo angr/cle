@@ -275,7 +275,6 @@ class Backend(object):
     :ivar str os:           The operating system this binary is meant to run under
     :ivar compatible_with:  Another Backend object this object must be compatibile with, or None
     :ivar int rebase_addr:  The base address of this object in virtual memory
-    :ivar tls_module_id:    The thread-local storage module ID assigned to this binary
     :ivar deps:             A list of names of shared libraries this binary depends on
     :ivar linking:          'dynamic' or 'static'
     :ivar requested_base:   The base address this object requests to be loaded at, or None
@@ -327,7 +326,6 @@ class Backend(object):
         self.rebase_addr_symbolic = 0
         # These are set by cle, and should not be overriden manually
         self.rebase_addr = 0 # not to be set manually - used by CLE
-        self.tls_module_id = None
 
         self.deps = []           # Needed shared objects (libraries dependencies)
         self.linking = None # Dynamic or static linking
@@ -510,7 +508,6 @@ from .blob import Blob
 from .cgc import CGC
 from .backedcgc import BackedCGC
 from .metaelf import MetaELF
-from .tls import TLSObj
 
 ALL_BACKENDS = _ordered_dict((
     ('elf', ELF),

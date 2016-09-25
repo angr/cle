@@ -413,19 +413,29 @@ class Loader(object):
 
     def _load_tls(self):
         """
-        Set up an object to store TLS data in,
+        Set up an object to store TLS data in.
         """
-        modules = []
+        elf_modules = []
+        pe_modules = []
+
         for obj in self.all_objects:
-            if not isinstance(obj, MetaELF):
-                continue
-            if not obj.tls_used:
-                continue
-            modules.append(obj)
-        if len(modules) == 0:
-            return
-        self.tls_object = TLSObj(modules)
-        self.add_object(self.tls_object)
+            if isinstance(obj, MetaELF) and obj.tls_used:
+                elf_modules.append(obj)
+            elif isinstance(obj, PE) and obj.tls_used:
+                pe_modules.append(obj)
+        num_elf_modules = len(elf_modules)
+        num_pe_modules = len(pe_modules)
+
+        # TODO: This assert ensures that we have either ELF or PE modules, but not both.
+        # Do we need to handle the case where we have both ELF and PE modules?
+        assert num_elf_modules != num_pe_modules or num_elf_modules == 0 or num_pe_modules == 0
+        if len(elf_modules) > 0:
+            self.tls_object = ELFTLSObj(elf_modules)
+        elif len(pe_modules) > 0:
+            self.tls_object = PETLSObj(pe_modules)
+
+        if self.tls_object:
+            self.add_object(self.tls_object)
 
     def _finalize_tls(self):
         """
@@ -669,7 +679,6 @@ class Loader(object):
                     break
                 dest_stream.write(dat)
 
-        stream.close()
         return dest
 
     @staticmethod
@@ -810,4 +819,5 @@ class Loader(object):
 
 from .errors import CLEError, CLEOperationError, CLEFileNotFoundError, CLECompatibilityError
 from .memory import Clemory
-from .backends import IDABin, MetaELF, ELF, PE, ALL_BACKENDS, Backend, Symbol, TLSObj
+from .tls import ELFTLSObj, PETLSObj
+from .backends import IDABin, MetaELF, ELF, PE, ALL_BACKENDS, Backend, Symbol

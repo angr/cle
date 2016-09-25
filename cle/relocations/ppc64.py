@@ -1,4 +1,5 @@
 from . import generic
+from . import generic_elf
 from . import Relocation
 
 # http://refspecs.linuxfoundation.org/ELF/ppc64/PPC-elf64abi-1.9.pdf

@@ -145,10 +145,18 @@ class PE(Backend):
         else:
             self.provides = None
 
+        self.tls_used = False
+        self.tls_data_start = None
+        self.tls_data_size = None
+        self.tls_index_address = None
+        self.tls_callbacks = None
+        self.tls_size_of_zero_fill = None
+
         self._exports = {}
         self._handle_imports()
         self._handle_exports()
         self._handle_relocs()
+        self._register_tls()
         self._register_sections()
         self.linking = 'dynamic' if len(self.deps) > 0 else 'static'
 
@@ -217,6 +225,33 @@ class PE(Backend):
                         reloc = WinReloc(self, None, reloc_data.rva, None, reloc_type=reloc_data.type)
                     self.relocs.append(reloc)
                     entry_idx += 1
+
+    def _register_tls(self):
+        if hasattr(self._pe, 'DIRECTORY_ENTRY_TLS'):
+            tls = self._pe.DIRECTORY_ENTRY_TLS.struct
+
+            self.tls_used = True
+            self.tls_data_start = tls.StartAddressOfRawData
+            self.tls_data_size = tls.EndAddressOfRawData - tls.StartAddressOfRawData
+            self.tls_index_address = tls.AddressOfIndex
+            self.tls_callbacks = self._register_tls_callbacks(tls.AddressOfCallBacks)
+            self.tls_size_of_zero_fill = tls.SizeOfZeroFill
+
+    def _register_tls_callbacks(self, addr):
+        """
+        TLS callbacks are stored as an array of virtual addresses to functions.
+        The last entry is empty (NULL), which indicates the end of the table
+        """
+        callbacks = []
+
+        callback_rva = addr - self.requested_base
+        callback = self._pe.get_dword_at_rva(callback_rva)
+        while callback != 0:
+            callbacks.append(callback)
+            callback_rva += 4
+            callback = self._pe.get_dword_at_rva(callback_rva)
+
+        return callbacks
 
     def _register_sections(self):
         """

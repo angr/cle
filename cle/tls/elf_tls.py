@@ -1,7 +1,7 @@
 from collections import namedtuple, defaultdict
 import struct
 
-from . import Backend
+from . import TLSObj
 
 # REFERENCES:
 # [1] https://www.uclibc.org/docs/tls.pdf
@@ -41,14 +41,13 @@ TLS_ALLOC_SIZE = 0x30000
 def roundup(val, to=TLS_BLOCK_ALIGN):
     return val - 1 + (to - ((val - 1) % to))
 
-class TLSObj(Backend):
+
+class ELFTLSObj(TLSObj):
     """
-    This class is used when parsing the Thread Local Storage of a binary.
+    This class is used when parsing the Thread Local Storage of an ELF binary.
     """
     def __init__(self, modules):
-        super(TLSObj, self).__init__('##cle_tls##')
-        self.modules = modules
-        self.set_arch(self.modules[0].arch)
+        super(ELFTLSObj, self).__init__(modules, filetype='unix')
         self.tlsinfo = tls_archinfo[self.arch.name]
         module_id = 1
         self.total_blocks_size = 0

@@ -1,4 +1,5 @@
 from . import generic
+from . import generic_elf
 
 # http://infocenter.arm.com/help/topic/com.arm.doc.ihi0056b/IHI0056B_aaelf64.pdf
 arch = 'AARCH64'
