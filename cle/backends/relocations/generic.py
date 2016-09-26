@@ -1,4 +1,4 @@
-from ..errors import CLEOperationError
+from ...errors import CLEOperationError
 from . import Relocation
 
 import logging
@@ -27,7 +27,7 @@ class GenericRelativeReloc(Relocation):
     def value(self):
         return self.owner_obj.rebase_addr + self.addend
 
-    def resolve_symbol(self, solist):   # pylint: unused-argument
+    def resolve_symbol(self, solist):
         self.resolve(None)
         return True
 

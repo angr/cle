@@ -1,4 +1,3 @@
-from ..errors import CLEOperationError
 from . import Relocation
 
 import logging
@@ -26,7 +25,7 @@ class GenericTLSDoffsetReloc(Relocation):
 
 class GenericTLSOffsetReloc(Relocation):
     def relocate(self, solist):
-        hell_offset = tls_archinfo[self.owner_obj.arch.name].tp_offset
+        hell_offset = self.owner_obj.arch.elf_tls.tp_offset
         if self.symbol.type == 'STT_NOTYPE':
             self.owner_obj.memory.write_addr_at(self.addr, self.owner_obj.tls_block_offset + self.addend + self.symbol.addr - hell_offset)
             self.resolve(None)
@@ -35,5 +34,3 @@ class GenericTLSOffsetReloc(Relocation):
                 return False
             self.owner_obj.memory.write_addr_at(self.addr, self.resolvedby.owner_obj.tls_block_offset + self.addend + self.symbol.addr - hell_offset)
         return True
-
-from ..tls.elf_tls import tls_archinfo

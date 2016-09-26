@@ -24,10 +24,11 @@ class R_PPC64_JMP_SLOT(Relocation):
             self.owner_obj.memory.write_addr_at(self.addr, self.resolvedby.rebased_addr)
         return True
 
-R_PPC64_DTPMOD64 = generic.GenericTLSModIdReloc
-R_PPC64_DTPREL64 = generic.GenericTLSDoffsetReloc
-R_PPC64_TPREL64 = generic.GenericTLSOffsetReloc
 R_PPC64_RELATIVE = generic.GenericRelativeReloc
 R_PPC64_IRELATIVE = generic.GenericIRelativeReloc
 R_PPC64_ADDR64 = generic.GenericAbsoluteAddendReloc
 R_PPC64_GLOB_DAT = generic.GenericJumpslotReloc
+
+R_PPC64_DTPMOD64 = generic_elf.GenericTLSModIdReloc
+R_PPC64_DTPREL64 = generic_elf.GenericTLSDoffsetReloc
+R_PPC64_TPREL64 = generic_elf.GenericTLSOffsetReloc

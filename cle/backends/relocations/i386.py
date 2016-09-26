@@ -10,9 +10,9 @@ R_386_JMP_SLOT = generic.GenericJumpslotReloc
 R_386_RELATIVE = generic.GenericRelativeReloc
 R_386_IRELATIVE = generic.GenericIRelativeReloc
 
-R_386_TLS_DTPMOD32 = generic.GenericTLSModIdReloc
-R_386_TLS_TPOFF = generic.GenericTLSOffsetReloc
-R_386_TLS_DTPOFF32 = generic.GenericTLSDoffsetReloc
+R_386_TLS_DTPMOD32 = generic_elf.GenericTLSModIdReloc
+R_386_TLS_TPOFF = generic_elf.GenericTLSOffsetReloc
+R_386_TLS_DTPOFF32 = generic_elf.GenericTLSDoffsetReloc
 
 class R_386_PC32(generic.Relocation):
     @property

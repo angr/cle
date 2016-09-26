@@ -1,4 +1,4 @@
-from ..backends import Segment
+from . import Segment
 from .cgc import CGC
 
 

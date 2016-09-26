@@ -1,6 +1,6 @@
 import pyvex
 
-from ..backends import Backend
+from . import Backend
 from ..errors import CLEOperationError
 
 __all__ = ('MetaELF',)
@@ -229,4 +229,3 @@ class MetaELF(Backend):
             ep_offset = self._entry
             self._entry = self.memory.read_addr_at(ep_offset)
             self.ppc64_initial_rtoc = self.memory.read_addr_at(ep_offset+8)
-

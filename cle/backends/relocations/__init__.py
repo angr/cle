@@ -19,11 +19,7 @@ def load_relocations():
         if filename == '__init__.py':
             continue
 
-        try:
-            module = importlib.import_module('.%s' % filename[:-3], 'cle.relocations')
-        except ImportError:
-            l.warning("Error importing relocations module %s", filename, exc_info=True)
-            continue
+        module = importlib.import_module('.%s' % filename[:-3], 'cle.backends.relocations')
 
         try:
             arch_name = module.arch

@@ -1,14 +1,15 @@
+import os
+import struct
+
+import archinfo
+from . import Backend, Symbol, Section
+from .relocations import Relocation
+from ..errors import CLEError
+
 try:
     import pefile
 except ImportError:
     pefile = None
-
-import archinfo
-import os
-import struct
-from ..backends import Backend, Symbol, Section
-from ..relocations import Relocation
-from ..errors import CLEError
 
 __all__ = ('PE',)
 

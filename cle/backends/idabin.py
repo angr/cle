@@ -4,7 +4,7 @@ except ImportError:
     idalink = None
 
 from ..errors import CLEError
-from ..backends import Backend
+from . import Backend
 
 import logging
 l = logging.getLogger("cle.idabin")
@@ -329,7 +329,8 @@ class IDABin(Backend):
     def reverse_plt(self):
         return {}
 
-    def get_call_stub_addr(self, name):
+    @staticmethod
+    def get_call_stub_addr(name): # pylint: disable=unused-argument
         return None
 
     @property

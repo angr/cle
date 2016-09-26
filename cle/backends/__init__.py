@@ -1,10 +1,10 @@
-from collections import OrderedDict as _ordered_dict
 import os
+import subprocess
+from collections import OrderedDict as _ordered_dict
 
 import archinfo
-import subprocess
-from ..errors import CLECompatibilityError, CLEError
 from ..memory import Clemory
+from ..errors import CLECompatibilityError, CLEError
 
 try:
     import claripy
@@ -518,4 +518,3 @@ ALL_BACKENDS = _ordered_dict((
     ('ida', IDABin),
     ('blob', Blob)
 ))
-
