@@ -399,7 +399,7 @@ class Loader(object):
             if isinstance(obj, (MetaELF, PE)):
                 for reloc in obj.relocs:
                     if reloc.symbol and reloc.symbol.name == name:
-                        reloc.relocate(solist)
+                        reloc.relocate(solist, bypass_compatibility=True)
 
 
     def _get_safe_rebase_addr(self):

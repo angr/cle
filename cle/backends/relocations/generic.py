@@ -27,7 +27,7 @@ class GenericRelativeReloc(Relocation):
     def value(self):
         return self.owner_obj.rebase_addr + self.addend
 
-    def resolve_symbol(self, solist):
+    def resolve_symbol(self, solist, bypass_compatibility=False):
         self.resolve(None)
         return True
 
@@ -37,13 +37,13 @@ class GenericCopyReloc(Relocation):
         return self.resolvedby.owner_obj.memory.read_addr_at(self.resolvedby.addr)
 
 class GenericIRelativeReloc(Relocation):
-    def relocate(self, solist):
+    def relocate(self, solist, bypass_compatibility=False):
         if self.symbol.type == 'STT_NOTYPE':
             self.owner_obj.irelatives.append((self.owner_obj.rebase_addr + self.addend, self.addr))
             self.resolve(None)
             return True
 
-        if not self.resolve_symbol(solist):
+        if not self.resolve_symbol(solist, bypass_compatibility):
             return False
 
         self.owner_obj.irelatives.append((self.resolvedby.rebased_addr, self.addr))
@@ -52,7 +52,7 @@ class MipsGlobalReloc(GenericAbsoluteReloc):
     pass
 
 class MipsLocalReloc(Relocation):
-    def relocate(self, solist): # pylint: disable=unused-argument
+    def relocate(self, solist, bypass_compatibility=False): # pylint: disable=unused-argument
         if self.owner_obj.rebase_addr == 0:
             self.resolve(None)
             return True                     # don't touch local relocations on the main bin

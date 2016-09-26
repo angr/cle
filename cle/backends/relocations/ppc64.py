@@ -6,8 +6,8 @@ from . import Relocation
 arch = 'PPC64'
 
 class R_PPC64_JMP_SLOT(Relocation):
-    def relocate(self, solist):
-        if not self.resolve_symbol(solist):
+    def relocate(self, solist, bypass_compatibility=False):
+        if not self.resolve_symbol(solist, bypass_compatibility):
             return False
 
         if self.owner_obj.is_ppc64_abiv1:

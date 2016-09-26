@@ -53,15 +53,17 @@ class WinReloc(Relocation):
         self.reloc_type = reloc_type
         self.next_rva = next_rva # only used for IMAGE_REL_BASED_HIGHADJ
 
-    def resolve_symbol(self, solist):
-        return super(WinReloc, self).resolve_symbol([x for x in solist if self.resolvewith == x.provides or x.provides is None])
+    def resolve_symbol(self, solist, bypass_compatibility=False):
+        if not bypass_compatibility:
+            solist = [x for x in solist if self.resolvewith == x.provides]
+        return super(WinReloc, self).resolve_symbol(solist)
 
     @property
     def value(self):
         if self.resolved:
             return self.resolvedby.rebased_addr
 
-    def relocate(self, solist):
+    def relocate(self, solist, bypass_compatibility=False):
         # no symbol -> this is a relocation described in the DIRECTORY_ENTRY_BASERELOC table
         if self.symbol is None:
             if self.reloc_type == pefile.RELOCATION_TYPE['IMAGE_REL_BASED_ABSOLUTE']:
@@ -82,7 +84,7 @@ class WinReloc(Relocation):
             else:
                 l.warning('PE contains unimplemented relocation type %d', self.reloc_type)
         else:
-            return super(WinReloc, self).relocate(solist)
+            return super(WinReloc, self).relocate(solist, bypass_compatibility)
 
 class PESection(Section):
     """

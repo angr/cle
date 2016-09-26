@@ -81,7 +81,7 @@ class Relocation(object):
         else:
             return self.owner_obj.memory.read_addr_at(self.addr, orig=True)
 
-    def resolve_symbol(self, solist):
+    def resolve_symbol(self, solist, bypass_compatibility=False):
         weak_result = None
         for so in solist:
             symbol = so.get_symbol(self.symbol.name)
@@ -125,7 +125,7 @@ class Relocation(object):
         l.error('Value property of Relocation must be overridden by subclass!')
         return 0
 
-    def relocate(self, solist):
+    def relocate(self, solist, bypass_compatibility=False):
         """
         Applies this relocation. Will make changes to the memory object of the
         object it came from.
@@ -134,7 +134,7 @@ class Relocation(object):
 
         :param solist:       A list of objects from which to resolve symbols.
         """
-        if not self.resolve_symbol(solist):
+        if not self.resolve_symbol(solist, bypass_compatibility):
             return False
 
         self.owner_obj.memory.write_addr_at(self.dest_addr, self.value)
