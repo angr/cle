@@ -101,7 +101,10 @@ class PETLSObj(TLSObj):
             array) to get the address of the TLS data area for the given
             program and module.
         """
-        return self.rebase_addr + self.memory.read_addr_at(tls_idx * self.arch.bytes)
+        if tls_idx < len(self.modules):
+            return self.rebase_addr + self.memory.read_addr_at(tls_idx * self.arch.bytes)
+        else:
+            raise IndexError('TLS index out of range')
 
     def get_min_addr(self):
         return self.rebase_addr
