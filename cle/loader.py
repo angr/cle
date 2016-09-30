@@ -326,6 +326,16 @@ class Loader(object):
         Registers all its dependencies.
         """
 
+        def _no_overlap_requested_base(requested_base, obj_size):
+            # Iterate over all the objects and check if the requested base
+            # address would cause an overlap with an existing object
+            for o in self.all_objects:
+                if o == obj:
+                    continue
+                elif requested_base + obj_size >= o.get_min_addr():
+                    return False
+            return True
+
         if self._auto_load_libs:
             self._unsatisfied_deps += obj.deps
         self.requested_objects.update(obj.deps)
@@ -340,7 +350,10 @@ class Loader(object):
             self.shared_objects[obj.provides] = obj
 
         if base_addr is None:
-            if obj.requested_base is not None and self.addr_belongs_to_object(obj.requested_base) is None:
+            obj_size = obj.get_max_addr() - obj.get_min_addr()
+            if obj.requested_base is not None and \
+               self.addr_belongs_to_object(obj.requested_base) is None and \
+               _no_overlap_requested_base(obj.requested_base, obj_size):
                 base_addr = obj.requested_base
             else:
                 base_addr = self._get_safe_rebase_addr()
