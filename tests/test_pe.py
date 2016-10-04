@@ -9,7 +9,7 @@ import cle
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                          os.path.join('..', '..', 'binaries'))
 
-def check_exe():
+def test_exe():
     exe = os.path.join(TEST_BASE, 'tests', 'x86', 'windows', 'TLS.exe')
     ld = cle.Loader(exe, auto_load_libs=False)
 
@@ -99,10 +99,10 @@ def check_exe():
                                      '_crt_atexit']))
     nose.tools.assert_is_none(ld.main_bin.provides)
 
-def check_dll():
+def test_dll():
     pass
 
-def check_tls():
+def test_tls():
     exe = os.path.join(TEST_BASE, 'tests', 'x86', 'windows', 'TLS.exe')
     ld = cle.Loader(exe, auto_load_libs=False)
 
@@ -121,6 +121,6 @@ def check_tls():
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    check_exe()
-    check_dll()
-    check_tls()
+    test_exe()
+    test_dll()
+    test_tls()
