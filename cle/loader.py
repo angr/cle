@@ -335,19 +335,32 @@ class Loader(object):
             if self._ignore_import_version_numbers:
                 self._satisfied_deps.add(obj.provides.strip('.0123456789'))
 
+        obj.rebase_addr = 0
+        obj_offset = obj.get_min_addr()
+        obj_size = obj.get_max_addr() - obj_offset
+
+        if base_addr is not None and self._is_range_free(base_addr + obj_offset, obj_size):
+            pass
+        elif obj.requested_base is not None and self._is_range_free(obj.requested_base + obj_offset, obj_size):
+            base_addr = obj.requested_base
+        else:
+            base_addr = self._get_safe_rebase_addr()
+
         self.all_objects.append(obj)
         if obj.provides is not None:
             self.shared_objects[obj.provides] = obj
 
-        if base_addr is None:
-            if obj.requested_base is not None and self.addr_belongs_to_object(obj.requested_base) is None:
-                base_addr = obj.requested_base
-            else:
-                base_addr = self._get_safe_rebase_addr()
-
         l.info("[Rebasing %s @%#x]", obj.binary, base_addr)
         self.memory.add_backer(base_addr, obj.memory)
         obj.rebase_addr = base_addr
+
+    def _is_range_free(self, addr, size):
+        for o in self.all_objects:
+            if (addr >= o.get_min_addr() and addr < o.get_max_addr()) or \
+               (o.get_min_addr() >= addr and o.get_min_addr() < addr + size):
+                return False
+        return True
+
 
     def _possible_paths(self, path):
         if os.path.exists(path): yield path
