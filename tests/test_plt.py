@@ -4,14 +4,29 @@ import subprocess
 import pickle
 import cle
 
-TESTS_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../binaries')
-TESTS_ARCHES = ['i386/libc.so.6', 'i386/fauxware', 'x86_64/libc.so.6', 'x86_64/fauxware', 'armel/libc.so.6', 'armel/fauxware', 'armhf/libc.so.6', 'ppc/libc.so.6', 'ppc/fauxware', 'mips/libc.so.6', 'mips/fauxware', 'mips64/libc.so.6', 'mips64/test_arrays', 'aarch64/libc.so.6', 'aarch64/test_arrays']
+TESTS_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                          os.path.join('..', '..', 'binaries'))
+TESTS_ARCHES = [os.path.join('i386', 'libc.so.6'),
+                os.path.join('i386', 'fauxware'),
+                os.path.join('x86_64', 'libc.so.6'),
+                os.path.join('x86_64', 'fauxware'),
+                os.path.join('armel', 'libc.so.6'),
+                os.path.join('armel', 'fauxware'),
+                os.path.join('armhf', 'libc.so.6'),
+                os.path.join('ppc', 'libc.so.6'),
+                os.path.join('ppc', 'fauxware'),
+                os.path.join('mips', 'libc.so.6'),
+                os.path.join('mips', 'fauxware'),
+                os.path.join('mips64', 'libc.so.6'),
+                os.path.join('mips64', 'test_arrays'),
+                os.path.join('aarch64', 'libc.so.6'),
+                os.path.join('aarch64', 'test_arrays')]
 
 def check_plt_entries(filename):
     real_filename = os.path.join(TESTS_BASE, 'tests', filename)
     ld = cle.Loader(real_filename, auto_load_libs=False)
 
-    if filename == 'ppc/libc.so.6':
+    if filename == os.path.join('ppc', 'libc.so.6'):
         # objdump can't find PLT stubs for this...
         nose.tools.assert_not_equal(ld.main_bin._plt, {})
         sorted_keys = sorted(ld.main_bin._plt.values())
@@ -19,20 +34,20 @@ def check_plt_entries(filename):
         nose.tools.assert_equal(diffs, [4]*len(diffs))
         return
 
-    if filename == 'mips/libc.so.6':
+    if filename == os.path.join('mips', 'libc.so.6'):
         nose.tools.assert_in('__tls_get_addr', ld.main_bin._plt)
         nose.tools.assert_equal(ld.main_bin._plt['__tls_get_addr'], 1331168)
         return
 
-    if filename == 'mips/fauxware':
+    if filename == os.path.join('mips', 'fauxware'):
         nose.tools.assert_equal(ld.main_bin._plt, {'puts': 4197264, 'read': 4197232, '__libc_start_main': 4197312, 'printf': 4197248, 'exit': 4197280, 'open': 4197296, 'strcmp': 4197216})
         return
 
-    if filename == 'mips64/libc.so.6':
+    if filename == os.path.join('mips64', 'libc.so.6'):
         nose.tools.assert_equal(ld.main_bin._plt, {'__tls_get_addr': 1458432, '_dl_find_dso_for_object': 1458448})
         return
 
-    if filename == 'mips64/test_arrays':
+    if filename == os.path.join('mips64', 'test_arrays'):
         nose.tools.assert_equal(ld.main_bin._plt, {'__libc_start_main': 4831841456, 'puts': 4831841440})
         return
 
@@ -53,7 +68,7 @@ def check_plt_entries(filename):
 
     ld.main_bin._plt.pop('__gmon_start__', None)
 
-    if filename == 'armhf/libc.so.6':
+    if filename == os.path.join('armhf', 'libc.so.6'):
         # objdump does these cases wrong as far as I can tell?
         # or maybe not wrong just... different
         # there's a prefix to this stub that jumps out of thumb mode
