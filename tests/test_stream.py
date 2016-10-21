@@ -4,7 +4,8 @@ import os
 import nose
 import cle
 
-test_location = str(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../binaries/tests'))
+test_location = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                             os.path.join('..', '..', 'binaries', 'tests'))
 
 def test_stream():
     dirpath = os.path.join(test_location, "i386")

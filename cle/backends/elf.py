@@ -5,12 +5,12 @@ from elftools.elf import elffile, sections
 from elftools.common.exceptions import ELFError
 import archinfo
 
-from ..backends import Symbol, Segment, Section
-from ..errors import CLEError, CLEInvalidBinaryError, CLECompatibilityError
+from .  import Symbol, Segment, Section
 from .metaelf import MetaELF
-from ..relocations import get_relocation
-from ..relocations.generic import MipsGlobalReloc, MipsLocalReloc
+from .relocations import get_relocation
+from .relocations.generic import MipsGlobalReloc, MipsLocalReloc
 from ..patched_stream import PatchedStream
+from ..errors import CLEError, CLEInvalidBinaryError, CLECompatibilityError
 
 import logging
 l = logging.getLogger('cle.elf')

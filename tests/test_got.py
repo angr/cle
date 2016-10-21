@@ -5,10 +5,11 @@ import logging
 import cle
 
 import os
-test_location = str(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../binaries/tests'))
+test_location = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                             os.path.join('..', '..', 'binaries', 'tests'))
 
 def test_ppc():
-    libc = os.path.join(test_location, "ppc/libc.so.6")
+    libc = os.path.join(test_location, 'ppc', 'libc.so.6')
     ld = cle.Loader(libc, auto_load_libs=True, main_opts={'custom_base_addr': 0})
     # This tests the relocation of _rtld_global_ro in ppc libc6.
     # This relocation is of type 20, and relocates a non-local symbol
@@ -16,7 +17,7 @@ def test_ppc():
     nose.tools.assert_equal(relocated % 0x1000, 0xf666e320 % 0x1000)
 
 def test_mipsel():
-    ping = os.path.join(test_location, "mipsel/darpa_ping")
+    ping = os.path.join(test_location, 'mipsel', 'darpa_ping')
     skip=['libgcc_s.so.1', 'libresolv.so.0']
     ld = cle.Loader(ping, skip_libs=skip)
     dep = ld._satisfied_deps

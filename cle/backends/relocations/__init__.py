@@ -19,11 +19,7 @@ def load_relocations():
         if filename == '__init__.py':
             continue
 
-        try:
-            module = importlib.import_module('.%s' % filename[:-3], 'cle.relocations')
-        except ImportError:
-            l.warning("Error importing relocations module %s", filename, exc_info=True)
-            continue
+        module = importlib.import_module('.%s' % filename[:-3], 'cle.backends.relocations')
 
         try:
             arch_name = module.arch
@@ -85,7 +81,7 @@ class Relocation(object):
         else:
             return self.owner_obj.memory.read_addr_at(self.addr, orig=True)
 
-    def resolve_symbol(self, solist):
+    def resolve_symbol(self, solist, bypass_compatibility=False):
         if self.symbol.is_static:
             # Static symbols should only be resolved by itself.
             # XXX: should we make hooking static symbols possible (e.g. overriding with AngrExternObj)?
@@ -135,7 +131,7 @@ class Relocation(object):
         l.error('Value property of Relocation must be overridden by subclass!')
         return 0
 
-    def relocate(self, solist):
+    def relocate(self, solist, bypass_compatibility=False):
         """
         Applies this relocation. Will make changes to the memory object of the
         object it came from.
@@ -144,7 +140,7 @@ class Relocation(object):
 
         :param solist:       A list of objects from which to resolve symbols.
         """
-        if not self.resolve_symbol(solist):
+        if not self.resolve_symbol(solist, bypass_compatibility):
             return False
 
         self.owner_obj.memory.write_addr_at(self.dest_addr, self.value)

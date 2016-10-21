@@ -1,8 +1,7 @@
-from ..backends import Backend
+from . import Backend
 from ..errors import CLEError
-import logging
-import os
 
+import logging
 l = logging.getLogger("cle.blob")
 
 __all__ = ('Blob',)

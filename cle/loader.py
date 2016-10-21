@@ -335,19 +335,32 @@ class Loader(object):
             if self._ignore_import_version_numbers:
                 self._satisfied_deps.add(obj.provides.strip('.0123456789'))
 
+        obj.rebase_addr = 0
+        obj_offset = obj.get_min_addr()
+        obj_size = obj.get_max_addr() - obj_offset
+
+        if base_addr is not None and self._is_range_free(base_addr + obj_offset, obj_size):
+            pass
+        elif obj.requested_base is not None and self._is_range_free(obj.requested_base + obj_offset, obj_size):
+            base_addr = obj.requested_base
+        else:
+            base_addr = self._get_safe_rebase_addr()
+
         self.all_objects.append(obj)
         if obj.provides is not None:
             self.shared_objects[obj.provides] = obj
 
-        if base_addr is None:
-            if obj.requested_base is not None and self.addr_belongs_to_object(obj.requested_base) is None:
-                base_addr = obj.requested_base
-            else:
-                base_addr = self._get_safe_rebase_addr()
-
         l.info("[Rebasing %s @%#x]", obj.binary, base_addr)
         self.memory.add_backer(base_addr, obj.memory)
         obj.rebase_addr = base_addr
+
+    def _is_range_free(self, addr, size):
+        for o in self.all_objects:
+            if (addr >= o.get_min_addr() and addr < o.get_max_addr()) or \
+               (o.get_min_addr() >= addr and o.get_min_addr() < addr + size):
+                return False
+        return True
+
 
     def _possible_paths(self, path):
         if os.path.exists(path): yield path
@@ -399,7 +412,7 @@ class Loader(object):
             if isinstance(obj, (MetaELF, PE)):
                 for reloc in obj.relocs:
                     if reloc.symbol and reloc.symbol.name == name:
-                        reloc.relocate(solist)
+                        reloc.relocate(solist, bypass_compatibility=True)
 
 
     def _get_safe_rebase_addr(self):
@@ -413,19 +426,29 @@ class Loader(object):
 
     def _load_tls(self):
         """
-        Set up an object to store TLS data in,
+        Set up an object to store TLS data in.
         """
-        modules = []
+        elf_modules = []
+        pe_modules = []
+
         for obj in self.all_objects:
-            if not isinstance(obj, MetaELF):
-                continue
-            if not obj.tls_used:
-                continue
-            modules.append(obj)
-        if len(modules) == 0:
-            return
-        self.tls_object = TLSObj(modules)
-        self.add_object(self.tls_object)
+            if isinstance(obj, MetaELF) and obj.tls_used:
+                elf_modules.append(obj)
+            elif isinstance(obj, PE) and obj.tls_used:
+                pe_modules.append(obj)
+        num_elf_modules = len(elf_modules)
+        num_pe_modules = len(pe_modules)
+
+        # TODO: This assert ensures that we have either ELF or PE modules, but not both.
+        # Do we need to handle the case where we have both ELF and PE modules?
+        assert num_elf_modules != num_pe_modules or num_elf_modules == 0 or num_pe_modules == 0
+        if len(elf_modules) > 0:
+            self.tls_object = ELFTLSObj(elf_modules)
+        elif len(pe_modules) > 0:
+            self.tls_object = PETLSObj(pe_modules)
+
+        if self.tls_object:
+            self.add_object(self.tls_object)
 
     def _finalize_tls(self):
         """
@@ -669,7 +692,6 @@ class Loader(object):
                     break
                 dest_stream.write(dat)
 
-        stream.close()
         return dest
 
     @staticmethod
@@ -810,4 +832,5 @@ class Loader(object):
 
 from .errors import CLEError, CLEOperationError, CLEFileNotFoundError, CLECompatibilityError
 from .memory import Clemory
-from .backends import IDABin, MetaELF, ELF, PE, ALL_BACKENDS, Backend, Symbol, TLSObj
+from .tls import ELFTLSObj, PETLSObj
+from .backends import IDABin, MetaELF, ELF, PE, ALL_BACKENDS, Backend, Symbol
