@@ -75,9 +75,10 @@ class MetaELF(Backend):
         # right before the resolution stubs.
         if self.arch.name in ('PPC32',):
             resolver_stubs = sorted((self.memory.read_addr_at(reloc.addr), name) for name, reloc in self.jmprel.iteritems())
-            stubs_table = resolver_stubs[0][0] - 16 * len(resolver_stubs)
-            for i, (_, name) in enumerate(resolver_stubs):
-                self._add_plt_stub(name, stubs_table + i*16)
+            if resolver_stubs:
+                stubs_table = resolver_stubs[0][0] - 16 * len(resolver_stubs)
+                for i, (_, name) in enumerate(resolver_stubs):
+                    self._add_plt_stub(name, stubs_table + i*16)
 
         if len(self._plt) == len(self.jmprel):
             # real quick, bail out before shit hits the fan
