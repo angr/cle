@@ -671,7 +671,7 @@ class GNUHashTable(object):
                 sym = self.symtab.get_symbol(n)
                 if (self.gnu_hash(sym.name) % self.nbuckets) != (h % self.nbuckets):
                     break
-        except KeyError:
+        except AttributeError:  # XXX THIS IS A HACK
             pass
         return None
 
