@@ -4,6 +4,8 @@
 *.swp
 build
 __pycache__
+dist
+MANIFEST
 
 ccle/armel
 ccle/armhf
