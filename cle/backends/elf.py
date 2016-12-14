@@ -301,7 +301,7 @@ class ELF(MetaELF):
             self._cache_symbol_name(symbol)
             return symbol
         else:
-            raise CLEError("Bad symbol identifier: %s" % symid)
+            raise CLEError("Bad symbol identifier: %r" % (symid,))
 
     def _extract_init_fini(self):
         # Extract the initializers and finalizers
@@ -497,7 +497,7 @@ class ELF(MetaELF):
                 l.warn('the relocation section %s refers to unknown section index: %d', section.name, dest_sec_idx)
             else:
                 if not dest_sec.occupies_memory:
-                    # XXX Record those relocations that does not affect memory?
+                    # The target section is not loaded into memory, so just continue
                     return
 
         symtab = self.reader.get_section(section.header['sh_link']) if 'sh_link' in section.header else None
@@ -567,7 +567,6 @@ class ELF(MetaELF):
     def __register_sections(self):
         new_addr = 0
         sec_list = []
-        sec_by_addr = {}
 
         for sec_readelf in self.reader.iter_sections():
             remap_offset = 0
@@ -587,8 +586,7 @@ class ELF(MetaELF):
 
             # Register sections first, process later - this is required by relocatable objects
             self.sections.append(section)
-
-            sec_by_addr[section.vaddr] = sec_readelf
+            self.sections_map[section.name] = section
 
         for sec_readelf, section in sec_list:
             if isinstance(sec_readelf, elffile.SymbolTableSection):
