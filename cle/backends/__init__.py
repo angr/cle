@@ -508,6 +508,7 @@ from .blob import Blob
 from .cgc import CGC
 from .backedcgc import BackedCGC
 from .metaelf import MetaELF
+from .macho import MachO
 
 ALL_BACKENDS = _ordered_dict((
     ('elf', ELF),
@@ -516,5 +517,6 @@ ALL_BACKENDS = _ordered_dict((
     ('cgc', CGC),
     ('backedcgc', BackedCGC),
     ('ida', IDABin),
-    ('blob', Blob)
+    ('blob', Blob),
+    ('mach-o',MachO)
 ))
