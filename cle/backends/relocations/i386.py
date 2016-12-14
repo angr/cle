@@ -9,7 +9,7 @@ R_386_COPY = generic.GenericCopyReloc
 R_386_GLOB_DAT = generic.GenericJumpslotReloc
 R_386_JMP_SLOT = generic.GenericJumpslotReloc
 R_386_RELATIVE = generic.GenericRelativeReloc
-R_386_IRELATIVE = generic.GenericIRelativeReloc
+R_386_IRELATIVE = generic_elf.GenericIRelativeReloc
 
 R_386_TLS_DTPMOD32 = generic_elf.GenericTLSModIdReloc
 R_386_TLS_TPOFF = generic_elf.GenericTLSOffsetReloc

@@ -42,18 +42,6 @@ class GenericCopyReloc(Relocation):
     def value(self):
         return self.resolvedby.owner_obj.memory.read_addr_at(self.resolvedby.addr)
 
-class GenericIRelativeReloc(Relocation):
-    def relocate(self, solist, bypass_compatibility=False):
-        if self.symbol.type == 'STT_NOTYPE':
-            self.owner_obj.irelatives.append((self.owner_obj.rebase_addr + self.addend, self.addr))
-            self.resolve(None)
-            return True
-
-        if not self.resolve_symbol(solist, bypass_compatibility):
-            return False
-
-        self.owner_obj.irelatives.append((self.resolvedby.rebased_addr, self.addr))
-
 class MipsGlobalReloc(GenericAbsoluteReloc):
     pass
 

@@ -83,7 +83,7 @@ class Relocation(object):
 
     def resolve_symbol(self, solist, bypass_compatibility=False):
         if self.symbol.is_static:
-            # Static symbols should only be resolved by itself.
+            # A static symbol should only be resolved by itself.
             self.resolve(self.symbol)
             return True
 
@@ -91,11 +91,13 @@ class Relocation(object):
         for so in solist:
             symbol = so.get_symbol(self.symbol.name)
             if symbol is not None and symbol.is_export:
-                if symbol.binding == 'STB_GLOBAL':
+                if not symbol.is_weak:
                     self.resolve(symbol)
                     return True
                 elif weak_result is None:
                     weak_result = symbol
+            # TODO: Was this check obsolted by the addition of is_static?
+            # I think right now symbol.is_import = !symbol.is_export
             elif symbol is not None and not symbol.is_import and so is self.owner_obj:
                 if not symbol.is_weak:
                     self.resolve(symbol)

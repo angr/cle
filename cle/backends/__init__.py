@@ -144,6 +144,13 @@ class Section(Region):
         )
 
 class Symbol(object):
+    # enum for symbol types
+    TYPE_OTHER = 0
+    TYPE_NONE = 1
+    TYPE_FUNCTION = 2
+    TYPE_OBJECT = 3
+    TYPE_SECTION = 4
+
     """
     Representation of a symbol from a binary file. Smart enough to rebase itself.
 
@@ -155,14 +162,12 @@ class Symbol(object):
     :ivar str name:         The name of this symbol
     :ivar int addr:         The address of this symbol
     :iver int size:         The size of this symbol
-    :ivar str binding:      The binding of this symbol as an ELF enum string
-    :ivar str type:         The type of this symbol as an ELF enum string
-    :ivar sh_info:          The info field of a symbol
+    :ivar int type:         The type of this symbol as one of SYMBOL.TYPE_*
     :ivar bool resolved:    Whether this import symbol has been resolved to a real symbol
     :ivar resolvedby:       The real symbol this import symbol has been resolve to
     :vartype resolvedby:    None or cle.backends.Symbol
     """
-    def __init__(self, owner, name, addr, size, binding, sym_type, sh_info):
+    def __init__(self, owner, name, addr, size, sym_type):
         """
         Not documenting this since if you try calling it, you're wrong.
         """
@@ -171,9 +176,7 @@ class Symbol(object):
         self.name = name
         self.addr = addr
         self.size = size
-        self.binding = binding
         self.type = sym_type
-        self.sh_info = sh_info if sh_info != 'SHN_UNDEF' else None
         self.resolved = False
         self.resolvedby = None
         if (claripy and isinstance(self.addr, claripy.ast.Base)) or self.addr != 0:
@@ -197,46 +200,18 @@ class Symbol(object):
         return self.addr + self.owner_obj.rebase_addr
 
     @property
-    def is_static(self):
-        """
-        Whether this symbol would point to a local address and thus should not be resolved furthur by other objects (e.g. section symbols or exported symbols of shared libraries)
-        """
-        return isinstance(self.sh_info, (int, long)) or self.sh_info == 'SHN_ABS'
-
-    @property
-    def is_common(self):
-        """
-        Whether this symbol is a "common" symbol (such as Fortran COMMON or unallocated C external variables)
-        """
-        return self.sh_info == 'SHN_COMMON'
-
-    @property
-    def is_import(self):
-        """
-        Whether this symbol is an import symbol
-        """
-        return self.sh_info is None and self.binding in ('STB_GLOBAL', 'STB_WEAK')
-
-    @property
-    def is_export(self):
-        """
-        Whether this symbol is an export symbol
-        """
-        return self.sh_info is not None and self.binding in ('STB_GLOBAL', 'STB_WEAK')
-
-    @property
     def is_function(self):
         """
         Whether this symbol is a function
         """
-        return self.type == 'STT_FUNC'
+        return self.type == Symbol.TYPE_FUNCTION
 
-    @property
-    def is_weak(self):
-        """
-        Whether this symbol has weak binding, i.e. it can go unresolved and the world won't end
-        """
-        return self.binding == 'STB_WEAK'
+    # These may be overridden in subclasses
+    is_static = False
+    is_common = False
+    is_import = False
+    is_export = False
+    is_weak = False
 
     @property
     def demangled_name(self):

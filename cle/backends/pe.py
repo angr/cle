@@ -24,24 +24,9 @@ class WinSymbol(Symbol):
     Represents a symbol for the PE format.
     """
     def __init__(self, owner, name, addr, is_import, is_export):
-        super(WinSymbol, self).__init__(owner, name, addr, owner.arch.bytes, None, None, None)
-        self._is_import = is_import
-        self._is_export = is_export
-
-    @property
-    def is_import(self):
-        return self._is_import
-
-    @property
-    def is_export(self):
-        return self._is_export
-
-    @property
-    def is_function(self):
-        """
-        All symbols in PE files point to functions.
-        """
-        return True
+        super(WinSymbol, self).__init__(owner, name, addr, owner.arch.bytes, Symbol.TYPE_FUNCTION)
+        self.is_import = is_import
+        self.is_export = is_export
 
 class WinReloc(Relocation):
     """

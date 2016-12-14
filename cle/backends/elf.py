@@ -21,9 +21,24 @@ __all__ = ('ELFSymbol', 'ELF')
 class ELFSymbol(Symbol):
     """
     Represents a symbol for the ELF format.
+
+    :ivar str elftype:      The type of this symbol as an ELF enum string
+    :ivar str binding:      The binding of this symbol as an ELF enum string
+    :ivar section:          The section associated with this symbol, or None
     """
     def __init__(self, owner, symb):
         realtype = owner.arch.translate_symbol_type(symb.entry.st_info.type)
+        if realtype == 'STT_FUNC':
+            symtype = Symbol.TYPE_FUNCTION
+        elif realtype == 'STT_OBJECT':
+            symtype = Symbol.TYPE_OBJECT
+        elif realtype == 'STT_SECTION':
+            symtype = Symbol.TYPE_SECTION
+        elif realtype == 'STT_NOTYPE':
+            symtype = Symbol.TYPE_NONE
+        else:
+            symtype = Symbol.TYPE_OTHER
+
         sec_ndx, value = symb.entry.st_shndx, symb.entry.st_value
 
         # A relocatable object's symbol's value is relative to its section's addr.
@@ -34,9 +49,20 @@ class ELFSymbol(Symbol):
                                         symb.name,
                                         value,
                                         symb.entry.st_size,
-                                        symb.entry.st_info.bind,
-                                        realtype,
-                                        sec_ndx)
+                                        symtype)
+
+        self.elftype = realtype
+        self.binding = symb.entry.st_info.bind
+        self.section = sec_ndx if type(sec_ndx) is not str else None
+        self.is_static = self.type == Symbol.TYPE_SECTION or sec_ndx == 'SHN_ABS'
+        self.is_common = sec_ndx == 'SHN_COMMON'
+        self.is_weak = self.binding == 'STB_WEAK'
+
+        # these do not appear to be 100% correct, but they work so far...
+        # e.g. the "stdout" import symbol will be marked as an export symbol by this
+        # there does not seem to be a good way to reliably isolate import symbols
+        self.is_import = self.section is None and self.binding in ('STB_GLOBAL', 'STB_WEAK')
+        self.is_export = self.section is not None and self.binding in ('STB_GLOBAL', 'STB_WEAK')
 
 
 class ELFSegment(Segment):
@@ -160,7 +186,7 @@ class ELF(MetaELF):
         self._init_arr = []
         self._fini_func = None
         self._fini_arr = []
-        self._nullsymbol = Symbol(self, '', 0, 0, None, 'STT_NOTYPE', 0)
+        self._nullsymbol = Symbol(self, '', 0, 0, Symbol.TYPE_NONE)
 
         self._symbol_cache = {}
         self._symbols_by_name = {}

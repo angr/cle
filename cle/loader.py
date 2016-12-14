@@ -405,8 +405,10 @@ class Loader(object):
                 if not reloc.resolved:
                     reloc.relocate(([self.main_bin] if self.main_bin is not obj else []) + dep_objs + [obj])
 
-    def provide_symbol(self, owner, name, offset, size=0, binding='STB_GLOBAL', st_type='STT_FUNC', st_info='CLE'):
-        newsymbol = Symbol(owner, name, offset, size, binding, st_type, st_info)
+    def provide_symbol(self, owner, name, offset, size=0, sym_type=None):
+        if sym_type is None: sym_type = Symbol.TYPE_FUNCTION
+        newsymbol = Symbol(owner, name, offset, size, sym_type)
+        newsymbol.is_export = True
         owner._symbol_cache[name] = newsymbol
         solist = [owner]
 

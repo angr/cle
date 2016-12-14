@@ -25,7 +25,7 @@ class R_PPC64_JMP_SLOT(Relocation):
         return True
 
 R_PPC64_RELATIVE = generic.GenericRelativeReloc
-R_PPC64_IRELATIVE = generic.GenericIRelativeReloc
+R_PPC64_IRELATIVE = generic_elf.GenericIRelativeReloc
 R_PPC64_ADDR64 = generic.GenericAbsoluteAddendReloc
 R_PPC64_GLOB_DAT = generic.GenericJumpslotReloc
 

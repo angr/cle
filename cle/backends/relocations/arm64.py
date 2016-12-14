@@ -9,7 +9,7 @@ R_AARCH64_COPY = generic.GenericCopyReloc
 R_AARCH64_GLOB_DAT = generic.GenericJumpslotReloc
 R_AARCH64_JUMP_SLOT = generic.GenericJumpslotReloc
 R_AARCH64_RELATIVE = generic.GenericRelativeReloc
-R_AARCH64_IRELATIVE = generic.GenericIRelativeReloc
+R_AARCH64_IRELATIVE = generic_elf.GenericIRelativeReloc
 
 R_AARCH64_TLS_DTPREL = generic_elf.GenericTLSDoffsetReloc
 R_AARCH64_TLS_DTPMOD = generic_elf.GenericTLSModIdReloc
