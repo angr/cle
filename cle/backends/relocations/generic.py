@@ -66,9 +66,6 @@ class MipsLocalReloc(Relocation):
         if delta == 0:
             self.resolve(None)
             return True
-        elif delta < 0:
-            raise CLEOperationError("We are relocating a MIPS object at a lower address than"
-                                    " its static base address. This is weird.")
         val = self.owner_obj.memory.read_addr_at(self.addr)
         newval = val + delta
         self.owner_obj.memory.write_addr_at(self.addr, newval)

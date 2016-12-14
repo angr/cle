@@ -109,11 +109,17 @@ class Clemory(object):
 
     def read_bytes(self, addr, n, orig=False):
         """
-        Read `n` bytes at address `addr` in memory and return an array of bytes.
+        Read up to `n` bytes at address `addr` in memory and return an array of bytes.
+
+        Reading will stop at the beginning of the first unallocated region found, or when
+        `n` bytes have been read.
         """
         b = []
-        for i in range(addr, addr+n):
-            b.append(self.get_byte(i, orig=orig))
+        try:
+            for i in range(addr, addr+n):
+                b.append(self.get_byte(i, orig=orig))
+        except KeyError:
+            pass
         return b
 
     def write_bytes(self, addr, data):
@@ -226,17 +232,22 @@ class Clemory(object):
 
     def read(self, nbytes):
         """
-        The stream-like function that reads a number of bytes starting from the current position and updates the current
-        position. Use with :func:`seek`.
+        The stream-like function that reads up to a number of bytes starting from the current
+        position and updates the current position. Use with :func:`seek`.
 
-        :param nbytes:   The number of bytes to read.
+        Up to `nbytes` bytes will be read, halting at the beginning of the first unmapped region
+        encountered.
         """
         if nbytes == 1:
-            self._pointer += 1
-            return self[self._pointer-1]
+            try:
+                out = self[self._pointer]
+                self._pointer += 1
+                return out
+            except KeyError:
+                return ''
         else:
             out = self.read_bytes(self._pointer, nbytes)
-            self._pointer += nbytes
+            self._pointer += len(out)
             return ''.join(out)
 
     @property

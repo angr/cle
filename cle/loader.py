@@ -2,6 +2,8 @@ import os
 import logging
 import subprocess
 import struct
+from collections import OrderedDict
+
 import elftools
 
 try:
@@ -87,7 +89,7 @@ class Loader(object):
         self.aslr = aslr
         self.memory = None
         self.main_bin = None
-        self.shared_objects = {}
+        self.shared_objects = OrderedDict()
         self.all_objects = []
         self.requested_objects = set()
         self.tls_object = None
@@ -322,7 +324,7 @@ class Loader(object):
 
     def add_object(self, obj, base_addr=None):
         """
-        Add object `obj` to the memory map, rebased at `base_add`. If `base_addr` is None CLE will pick a safe one.
+        Add object `obj` to the memory map, rebased at `base_addr`. If `base_addr` is None CLE will pick a safe one.
         Registers all its dependencies.
         """
 
