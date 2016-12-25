@@ -669,11 +669,14 @@ class ELF(MetaELF):
         # http://stackoverflow.com/questions/6526500/c-name-mangling-library-for-python
         args = ['c++filt']
         args.extend(lookup_names)
-        pipe = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-        stdout, _ = pipe.communicate()
-        demangled = stdout.split("\n")[:-1]
+        try:
+            pipe = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+            stdout, _ = pipe.communicate()
+            demangled = stdout.split("\n")[:-1]
 
-        self.demangled_names = dict(zip(names, demangled))
+            self.demangled_names = dict(zip(names, demangled))
+        except OSError:
+            pass
 
 class ELFHashTable(object):
     """
