@@ -50,13 +50,13 @@ class PRStatus(object):
         self.cstime_usec = None
         self.registers = None
 
+        self.fpvalid = None
+
         # siginfo
         self.si_signo = None
         self.si_code = None
         self.si_errno = None
         self.registers = None
-
-        self.pr_fpvalid = None
 
     @staticmethod
     def parse_prstatus(prstatus, elf):
@@ -150,10 +150,10 @@ class PRStatus(object):
         del self.registers['xxx']
 
         pos += nreg * arch_bytes
-        self.pr_fpvalid = struct.unpack("<I", prstatus.desc[pos:pos+4])[0]
+        self.fpvalid = struct.unpack("<I", prstatus.desc[pos:pos+4])[0]
 
-        if self.pr_fpvalid is not None and (elf.arch.name == 'X86' or elf.arch.name == 'AMD64'):
-            if not bool(self.pr_fpvalid):
+        if self.fpvalid is not None and (elf.arch.name == 'X86' or elf.arch.name == 'AMD64'):
+            if not bool(self.fpvalid):
                 l.warning("No SSE registers could be loaded from core file")
 
 
