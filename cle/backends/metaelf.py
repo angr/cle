@@ -98,6 +98,12 @@ class MetaELF(Backend):
 
         def scan_forward(addr, name, push=False):
             gotslot = self.jmprel[name].addr
+
+            instruction_alignment = self.arch.instruction_alignment
+            if self.arch.name in ('ARMEL', 'ARMHF'):
+                # hard code alignment for ARM code
+                instruction_alignment = 4
+
             try:
                 while True:
                     tick()
@@ -105,12 +111,12 @@ class MetaELF(Backend):
                     if gotslot in [c.value for c in bb.all_constants]:
                         break
                     if bb.jumpkind == 'Ijk_NoDecode':
-                        addr += self.arch.instruction_alignment
+                        addr += instruction_alignment
                     else:
                         addr += bb.size
 
-                while push and gotslot in [c.value for c in self._block(addr + self.arch.instruction_alignment).all_constants]:
-                    addr += self.arch.instruction_alignment
+                while push and gotslot in [c.value for c in self._block(addr + instruction_alignment).all_constants]:
+                    addr += instruction_alignment
                 return self._add_plt_stub(name, addr)
             except (AssertionError, KeyError, pyvex.PyVEXError):
                 return False
