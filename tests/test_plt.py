@@ -75,8 +75,8 @@ def check_plt_entries(filename):
     #    # cle finds the arm stub, objdump finds the thumb prefix
     #    ideal_plt['free'] += 4
     #    ideal_plt['malloc'] += 4
-    #PLT_CACHE[filename] = ideal_plt
-    ideal_plt = PLT_CACHE[filename]
+    #PLT_CACHE[filename.replace('\\', '/')] = ideal_plt
+    ideal_plt = PLT_CACHE[filename.replace('\\', '/')]
     nose.tools.assert_equal(ideal_plt, ld.main_bin._plt)
 
 PLT_CACHE = {}
