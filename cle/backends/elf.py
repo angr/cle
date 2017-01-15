@@ -220,6 +220,8 @@ class ELF(MetaELF):
 
         self._populate_demangled_names()
 
+        self.canary = True if self.get_symbol("__stack_chk_fail") else False
+
         if patch_undo is not None:
             self.memory.write_bytes(self.get_min_addr() + patch_undo[0], patch_undo[1])
 
