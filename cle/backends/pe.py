@@ -112,7 +112,7 @@ class PE(Backend):
 
         super(PE, self).__init__(*args, **kwargs)
 
-        if self.binary_stream is not None:
+        if self.binary is None:
             self._pe = pefile.PE(data=self.binary_stream.read())
         else:
             self._pe = pefile.PE(self.binary)
