@@ -259,7 +259,7 @@ class Loader(object):
         else:
             raise CLEError('Invalid backend: %s' % backend_option)
 
-        backends = filter(lambda x: filetype in x.supported_filetypes, backends)
+        backends = filter(lambda x: filetype in x.supported_filetypes or 'unknown' in x.supported_filetypes, backends)
         if len(backends) == 0:
             raise CLECompatibilityError('No compatible backends specified for filetype %s (file %s)' % (filetype, path))
 
