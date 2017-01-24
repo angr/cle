@@ -74,8 +74,6 @@ class ELFCore(ELF):
             if not bool(self.pr_fpvalid):
                 l.warning("No SSE registers could be loaded from core file")
 
-    supported_filetypes = ['elfcore']
-
     @staticmethod
     def is_compatible(stream):
 

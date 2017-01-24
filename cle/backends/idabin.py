@@ -61,7 +61,6 @@ class IDABin(Backend):
 
         l.warning('The IDABin module is not well supported. Good luck!')
 
-    supported_filetypes = ['elf', 'pe', 'mach-o']
 
     @staticmethod
     def is_compatible():

@@ -138,7 +138,6 @@ class ELF(MetaELF):
     """
     def __init__(self, binary, **kwargs):
         super(ELF, self).__init__(binary, **kwargs)
-
         patch_undo = None
         try:
             self.reader = elffile.ELFFile(self.binary_stream)

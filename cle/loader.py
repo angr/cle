@@ -240,7 +240,7 @@ class Loader(object):
         else:
             raise CLEError('Invalid backend: %s' % backend_option)
 
-        loaded = backend(path, compatible_with=compatible_with, filetype=filetype, is_main_bin=is_main_bin, **options)
+        loaded = backend(path, compatible_with=compatible_with, is_main_bin=is_main_bin, **options)
         return loaded
 
     def get_loader_symbolic_constraints(self):
@@ -763,7 +763,7 @@ class Loader(object):
         except OSError:
             raise CLEFileNotFoundError('File %s does not exist!' % path)
 
-        return self.main_bin.backend == backend
+        return type(self.main_bin) == type(backend)
 
     def _get_lib_path(self, libname):
         """

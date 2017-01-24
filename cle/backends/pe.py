@@ -111,7 +111,7 @@ class PE(Backend):
             raise CLEError("Install the pefile module to use the PE backend!")
 
         super(PE, self).__init__(*args, **kwargs)
-
+        self.os = 'windows'
         if self.binary is not None:
             self._pe = pefile.PE(data=self.binary_stream.read())
         else:
@@ -154,8 +154,8 @@ class PE(Backend):
 
         l.warning('The PE module is not well-supported. Good luck!')
 
-    supported_filetypes = ['pe']
-    def is_compatible(self, stream):
+    @staticmethod
+    def is_compatible(stream):
         identstring = stream.read(0x1000)
         stream.seek(0)
         if identstring.startswith('MZ') and len(identstring) > 0x40:

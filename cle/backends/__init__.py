@@ -258,7 +258,6 @@ class Backend(object):
     :ivar jmprel:           A mapping from symbol name to the address of its jump slot relocation, i.e. its GOT entry.
     :ivar arch:             The architecture of this binary
     :vartype arch:          archinfo.arch.Arch
-    :ivar str filetype:     The filetype of this object
     :ivar str os:           The operating system this binary is meant to run under
     :ivar compatible_with:  Another Backend object this object must be compatibile with, or None
     :ivar int rebase_addr:  The base address of this object in virtual memory
@@ -270,12 +269,11 @@ class Backend(object):
     :ivar str provides:     The name of the shared library dependancy that this object resolves
     """
 
-    def __init__(self, binary, is_main_bin=False, compatible_with=None, filetype='unknown', filename=None, **kwargs):
+    def __init__(self, binary, is_main_bin=False, compatible_with=None, filename=None, **kwargs):
         """
         :param binary:          The path to the binary to load
         :param is_main_bin:     Whether this binary should be loaded as the main executable
         :param compatible_with: An optional Backend object to force compatibility with
-        :param filetype:        The format of the file to load
         """
         # Unfold the kwargs and convert them to class attributes
         # TODO: do we need to do this anymore?
@@ -304,8 +302,7 @@ class Backend(object):
         self.irelatives = []    # list of tuples (resolver, destination), dest w/o rebase
         self.jmprel = {}
         self.arch = None
-        self.filetype = filetype
-        self.os = 'windows' if self.filetype == 'pe' else 'unix'
+        self.os = None  # Let other stuff override this
         self.compatible_with = compatible_with
         self._symbol_cache = {}
         self.aslr = kwargs['aslr'] if 'aslr' in kwargs else False
@@ -338,7 +335,6 @@ class Backend(object):
         else:
             raise CLEError("Bad parameter: custom_arch=%s" % custom_arch)
 
-    supported_filetypes = []
 
     def close(self):
         if self.binary_stream is not None:
@@ -489,10 +485,11 @@ class Backend(object):
 
 ALL_BACKENDS = _ordered_dict()
 
+
 def register_backend(name, cls):
     if not hasattr(cls, 'is_compatible'):
         raise TypeError("Backend needs an is_compatible() method")
-        ALL_BACKENDS[name] = cls
+    ALL_BACKENDS.update({name: cls})
 
 
 from .elf import ELF
