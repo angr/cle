@@ -36,7 +36,6 @@ class Blob(Backend):
 
         self._load(self.custom_offset)
 
-    supported_filetypes = ['elf', 'pe', 'mach-o', 'unknown']
     @staticmethod
     def is_compatible(stream):
         return True  # This one supports everything

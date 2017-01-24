@@ -63,7 +63,7 @@ class IDABin(Backend):
 
 
     @staticmethod
-    def is_compatible():
+    def is_compatible(stream):
         return False  # Don't use this for anything unless it's manually selected
 
     def in_which_segment(self, addr):
