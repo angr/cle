@@ -4,7 +4,7 @@ except ImportError:
     idalink = None
 
 from ..errors import CLEError
-from . import Backend
+from . import Backend, register_backend
 
 import logging
 l = logging.getLogger("cle.idabin")
@@ -62,6 +62,10 @@ class IDABin(Backend):
         l.warning('The IDABin module is not well supported. Good luck!')
 
     supported_filetypes = ['elf', 'pe', 'mach-o']
+
+    @staticmethod
+    def is_compatible():
+        return False  # Don't use this for anything unless it's manually selected
 
     def in_which_segment(self, addr):
         """
@@ -338,4 +342,4 @@ class IDABin(Backend):
         # IDA 6.9 segfaults when loading ppc64 abiv1 binaries so....
         return False
 
-from ..loader import Loader
+register_backend("idabin", IDABin)

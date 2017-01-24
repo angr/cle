@@ -14,6 +14,7 @@ except ImportError:
 import logging
 l = logging.getLogger('cle.backends')
 
+
 class Region(object):
     """
     A region of memory that is mapped in the object's file.
@@ -486,6 +487,14 @@ class Backend(object):
             return self._symbol_cache[name]
         return None
 
+ALL_BACKENDS = _ordered_dict()
+
+def register_backend(name, cls):
+    if not hasattr(cls, 'is_compatible'):
+        raise TypeError("Backend needs an is_compatible() method")
+        ALL_BACKENDS[name] = cls
+
+
 from .elf import ELF
 from .elfcore import ELFCore
 from .pe import PE
@@ -495,6 +504,9 @@ from .cgc import CGC
 from .backedcgc import BackedCGC
 from .metaelf import MetaELF
 
+
+
+"""
 ALL_BACKENDS = _ordered_dict((
     ('elf', ELF),
     ('elfcore', ELFCore),
@@ -504,3 +516,4 @@ ALL_BACKENDS = _ordered_dict((
     ('ida', IDABin),
     ('blob', Blob)
 ))
+"""

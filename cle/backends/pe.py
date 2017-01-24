@@ -2,7 +2,7 @@ import os
 import struct
 
 import archinfo
-from . import Backend, Symbol, Section
+from . import Backend, Symbol, Section, register_backend
 from .relocations import Relocation
 from ..errors import CLEError
 
@@ -155,6 +155,14 @@ class PE(Backend):
         l.warning('The PE module is not well-supported. Good luck!')
 
     supported_filetypes = ['pe']
+    def is_compatible(self, stream):
+        identstring = stream.read(0x1000)
+        stream.seek(0)
+        if identstring.startswith('MZ') and len(identstring) > 0x40:
+            peptr = struct.unpack('I', identstring[0x3c:0x40])[0]
+            if peptr < len(identstring) and identstring[peptr:peptr + 4] == 'PE\0\0':
+                return True
+        return False
 
     #
     # Public methods
@@ -250,3 +258,5 @@ class PE(Backend):
             section = PESection(pe_section)
             self.sections.append(section)
             self.sections_map[section.name] = section
+
+register_backend('pe', PE)
