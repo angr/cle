@@ -1,6 +1,6 @@
 import os
 import nose
-import subprocess
+#import subprocess
 import pickle
 import cle
 
