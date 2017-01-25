@@ -762,8 +762,7 @@ class Loader(object):
             backend = Loader.identify_object(path)
         except OSError:
             raise CLEFileNotFoundError('File %s does not exist!' % path)
-
-        return type(self.main_bin) == type(backend)
+        return type(self.main_bin) == backend
 
     def _get_lib_path(self, libname):
         """
