@@ -19,19 +19,20 @@ class CGC(ELF):
         else:
             filename = binary
             stream = PatchedStream(open(binary, 'rb'), [(0, ELF_HEADER)])
-
-        def is_compatible(stream):
-            stream.seek(0)
-            identstring = stream.read(0x1000)
-            stream.seek(0)
-            if identstring.startswith('\x7fCGC'):
-                return True
-            return False
         kwargs['filename'] = filename
         super(CGC, self).__init__(stream, *args, **kwargs)
         self.memory.write_bytes(self.get_min_addr(), CGC_HEADER) # repair CGC header
         self.os = 'cgc'
-        self.execstack = True # the stack is always executable in CGC
+        self.execstack = True  # the stack is always executable in CGC
+
+    @staticmethod
+    def is_compatible(stream):
+        stream.seek(0)
+        identstring = stream.read(0x1000)
+        stream.seek(0)
+        if identstring.startswith('\x7fCGC'):
+            return True
+        return False
 
     def _load_segment(self, seg):
         if seg.header.p_memsz > 0:
