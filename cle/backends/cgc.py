@@ -21,6 +21,7 @@ class CGC(ELF):
             stream = PatchedStream(open(binary, 'rb'), [(0, ELF_HEADER)])
 
         def is_compatible(stream):
+            stream.seek(0)
             identstring = stream.read(0x1000)
             stream.seek(0)
             if identstring.startswith('\x7fCGC'):
