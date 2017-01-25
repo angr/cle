@@ -289,7 +289,7 @@ class Loader(object):
                 if plsclose: stream.close()
                 return rear
         if plsclose: stream.close()
-        return None
+        raise CLECompatibilityError("Unable to find a loader backend for this binary.  Perhaps try the 'blob' loader?")
 
     def add_object(self, obj, base_addr=None):
         """
