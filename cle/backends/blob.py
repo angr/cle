@@ -38,7 +38,7 @@ class Blob(Backend):
 
     @staticmethod
     def is_compatible(stream):
-        return False  # Must be explicitly specified
+        return stream == 0  # I hate pylint
 
     def get_min_addr(self):
         return 0

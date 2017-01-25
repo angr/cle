@@ -39,4 +39,5 @@ class CGC(ELF):
             super(CGC, self)._load_segment(seg)
 
     supported_filetypes = ['cgc']
+
 register_backend('cgc', CGC)

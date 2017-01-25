@@ -500,17 +500,3 @@ from .blob import Blob
 from .cgc import CGC
 from .backedcgc import BackedCGC
 from .metaelf import MetaELF
-
-
-
-"""
-ALL_BACKENDS = _ordered_dict((
-    ('elf', ELF),
-    ('elfcore', ELFCore),
-    ('pe', PE),
-    ('cgc', CGC),
-    ('backedcgc', BackedCGC),
-    ('ida', IDABin),
-    ('blob', Blob)
-))
-"""
