@@ -483,7 +483,7 @@ class Backend(object):
             return self._symbol_cache[name]
         return None
 
-ALL_BACKENDS = _ordered_dict()
+ALL_BACKENDS = dict()
 
 
 def register_backend(name, cls):
