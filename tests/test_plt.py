@@ -12,6 +12,7 @@ TESTS_ARCHES = [os.path.join('i386', 'libc.so.6'),
                 os.path.join('x86_64', 'fauxware'),
                 os.path.join('armel', 'libc.so.6'),
                 os.path.join('armel', 'fauxware'),
+                os.path.join('armel', 'helloworld'),
                 os.path.join('armhf', 'libc.so.6'),
                 os.path.join('ppc', 'libc.so.6'),
                 os.path.join('ppc', 'fauxware'),
@@ -20,7 +21,8 @@ TESTS_ARCHES = [os.path.join('i386', 'libc.so.6'),
                 os.path.join('mips64', 'libc.so.6'),
                 os.path.join('mips64', 'test_arrays'),
                 os.path.join('aarch64', 'libc.so.6'),
-                os.path.join('aarch64', 'test_arrays')]
+                os.path.join('aarch64', 'test_arrays'),
+                ]
 
 def check_plt_entries(filename):
     real_filename = os.path.join(TESTS_BASE, 'tests', filename)
@@ -49,6 +51,13 @@ def check_plt_entries(filename):
 
     if filename == os.path.join('mips64', 'test_arrays'):
         nose.tools.assert_equal(ld.main_bin._plt, {'__libc_start_main': 4831841456, 'puts': 4831841440})
+        return
+
+    if filename == os.path.join('armel', 'helloworld'):
+        nose.tools.assert_equal(ld.main_bin._plt, {'printf': 0x102e0, '__libc_start_main': 0x102ec,
+                                                   '__gmon_start__': 0x102f8, 'abort': 0x10304
+                                                   }
+                                )
         return
 
     ld.main_bin._plt.pop('__gmon_start__', None)

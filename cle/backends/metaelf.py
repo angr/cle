@@ -108,6 +108,25 @@ class MetaELF(Backend):
                 while True:
                     tick()
                     bb = self._block(addr)
+
+                    step_forward = False
+                    # the block shouldn't touch any cc_* registers
+                    if self.arch.name in ('X86', 'AMD64', 'ARMEL', 'ARMHF'):
+                        cc_regs = { self.arch.registers['cc_op'][0], self.arch.registers['cc_ndep'][0],
+                                    self.arch.registers['cc_dep1'][0], self.arch.registers['cc_dep2'][0]
+                                    }
+                        if any([ isinstance(stmt, pyvex.IRStmt.Put) and stmt.offset in cc_regs
+                                 for stmt in bb.statements ]):
+                            step_forward = True
+                        elif any( [ isinstance(stmt, pyvex.IRStmt.WrTmp) and isinstance(stmt.data, pyvex.IRExpr.Get)
+                                    and stmt.data.offset in cc_regs for stmt in bb.statements ]):
+                            step_forward = True
+
+                    if step_forward:
+                        # only steps one instruction forward
+                        addr += instruction_alignment
+                        continue
+
                     if gotslot in [c.value for c in bb.all_constants]:
                         break
                     if bb.jumpkind == 'Ijk_NoDecode':

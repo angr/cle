@@ -255,15 +255,6 @@ class Loader(object):
                 outputlist.append(obj.rebase_addr_symbolic == obj.rebase_addr)
         return outputlist
 
-    backends = []
-    @staticmethod
-    def register_backend(my_backend):
-        """
-        Register a new CLE backend.
-        Your backend needs an is_compatible(str) to perfo
-        :return:
-        """
-
     @staticmethod
     def identify_object(path):
         """
