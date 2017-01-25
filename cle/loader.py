@@ -1,7 +1,6 @@
 import os
 import logging
 import subprocess
-import struct
 from collections import OrderedDict
 
 import elftools
