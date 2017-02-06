@@ -5,7 +5,6 @@ except ImportError:
 
 from ..errors import CLEError
 from . import Backend, register_backend
-#from .. import Loader
 import logging
 l = logging.getLogger("cle.idabin")
 
@@ -32,7 +31,7 @@ class IDABin(Backend):
 
         l.debug("Loading binary %s using IDA with arch %s", self.binary, processor_type)
 
-        self.ida_path = Loader._make_tmp_copy(self.binary)
+        self.ida_path = self._make_tmp_copy(self.binary)
         try:
             self.ida = idalink(self.ida_path, ida_prog=ida_prog,
                                        processor_type=processor_type).link
@@ -61,6 +60,39 @@ class IDABin(Backend):
 
         l.warning('The IDABin module is not well supported. Good luck!')
 
+    @staticmethod
+    def _make_tmp_copy(path, suffix=None):
+        """
+        Makes a copy of obj into CLE's tmp directory.
+        """
+        # EDG says: Lint was complaining about the way IDABin called into Loader to use this
+        # method.  Importing it to make Lint shut up caused a circular import.
+        # So I broke the chain.  Sorry if this offends your code reuse sensibilities
+        if not os.path.exists('/tmp/cle'):
+            os.mkdir('/tmp/cle')
+
+        if hasattr(path, 'seek') and hasattr(path, 'read'):
+            stream = path
+        else:
+            try:
+                stream = open(path, 'rb')
+            except IOError:
+                raise CLEFileNotFoundError("File %s does not exist :(. Please check that the"
+                                           " path is correct" % path)
+        bn = os.urandom(5).encode('hex')
+        if suffix is not None:
+            bn += suffix
+        dest = os.path.join('/tmp/cle', bn)
+        l.info("\t -> copy obj %s to %s", path, dest)
+
+        with open(dest, 'wb') as dest_stream:
+            while True:
+                dat = stream.read(1024 * 1024)
+                if len(dat) == 0:
+                    break
+                dest_stream.write(dat)
+
+        return dest
 
     @staticmethod
     def is_compatible(stream):
