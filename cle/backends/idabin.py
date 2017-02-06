@@ -3,7 +3,7 @@ try:
 except ImportError:
     idalink = None
 
-from ..errors import CLEError
+from ..errors import CLEError, CLEFileNotFoundError
 from . import Backend, register_backend
 import os
 import logging
