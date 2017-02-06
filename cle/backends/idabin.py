@@ -5,6 +5,7 @@ except ImportError:
 
 from ..errors import CLEError
 from . import Backend, register_backend
+import os
 import logging
 l = logging.getLogger("cle.idabin")
 
