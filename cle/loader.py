@@ -30,10 +30,10 @@ class Loader(object):
 
     When reference is made to a dictionary of options, it requires a dictionary with zero or more of the following keys:
 
-    - backend :             "elf", "pe", "ida", "blob": which loader backend to use
-    - custom_arch :         The archinfo.Arch object to use for the binary
-    - custom_base_addr :    The address to rebase the object at
-    - custom_entry_point :  The entry point to use for the object
+        - backend :             "elf", "pe", "ida", "blob" : which loader backend to use
+        - custom_arch :         The archinfo.Arch object to use for the binary
+        - custom_base_addr :    The address to rebase the object at
+        - custom_entry_point :  The entry point to use for the object
 
     More keys are defined on a per-backend basis.
     """
@@ -61,11 +61,11 @@ class Loader(object):
                                     equivalent, for example libc.so.6 and libc.so.0
         :param rebase_granularity:  The alignment to use for rebasing shared objects
         :param except_missing_libs: Throw an exception when a shared library can't be found.
-        :param gdb_map:             The output of `info proc mappings` or `info sharedlibrary` in gdb. This will be used
-                                    to determine the base address of libraries.
-        :param gdb_fix:             If `info sharedlibrary` was used, the addresses gdb gives us are in fact the
+        :param gdb_map:             The output of ``info proc mappings`` or ``info sharedlibrary`` in gdb. This will
+                                    be used to determine the base address of libraries.
+        :param gdb_fix:             If ``info sharedlibrary`` was used, the addresses gdb gives us are in fact the
                                     addresses of the .text sections. We need to fix them to get the real load addresses.
-        :param aslr                 Load libraries in symbolic address space.
+        :param aslr:                Load libraries in symbolic address space.
         """
 
         if hasattr(main_binary, 'seek') and hasattr(main_binary, 'read'):

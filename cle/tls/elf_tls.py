@@ -16,7 +16,15 @@ from . import TLSObj
 
 class ELFTLSObj(TLSObj):
     """
-    This class is used when parsing the Thread Local Storage of an ELF binary.
+    This class is used when parsing the Thread Local Storage of an ELF binary. It heavily uses the TLSArchInfo
+    namedtuple from archinfo.
+
+    ELF TLS is implemented based on the following documents:
+
+        - https://www.uclibc.org/docs/tls.pdf
+        - https://www.uclibc.org/docs/tls-ppc.txt
+        - https://www.uclibc.org/docs/tls-ppc64.txt
+        - https://www.linux-mips.org/wiki/NPTL
     """
     def __init__(self, modules):
         super(ELFTLSObj, self).__init__(modules, filetype='unix')
@@ -82,10 +90,16 @@ class ELFTLSObj(TLSObj):
 
     @property
     def thread_pointer(self):
+        """
+        The thread pointer. This is a technical term that refers to a specific location in the TLS segment.
+        """
         return self.rebase_addr + self.tp_offset
 
     @property
     def user_thread_pointer(self):
+        """
+        The thread pointer that is exported to the user
+        """
         return self.thread_pointer + self.arch.elf_tls.tp_offset
 
     def get_min_addr(self):

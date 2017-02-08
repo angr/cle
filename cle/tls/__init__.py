@@ -3,7 +3,10 @@ from ..memory import Clemory
 
 class TLSObj(Backend):
     """
-    This class is used when parsing the Thread Local Storage of a binary.
+    CLE implements thread-local storage by treating the TLS region as another object to be loaded. Because of the
+    complex interactions between TLS and all the other objects that can be loaded into memory, each TLS object will
+    perform some basic initialization when instanciated, and then once all other objects have been loaded,
+    ``finalize()`` is called.
     """
     def __init__(self, modules, filetype='unknown'):
         super(TLSObj, self).__init__('##cle_tls##', filetype=filetype)

@@ -9,23 +9,23 @@ class PETLSObj(TLSObj):
 
     In memory the ``PETLSObj`` is laid out as follows::
 
-        |----------------------|---------------------------------------|
+        +----------------------+---------------------------------------+
         | TLS array            | TLS data area                         |
-        |----------------------|---------------------------------------|
+        +----------------------+---------------------------------------+
 
     A more detailed description of the TLS array and TLS data areas is given
     below.
 
-    TLS array
-    ---------
+    **TLS array**
 
     The TLS array is an array of addresses that points into the TLS data area.
     In memory it is laid out as follows::
 
-        |---------|---------|-----|---------|
-        | address | address | ... | address |
-        |---------|---------|-----|---------|
-         index = 0 index = 1       index = n
+        +-----------+-----------+-----+-----------+
+        |  address  |  address  | ... |  address  |
+        +-----------+-----------+-----+-----------+
+        | index = 0 | index = 1 |     | index = n |
+        +-----------+-----------+-----+-----------+
 
     The size of each address is architecture independant (e.g. on X86 it is
     4 bytes). The number of addresses in the TLS array is equal to the number
@@ -34,16 +34,16 @@ class PETLSObj(TLSObj):
     of this module's TLS data area is then stored at this location in the
     array.
 
-    TLS data area
-    -------------
+    **TLS data area**
 
     The TLS data area directly follows the TLS array and contains the actual
     TLS data for each module. In memory it is laid out as follows::
 
-        |----------|-----------|----------|-----------|-----|
+        +----------+-----------+----------+-----------+-----+
         | TLS data | zero fill | TLS data | zero fill | ... |
-        |----------|-----------|----------|-----------|-----|
-                module a               module b
+        +----------+-----------+----------+-----------+-----+
+        |       module a       |       module b       | ... |
+        +---------------------------------------------------+
 
     The size of each module's TLS data area is variable and can be found in the
     module's ``tls_data_size`` property. The same applies to the zero fill. At
