@@ -365,16 +365,23 @@ class Loader(object):
                     reloc.relocate(([self.main_bin] if self.main_bin is not obj else []) + dep_objs + [obj])
 
     def provide_symbol(self, owner, name, offset, size=0, sym_type=None):
-        if sym_type is None: sym_type = Symbol.TYPE_FUNCTION
-        newsymbol = Symbol(owner, name, offset, size, sym_type)
-        newsymbol.is_export = True
-        owner._symbol_cache[name] = newsymbol
+        return self.provide_symbol_batch(owner, {name: (offset, size, sym_type)})
+
+    def provide_symbol_batch(self, owner, provisions):
+        symbols = {}
+        for name, (offset, size, sym_type) in provisions.iteritems():
+            if sym_type is None: sym_type = Symbol.TYPE_FUNCTION
+            newsymbol = Symbol(owner, name, offset, size, sym_type)
+            newsymbol.is_export = True
+            owner._symbol_cache[name] = newsymbol
+            symbols[name] = newsymbol
+
         solist = [owner]
 
         for obj in self.all_objects:
             if isinstance(obj, (MetaELF, PE)):
                 for reloc in obj.relocs:
-                    if reloc.symbol and reloc.symbol.name == name:
+                    if reloc.symbol and reloc.symbol.name in symbols:
                         reloc.relocate(solist, bypass_compatibility=True)
 
 
