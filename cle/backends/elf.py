@@ -4,8 +4,8 @@ from collections import OrderedDict
 from elftools.elf import elffile, sections
 from elftools.common.exceptions import ELFError
 import archinfo
-
-from .  import Symbol, Segment, Section
+import elftools
+from .  import Symbol, Segment, Section, register_backend
 from .metaelf import MetaELF
 from .relocations import get_relocation
 from .relocations.generic import MipsGlobalReloc, MipsLocalReloc
@@ -138,7 +138,6 @@ class ELF(MetaELF):
     """
     def __init__(self, binary, **kwargs):
         super(ELF, self).__init__(binary, **kwargs)
-
         patch_undo = None
         try:
             self.reader = elffile.ELFFile(self.binary_stream)
@@ -235,6 +234,17 @@ class ELF(MetaELF):
         self.dynsym = None
         self.hashtable = None
         return self.__dict__
+
+    @staticmethod
+    def is_compatible(stream):
+        stream.seek(0)
+        identstring = stream.read(0x1000)
+        stream.seek(0)
+        if identstring.startswith('\x7fELF'):
+            if elftools.elf.elffile.ELFFile(stream).header['e_type'] == 'ET_CORE':
+                return False
+            return True
+        return False
 
     def __setstate__(self, data):
         self.__dict__.update(data)
@@ -789,3 +799,6 @@ class GNUHashTable(object):
         for c in key:
             h = h * 33 + ord(c)
         return h & 0xFFFFFFFF
+
+
+register_backend('elf', ELF)

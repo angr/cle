@@ -1,4 +1,4 @@
-from . import Segment
+from . import Segment, register_backend
 from .cgc import CGC
 
 
@@ -63,5 +63,11 @@ class BackedCGC(CGC):
         if self.register_backer is not None and 'eip' in self.register_backer:
             self._entry = self.register_backer['eip']
 
+    @staticmethod
+    def is_compatible(stream):
+        return False # Don't use this for anything unless it's manual
+
     def initial_register_values(self):
         return self.register_backer.iteritems()
+
+register_backend('backedcgc', BackedCGC)

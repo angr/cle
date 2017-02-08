@@ -1,4 +1,4 @@
-from . import Backend
+from . import Backend, register_backend
 from ..errors import CLEError
 
 import logging
@@ -36,7 +36,9 @@ class Blob(Backend):
 
         self._load(self.custom_offset)
 
-    supported_filetypes = ['elf', 'pe', 'mach-o', 'unknown']
+    @staticmethod
+    def is_compatible(stream):
+        return stream == 0  # I hate pylint
 
     def get_min_addr(self):
         return 0
@@ -71,3 +73,5 @@ class Blob(Backend):
         Blobs don't support segments.
         """
         return None
+
+register_backend("blob", Blob)

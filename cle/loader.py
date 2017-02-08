@@ -1,7 +1,6 @@
 import os
 import logging
 import subprocess
-import struct
 from collections import OrderedDict
 
 import elftools
@@ -224,54 +223,24 @@ class Loader(object):
                                     if the file at the given path is not compatibile with this parameter.
         :param bool is_main_bin:    Whether this file is the main executable of whatever process we are loading
         """
-        # Try to find the filetype of the object. Also detect if you were given a bad filepath
         if options is None:
             options = {}
-        try:
-            filetype = Loader.identify_object(path)
-        except OSError:
-            raise CLEFileNotFoundError('File %s does not exist!' % path)
-
-        # Verify that that filetype is acceptable
-        if compatible_with is not None and filetype != compatible_with.filetype:
-            raise CLECompatibilityError('File %s is not compatible with %s' % (path, compatible_with))
 
         # Check if the user specified a backend as...
         backend_option = options.get('backend', None)
         if isinstance(backend_option, type) and issubclass(backend_option, Backend):
             # ...an actual backend class
-            backends = [backend_option]
+            backend = backend_option
         elif backend_option in ALL_BACKENDS:
             # ...the name of a backend class
-            backends = [ALL_BACKENDS[backend_option]]
-        elif isinstance(backend_option, (list, tuple)):
-            # ...a list of backends containing either names or classes
-            backends = []
-            for backend_option_item in backend_option:
-                if isinstance(backend_option_item, type) and issubclass(backend_option_item, Backend):
-                    backends.append(backend_option_item)
-                elif backend_option_item in ALL_BACKENDS:
-                    backends.append(ALL_BACKENDS[backend_option_item])
-                else:
-                    raise CLEError('Invalid backend: %s' % backend_option_item)
+            backend = ALL_BACKENDS[backend_option]
         elif backend_option is None:
-            backends = ALL_BACKENDS.values()
+            backend = Loader.identify_object(path)
         else:
             raise CLEError('Invalid backend: %s' % backend_option)
 
-        backends = filter(lambda x: filetype in x.supported_filetypes or 'unknown' in x.supported_filetypes, backends)
-        if len(backends) == 0:
-            raise CLECompatibilityError('No compatible backends specified for filetype %s (file %s)' % (filetype, path))
-
-        for backend in backends:
-            try:
-                loaded = backend(path, compatible_with=compatible_with, filetype=filetype, is_main_bin=is_main_bin, **options)
-                return loaded
-            except CLECompatibilityError:
-                raise
-            except CLEError:
-                l.exception("Loading error when loading %s with backend %s", path, backend.__name__)
-        raise CLEError("All backends failed loading %s!" % path)
+        loaded = backend(path, compatible_with=compatible_with, is_main_bin=is_main_bin, **options)
+        return loaded
 
     def get_loader_symbolic_constraints(self):
         if not self.aslr:
@@ -289,38 +258,28 @@ class Loader(object):
     @staticmethod
     def identify_object(path):
         """
-        Returns the filetype of the file `path`. Will be one of the strings in {'elf', 'elfcore', 'pe', 'mach-o',
-        'unknown'}.
+        Returns the correct loader for the file at `path`.
+        Returns None if it's a blob or some unknown type.
+        TODO: Implement some binwalk-like thing to carve up blobs aotmatically
         """
+
+        # is this thing a stream, file, etc?
         if hasattr(path, 'seek') and hasattr(path, 'read'):
+            # It's a stream.  Don't close it after.
             path.seek(0)
             stream = path
             plsclose = False
         else:
+            # It's a file.  Open it.  Close it after.
             stream = open(path, 'rb')
             plsclose = True
 
-        identstring = stream.read(0x1000)
-        stream.seek(0)
-
-        if identstring.startswith('\x7fELF'):
-            if elftools.elf.elffile.ELFFile(stream).header['e_type'] == 'ET_CORE':
+        for rear in ALL_BACKENDS.values():
+            if rear.is_compatible(stream):
                 if plsclose: stream.close()
-                return 'elfcore'
-            if plsclose: stream.close()
-            return 'elf'
-        elif identstring.startswith('MZ') and len(identstring) > 0x40:
-            peptr = struct.unpack('I', identstring[0x3c:0x40])[0]
-            if peptr < len(identstring) and identstring[peptr:peptr+4] == 'PE\0\0':
-                return 'pe'
-        elif identstring.startswith('\xfe\xed\xfa\xce') or \
-             identstring.startswith('\xfe\xed\xfa\xcf') or \
-             identstring.startswith('\xce\xfa\xed\xfe') or \
-             identstring.startswith('\xcf\xfa\xed\xfe'):
-            return 'mach-o'
-        elif identstring.startswith('\x7fCGC'):
-            return 'cgc'
-        return 'unknown'
+                return rear
+        if plsclose: stream.close()
+        raise CLECompatibilityError("Unable to find a loader backend for this binary.  Perhaps try the 'blob' loader?")
 
     def add_object(self, obj, base_addr=None):
         """
@@ -790,11 +749,10 @@ class Loader(object):
         This checks whether the object at `path` is binary compatible with the main binary.
         """
         try:
-            filetype = Loader.identify_object(path)
+            backend = Loader.identify_object(path)
         except OSError:
             raise CLEFileNotFoundError('File %s does not exist!' % path)
-
-        return self.main_bin.filetype == filetype
+        return type(self.main_bin) == backend
 
     def _get_lib_path(self, libname):
         """

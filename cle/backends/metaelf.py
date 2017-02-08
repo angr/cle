@@ -11,7 +11,7 @@ class MetaELF(Backend):
     """
     def __init__(self, *args, **kwargs):
         super(MetaELF, self).__init__(*args, **kwargs)
-
+        self.os = "unix"  #TODO: FIXME: HACK: Put a real parsing of the OS in the elf header here some day
         self._plt = {}
         self.elfflags = 0
         self.ppc64_initial_rtoc = None

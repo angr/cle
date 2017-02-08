@@ -2,7 +2,8 @@ import struct
 
 from .elf import ELF
 from ..errors import CLEError, CLECompatibilityError
-
+from . import register_backend
+import elftools
 import logging
 l = logging.getLogger('cle.elfcore')
 
@@ -73,7 +74,16 @@ class ELFCore(ELF):
             if not bool(self.pr_fpvalid):
                 l.warning("No SSE registers could be loaded from core file")
 
-    supported_filetypes = ['elfcore']
+    @staticmethod
+    def is_compatible(stream):
+        stream.seek(0)
+        identstring = stream.read(0x1000)
+        stream.seek(0)
+        if identstring.startswith('\x7fELF'):
+            if elftools.elf.elffile.ELFFile(stream).header['e_type'] == 'ET_CORE':
+                return True
+            return False
+        return False
 
     def initial_register_values(self):
         return self.registers.iteritems()
@@ -206,3 +216,5 @@ class ELFCore(ELF):
 
         pos += nreg * arch_bytes
         self.pr_fpvalid = struct.unpack("<I", prstatus.desc[pos:pos+4])[0]
+
+register_backend('elfcore', ELFCore)

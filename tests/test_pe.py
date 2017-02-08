@@ -12,8 +12,7 @@ TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)),
 def test_exe():
     exe = os.path.join(TEST_BASE, 'tests', 'x86', 'windows', 'TLS.exe')
     ld = cle.Loader(exe, auto_load_libs=False)
-
-    nose.tools.assert_equals(ld.main_bin.filetype, 'pe')
+    nose.tools.assert_true(isinstance(ld.main_bin,cle.PE))
     nose.tools.assert_equals(ld.main_bin.os, 'windows')
     nose.tools.assert_equals(sorted([sec.name for sec in ld.main_bin.sections]),
                              sorted(['.textbss',
