@@ -13,6 +13,6 @@ install:
 test_script:
 - cmd: |
     cd \angr-dev
-    appveyor_test.bat cle simuvex angr
+    tests\appveyor_test.bat cle simuvex angr
 
 build: off
