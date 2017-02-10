@@ -13,5 +13,6 @@ from .loader import *
 from .memory import *
 from .errors import *
 from .backends import *
+from .backends.macho import MachO
 from .tls import *
 from .patched_stream import *
