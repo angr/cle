@@ -39,7 +39,7 @@ class MachO(Backend):
         :param skip_extended_parsing: If present and True skips everything except minimal load-command parsing
         """
 
-        l.warning('The PE module is not well-supported. Good luck!')
+        l.warning('The MachO backend is not well-supported. Good luck!')
 
         super(MachO, self).__init__(binary, **kwargs)
         self.rebase_addr = 0  # required for some angr stuffs even though not supported
