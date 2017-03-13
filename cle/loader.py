@@ -179,7 +179,14 @@ class Loader(object):
 
                 for path in self._possible_paths(dep):
                     libname = os.path.basename(path)
-                    if self.identify_object(path) == 'elf':
+
+                    try:
+                        loader = self.identify_object(path)
+                    except CLECompatibilityError:
+                        l.warning("Cannot find any backend to load file %s. Skip.", path)
+                        continue
+
+                    if loader == 'elf':
                         soname = self._extract_soname(path)
                     else:
                         soname = libname
@@ -759,6 +766,8 @@ class Loader(object):
             backend = Loader.identify_object(path)
         except OSError:
             raise CLEFileNotFoundError('File %s does not exist!' % path)
+        except CLECompatibilityError:
+            return False
         return type(self.main_bin) == backend
 
     def _get_lib_path(self, libname):
