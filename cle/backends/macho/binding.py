@@ -116,7 +116,7 @@ class BindingHelper(object):
             return  # skip
 
         l.debug("Binding non-lazy, non-weak symbols")
-        s = BindingState(self.binary.is_64bit)
+        s = BindingState(self.binary.arch.bits == 64)
         seg = self.binary.segments[0]
         s.seg_end_address = seg.vaddr + seg.memsize
         s.bind_handler = default_binding_handler
@@ -146,7 +146,7 @@ class BindingHelper(object):
             return  # skip
         l.debug("Binding lazy symbols")
 
-        s = BindingState(self.binary.is_64bit)
+        s = BindingState(self.binary.arch.bits == 64)
         s.index = 0
         s.bind_handler = default_binding_handler
         end = len(blob)

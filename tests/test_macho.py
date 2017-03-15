@@ -11,13 +11,13 @@ TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)),
 
 def test_macho():
     """
-    Basic smoke-test for the MachO loader
+    Basic smoke-test for the Mach-O loader
     :return:
     """
     machofile = os.path.join(TEST_BASE, 'tests', 'x86_64', 'fauxware.macho')
     ld = cle.Loader(machofile, auto_load_libs=False)
     nose.tools.assert_true(isinstance(ld.main_bin,cle.MachO))
-    nose.tools.assert_equals(ld.main_bin.os, 'MacOSX_based')
+    nose.tools.assert_equals(ld.main_bin.os, 'macos')
     nose.tools.assert_equals(ld.main_bin.entry,4294970848L)
     nose.tools.assert_equals(sorted(list(ld.main_bin.exports_by_name))[-1],'_sneaky')
 

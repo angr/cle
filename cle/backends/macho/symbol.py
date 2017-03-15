@@ -17,10 +17,7 @@ SYMBOL_TYPE_INDIR = 0xa
 
 TYPE_LOOKUP = {
         SYMBOL_TYPE_UNDEF: Symbol.TYPE_NONE,
-        SYMBOL_TYPE_ABS: Symbol.TYPE_OTHER,
-        SYMBOL_TYPE_SECT: Symbol.TYPE_SECTION,
-        SYMBOL_TYPE_PBUD: Symbol.TYPE_OTHER,
-        SYMBOL_TYPE_INDIR: Symbol.TYPE_OTHER
+        SYMBOL_TYPE_SECT: Symbol.TYPE_SECTION
 }
 
 LIBRARY_ORDINAL_SELF = 0x0
@@ -59,7 +56,11 @@ class MachOSymbol(Symbol):
         # pointing to the symobl.
         # Stub addresses must be obtained through some sort of higher-level analysis
         # note that a symbols name may not be unique!
-        super(MachOSymbol, self).__init__(owner, name, addr, owner.arch.bytes, TYPE_LOOKUP[macho_type])
+        super(MachOSymbol, self).__init__(owner,
+                name,
+                addr,
+                owner.arch.bytes,
+                TYPE_LOOKUP.get(macho_type, Symbol.TYPE_OTHER))
 
         # store the mach-o properties
         self.symtab_offset = symtab_offset
