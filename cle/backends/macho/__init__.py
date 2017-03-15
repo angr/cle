@@ -2,16 +2,22 @@
 # This file is part of Mach-O Loader for CLE.
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
 
+from os import SEEK_CUR, SEEK_SET
+import struct
+import sys
+import cStringIO
+
+import archinfo
+
 from .symbol import SYMBOL_TYPE_SECT
 from .. import Backend, register_backend
 from ...errors import CLEInvalidBinaryError, CLECompatibilityError, CLEOperationError
-import logging, struct, sys, archinfo, cStringIO
-from os import SEEK_CUR, SEEK_SET
 from .section import MachOSection
 from .symbol import MachOSymbol
 from .segment import MachOSegment
 from .binding import BindingHelper, read_uleb
 
+import logging
 l = logging.getLogger('cle.MachO.main')
 
 __all__ = ('MachO', 'MachOSection', 'MachOSegment',)
@@ -35,11 +41,7 @@ class MachO(Backend):
 
 
     def __init__(self, binary, **kwargs):
-        """
-        :param skip_extended_parsing: If present and True skips everything except minimal load-command parsing
-        """
-
-        l.warning('The MachO backend is not well-supported. Good luck!')
+        l.warning('The Mach-O backend is not well-supported. Good luck!')
 
         super(MachO, self).__init__(binary, **kwargs)
         self.rebase_addr = 0  # required for some angr stuffs even though not supported
@@ -57,7 +59,7 @@ class MachO(Backend):
         # If we intend to use it we must first upgrade it to a class or somesuch
         self.entryoff = None
         self.unixthread_pc = None
-        self.os = "MacOSX_based"
+        self.os = "macos"
         self.lc_data_in_code = []  # data from LC_DATA_IN_CODE (if encountered). Format: (offset,length,kind)
         self.mod_init_func_pointers = []  # may be TUMB interworking
         self.mod_term_func_pointers = []  # may be THUMB interworking
@@ -105,31 +107,31 @@ class MachO(Backend):
 
                 # check for segments that interest us
                 if cmd in [0x1, 0x19]:  # LC_SEGMENT,LC_SEGMENT_64
-                    l.debug("Found LC_SEGMENT(_64) @ 0x{0:X}".format(offset))
+                    l.debug("Found LC_SEGMENT(_64) @ %#x", offset)
                     self._load_segment(binary_file, offset)
                 elif cmd == 0x2:  # LC_SYMTAB
-                    l.debug("Found LC_SYMTAB @ 0x{0:X}".format(offset))
+                    l.debug("Found LC_SYMTAB @ %#x", offset)
                     self._load_symtab(binary_file, offset)
                 elif cmd in [0x22, 0x80000022]:  # LC_DYLD_INFO(_ONLY)
-                    l.debug("Found LC_DYLD_INFO(_ONLY) @ 0x{0:X}".format(offset))
+                    l.debug("Found LC_DYLD_INFO(_ONLY) @ %#x", offset)
                     self._load_dyld_info(binary_file, offset)
                 elif cmd in [0xc, 0x8000001c, 0x80000018]:  # LC_LOAD_DYLIB, LC_REEXPORT_DYLIB,LC_LOAD_WEAK_DYLIB
-                    l.debug("Found LC_*_DYLIB @ 0x{0:X}".format(offset))
+                    l.debug("Found LC_*_DYLIB @ %#x", offset)
                     self._load_dylib_info(binary_file, offset)
                 elif cmd == 0x80000028:  # LC_MAIN
-                    l.debug("Found LC_MAIN @ 0x{0:X}".format(offset))
+                    l.debug("Found LC_MAIN @ %#x", offset)
                     self._load_lc_main(binary_file, offset)
                 elif cmd == 0x5:  # LC_UNIXTHREAD
-                    l.debug("Found LC_UNIXTHREAD @ 0x{0:X}".format(offset))
+                    l.debug("Found LC_UNIXTHREAD @ %#x", offset)
                     self._load_lc_unixthread(binary_file, offset)
                 elif cmd == 0x26:  # LC_FUNCTION_STARTS
-                    l.debug("Found LC_FUNCTION_STARTS @ 0x{0:X}".format(offset))
+                    l.debug("Found LC_FUNCTION_STARTS @ %#x", offset)
                     self._load_lc_function_starts(binary_file, offset)
                 elif cmd == 0x29:  # LC_DATA_IN_CODE
-                    l.debug("Found LC_DATA_IN_CODE @ 0x{0:X}".format(offset))
+                    l.debug("Found LC_DATA_IN_CODE @ %#x", offset)
                     self._load_lc_data_in_code(binary_file, offset)
                 elif cmd in [0x21, 0x2c]:  # LC_ENCRYPTION_INFO(_64)
-                    l.debug("Found LC_ENCRYPTION_INFO @ 0x{0:X}".format(offset))
+                    l.debug("Found LC_ENCRYPTION_INFO @ %#x", offset)
                     self._assert_unencrypted(binary_file, offset)
 
                 # update bookkeeping
@@ -154,44 +156,44 @@ class MachO(Backend):
         stream.seek(0)
         identstring = stream.read(0x5)
         stream.seek(0)
-        if identstring.startswith('\xfe\xed\xfa\xce') or \
-           identstring.startswith('\xfe\xed\xfa\xcf') or \
-           identstring.startswith('\xce\xfa\xed\xfe') or \
-           identstring.startswith('\xcf\xfa\xed\xfe'):
+        if identstring.startswith(struct.pack('I', MachO.MH_MAGIC_64)) or \
+           identstring.startswith(struct.pack('I', MachO.MH_CIGAM_64)) or \
+           identstring.startswith(struct.pack('I', MachO.MH_MAGIC)) or \
+           identstring.startswith(struct.pack('I', MachO.MH_CIGAM)):
             return True
         return False
 
-    def is_thumb_interworking(s, address):
+    def is_thumb_interworking(self, address):
         """Returns true if the given address is a THUMB interworking address"""
         # Note: Untested
-        return (not s.is_64bit) and address & 1
+        return self.arch.bits != 64 and address & 1
 
     def decode_thumb_interworking(self, address):
         """Decodes a thumb interworking address"""
         # Note: Untested
-        return address & 0xFFFFFFFE if self.is_thumb_interworking(address) else address
+        return address & ~1 if self.is_thumb_interworking(address) else address
 
     def _parse_mod_funcs(self):
         l.debug("Parsing module init/term function pointers")
 
-        fmt = "Q" if self.is_64bit else "I"
-        size = 8 if self.is_64bit else 4
+        fmt = "Q" if self.arch.bits == 64 else "I"
+        size = 8 if self.arch.bits == 64 else 4
 
         # factoring out common code
         def parse_mod_funcs_internal(s, target):
             for i in range(s.vaddr, s.vaddr + s.memsize, size):
                 addr = self._unpack_with_byteorder(fmt, "".join(self.memory.read_bytes(i, size)))[0]
-                l.debug("Addr: 0x{0:X}".format(addr))
+                l.debug("Addr: %#x", addr)
                 target.append(addr)
 
         for seg in self.segments:
             for sec in seg.sections:
 
                 if sec.type == 0x9:  # S_MOD_INIT_FUNC_POINTERS
-                    l.debug("Section {0} contains init pointers".format(sec.sectname))
+                    l.debug("Section %s contains init pointers", sec.sectname)
                     parse_mod_funcs_internal(sec, self.mod_init_func_pointers)
                 elif sec.type == 0xa:  # S_MOD_TERM_FUNC_POINTERS
-                    l.debug("Section {0} contains term pointers".format(sec.sectname))
+                    l.debug("Section %s contains term pointers", sec.sectname)
                     parse_mod_funcs_internal(sec, self.mod_term_func_pointers)
 
         l.debug("Done parsing module init/term function pointers")
@@ -211,26 +213,27 @@ class MachO(Backend):
             l.warning("No entry point found")
             self._entry = 0
 
-    def _read(self, file, offset, size):
+    @staticmethod
+    def _read(fp, offset, size):
         """
         Simple read abstraction, reads size bytes from offset in file
         :param offset: Offset to seek() to
         :param size: number of bytes to be read
         :return: string of bytes or "" for EOF
         """
-        file.seek(offset)
-        return file.read(size)
+        fp.seek(offset)
+        return fp.read(size)
 
-    def _unpack_with_byteorder(self, fmt, input):
+    def _unpack_with_byteorder(self, fmt, data):
         """
         Appends self.struct_byteorder before fmt to ensure usage of correct byteorder
         :return: struct.unpack(self.struct_byteorder+fmt,input)
         """
-        return struct.unpack(self.struct_byteorder + fmt, input)
+        return struct.unpack(self.struct_byteorder + fmt, data)
 
-    def _unpack(self, fmt, file, offset, size):
+    def _unpack(self, fmt, fp, offset, size):
         """Convenience"""
-        return self._unpack_with_byteorder(fmt, self._read(file, offset, size))
+        return self._unpack_with_byteorder(fmt, self._read(fp, offset, size))
 
     def _parse_mach_header(self, f):
         """
@@ -250,10 +253,11 @@ class MachO(Backend):
         if not bool(self.flags & 0x80):  # ensure MH_TWOLEVEL
             raise CLEInvalidBinaryError("Cannot handle non MH_TWOLEVEL binaries")
 
-    def _detect_byteorder(self, magic):
+    @staticmethod
+    def _detect_byteorder(magic):
         """Determines the binary's byteorder """
 
-        l.debug("Magic is 0x{0:X}".format(magic))
+        l.debug("Magic is %#x", magic)
 
         host_is_little = sys.byteorder == 'little'
 
@@ -301,23 +305,22 @@ class MachO(Backend):
             sym._is_export = sym.name in self.exports_by_name
 
             if sym.is_stab:  # stab symbols are debugging information - don't care!
-                l.debug("Symbol '{0}' is debugging information, skipping".format(
-                    sym.name))
+                l.debug("Symbol %r is debugging information, skipping", sym.name)
                 continue
 
             if sym.name in self.exports_by_name:
-                l.debug("Symbol '{0}' is an export".format(sym.name))
+                l.debug("Symbol %r is an export", sym.name)
                 sym.is_export = True
             else:
-                l.debug("Symbol '{0}' is not an export".format(sym.name))
+                l.debug("Symbol %r is not an export", sym.name)
                 sym.is_export = False
 
             if sym.is_common:
-                l.debug("Symbol '{0}' is common, updating size".format(sym.name))
+                l.debug("Symbol %r is common, updating size", sym.name)
                 sym.size = sym.n_value
 
             if sym.sym_type == SYMBOL_TYPE_SECT:
-                l.debug("Symbol '{0}' is N_SECT, updating names and address".format(sym.name))
+                l.debug("Symbol %r is N_SECT, updating names and address", sym.name)
                 sec = section_tab[sym.n_sect]
                 if sec is not None:
                     sym.segment_name = sec.segname
@@ -326,14 +329,14 @@ class MachO(Backend):
                 sym.addr = sym.n_value
 
             elif sym.is_import():
-                l.debug("Symbol '{0}' is imported!".format(sym.name))
+                l.debug("Symbol %r is imported!", sym.name)
                 sym.library_name = self.imported_libraries[sym.library_ordinal]
 
             # if the symbol has no address we assign one from the special memory area
             if sym.addr is None:
                 sym.addr = ext_symbol_end
                 ext_symbol_end += sym.size
-                l.debug("Assigning address 0x{0:X} to symbol '{1}'".format(sym.addr, sym.name))
+                l.debug("Assigning address %#x to symbol %r", sym.addr, sym.name)
 
         # Add special memory area for symbols:
         self.memory.add_backer(ext_symbol_start, "\x00" * (ext_symbol_end - ext_symbol_start))
@@ -354,7 +357,7 @@ class MachO(Backend):
                     self.symbols_by_addr[sym.addr] = sym
                 else:
                     # todo: this might be worth an error
-                    l.warn("Non-stab symbol '{0}' @ 0x{1:X} has no address.".format(sym.name, sym.symtab_offset))
+                    l.warn("Non-stab symbol %r @ %#x has no address.", sym.name, sym.symtab_offset)
 
     def _parse_exports(self, blob):
         """
@@ -374,17 +377,17 @@ class MachO(Backend):
         blob_f = cStringIO.StringIO(blob)  # easier to handle seeking here
 
         # constants
-        FLAGS_KIND_MASK = 0x03
-        FLAGS_KIND_REGULAR = 0x00
-        FLAGS_KIND_THREAD_LOCAL = 0x01
-        FLAGS_WEAK_DEFINITION = 0x04
+        #FLAGS_KIND_MASK = 0x03
+        #FLAGS_KIND_REGULAR = 0x00
+        #FLAGS_KIND_THREAD_LOCAL = 0x01
+        #FLAGS_WEAK_DEFINITION = 0x04
         FLAGS_REEXPORT = 0x08
         FLAGS_STUB_AND_RESOLVER = 0x10
 
         try:
             while True:
-                (index, sym_str) = nodes_to_do.pop()
-                l.debug("Processing node 0x{0:X} '{1}'".format(index, sym_str))
+                index, sym_str = nodes_to_do.pop()
+                l.debug("Processing node %#x %r", index, sym_str)
                 blob_f.seek(index, SEEK_SET)
                 info_len = struct.unpack("B", blob_f.read(1))[0]
                 if info_len > 127:
@@ -409,7 +412,7 @@ class MachO(Backend):
                         while char != '\x00':
                             lib_sym_name += char
                             char = blob_f.read(1)
-                        l.info("Found REEXPORT export '{0}': {1},'{2}'".format(sym_str, lib_ordinal, lib_sym_name))
+                        l.info("Found REEXPORT export %r: %d,%r", sym_str, lib_ordinal, lib_sym_name)
                         self.exports_by_name[sym_str] = (flags, lib_ordinal, lib_sym_name)
                     elif flags & FLAGS_STUB_AND_RESOLVER:
                         # STUB_AND_RESOLVER: uleb: stub offset, uleb: resovler offset
@@ -420,15 +423,14 @@ class MachO(Backend):
                         tmp = read_uleb(blob, blob_f.tell())
                         blob_f.seek(tmp[1], SEEK_CUR)
                         resolver_offset = tmp[0]
-                        l.info("Found STUB_AND_RESOLVER export '{0}': 0x{1:X},0x{2:X}'".format(sym_str, stub_offset,
-                                                                                               resolver_offset))
+                        l.info("Found STUB_AND_RESOLVER export %r: %#x,%#x'", sym_str, stub_offset, resolver_offset)
                         self.exports_by_name[sym_str] = (flags, stub_offset, resolver_offset)
                     else:
                         # normal: offset from mach header
                         tmp = read_uleb(blob, blob_f.tell())
                         blob_f.seek(tmp[1], SEEK_CUR)
                         symbol_offset = tmp[0] + self.segments[1].vaddr
-                        l.info("Found normal export '{0}': 0x{1:X}".format(sym_str, symbol_offset))
+                        l.info("Found normal export %r: %#x", sym_str, symbol_offset)
                         self.exports_by_name[sym_str] = (flags, symbol_offset)
 
                 child_count = struct.unpack("B", blob_f.read(1))[0]
@@ -441,16 +443,12 @@ class MachO(Backend):
                     tmp = read_uleb(blob, blob_f.tell())
                     blob_f.seek(tmp[1], SEEK_CUR)
                     next_node = tmp[0]
-                    l.debug("{0}. child: (0x{1:X},'{2}')".format(i, next_node, child_str))
+                    l.debug("%d. child: (%#x, %r)", i, next_node, child_str)
                     nodes_to_do.append((next_node, child_str))
 
         except IndexError:
             # List is empty we are done!
             l.debug("Done parsing exports")
-
-    @property
-    def is_64bit(self):
-        return self.arch.bits == 64
 
     def _detect_arch_ident(self):
         """
@@ -506,7 +504,7 @@ class MachO(Backend):
         if address is None:
             l.error("Could not determine base-address for function starts")
             raise CLEInvalidBinaryError()
-        l.debug("Located base-address: 0x{0:X}".format(address))
+        l.debug("Located base-address: %#x", address)
 
         while i < end:
             uleb = read_uleb(blob, i)
@@ -517,7 +515,7 @@ class MachO(Backend):
             address += uleb[0]
 
             self.lc_function_starts.append(address)
-            l.debug("Function start @ 0x{0:X}".format(uleb[0]))
+            l.debug("Function start @ %#x", uleb[0])
             i += uleb[1]
         l.debug("Done parsing function starts")
 
@@ -527,7 +525,7 @@ class MachO(Backend):
             raise CLEInvalidBinaryError()
 
         (_, _, self.entryoff, _) = self._unpack("2I2Q", f, offset, 24)
-        l.debug("LC_MAIN: entryoff=0x{0:X}".format(self.entryoff))
+        l.debug("LC_MAIN: entryoff=%#x", self.entryoff)
 
     def _load_lc_unixthread(self, f, offset):
         if self.entryoff is not None or self.unixthread_pc is not None:
@@ -535,25 +533,26 @@ class MachO(Backend):
             raise CLEInvalidBinaryError()
 
         # parse basic structure
-        (_, cmdsize, flavor, long_count) = self._unpack("4I", f, offset, 16)
+        # _, cmdsize, flavor, long_count
+        _, _, flavor, _ = self._unpack("4I", f, offset, 16)
 
         # we only support 4 different types of thread state atm
         # TODO: This is the place to add x86 and x86_64 thread states
-        if flavor == 1 and not self.is_64bit:  # ARM_THREAD_STATE or ARM_UNIFIED_THREAD_STATE or ARM_THREAD_STATE32
+        if flavor == 1 and self.arch.bits != 64:  # ARM_THREAD_STATE or ARM_UNIFIED_THREAD_STATE or ARM_THREAD_STATE32
             blob = self._unpack("16I", f, offset + 16, 64)  # parses only until __pc
-        elif flavor == 1 and self.is_64bit or flavor == 6:  # ARM_THREAD_STATE or ARM_UNIFIED_THREAD_STATE or ARM_THREAD_STATE64
+        elif flavor == 1 and self.arch.bits == 64 or flavor == 6:  # ARM_THREAD_STATE or ARM_UNIFIED_THREAD_STATE or ARM_THREAD_STATE64
             blob = self._unpack("33Q", f, offset + 16, 264)  # parses only until __pc
         else:
-            l.error("Unknown thread flavor: {0}".format(flavor))
+            l.error("Unknown thread flavor: %d", flavor)
             raise CLECompatibilityError()
 
         self.unixthread_pc = blob[-1]
-        l.debug("LC_UNIXTHREAD: __pc=0x{0:X}".format(self.unixthread_pc))
+        l.debug("LC_UNIXTHREAD: __pc=%#x", self.unixthread_pc)
 
     def _load_dylib_info(self, f, offset):
-        (_, size, name_offset, _, _, _) = self._unpack("6I", f, offset, 24)
+        (_, _, name_offset, _, _, _) = self._unpack("6I", f, offset, 24)
         lib_name = self.parse_lc_str(f, offset + name_offset)
-        l.debug("Adding library '{0}'".format(lib_name))
+        l.debug("Adding library %r", lib_name)
         self.imported_libraries.append(lib_name)
 
     def _load_dyld_info(self, f, offset):
@@ -594,12 +593,12 @@ class MachO(Backend):
         for i in range(0, nsyms):
             offset = (i * structsize) + symoff
             (n_strx, n_type, n_sect, n_desc, n_value) = self._unpack(packstr, f, offset, structsize)
-            l.debug(
-                "Adding symbol # {0} @ {6:X}: {1},{2},{3},{4},{5}".format(i, n_strx, n_type, n_sect, n_desc, n_value,
-                                                                          offset))
-            self.symbols.append(
-                MachOSymbol(self, self.get_string(n_strx) if n_strx != 0 else "", None, offset, n_type, n_sect, n_desc,
-                            n_value))
+            l.debug("Adding symbol # %d @ %#x: %s,%s,%s,%s,%s",
+                    i, offset,
+                    n_strx, n_type, n_sect, n_desc, n_value)
+            self.symbols.append(MachOSymbol(
+                    self, self.get_string(n_strx) if n_strx != 0 else "",
+                    None, offset, n_type, n_sect, n_desc, n_value))
 
     def get_string(self, start):
         """Loads a string from the string table"""
@@ -636,16 +635,16 @@ class MachO(Backend):
         is64 = self.arch.bits == 64
         if not is64:
             segment_s_size = 56
-            (_, cmdsize, segname, vmaddr, vmsize, fileoff, filesize, maxprot, initprot, nsects, flags) = self._unpack(
+            (_, _, segname, vmaddr, vmsize, fileoff, filesize, maxprot, initprot, nsects, flags) = self._unpack(
                 "2I16s8I", f, offset, segment_s_size)
         else:
             segment_s_size = 72
-            (_, cmdsize, segname, vmaddr, vmsize, fileoff, filesize, maxprot, initprot, nsects, flags) = self._unpack(
+            (_, _, segname, vmaddr, vmsize, fileoff, filesize, maxprot, initprot, nsects, flags) = self._unpack(
                 "2I16s4Q4I", f, offset, segment_s_size)
 
         # Cleanup segname
         segname = segname.replace("\x00", "")
-        l.debug("Processing segment '{0}'".format(segname))
+        l.debug("Processing segment %r", segname)
 
         # create segment
         seg = MachOSegment(fileoff, vmaddr, filesize, vmsize, segname, nsects, [], flags, initprot, maxprot)
@@ -665,7 +664,7 @@ class MachO(Backend):
         section_start = offset + segment_s_size
         for i in range(0, nsects):
             # Read section
-            l.debug("Processing section # {0} in '{1}'".format(i + 1, segname))
+            l.debug("Processing section # %d in %r", i + 1, segname)
             (section_sectname, section_segname, section_vaddr, section_vsize, section_foff, section_align,
              section_reloff,
              section_nreloc, section_flags, r1, r2) = \
@@ -700,14 +699,21 @@ class MachO(Backend):
         self.segments.append(seg)
 
     def get_symbol_by_address_fuzzy(self, address):
-        """Locates a symbol by checking the given address against sym.addr, sym.bind_xrefs and sym.symbol_stubs"""
+        """
+        Locates a symbol by checking the given address against sym.addr, sym.bind_xrefs and
+        sym.symbol_stubs
+        """
         for sym in self.symbols:
             if address == sym.addr or address in sym.bind_xrefs or address in sym.symbol_stubs:
                 return sym
 
-    def get_symbol(self, name, include_stab=False, fuzzy=False):
-        """Returns all symbols matching name. Note that especially when include_stab=True there may be multiple symbols
-        with the same name, therefore this method always returns an array
+    def get_symbol(self, name, include_stab=False, fuzzy=False): # pylint: disable=arguments-differ
+        """
+        Returns all symbols matching name.
+
+        Note that especially when include_stab=True there may be multiple symbols with the same
+        name, therefore this method always returns an array.
+
         :param include_stab: Include debugging symbols NOT RECOMMENDED
         :param fuzzy: Replace exact match with "contains"-style match
         """
