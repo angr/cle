@@ -7,7 +7,7 @@ import struct
 from ...errors import CLEInvalidBinaryError
 
 import logging
-l = logging.getLogger('cle.MachO.binding')
+l = logging.getLogger('cle.backends.macho.binding')
 
 OPCODE_MASK = 0xF0
 IMM_MASK = 0x0F

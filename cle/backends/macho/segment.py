@@ -8,15 +8,16 @@ from .. import Region
 class MachOSegment(Region):
     """
     Mach-O Segment
-    offset is the offset into the file the region starts
-    vaddr (or just addr) is the virtual address
-    filesize (or just size) is the size of the region in the file
-    memsize (or vsize) is the size of the region when loaded into memory
-    segname is the segment's name without padding
-    nsect is the number of sections contained in this segment
-    sections is an array of MachOSections
-    flags is a bit vector containing per-segment flags
-    initprot and maxprot are initial and maximum permissions respectively
+
+        - offset is the offset into the file the region starts
+        - vaddr (or just addr) is the virtual address
+        - filesize (or just size) is the size of the region in the file
+        - memsize (or vsize) is the size of the region when loaded into memory
+        - segname is the segment's name without padding
+        - nsect is the number of sections contained in this segment
+        - sections is an array of MachOSections
+        - flags is a bit vector containing per-segment flags
+        - initprot and maxprot are initial and maximum permissions respectively
     """
 
     def __init__(self, offset, vaddr, size, vsize, segname, nsect, sections, flags, initprot, maxprot):

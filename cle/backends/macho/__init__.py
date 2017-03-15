@@ -18,7 +18,7 @@ from .segment import MachOSegment
 from .binding import BindingHelper, read_uleb
 
 import logging
-l = logging.getLogger('cle.MachO.main')
+l = logging.getLogger('cle.bindings.macho')
 
 __all__ = ('MachO', 'MachOSection', 'MachOSegment',)
 

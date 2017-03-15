@@ -4,9 +4,9 @@
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
 
 from .. import Symbol
-import logging
 
-l = logging.getLogger('cle.MachO.Symbol')
+import logging
+l = logging.getLogger('cle.backends.macho.symbol')
 
 # some constants:
 SYMBOL_TYPE_UNDEF = 0x0
@@ -14,6 +14,14 @@ SYMBOL_TYPE_ABS = 0x2
 SYMBOL_TYPE_SECT = 0xe
 SYMBOL_TYPE_PBUD = 0xc
 SYMBOL_TYPE_INDIR = 0xa
+
+TYPE_LOOKUP = {
+        SYMBOL_TYPE_UNDEF: Symbol.TYPE_NONE,
+        SYMBOL_TYPE_ABS: Symbol.TYPE_OTHER,
+        SYMBOL_TYPE_SECT: Symbol.TYPE_SECTION,
+        SYMBOL_TYPE_PBUD: Symbol.TYPE_OTHER,
+        SYMBOL_TYPE_INDIR: Symbol.TYPE_OTHER
+}
 
 LIBRARY_ORDINAL_SELF = 0x0
 LIBRARY_ORDINAL_MAX = 0xfd
@@ -42,7 +50,7 @@ class MachOSymbol(Symbol):
         # compare https://developer.apple.com/library/mac/documentation/DeveloperTools/Conceptual/MachOTopics/1-Articles/executing_files.html
         return self.is_weak_referenced
 
-    def __init__(self, owner, name, addr, symtab_offset, type, section_number, description, value, library_name=None,
+    def __init__(self, owner, name, addr, symtab_offset, macho_type, section_number, description, value, library_name=None,
                  segment_name=None, section_name=None, is_export=None):
 
         # Note that setting size = owner.arch.bytes has been directly taken over from the PE backend,
@@ -51,11 +59,11 @@ class MachOSymbol(Symbol):
         # pointing to the symobl.
         # Stub addresses must be obtained through some sort of higher-level analysis
         # note that a symbols name may not be unique!
-        super(MachOSymbol, self).__init__(owner, name, addr, owner.arch.bytes, None)
+        super(MachOSymbol, self).__init__(owner, name, addr, owner.arch.bytes, TYPE_LOOKUP[macho_type])
 
         # store the mach-o properties
         self.symtab_offset = symtab_offset
-        self.n_type = type
+        self.n_type = macho_type
         self.n_sect = section_number
         self.n_desc = description
         self.n_value = value  # mach-o uses this as a multi-purpose field depending on type flags and whatnot
@@ -116,8 +124,7 @@ class MachOSymbol(Symbol):
 
     @property
     def library_ordinal(self):
-
-        return (((self.n_desc) >> 8) & 0xff)
+        return ((self.n_desc) >> 8) & 0xff
 
     @property
     def is_no_dead_strip(self):
