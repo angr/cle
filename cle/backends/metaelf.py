@@ -24,7 +24,7 @@ class MetaELF(Backend):
         realaddr = addr
         if thumb: realaddr -= 1
         dat = ''.join(self.memory.read_bytes(realaddr, 40))
-        return pyvex.IRSB(dat, addr, self.arch, bytes_offset=1 if thumb else 0)
+        return pyvex.IRSB(dat, addr, self.arch, bytes_offset=1 if thumb else 0, opt_level=1)
 
     def _add_plt_stub(self, name, addr, sanity_check=True):
         if addr == 0: return False
@@ -43,8 +43,6 @@ class MetaELF(Backend):
         # it's pretty bad.
         # we sanity-check all our attempts by requiring that the block lifted at the given address
         # references the GOT slot for the symbol.
-
-        pyvex.set_iropt_level(1)
 
         # ATTEMPT 1: some arches will just leave the plt stub addr in the import symbol
         if self.arch.name in ('ARM', 'ARMEL', 'ARMHF', 'AARCH64', 'MIPS32', 'MIPS64'):
