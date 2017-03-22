@@ -14,7 +14,6 @@ except ImportError:
 import logging
 l = logging.getLogger('cle.backends')
 
-
 class Region(object):
     """
     A region of memory that is mapped in the object's file.
