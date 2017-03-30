@@ -31,7 +31,7 @@ class WinSymbol(Symbol):
 
     @property
     def is_forward(self):
-        return self._is_forward
+        return self._forwarder is not None
 
     @property
     def forwarder_dll(self):
@@ -48,7 +48,7 @@ class WinSymbol(Symbol):
     @property
     def is_function(self):
         """
-        All symbols in PE files point to functions.
+        All symbols in PE files point to functions, unless they have a forwarder?
         """
         return self._forwarder is None
 
