@@ -760,6 +760,8 @@ class GNUHashTable(object):
 
         self.bloom = struct.unpack(fmt + fmtsz*self.maskwords, stream.read(self.c*self.maskwords/8))
         self.buckets = struct.unpack(fmt + 'I'*self.nbuckets, stream.read(4*self.nbuckets))
+        self.hash_ptr = stream.tell()
+        self.stream = stream
 
     def _matches_bloom(self, H1):
         C = self.c
@@ -780,17 +782,13 @@ class GNUHashTable(object):
         n = self.buckets[h % self.nbuckets]
         if n == 0:
             return None
-        try:
+        while True:
             sym = self.symtab.get_symbol(n)
-            while True:
-                if sym.name == k:
-                    return sym
-                n += 1
-                sym = self.symtab.get_symbol(n)
-                if (self.gnu_hash(sym.name) % self.nbuckets) != (h % self.nbuckets):
-                    break
-        except AttributeError:  # XXX THIS IS A HACK
-            pass
+            if sym.name == k:
+                return sym
+            if struct.unpack('I', ''.join(self.stream.read_bytes(self.hash_ptr + 4*(n-self.symndx), 4)))[0] & 1 == 1:
+                break
+            n += 1
         return None
 
     @staticmethod
