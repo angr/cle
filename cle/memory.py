@@ -250,6 +250,9 @@ class Clemory(object):
             self._pointer += len(out)
             return ''.join(out)
 
+    def tell(self):
+        return self._pointer
+
     @property
     def cbackers(self):
         """
