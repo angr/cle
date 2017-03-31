@@ -24,7 +24,7 @@ def test_exe():
                                      '.gfids\x00\x00',
                                      '.00cfg\x00\x00',
                                      '.rsrc\x00\x00\x00']))
-    nose.tools.assert_equals(ld.main_bin.segments, [])
+    nose.tools.assert_equals(ld.main_bin.segments.raw_list, [])
     nose.tools.assert_equals(sorted(ld.main_bin.deps),
                              sorted(['KERNEL32.dll',
                                      'VCRUNTIME140D.dll',
