@@ -92,6 +92,7 @@ def test_sections(arch, filename, sections):
                 nose.tools.assert_is_none(ld.main_bin.find_section_containing(a))
                 nose.tools.assert_is_none(ld.main_bin.sections.find_region_containing(a))
 
+    nose.tools.assert_is_none(ld.main_bin.find_section_containing(0xffffffff), None)
 
 def test_segments(arch, filename, segments):
 
@@ -131,6 +132,8 @@ def test_segments(arch, filename, segments):
                 a = seg_a.vaddr + seg_a.memsize + j
                 nose.tools.assert_is_none(ld.main_bin.find_segment_containing(a))
                 nose.tools.assert_is_none(ld.main_bin.segments.find_region_containing(a))
+
+    nose.tools.assert_is_none(ld.main_bin.find_segment_containing(0xffffffff), None)
 
 
 def run_all():

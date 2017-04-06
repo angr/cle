@@ -320,6 +320,8 @@ class Regions(object):
         pos = self.bisect_find(self._sorted_list, addr,
                                     keyfunc=lambda r: r if type(r) in (int, long) else r.vaddr + r.memsize
                                     )
+        if pos >= len(self._sorted_list):
+            return None
         region = self._sorted_list[pos]
         if region.contains_addr(addr):
             return region
@@ -337,7 +339,7 @@ class Regions(object):
                 lo = mid + 1
             else:
                 hi = mid
-        return hi
+        return lo
 
     @staticmethod
     def bisect_insort_left(lst, item, lo=0, hi=None, keyfunc=lambda x: x):
