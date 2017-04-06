@@ -15,7 +15,7 @@ groundtruth = {
     ('x86_64', 'allcmps'): {
         'sections': [
                         Section('', 0x0, 0x0, 0x0),
-                        Section('.interp', 0x238, 0x400238, 0x1c), 
+                        Section('.interp', 0x238, 0x400238, 0x1c),
                         Section('.note.ABI-tag', 0x254, 0x400254, 0x20),
                         Section('.note.gnu.build-id', 0x274, 0x400274, 0x24),
                         Section('.gnu.hash', 0x298, 0x400298, 0x1c),
@@ -53,7 +53,7 @@ groundtruth = {
 }
 
 
-def test_sections(arch, filename, sections):
+def run_sections(arch, filename, sections):
 
     binary_path = os.path.join(TESTS_BASE, arch, filename)
 
@@ -94,7 +94,7 @@ def test_sections(arch, filename, sections):
 
     nose.tools.assert_is_none(ld.main_bin.find_section_containing(0xffffffff), None)
 
-def test_segments(arch, filename, segments):
+def run_segments(arch, filename, segments):
 
     binary_path = os.path.join(TESTS_BASE, arch, filename)
 
@@ -136,12 +136,12 @@ def test_segments(arch, filename, segments):
     nose.tools.assert_is_none(ld.main_bin.find_segment_containing(0xffffffff), None)
 
 
-def run_all():
+def test_all():
 
     for (arch, filename), data in groundtruth.iteritems():
-        test_sections(arch, filename, data['sections'])
-        test_segments(arch, filename, data['segments'])
+        yield run_sections, arch, filename, data['sections']
+        yield run_segments, arch, filename, data['segments']
 
 
 if __name__ == "__main__":
-    run_all()
+    test_all()
