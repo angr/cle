@@ -441,14 +441,14 @@ class ELF(MetaELF):
 
         if allocend > dataend:
             zero = dataend
-            zeroend = allocend
             zeropage = (zero + _DL_PAGESIZE - 1) & ~(_DL_PAGESIZE - 1)
 
             if zeropage > zero:
                 data = data[:zero - mapstart].ljust(zeropage - mapstart, '\0')
 
+            zeroend = ALIGN_UP(allocend, _DL_PAGESIZE) # mmap maps to the next page boundary
             if zeroend > zeropage:
-                data.ljust(zeroend - zeropage, '\0')
+                data = data.ljust(zeroend - mapstart, '\0')
 
         self.memory.add_backer(mapstart, data)
 
