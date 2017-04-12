@@ -14,6 +14,7 @@ def ALIGN_UP(base, size):
 
 # To verify the mmap behavior you can compile and run the following program. Fact is that mmap file mappings
 # always map in the entire page into memory from the file if available. If not, it gets zero padded
+# pylint: disable=pointless-string-statement
 """#include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -56,4 +57,3 @@ def get_mmaped_data(stream, offset, length):
     stream.seek(offset)
     data = stream.read(read_length)
     return data.ljust(read_length, '\0')
-
