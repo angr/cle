@@ -422,8 +422,8 @@ class ELF(MetaELF):
         # see https://code.woboq.org/userspace/glibc/elf/dl-load.c.html#1066
         ph = seg.header
 
-        if ph.p_align & (_DL_PAGESIZE - 1) != 0:
-            raise CLEInvalidBinaryError("dl-load.c: ELF load command alignment not page-aligned")
+        #if ph.p_align & (_DL_PAGESIZE - 1) != 0:
+        #    raise CLEInvalidBinaryError("dl-load.c: ELF load command alignment not page-aligned")
 
         if (ph.p_vaddr - ph.p_offset) & (ph.p_align - 1) != 0:
             raise CLEInvalidBinaryError("dl-load.c: ELF load command address/offset not properly aligned")
