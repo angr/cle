@@ -11,6 +11,7 @@ from .relocations import get_relocation
 from .relocations.generic import MipsGlobalReloc, MipsLocalReloc
 from ..patched_stream import PatchedStream
 from ..errors import CLEError, CLEInvalidBinaryError, CLECompatibilityError
+from ..libc_utils import ALIGN_DOWN, ALIGN_UP, _DL_PAGESIZE, get_mmaped_data
 
 import logging
 l = logging.getLogger('cle.elf')
@@ -406,14 +407,51 @@ class ELF(MetaELF):
         return addr + self.rebase_addr
 
     def _load_segment(self, seg):
+        self._load_segment_metadata(seg)
+        self._load_segment_memory(seg)
+
+    def _load_segment_metadata(self, seg):
         """
         Loads a segment based on a LOAD directive in the program header table.
         """
-        self.segments.append(ELFSegment(seg))
-        seg_data = seg.data()
-        if seg.header.p_memsz > seg.header.p_filesz:
-            seg_data += '\0' * (seg.header.p_memsz - seg.header.p_filesz)
-        self.memory.add_backer(seg.header.p_vaddr, seg_data)
+        loaded_segment = ELFSegment(seg)
+        self.segments.append(loaded_segment)
+
+    def _load_segment_memory(self, seg):
+
+        # see https://code.woboq.org/userspace/glibc/elf/dl-load.c.html#1066
+        ph = seg.header
+
+        if ph.p_align & (_DL_PAGESIZE - 1) != 0:
+            raise CLEInvalidBinaryError("dl-load.c: ELF load command alignment not page-aligned")
+
+        if (ph.p_vaddr - ph.p_offset) & (ph.p_align - 1) != 0:
+            raise CLEInvalidBinaryError("dl-load.c: ELF load command address/offset not properly aligned")
+
+        mapstart = ALIGN_DOWN(ph.p_vaddr, _DL_PAGESIZE)
+        mapend = ALIGN_UP(ph.p_vaddr + ph.p_filesz, _DL_PAGESIZE)
+
+        dataend = ph.p_vaddr + ph.p_filesz
+        allocend = ph.p_vaddr + ph.p_memsz
+
+        mapoff = ALIGN_DOWN(ph.p_offset, _DL_PAGESIZE)
+        fileend = ph.p_offset + ph.p_filesz
+
+        # see https://code.woboq.org/userspace/glibc/elf/dl-map-segments.h.html#88
+        data = get_mmaped_data(seg.stream, mapoff, mapend - mapstart)
+
+        if allocend > dataend:
+            zero = dataend
+            zeroend = allocend
+            zeropage = (zero + _DL_PAGESIZE - 1) & ~(_DL_PAGESIZE - 1)
+
+            if zeropage > zero:
+                data = data[:zero].ljust(zeropage, '\0')
+
+            if zeroend > zeropage:
+                data.ljust(zeroend - zeropage, '\0')
+
+        self.memory.add_backer(mapstart, data)
 
     def __register_dyn(self, seg_readelf):
         """

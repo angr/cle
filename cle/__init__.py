@@ -9,6 +9,7 @@ import logging
 logging.getLogger("cle").addHandler(logging.NullHandler())
 
 # pylint: disable=wildcard-import
+from .libc_utils import *
 from .loader import *
 from .memory import *
 from .errors import *
