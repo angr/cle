@@ -435,7 +435,6 @@ class ELF(MetaELF):
         allocend = ph.p_vaddr + ph.p_memsz
 
         mapoff = ALIGN_DOWN(ph.p_offset, _DL_PAGESIZE)
-        fileend = ph.p_offset + ph.p_filesz
 
         # see https://code.woboq.org/userspace/glibc/elf/dl-map-segments.h.html#88
         data = get_mmaped_data(seg.stream, mapoff, mapend - mapstart)
@@ -446,7 +445,7 @@ class ELF(MetaELF):
             zeropage = (zero + _DL_PAGESIZE - 1) & ~(_DL_PAGESIZE - 1)
 
             if zeropage > zero:
-                data = data[:zero].ljust(zeropage, '\0')
+                data = data[:zero - mapstart].ljust(zeropage - mapstart, '\0')
 
             if zeroend > zeropage:
                 data.ljust(zeroend - zeropage, '\0')
