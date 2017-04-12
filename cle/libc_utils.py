@@ -2,6 +2,7 @@ from .errors import CLEError
 
 _DL_PAGESIZE = 0x1000
 
+
 # https://code.woboq.org/userspace/glibc/include/libc-pointer-arith.h.html#43
 def ALIGN_DOWN(base, size):
     return base & -size
@@ -49,11 +50,10 @@ int main(int argc, char* argv[])
 }"""
 def get_mmaped_data(stream, offset, length):
     if offset % _DL_PAGESIZE != 0:
-        raise CLEError("libc helper for mmap: Invalid page offset, should be multiple of page size! Stream {}, offset {}, length".format(stream, offset, length))
+        raise CLEError("libc helper for mmap: Invalid page offset, should be multiple of page size! Stream {}, offset {}, length: {}".format(stream, offset, length))
 
     read_length = ALIGN_UP(length, _DL_PAGESIZE)
     stream.seek(offset)
     data = stream.read(read_length)
     return data.ljust(read_length, '\0')
-
 
