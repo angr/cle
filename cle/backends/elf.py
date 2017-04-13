@@ -11,7 +11,7 @@ from .relocations import get_relocation
 from .relocations.generic import MipsGlobalReloc, MipsLocalReloc
 from ..patched_stream import PatchedStream
 from ..errors import CLEError, CLEInvalidBinaryError, CLECompatibilityError
-from ..libc_utils import ALIGN_DOWN, ALIGN_UP, _DL_PAGESIZE, get_mmaped_data
+from ..libc_utils import ALIGN_DOWN, ALIGN_UP, get_mmaped_data
 
 import logging
 l = logging.getLogger('cle.elf')
@@ -422,31 +422,33 @@ class ELF(MetaELF):
         # see https://code.woboq.org/userspace/glibc/elf/dl-load.c.html#1066
         ph = seg.header
 
-        #if ph.p_align & (_DL_PAGESIZE - 1) != 0:
-        #    raise CLEInvalidBinaryError("dl-load.c: ELF load command alignment not page-aligned")
+        if ph.p_align & (self.loader.page_size - 1) != 0:
+            l.error("ELF file %s is loading a segment which is not page-aligned... do you need to change the page size?", self.binary)
 
         if (ph.p_vaddr - ph.p_offset) & (ph.p_align - 1) != 0:
-            raise CLEInvalidBinaryError("dl-load.c: ELF load command address/offset not properly aligned")
+            raise CLEInvalidBinaryError("ELF file %s is loading a segment with an inappropriate alignment", self.binary)
+        if ph.p_filesz > ph.p_memsz:
+            raise CLEInvalidBinaryError("ELF file %s is loading a segment with an inappropriate allocation", self.binary)
 
-        mapstart = ALIGN_DOWN(ph.p_vaddr, _DL_PAGESIZE)
-        mapend = ALIGN_UP(ph.p_vaddr + ph.p_filesz, _DL_PAGESIZE)
+        mapstart = ALIGN_DOWN(ph.p_vaddr, self.loader.page_size)
+        mapend = ALIGN_UP(ph.p_vaddr + ph.p_filesz, self.loader.page_size)
 
         dataend = ph.p_vaddr + ph.p_filesz
         allocend = ph.p_vaddr + ph.p_memsz
 
-        mapoff = ALIGN_DOWN(ph.p_offset, _DL_PAGESIZE)
+        mapoff = ALIGN_DOWN(ph.p_offset, self.loader.page_size)
 
         # see https://code.woboq.org/userspace/glibc/elf/dl-map-segments.h.html#88
-        data = get_mmaped_data(seg.stream, mapoff, mapend - mapstart)
+        data = get_mmaped_data(seg.stream, mapoff, mapend - mapstart, self.loader.page_size)
 
         if allocend > dataend:
             zero = dataend
-            zeropage = (zero + _DL_PAGESIZE - 1) & ~(_DL_PAGESIZE - 1)
+            zeropage = (zero + self.loader.page_size - 1) & ~(self.loader.page_size - 1)
 
             if zeropage > zero:
                 data = data[:zero - mapstart].ljust(zeropage - mapstart, '\0')
 
-            zeroend = ALIGN_UP(allocend, _DL_PAGESIZE) # mmap maps to the next page boundary
+            zeroend = ALIGN_UP(allocend, self.loader.page_size) # mmap maps to the next page boundary
             if zeroend > zeropage:
                 data = data.ljust(zeroend - mapstart, '\0')
 

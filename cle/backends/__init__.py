@@ -403,17 +403,20 @@ class Backend(object):
     :ivar str provides:     The name of the shared library dependancy that this object resolves
     """
 
-    def __init__(self, binary, is_main_bin=False, compatible_with=None, filename=None, **kwargs):
+    def __init__(self,
+            binary,
+            loader=None,
+            is_main_bin=False,
+            compatible_with=None,
+            filename=None,
+            custom_entry_point=None,
+            custom_arch=None,
+            **kwargs):
         """
         :param binary:          The path to the binary to load
         :param is_main_bin:     Whether this binary should be loaded as the main executable
         :param compatible_with: An optional Backend object to force compatibility with
         """
-        # Unfold the kwargs and convert them to class attributes
-        # TODO: do we need to do this anymore?
-        for k,v in kwargs.iteritems():
-            setattr(self, k, v)
-
         if hasattr(binary, 'seek') and hasattr(binary, 'read'):
             self.binary = filename
             self.binary_stream = binary
@@ -424,7 +427,11 @@ class Backend(object):
             except IOError:
                 self.binary_stream = None
 
+        if kwargs != {}:
+            l.warning("Unused kwargs for loading binary %s", self.binary)
+
         self.is_main_bin = is_main_bin
+        self.loader = loader
         self._entry = None
         self._segments = Regions() # List of segments
         self._sections = Regions() # List of sections
@@ -439,7 +446,6 @@ class Backend(object):
         self.os = None  # Let other stuff override this
         self.compatible_with = compatible_with
         self._symbol_cache = {}
-        self.aslr = kwargs['aslr'] if 'aslr' in kwargs else False
 
         self.rebase_addr_symbolic = 0
         # These are set by cle, and should not be overriden manually
@@ -452,12 +458,11 @@ class Backend(object):
         self.execstack = False
 
         # Custom options
-        self._custom_entry_point = kwargs.get('custom_entry_point', None)
+        self._custom_entry_point = custom_entry_point
         self.provides = os.path.basename(self.binary) if self.binary is not None else None
 
         self.memory = None
 
-        custom_arch = kwargs.get('custom_arch', None)
         if custom_arch is None:
             self.arch = None
         elif isinstance(custom_arch, str):

@@ -42,7 +42,8 @@ class Loader(object):
                  force_load_libs=None, skip_libs=None,
                  main_opts=None, lib_opts=None, custom_ld_path=None,
                  ignore_import_version_numbers=True, rebase_granularity=0x1000000,
-                 except_missing_libs=False, gdb_map=None, gdb_fix=False, aslr=False):
+                 except_missing_libs=False, gdb_map=None, gdb_fix=False, aslr=False,
+                 page_size=0x1000):
         """
         :param main_binary:         The path to the main binary you're loading, or a file-like object with the binary
                                     in it.
@@ -66,6 +67,8 @@ class Loader(object):
         :param gdb_fix:             If ``info sharedlibrary`` was used, the addresses gdb gives us are in fact the
                                     addresses of the .text sections. We need to fix them to get the real load addresses.
         :param aslr:                Load libraries in symbolic address space.
+        :param page_size:           The granularity with which data is mapped into memory. Set to 1 if you are working
+                                    in a non-paged environment.
         """
 
         if hasattr(main_binary, 'seek') and hasattr(main_binary, 'read'):
@@ -86,6 +89,7 @@ class Loader(object):
         self._relocated_objects = set()
 
         self.aslr = aslr
+        self.page_size = page_size
         self.memory = None
         self.main_bin = None
         self.shared_objects = OrderedDict()
@@ -214,8 +218,7 @@ class Loader(object):
             base_addr = options.get('custom_base_addr', None)
             self.add_object(obj, base_addr)
 
-    @staticmethod
-    def load_object(path, options=None, compatible_with=None, is_main_bin=False):
+    def load_object(self, path, options=None, compatible_with=None, is_main_bin=False):
         """
         Load a file with some backend. Try to identify the type of the file to autodetect which backend to use.
 
@@ -246,7 +249,7 @@ class Loader(object):
         else:
             raise CLEError('Invalid backend: %s' % backend_option)
 
-        loaded = backend(path, compatible_with=compatible_with, is_main_bin=is_main_bin, **options)
+        loaded = backend(path, compatible_with=compatible_with, is_main_bin=is_main_bin, loader=self, **options)
         return loaded
 
     def get_loader_symbolic_constraints(self):
