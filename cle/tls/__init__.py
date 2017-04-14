@@ -8,8 +8,8 @@ class TLSObj(Backend):
     perform some basic initialization when instanciated, and then once all other objects have been loaded,
     ``finalize()`` is called.
     """
-    def __init__(self, modules, filetype='unknown'):
-        super(TLSObj, self).__init__('##cle_tls##', filetype=filetype)
+    def __init__(self, modules):
+        super(TLSObj, self).__init__('##cle_tls##')
         self.modules = modules
         self.arch = self.modules[0].arch
         self.memory = Clemory(self.arch)

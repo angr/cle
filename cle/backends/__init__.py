@@ -1,6 +1,5 @@
 import os
 import subprocess
-from collections import OrderedDict as _ordered_dict
 
 import archinfo
 from ..memory import Clemory
@@ -63,6 +62,9 @@ class Region(object):
         if not self.contains_addr(addr):
             return None
         return addr
+
+    def __repr__(self):
+        return '{}({})'.format(self.__class__, ', '.join(['{}=0x{:x}'.format(k, v) for k, v in self.__dict__.iteritems()]))
 
     @property
     def max_addr(self):
@@ -236,6 +238,139 @@ class Symbol(object):
 
         return None
 
+
+#
+# Container
+#
+
+
+class Regions(object):
+    """
+    A container class acting as a list of regions (sections or segments). Additionally, it keeps an sorted list of
+    those regions to allow fast lookups.
+
+    We assume none of the regions overlap with others.
+    """
+
+    def __init__(self, lst=None):
+        self._list = lst if lst is not None else [ ]
+
+        if self._list:
+            self._sorted_list = self._make_sorted(self._list)
+        else:
+            self._sorted_list = [ ]
+
+    @property
+    def raw_list(self):
+        """
+        Get the internal list. Any change to it is not tracked, and therefore _sorted_list will not be updated.
+        Therefore you probably does not want to modify the list.
+
+        :return:  The internal list container.
+        :rtype:   list
+        """
+
+        return self._list
+
+    @property
+    def max_addr(self):
+        """
+        Get the highest address of all regions.
+
+        :return: The highest address of all regions, or None if there is no region available.
+        rtype:   int or None
+        """
+
+        if self._sorted_list:
+            return self._sorted_list[-1].max_addr
+        return None
+
+    def __getitem__(self, idx):
+        return self._list[idx]
+
+    def __setitem__(self, idx, item):
+        self._list[idx] = item
+
+        # update self._sorted_list
+        self._sorted_list = self._make_sorted(self._list)
+
+    def __len__(self):
+        return len(self._list)
+
+    def __repr__(self):
+        return "<Regions: %s>" % repr(self._list)
+
+    def append(self, region):
+        """
+        Append a new Region instance into the list.
+
+        :param Region region: The region to append.
+        :return: None
+        """
+
+        self._list.append(region)
+        self.bisect_insort_left(self._sorted_list, region, keyfunc=lambda r: r.vaddr)
+
+    def find_region_containing(self, addr):
+        """
+        Find the region that contains a specific address. Returns None if none of the regions covers the address.
+
+        :param int addr:  The address.
+        :return:          The region that covers the specific address, or None if no such region is found.
+        :rtype:    Region or None
+        """
+
+        pos = self.bisect_find(self._sorted_list, addr,
+                                    keyfunc=lambda r: r if type(r) in (int, long) else r.vaddr + r.memsize
+                                    )
+        if pos >= len(self._sorted_list):
+            return None
+        region = self._sorted_list[pos]
+        if region.contains_addr(addr):
+            return region
+        return None
+
+    @staticmethod
+    def bisect_find(lst, item, lo=0, hi=None, keyfunc=lambda x: x):
+        if lo < 0:
+            raise ValueError('lo must be non-negative')
+        if hi is None:
+            hi = len(lst)
+        while lo < hi:
+            mid = (lo + hi) // 2
+            if keyfunc(lst[mid]) <= keyfunc(item):
+                lo = mid + 1
+            else:
+                hi = mid
+        return lo
+
+    @staticmethod
+    def bisect_insort_left(lst, item, lo=0, hi=None, keyfunc=lambda x: x):
+        if lo < 0:
+            raise ValueError('lo must be non-negative')
+        if hi is None:
+            hi = len(lst)
+        while lo < hi:
+            mid = (lo + hi) // 2
+            if keyfunc(lst[mid]) < keyfunc(item):
+                lo = mid + 1
+            else:
+                hi = mid
+        lst.insert(lo, item)
+
+    @staticmethod
+    def _make_sorted(lst):
+        """
+        Return a sorted list of regions.
+
+        :param list lst:  A list of regions.
+        :return:          A sorted list of regions.
+        :rtype:           list
+        """
+
+        return sorted(lst, lambda x: x.vaddr)
+
+
 class Backend(object):
     """
     Main base class for CLE binary objects.
@@ -268,17 +403,21 @@ class Backend(object):
     :ivar str provides:     The name of the shared library dependancy that this object resolves
     """
 
-    def __init__(self, binary, is_main_bin=False, compatible_with=None, filename=None, **kwargs):
+    def __init__(self,
+            binary,
+            loader=None,
+            is_main_bin=False,
+            compatible_with=None,
+            filename=None,
+            custom_entry_point=None,
+            custom_arch=None,
+            custom_base_addr=None,
+            **kwargs):
         """
         :param binary:          The path to the binary to load
         :param is_main_bin:     Whether this binary should be loaded as the main executable
         :param compatible_with: An optional Backend object to force compatibility with
         """
-        # Unfold the kwargs and convert them to class attributes
-        # TODO: do we need to do this anymore?
-        for k,v in kwargs.iteritems():
-            setattr(self, k, v)
-
         if hasattr(binary, 'seek') and hasattr(binary, 'read'):
             self.binary = filename
             self.binary_stream = binary
@@ -289,10 +428,14 @@ class Backend(object):
             except IOError:
                 self.binary_stream = None
 
+        if kwargs != {}:
+            l.warning("Unused kwargs for loading binary %s: %s", self.binary, ', '.join(str(x) for x in kwargs.keys()))
+
         self.is_main_bin = is_main_bin
+        self.loader = loader
         self._entry = None
-        self.segments = [] # List of segments
-        self.sections = []      # List of sections
+        self._segments = Regions() # List of segments
+        self._sections = Regions() # List of sections
         self.sections_map = {}  # Mapping from section name to section
         self.symbols_by_addr = {}
         self.imports = {}
@@ -304,7 +447,6 @@ class Backend(object):
         self.os = None  # Let other stuff override this
         self.compatible_with = compatible_with
         self._symbol_cache = {}
-        self.aslr = kwargs['aslr'] if 'aslr' in kwargs else False
 
         self.rebase_addr_symbolic = 0
         # These are set by cle, and should not be overriden manually
@@ -317,12 +459,12 @@ class Backend(object):
         self.execstack = False
 
         # Custom options
-        self._custom_entry_point = kwargs.get('custom_entry_point', None)
+        self._custom_entry_point = custom_entry_point
+        self._custom_base_addr = custom_base_addr
         self.provides = os.path.basename(self.binary) if self.binary is not None else None
 
         self.memory = None
 
-        custom_arch = kwargs.get('custom_arch', None)
         if custom_arch is None:
             self.arch = None
         elif isinstance(custom_arch, str):
@@ -358,6 +500,32 @@ class Backend(object):
             return self._custom_entry_point + self.rebase_addr
         return self._entry + self.rebase_addr
 
+    @property
+    def segments(self):
+        return self._segments
+
+    @segments.setter
+    def segments(self, v):
+        if isinstance(v, list):
+            self._segments = Regions(lst=v)
+        elif isinstance(v, Regions):
+            self._segments = v
+        else:
+            raise ValueError('Unsupported type %s set as sections.' % type(v))
+
+    @property
+    def sections(self):
+        return self._sections
+
+    @sections.setter
+    def sections(self, v):
+        if isinstance(v, list):
+            self._sections = Regions(lst=v)
+        elif isinstance(v, Regions):
+            self._sections = v
+        else:
+            raise ValueError('Unsupported type %s set as sections.' % type(v))
+
     def contains_addr(self, addr):
         """
         Is `addr` in one of the binary's segments/sections we have loaded? (i.e. is it mapped into memory ?)
@@ -372,21 +540,15 @@ class Backend(object):
         """
         Returns the segment that contains `addr`, or ``None``.
         """
-        for s in self.segments:
-            if s.contains_addr(addr - self.rebase_addr):
-                return s
 
-        return None
+        return self.segments.find_region_containing(addr - self.rebase_addr)
 
     def find_section_containing(self, addr):
         """
         Returns the section that contains `addr` or ``None``.
         """
-        for s in self.sections:
-            if s.contains_addr(addr - self.rebase_addr):
-                return s
 
-        return None
+        return self.sections.find_region_containing(addr - self.rebase_addr)
 
     def addr_to_offset(self, addr):
         loadable = self.find_loadable_containing(addr)
@@ -433,15 +595,10 @@ class Backend(object):
         This returns the highest virtual address contained in any loaded segment of the binary.
         """
 
-        out = None
-        for segment in self.segments:
-            if out is None or segment.max_addr > out:
-                out = segment.max_addr
+        out = self.segments.max_addr
 
         if out is None:
-            for section in self.sections:
-                if out is None or section.max_addr > out:
-                    out = section.max_addr
+            out = self.sections.max_addr
 
         if out is None:
             return self.rebase_addr
@@ -480,6 +637,13 @@ class Backend(object):
         """
         if name in self._symbol_cache:
             return self._symbol_cache[name]
+        return None
+
+    @staticmethod
+    def extract_soname(path):
+        """
+        Extracts the shared object identifier from the path, or returns None if it cannot.
+        """
         return None
 
 ALL_BACKENDS = dict()

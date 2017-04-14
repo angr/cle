@@ -27,7 +27,7 @@ class ELFTLSObj(TLSObj):
         - https://www.linux-mips.org/wiki/NPTL
     """
     def __init__(self, modules):
-        super(ELFTLSObj, self).__init__(modules, filetype='unix')
+        super(ELFTLSObj, self).__init__(modules)
         module_id = 1
         self.total_blocks_size = 0
         for module in modules:

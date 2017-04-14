@@ -11,53 +11,67 @@ class Blob(Backend):
     Representation of a binary blob, i.e. an executable in an unknown file format.
     """
 
-    def __init__(self, path, custom_arch=None, custom_offset=None, *args, **kwargs):
+    def __init__(self, path, custom_offset=None, segments=None, **kwargs):
         """
         :param custom_arch:   (required) an :class:`archinfo.Arch` for the binary blob.
         :param custom_offset: Skip this many bytes from the beginning of the file.
+        :param segments:      List of tuples describing how to map data into memory. Tuples
+                              are of ``(file_offset, mem_addr, size)``.
+
+        You can't specify both ``custom_offset`` and ``segments``.
         """
 
-        if custom_arch is None:
+        super(Blob, self).__init__(path, **kwargs)
+
+        if self.arch is None:
             raise CLEError("Must specify custom_arch when loading blob!")
 
-        super(Blob, self).__init__(path, *args,
-                custom_arch=custom_arch,
-                custom_offset=custom_offset, **kwargs)
-
-        self.custom_offset = custom_offset if custom_offset is not None else 0
-
         if self._custom_entry_point is None:
-            l.warning("No custom entry point was specified for blob, assuming 0")
+            l.warning("No custom_entry_point was specified for blob, assuming 0")
             self._custom_entry_point = 0
 
         self._entry = self._custom_entry_point
         self._max_addr = 0
+        self._min_addr = 2**64
+
         self.os = 'unknown'
 
-        self._load(self.custom_offset)
+        if custom_offset is not None:
+            if segments is not None:
+                l.error("You can't specify both custom_offset and segments. Taking only the segments data")
+            else:
+                self.binary_stream.seek(0, 2)
+                segments = [(custom_offset, 0, self.binary_stream.tell() - custom_offset)]
+        else:
+            if segments is not None:
+                pass
+            else:
+                self.binary_stream.seek(0, 2)
+                segments = [(0, 0, self.binary_stream.tell())]
+
+        for file_offset, mem_addr, size in segments:
+            self._load(file_offset, mem_addr, size)
 
     @staticmethod
     def is_compatible(stream):
         return stream == 0  # I hate pylint
 
     def get_min_addr(self):
-        return 0
+        return self._min_addr
 
     def get_max_addr(self):
         return self._max_addr
 
-    def _load(self, offset, size=None):
+    def _load(self, file_offset, mem_addr, size):
         """
         Load a segment into memory.
         """
 
-        self.binary_stream.seek(offset)
-        if size is None:
-            string = self.binary_stream.read()
-        else:
-            string = self.binary_stream.read(size)
-        self.memory.add_backer(0, string)
-        self._max_addr = len(string)
+        self.binary_stream.seek(file_offset)
+        string = self.binary_stream.read(size)
+        self.memory.add_backer(mem_addr, string)
+        self._max_addr = max(len(string) + mem_addr, self._max_addr)
+        self._min_addr = min(mem_addr, self._min_addr)
 
     def function_name(self, addr): #pylint: disable=unused-argument,no-self-use
         """

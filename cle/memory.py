@@ -189,7 +189,8 @@ class Clemory(object):
         """
         Read addr stored in memory as a series of bytes starting at `where`.
         """
-        return struct.unpack(self._arch.struct_fmt(), ''.join(self.read_bytes(where, self._arch.bytes, orig=orig)))[0]
+        by = ''.join(self.read_bytes(where, self._arch.bytes, orig=orig))
+        return struct.unpack(self._arch.struct_fmt(), by)[0]
 
     def write_addr_at(self, where, addr):
         """
@@ -249,6 +250,9 @@ class Clemory(object):
             out = self.read_bytes(self._pointer, nbytes)
             self._pointer += len(out)
             return ''.join(out)
+
+    def tell(self):
+        return self._pointer
 
     @property
     def cbackers(self):

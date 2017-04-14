@@ -66,9 +66,6 @@ class IDABin(Backend):
         """
         Makes a copy of obj into CLE's tmp directory.
         """
-        # EDG says: Lint was complaining about the way IDABin called into Loader to use this
-        # method.  Importing it to make Lint shut up caused a circular import.
-        # So I broke the chain.  Sorry if this offends your code reuse sensibilities
         if not os.path.exists('/tmp/cle'):
             os.mkdir('/tmp/cle')
 

@@ -11,6 +11,7 @@ from .relocations import get_relocation
 from .relocations.generic import MipsGlobalReloc, MipsLocalReloc
 from ..patched_stream import PatchedStream
 from ..errors import CLEError, CLEInvalidBinaryError, CLECompatibilityError
+from ..utils import ALIGN_DOWN, ALIGN_UP, get_mmaped_data
 
 import logging
 l = logging.getLogger('cle.elf')
@@ -406,14 +407,52 @@ class ELF(MetaELF):
         return addr + self.rebase_addr
 
     def _load_segment(self, seg):
+        self._load_segment_metadata(seg)
+        self._load_segment_memory(seg)
+
+    def _load_segment_metadata(self, seg):
         """
         Loads a segment based on a LOAD directive in the program header table.
         """
-        self.segments.append(ELFSegment(seg))
-        seg_data = seg.data()
-        if seg.header.p_memsz > seg.header.p_filesz:
-            seg_data += '\0' * (seg.header.p_memsz - seg.header.p_filesz)
-        self.memory.add_backer(seg.header.p_vaddr, seg_data)
+        loaded_segment = ELFSegment(seg)
+        self.segments.append(loaded_segment)
+
+    def _load_segment_memory(self, seg):
+
+        # see https://code.woboq.org/userspace/glibc/elf/dl-load.c.html#1066
+        ph = seg.header
+
+        if ph.p_align & (self.loader.page_size - 1) != 0:
+            l.error("ELF file %s is loading a segment which is not page-aligned... do you need to change the page size?", self.binary)
+
+        if (ph.p_vaddr - ph.p_offset) & (ph.p_align - 1) != 0:
+            raise CLEInvalidBinaryError("ELF file %s is loading a segment with an inappropriate alignment", self.binary)
+        if ph.p_filesz > ph.p_memsz:
+            raise CLEInvalidBinaryError("ELF file %s is loading a segment with an inappropriate allocation", self.binary)
+
+        mapstart = ALIGN_DOWN(ph.p_vaddr, self.loader.page_size)
+        mapend = ALIGN_UP(ph.p_vaddr + ph.p_filesz, self.loader.page_size)
+
+        dataend = ph.p_vaddr + ph.p_filesz
+        allocend = ph.p_vaddr + ph.p_memsz
+
+        mapoff = ALIGN_DOWN(ph.p_offset, self.loader.page_size)
+
+        # see https://code.woboq.org/userspace/glibc/elf/dl-map-segments.h.html#88
+        data = get_mmaped_data(seg.stream, mapoff, mapend - mapstart, self.loader.page_size)
+
+        if allocend > dataend:
+            zero = dataend
+            zeropage = (zero + self.loader.page_size - 1) & ~(self.loader.page_size - 1)
+
+            if zeropage > zero:
+                data = data[:zero - mapstart].ljust(zeropage - mapstart, '\0')
+
+            zeroend = ALIGN_UP(allocend, self.loader.page_size) # mmap maps to the next page boundary
+            if zeroend > zeropage:
+                data = data.ljust(zeroend - mapstart, '\0')
+
+        self.memory.add_backer(mapstart, data)
 
     def __register_dyn(self, seg_readelf):
         """
@@ -760,6 +799,8 @@ class GNUHashTable(object):
 
         self.bloom = struct.unpack(fmt + fmtsz*self.maskwords, stream.read(self.c*self.maskwords/8))
         self.buckets = struct.unpack(fmt + 'I'*self.nbuckets, stream.read(4*self.nbuckets))
+        self.hash_ptr = stream.tell()
+        self.stream = stream
 
     def _matches_bloom(self, H1):
         C = self.c
@@ -780,17 +821,13 @@ class GNUHashTable(object):
         n = self.buckets[h % self.nbuckets]
         if n == 0:
             return None
-        try:
+        while True:
             sym = self.symtab.get_symbol(n)
-            while True:
-                if sym.name == k:
-                    return sym
-                n += 1
-                sym = self.symtab.get_symbol(n)
-                if (self.gnu_hash(sym.name) % self.nbuckets) != (h % self.nbuckets):
-                    break
-        except AttributeError:  # XXX THIS IS A HACK
-            pass
+            if sym.name == k:
+                return sym
+            if struct.unpack('I', ''.join(self.stream.read_bytes(self.hash_ptr + 4*(n-self.symndx), 4)))[0] & 1 == 1:
+                break
+            n += 1
         return None
 
     @staticmethod
