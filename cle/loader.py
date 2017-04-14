@@ -154,16 +154,7 @@ class Loader(object):
                                             else self._main_binary_stream,
                                         is_main_bin=True)
         self.memory = Clemory(self.main_bin.arch, root=True)
-        base_addr = self.main_bin._custom_base_addr
-        if base_addr is None:
-            base_addr = self.main_bin.requested_base
-        if base_addr is None and self.main_bin.pic:
-            l.warning("The main binary is a position-independent executable. "
-                      "It is being loaded with a base address of 0x400000.")
-            base_addr = 0x400000
-        if base_addr is None:
-            base_addr = 0
-        self.add_object(self.main_bin, base_addr)
+        self.add_object(self.main_bin)
 
     def _load_dependencies(self):
         while len(self._unsatisfied_deps) > 0:
@@ -211,30 +202,46 @@ class Loader(object):
         :param kwargs:              Any additional keyword args will be passed to the backend. These will be augmented
                                     (overridden) by any options specified in ``lib_opts`` or ``main_opts``.
         """
-        # Check if the user specified a backend as...
-        if isinstance(backend, type) and issubclass(backend, Backend):
-            # ...an actual backend class
-            pass
-        elif backend in ALL_BACKENDS:
-            # ...the name of a backend class
-            backend_cls = ALL_BACKENDS[backend]
-        elif backend is None:
-            backend_cls = Loader.identify_object(path)
-        else:
-            raise CLEError('Invalid backend: %s' % backend)
-
+        # most of the complexity of this function is the horrible complexity of the options system
+        # first we grab as many options as we can right now
         if is_main_bin:
             kwargs.update(self._main_opts)
         else:
             libname = os.path.basename(path) if isinstance(path, (str, unicode)) else None
-            soname = backend_cls.extract_soname(path)
             if libname is not None and libname in self._lib_opts:
                 kwargs.update(self._lib_opts[libname])
+
+        # the 'backend' option is special - it must be dealt with now
+        # make a first attempt to find the backend to use
+        if 'backend' in kwargs:
+            backend = kwargs.pop('backend')
+        backend_cls = self._backend_resolver(backend)
+        if backend_cls is None:
+            backend_cls = self.identify_object(path)
+
+        # now that we have at least some backend, we can grab the soname and use that to get some more options
+        if not is_main_bin:
+            soname = backend_cls.extract_soname(path)
             if soname is not None and soname in self._lib_opts:
                 kwargs.update(self._lib_opts[soname])
 
-        loaded = backend_cls(path, compatible_with=compatible_with, is_main_bin=is_main_bin, loader=self, **kwargs)
-        return loaded
+        # if this new set of arguments specified a backend (???) we want to use that instead
+        if 'backend' in kwargs:
+            backend_cls = self._backend_resolver(kwargs.pop('backend'), backend_cls)
+
+        # do the load!!!
+        return backend_cls(path, compatible_with=compatible_with, is_main_bin=is_main_bin, loader=self, **kwargs)
+
+    @staticmethod
+    def _backend_resolver(backend, default=None):
+        if isinstance(backend, type) and issubclass(backend, Backend):
+            return backend
+        elif backend in ALL_BACKENDS:
+            return ALL_BACKENDS[backend]
+        elif backend is None:
+            return default
+        else:
+            raise CLEError('Invalid backend: %s' % backend)
 
     def get_loader_symbolic_constraints(self):
         if not self.aslr:
@@ -285,10 +292,18 @@ class Loader(object):
 
         if base_addr is not None and self._is_range_free(base_addr + obj_offset, obj_size):
             pass
+        elif obj._custom_base_addr is not None and self._is_range_free(obj._custom_base_addr + obj_offset, obj_size):
+            base_addr = obj._custom_base_addr
         elif obj.requested_base is not None and self._is_range_free(obj.requested_base + obj_offset, obj_size):
             base_addr = obj.requested_base
-        else:
+        elif not obj.is_main_bin:
             base_addr = self._get_safe_rebase_addr()
+        elif self.main_bin.pic:
+            l.warning("The main binary is a position-independent executable. "
+                      "It is being loaded with a base address of 0x400000.")
+            base_addr = 0x400000
+        else:
+            base_addr = 0
 
         self.all_objects.append(obj)
         if obj.provides is not None:
