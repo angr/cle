@@ -1,9 +1,6 @@
 import os
 import logging
-import subprocess
 from collections import OrderedDict
-
-import elftools
 
 try:
     import claripy
@@ -155,11 +152,10 @@ class Loader(object):
         self.main_bin = self.load_object(self._main_binary_path
                                             if self._main_binary_stream is None
                                             else self._main_binary_stream,
-                                        self._main_opts,
                                         is_main_bin=True)
         self.memory = Clemory(self.main_bin.arch, root=True)
-        base_addr = self._main_opts.get('custom_base_addr', None)
-        if base_addr is None and self.main_bin.requested_base is not None:
+        base_addr = self.main_bin._custom_base_addr
+        if base_addr is None:
             base_addr = self.main_bin.requested_base
         if base_addr is None and self.main_bin.pic:
             l.warning("The main binary is a position-independent executable. "
@@ -172,7 +168,6 @@ class Loader(object):
     def _load_dependencies(self):
         while len(self._unsatisfied_deps) > 0:
             dep = self._unsatisfied_deps.pop(0)
-            options = {}
             if isinstance(dep, (str, unicode)):
                 if os.path.basename(dep) in self._satisfied_deps:
                     continue
@@ -182,27 +177,8 @@ class Loader(object):
                 path = self._get_lib_path(dep)
 
                 for path in self._possible_paths(dep):
-                    libname = os.path.basename(path)
-
                     try:
-                        loader = self.identify_object(path)
-                    except CLECompatibilityError:
-                        l.warning("Cannot find any backend to load file %s. Skip.", path)
-                        continue
-
-                    if loader == 'elf':
-                        soname = self._extract_soname(path)
-                    else:
-                        soname = libname
-
-                    if libname in self._lib_opts.keys():
-                        options = dict(self._lib_opts[libname])
-                    elif soname in self._lib_opts.keys():
-                        options = dict(self._lib_opts[soname])
-
-                    try:
-                        options['aslr'] = self.aslr
-                        obj = self.load_object(path, options, compatible_with=self.main_bin)
+                        obj = self.load_object(path, compatible_with=self.main_bin)
                         break
                     except (CLECompatibilityError, CLEFileNotFoundError):
                         continue
@@ -210,15 +186,16 @@ class Loader(object):
                     if self._except_missing_libs:
                         raise CLEFileNotFoundError("Could not find shared library: %s" % dep)
                     continue
+            elif hasattr(dep, 'read') and hasattr(dep, 'seek'):
+                obj = self.load_object(dep, compatible_with=self.main_bin)
             elif isinstance(dep, Backend):
                 obj = dep
             else:
                 raise CLEError("Bad library: %s" % path)
 
-            base_addr = options.get('custom_base_addr', None)
-            self.add_object(obj, base_addr)
+            self.add_object(obj)
 
-    def load_object(self, path, options=None, compatible_with=None, is_main_bin=False):
+    def load_object(self, path, compatible_with=None, is_main_bin=False, backend=None, **kwargs):
         """
         Load a file with some backend. Try to identify the type of the file to autodetect which backend to use.
 
@@ -226,30 +203,37 @@ class Loader(object):
 
         The following parameters are optional.
 
-        :param dict options:        A dictionary of keyword arguments to the backend. Can contain a `backend` key to
-                                    force the use of a specific backend
         :param compatiable_with:    Another backend object that this file must be compatible with.
                                     This method will throw a :class:`CLECompatibilityError <cle.errors.CLECompatibilityError>`
                                     if the file at the given path is not compatibile with this parameter.
         :param bool is_main_bin:    Whether this file is the main executable of whatever process we are loading
+        :param backend:             The specific backend to use.
+        :param kwargs:              Any additional keyword args will be passed to the backend. These will be augmented
+                                    (overridden) by any options specified in ``lib_opts`` or ``main_opts``.
         """
-        if options is None:
-            options = {}
-
         # Check if the user specified a backend as...
-        backend_option = options.get('backend', None)
-        if isinstance(backend_option, type) and issubclass(backend_option, Backend):
+        if isinstance(backend, type) and issubclass(backend, Backend):
             # ...an actual backend class
-            backend = backend_option
-        elif backend_option in ALL_BACKENDS:
+            pass
+        elif backend in ALL_BACKENDS:
             # ...the name of a backend class
-            backend = ALL_BACKENDS[backend_option]
-        elif backend_option is None:
-            backend = Loader.identify_object(path)
+            backend_cls = ALL_BACKENDS[backend]
+        elif backend is None:
+            backend_cls = Loader.identify_object(path)
         else:
-            raise CLEError('Invalid backend: %s' % backend_option)
+            raise CLEError('Invalid backend: %s' % backend)
 
-        loaded = backend(path, compatible_with=compatible_with, is_main_bin=is_main_bin, loader=self, **options)
+        if is_main_bin:
+            kwargs.update(self._main_opts)
+        else:
+            libname = os.path.basename(path) if isinstance(path, (str, unicode)) else None
+            soname = backend_cls.extract_soname(path)
+            if libname is not None and libname in self._lib_opts:
+                kwargs.update(self._lib_opts[libname])
+            if soname is not None and soname in self._lib_opts:
+                kwargs.update(self._lib_opts[soname])
+
+        loaded = backend_cls(path, compatible_with=compatible_with, is_main_bin=is_main_bin, loader=self, **kwargs)
         return loaded
 
     def get_loader_symbolic_constraints(self):
@@ -273,22 +257,11 @@ class Loader(object):
         TODO: Implement some binwalk-like thing to carve up blobs aotmatically
         """
 
-        # is this thing a stream, file, etc?
-        if hasattr(path, 'seek') and hasattr(path, 'read'):
-            # It's a stream.  Don't close it after.
-            path.seek(0)
-            stream = path
-            plsclose = False
-        else:
-            # It's a file.  Open it.  Close it after.
-            stream = open(path, 'rb')
-            plsclose = True
+        with stream_or_path(path) as stream:
+            for rear in ALL_BACKENDS.values():
+                if rear.is_compatible(stream):
+                    return rear
 
-        for rear in ALL_BACKENDS.values():
-            if rear.is_compatible(stream):
-                if plsclose: stream.close()
-                return rear
-        if plsclose: stream.close()
         raise CLECompatibilityError("Unable to find a loader backend for this binary.  Perhaps try the 'blob' loader?")
 
     def add_object(self, obj, base_addr=None):
@@ -321,7 +294,7 @@ class Loader(object):
         if obj.provides is not None:
             self.shared_objects[obj.provides] = obj
 
-        l.info("[Rebasing %s @%#x]", obj.binary, base_addr)
+        l.info("Rebasing %s at %#x", obj.binary, base_addr)
         self.memory.add_backer(base_addr, obj.memory)
         obj.rebase_addr = base_addr
 
@@ -533,147 +506,6 @@ class Loader(object):
             if symbol in self.main_bin.jmprel:
                 return self.main_bin.jmprel[symbol].addr
 
-    def _ld_so_addr(self):
-        """
-        Use LD_AUDIT to find object dependencies and relocation addresses.
-        """
-
-        qemu = 'qemu-%s' % self.main_bin.arch.qemu_name
-        env_p = os.getenv("VIRTUAL_ENV", "/")
-        bin_p = os.path.join(env_p, "local/lib", self.main_bin.arch.name.lower())
-
-        # Our LD_AUDIT shared object
-        ld_audit_obj = os.path.join(bin_p, "cle_ld_audit.so")
-
-        #LD_LIBRARY_PATH
-        ld_path = os.getenv("LD_LIBRARY_PATH")
-        if ld_path is None:
-            ld_path = bin_p
-        else:
-            ld_path = ld_path + ":" + bin_p
-
-        cross_libs = self.main_bin.arch.lib_paths
-        if self.main_bin.arch.name in ('AMD64', 'X86'):
-            ld_libs = self.main_bin.arch.lib_paths
-        elif self.main_bin.arch.name == 'PPC64':
-            ld_libs = map(lambda x: x + 'lib64/', self.main_bin.arch.lib_paths)
-        else:
-            ld_libs = map(lambda x: x + 'lib/', self.main_bin.arch.lib_paths)
-        ld_libs = ':'.join(ld_libs)
-        ld_path = ld_path + ":" + ld_libs
-
-        # Make LD look for custom libraries in the right place
-        if self._custom_ld_path is not None:
-            ld_path = self._custom_ld_path + ":" + ld_path
-
-        var = "LD_LIBRARY_PATH=%s,LD_AUDIT=%s,LD_BIND_NOW=yes" % (ld_path, ld_audit_obj)
-
-        # Let's work on a copy of the binary
-        binary = self._binary_screwup_copy(self._main_binary_path)
-
-        #LD_AUDIT's output
-        log = "./ld_audit.out"
-
-        cmd = [qemu, "-strace", "-L", cross_libs, "-E", var, binary]
-        s = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE)
-
-        # Check stderr for library loading issues
-        err = s.stderr.readlines()
-        msg = "cannot open shared object file"
-
-        deps = self.main_bin.deps
-
-        for dep in deps:
-            for str_e in err:
-                if dep in str_e and msg in str_e:
-                    l.error("LD could not find dependency %s.", dep)
-                    l.error("GNU LD will stop looking for libraries to load if "
-                            "it doesn't find one of them.")
-                    #self.ld_missing_libs.append(dep)
-                    break
-
-        s.communicate()
-
-        # Our LD_AUDIT library is supposed to generate a log file.
-        # If not we're in trouble
-        if os.path.exists(log):
-            libs = {}
-            with open(log, 'r') as f:
-                for i in f.readlines():
-                    lib = i.split(",")
-                    if lib[0] == "LIB":
-                        libs[lib[1]] = int(lib[2].strip(), 16)
-            l.debug("---")
-            for o, a in libs.iteritems():
-                l.debug(" -> Dependency: %s @ %#x)", o, a)
-
-            l.debug("---")
-            os.remove(log)
-            return libs
-
-        else:
-
-            l.error("Could not find library dependencies using ld."
-                    " The log file '%s' does not exist, did qemu fail ? Try to run "
-                    "`%s` manually to check", log, " ".join(cmd))
-            raise CLEOperationError("Could not find library dependencies using ld.")
-
-    def _binary_screwup_copy(self, path):
-        """
-        When LD_AUDIT cannot load CLE's auditing library, it unfortunately falls back to executing the target, which we
-        don't want ! This is a problem specific to GNU LD, we can't fix this.
-
-        This is a simple hack to work around it: set the address of the entry point to 0 in the program header
-        This will cause the main binary to segfault if executed.
-        """
-
-        # Let's work on a copy of the main binary
-        copy = self._make_tmp_copy(path, suffix=".screwed")
-        with open(copy, 'r+b') as f:
-            # Looking at elf.h, we can see that the the entry point's
-            # definition is always at the same place for all architectures.
-            off = 0x18
-            f.seek(off)
-            count = self.main_bin.arch.bits / 8
-
-            # Set the entry point to address 0
-            screw_char = "\x00"
-            screw = screw_char * count
-            f.write(screw)
-            return copy
-
-    @staticmethod
-    def _make_tmp_copy(path, suffix=None):
-        """
-        Makes a copy of obj into CLE's tmp directory.
-        """
-        if not os.path.exists('/tmp/cle'):
-            os.mkdir('/tmp/cle')
-
-        if hasattr(path, 'seek') and hasattr(path, 'read'):
-            stream = path
-        else:
-            try:
-                stream = open(path, 'rb')
-            except IOError:
-                raise CLEFileNotFoundError("File %s does not exist :(. Please check that the"
-                                           " path is correct" % path)
-        bn = os.urandom(5).encode('hex')
-        if suffix is not None:
-            bn += suffix
-        dest = os.path.join('/tmp/cle', bn)
-        l.info("\t -> copy obj %s to %s", path, dest)
-
-        with open(dest, 'wb') as dest_stream:
-            while True:
-                dat = stream.read(1024*1024)
-                if len(dat) == 0:
-                    break
-                dest_stream.write(dat)
-
-        return dest
-
     @staticmethod
     def _parse_gdb_map(gdb_map):
         """
@@ -720,46 +552,15 @@ class Loader(object):
             if not os.path.exists(lib):
                 lib = self._get_lib_path(lib)
 
-            soname = self._extract_soname(lib)
+            soname = MetaELF.extract_soname(lib)
 
             # address of .text -> base address of the library
             if self._gdb_fix:
-                addr = addr - self._get_text_offset(lib)
+                addr = addr - MetaELF.get_text_offset(lib)
 
             l.info("gdb_plugin: mapped %s to %#x", lib, addr)
             lib_opts[soname] = {"custom_base_addr":addr}
         return lib_opts
-
-    @staticmethod
-    def _get_text_offset(path):
-        """
-        Offset of .text in the binary.
-        """
-        if not os.path.exists(path):
-            raise CLEError("Path %s does not exist" % path)
-
-        with open(path, 'rb') as f:
-            e = elftools.elf.elffile.ELFFile(f)
-            return e.get_section_by_name(".text").header.sh_offset
-
-    @staticmethod
-    def _extract_soname(path):
-        """
-        Extracts the soname from the ELF binary at `path`.
-        """
-        if not os.path.exists(path):
-            raise CLEError("Path %s does not exist" % path)
-
-        with open(path, 'rb') as f:
-            try:
-                e = elftools.elf.elffile.ELFFile(f)
-                dyn = e.get_section_by_name('.dynamic')
-                soname = [ x.soname for x in list(dyn.iter_tags()) if x.entry.d_tag == 'DT_SONAME']
-                if not soname:
-                    return os.path.basename(path)
-                return soname[0]
-            except elftools.common.exceptions.ELFError:
-                return None
 
     def _check_compatibility(self, path):
         """
@@ -811,7 +612,8 @@ class Loader(object):
                 if val is not None:
                     obj.memory.write_addr_at(dest, val)
 
-from .errors import CLEError, CLEOperationError, CLEFileNotFoundError, CLECompatibilityError
+from .errors import CLEError, CLEFileNotFoundError, CLECompatibilityError
 from .memory import Clemory
 from .tls import ELFTLSObj, PETLSObj
 from .backends import IDABin, MetaELF, ELF, PE, ALL_BACKENDS, Backend, Symbol
+from .utils import stream_or_path

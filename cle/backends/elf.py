@@ -11,7 +11,7 @@ from .relocations import get_relocation
 from .relocations.generic import MipsGlobalReloc, MipsLocalReloc
 from ..patched_stream import PatchedStream
 from ..errors import CLEError, CLEInvalidBinaryError, CLECompatibilityError
-from ..libc_utils import ALIGN_DOWN, ALIGN_UP, get_mmaped_data
+from ..utils import ALIGN_DOWN, ALIGN_UP, get_mmaped_data
 
 import logging
 l = logging.getLogger('cle.elf')

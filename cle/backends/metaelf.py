@@ -1,7 +1,9 @@
 import pyvex
+import elftools
 
 from . import Backend
 from ..errors import CLEOperationError
+from ..utils import stream_or_path
 
 __all__ = ('MetaELF',)
 
@@ -253,3 +255,25 @@ class MetaELF(Backend):
             ep_offset = self._entry
             self._entry = self.memory.read_addr_at(ep_offset)
             self.ppc64_initial_rtoc = self.memory.read_addr_at(ep_offset+8)
+
+    @staticmethod
+    def extract_soname(path):
+        with stream_or_path(path) as f:
+            try:
+                e = elftools.elf.elffile.ELFFile(f)
+                dyn = e.get_section_by_name('.dynamic')
+                soname = [ x.soname for x in list(dyn.iter_tags()) if x.entry.d_tag == 'DT_SONAME']
+                if not soname:
+                    return os.path.basename(path)
+                return soname[0]
+            except elftools.common.exceptions.ELFError:
+                return None
+
+    @staticmethod
+    def get_text_offset(path):
+        """
+        Offset of .text in the binary.
+        """
+        with stream_or_path(path) as f:
+            e = elftools.elf.elffile.ELFFile(f)
+            return e.get_section_by_name(".text").header.sh_offset

@@ -1,12 +1,11 @@
+import os
+import contextlib
+
 from .errors import CLEError
-
-_DL_PAGESIZE = 0x1000
-
 
 # https://code.woboq.org/userspace/glibc/include/libc-pointer-arith.h.html#43
 def ALIGN_DOWN(base, size):
     return base & -size
-
 
 # https://code.woboq.org/userspace/glibc/include/libc-pointer-arith.h.html#50
 def ALIGN_UP(base, size):
@@ -57,3 +56,15 @@ def get_mmaped_data(stream, offset, length, page_size):
     stream.seek(offset)
     data = stream.read(read_length)
     return data.ljust(read_length, '\0')
+
+@contextlib.contextmanager
+def stream_or_path(obj, perms='rb'):
+    if hasattr(obj, 'read') and hasattr(obj, 'seek'):
+        obj.seek(0)
+        yield obj
+    else:
+        if not os.path.exists(obj):
+            raise CLEError("%r is not a valid path" % obj)
+
+        with open(obj, perms) as f:
+            yield f

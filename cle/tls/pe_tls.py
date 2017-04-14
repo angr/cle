@@ -54,7 +54,7 @@ class PETLSObj(TLSObj):
     """
 
     def __init__(self, modules):
-        super(PETLSObj, self).__init__(modules, filetype='pe')
+        super(PETLSObj, self).__init__(modules)
 
         # The total size of the TLS object is the sum of each module's TLS data
         # address, the size of the data block in the TLS template and the

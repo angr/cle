@@ -411,6 +411,7 @@ class Backend(object):
             filename=None,
             custom_entry_point=None,
             custom_arch=None,
+            custom_base_addr=None,
             **kwargs):
         """
         :param binary:          The path to the binary to load
@@ -428,7 +429,7 @@ class Backend(object):
                 self.binary_stream = None
 
         if kwargs != {}:
-            l.warning("Unused kwargs for loading binary %s", self.binary)
+            l.warning("Unused kwargs for loading binary %s: %s", self.binary, ', '.join(str(x) for x in kwargs.keys()))
 
         self.is_main_bin = is_main_bin
         self.loader = loader
@@ -459,6 +460,7 @@ class Backend(object):
 
         # Custom options
         self._custom_entry_point = custom_entry_point
+        self._custom_base_addr = custom_base_addr
         self.provides = os.path.basename(self.binary) if self.binary is not None else None
 
         self.memory = None
@@ -635,6 +637,13 @@ class Backend(object):
         """
         if name in self._symbol_cache:
             return self._symbol_cache[name]
+        return None
+
+    @staticmethod
+    def extract_soname(path):
+        """
+        Extracts the shared object identifier from the path, or returns None if it cannot.
+        """
         return None
 
 ALL_BACKENDS = dict()
