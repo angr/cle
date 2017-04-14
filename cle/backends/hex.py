@@ -19,8 +19,9 @@ class Hex(Blob):
     See https://en.wikipedia.org/wiki/Intel_HEX
     """
 
-    def __init__(self, path, custom_arch=None, *args, **kwargs):
-        super(Hex, self).__init__(path, custom_arch=custom_arch, **kwargs)
+    def __init__(self, path, custom_arch=None, custom_entry_point=0, *args, **kwargs):
+        super(Hex, self).__init__(path, custom_arch=custom_arch, custom_entry_point=custom_entry_point, **kwargs)
+        self._entry = None
 
     @staticmethod
     def parse_record(line):
@@ -55,9 +56,9 @@ class Hex(Blob):
                 x += 1
         return regions
 
-    def _load(self, offset, size=None):
+    def _load(self, file_offset, mem_addr, size):
 
-        # Ignore the offset, they don't really work in this format.
+        # Ignore the params, they don't really work in this format.
         # Do the whole thing in one shot.
         self.binary_stream.seek(0)
         string = self.binary_stream.read()
@@ -80,6 +81,7 @@ class Hex(Blob):
                 break
             elif rectype == HEX_TYPE_STARTSEGADDR:
                 self._entry = int(data.encode('hex'),16)
+                self._custom_entry_point = self._entry
             else:
                 raise CLEError("This HEX Object type is not implemented: " + hex(rectype))
         new_regions = Hex.coalesce_regions(regions)
