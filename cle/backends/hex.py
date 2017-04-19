@@ -102,9 +102,9 @@ class Hex(Blob):
                 # Four bytes, the base address and the initial IP
                 got_base = True
                 got_entry = True
-                self._initial_cs = int(data[:2].decode('hex'), 16)
+                self._initial_cs = int(data[:2].encode('hex'), 16)
                 self._base_address = self._initial_cs << 16
-                self._initial_ip = int(data[2:].decode('hex'), 16)
+                self._initial_ip = int(data[2:].encode('hex'), 16)
                 # The whole thing is the entry, as far as angr is concerned.
                 self._entry = int(data.encode('hex'),16)
                 self._custom_entry_point = self._entry
