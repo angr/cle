@@ -84,6 +84,7 @@ class Hex(Blob):
             rectype, addr, data = Hex.parse_record(rec)
             if rectype == HEX_TYPE_DATA:
                 addr += self._base_address
+                #l.debug("Loading %d bytes at " % len(data) + hex(addr))
                 # Raw data.  Put the bytes
                 regions.update({addr: data})
                 # We have to be careful about the min and max addrs
@@ -93,29 +94,34 @@ class Hex(Blob):
                     max_addr = addr + len(data)
             elif rectype == HEX_TYPE_EOF:
                 # EOF
+                l.debug("Got EOF record.")
                 break
             elif rectype == HEX_TYPE_EXTSEGADDR:
                 # "Extended Mode" Segment address, take this value, multiply by 16, make the base
                 self._base_address = int(data.decode('hex'), 16) * 16
                 got_base = True
+                l.debug("Loading a segment at " + hex(self._base_address))
             elif rectype == HEX_TYPE_STARTSEGADDR:
-                # Four bytes, the base address and the initial IP
+                # Four bytes, the segment and the initial IP
                 got_base = True
                 got_entry = True
                 self._initial_cs = int(data[:2].encode('hex'), 16)
-                self._base_address = self._initial_cs << 16
                 self._initial_ip = int(data[2:].encode('hex'), 16)
                 # The whole thing is the entry, as far as angr is concerned.
-                self._entry = int(data.encode('hex'),16)
+                self._entry = int(data.encode('hex'), 16)
                 self._custom_entry_point = self._entry
+                l.debug("Got entry point at " + hex(self._entry))
             elif rectype == HEX_TYPE_EXTLINEARADDR:
                 got_base = True
                 # Specifies the base for all future data bytes.
-                self._base_address = int(data.encode('hex'), 16)
+                self._base_address = int(data.encode('hex'), 16) << 16
+                print "OMG", hex(self._base_address)
+                l.debug("Loading a segment at " + hex(self._base_address))
             elif rectype == HEX_TYPE_STARTLINEARADDR:
                 got_entry = True
                 # The 32-bit EIP, really the same as STARTSEGADDR, but some compilers pick one over the other.
                 self._entry = int(data.encode('hex'), 16)
+                l.debug("Found entry point at " + hex(self._entry))
                 self._initial_eip = self._entry
                 self._custom_entry_point = self._entry
 
