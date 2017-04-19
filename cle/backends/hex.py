@@ -115,7 +115,6 @@ class Hex(Blob):
                 got_base = True
                 # Specifies the base for all future data bytes.
                 self._base_address = int(data.encode('hex'), 16) << 16
-                print "OMG", hex(self._base_address)
                 l.debug("Loading a segment at " + hex(self._base_address))
             elif rectype == HEX_TYPE_STARTLINEARADDR:
                 got_entry = True
@@ -124,7 +123,6 @@ class Hex(Blob):
                 l.debug("Found entry point at " + hex(self._entry))
                 self._initial_eip = self._entry
                 self._custom_entry_point = self._entry
-
             else:
                 raise CLEError("This HEX Object type is not implemented: " + hex(rectype))
         if not got_base:
