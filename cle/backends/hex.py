@@ -24,7 +24,7 @@ class Hex(Blob):
     See https://en.wikipedia.org/wiki/Intel_HEX
     """
 
-    def __init__(self, path, custom_arch=None, custom_entry_point=0, *args, **kwargs):
+    def __init__(self, path, custom_arch=None, custom_entry_point=0, **kwargs):
         super(Hex, self).__init__(path, custom_arch=custom_arch, custom_entry_point=custom_entry_point, **kwargs)
         self._entry = None
 
