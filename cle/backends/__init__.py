@@ -663,3 +663,4 @@ from .blob import Blob
 from .cgc import CGC
 from .backedcgc import BackedCGC
 from .metaelf import MetaELF
+from .hex import Hex
