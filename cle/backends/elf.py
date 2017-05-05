@@ -143,7 +143,7 @@ class ELF(MetaELF):
         try:
             self.reader = elffile.ELFFile(self.binary_stream)
         except ELFError:
-            self.binary_stream.seek(5)
+            self.binary_stream.seek(4)
             ty = self.binary_stream.read(1)
             if ty not in ('\1', '\2'):
                 raise CLECompatibilityError
