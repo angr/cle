@@ -476,14 +476,18 @@ class ELF(MetaELF):
             self.strtab = elffile.StringTableSection(fakestrtabheader, 'strtab_cle', self.memory)
 
             # get the list of strings that are the required shared libraries
-            self.deps = map(self.strtab.get_string, self.deps)
+            # only if a valid symbol table exists
+            if self._dynamic['DT_STRTAB'] != self._dynamic['DT_SYMTAB']:
+                self.deps = map(self.strtab.get_string, self.deps)
+            else:
+                self.deps = []
 
             # get the string for the "shared object name" that this binary provides
             if 'DT_SONAME' in self._dynamic:
                 self.provides = self.strtab.get_string(self._dynamic['DT_SONAME'])
 
             # None of the following structures can be used without a symbol table
-            if 'DT_SYMTAB' in self._dynamic and 'DT_SYMENT' in self._dynamic:
+            if 'DT_SYMTAB' in self._dynamic and 'DT_SYMENT' in self._dynamic and self._dynamic['DT_SYMTAB'] != self._dynamic['DT_STRTAB']:
                 # Construct our own symbol table to hack around pyreadelf assuming section headers are around
                 fakesymtabheader = {
                     'sh_offset': self._dynamic['DT_SYMTAB'],
