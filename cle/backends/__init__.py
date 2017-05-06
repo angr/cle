@@ -87,6 +87,7 @@ class Region(object):
         """
         return self.offset + self.filesize - 1
 
+    @property
     def min_offset(self):
         """
         The minimum file offset of this region
