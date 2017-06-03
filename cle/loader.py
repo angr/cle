@@ -35,7 +35,10 @@ class Loader(object):
     More keys are defined on a per-backend basis.
     """
 
-    MAIN_OPTIONS = { 'backend', 'custom_arch', 'custom_base_addr', 'custom_entry_point' }
+    MAIN_OPTIONS = { 'backend', 'custom_arch', 'custom_base_addr', 'custom_entry_point',
+                     # Blob
+                     'custom_offset', 'segments',
+                     }
 
     def __init__(self, main_binary, auto_load_libs=True,
                  force_load_libs=None, skip_libs=None,
