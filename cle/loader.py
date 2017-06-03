@@ -35,6 +35,8 @@ class Loader(object):
     More keys are defined on a per-backend basis.
     """
 
+    MAIN_OPTIONS = { 'backend', 'custom_arch', 'custom_base_addr', 'custom_entry_point' }
+
     def __init__(self, main_binary, auto_load_libs=True,
                  force_load_libs=None, skip_libs=None,
                  main_opts=None, lib_opts=None, custom_ld_path=None,
@@ -84,6 +86,8 @@ class Loader(object):
         self._rebase_granularity = rebase_granularity
         self._except_missing_libs = except_missing_libs
         self._relocated_objects = set()
+
+        self._sanitize_main_opts(self._main_opts)
 
         self.aslr = aslr
         self.page_size = page_size
@@ -145,6 +149,23 @@ class Loader(object):
         This determines if `name` is a suitable candidate for ld.
         """
         return 'ld.so' in name or 'ld64.so' in name or 'ld-linux' in name
+
+    def _sanitize_main_opts(self, main_opts):
+
+        if not main_opts:
+            return
+
+        for k in main_opts.iterkeys():
+            if k not in self.MAIN_OPTIONS:
+                guess = None
+                if k == 'custom_base_address':
+                    # some people never get it right
+                    guess = 'custom_base_addr'
+
+                if not guess:
+                    raise CLEError('Unsupported option "%s" in main_opts.' % k)
+                else:
+                    raise CLEError('Unsupported option "%s" in main_opts. Do you mean "%s"?' % (k, guess))
 
     def _load_main_binary(self):
         options = dict(self._main_opts)
