@@ -562,7 +562,7 @@ class Loader(object):
                 # Get rid of all metadata, just extract lines containing addresses
                 if "0x" not in line_items[0]:
                     continue
-                elif "linux-vdso" in line_items[-1]:
+                elif any(s in line_items[-1] for s in ("linux-vdso", "[vdso]")):
                     continue
                 addr, objfile = int(line_items[0], 16), line_items[-1].strip()
 
