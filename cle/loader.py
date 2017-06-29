@@ -484,9 +484,9 @@ class Loader(object):
                     if v == addr:
                         return  "PLT stub of %s in %s (offset %#x)" % (k, nameof, off)
 
-            if off in o.symbols_by_addr:
-                name = o.symbols_by_addr[off].name
-                return "%s (offset %#x) in %s" % (name, off, nameof)
+        if off in o.symbols_by_addr:
+            name = o.symbols_by_addr[off].name
+            return "%s (offset %#x) in %s" % (name, off, nameof)
 
         return "Offset %#x in %s" % (off, nameof)
 
