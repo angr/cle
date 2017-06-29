@@ -111,6 +111,7 @@ class PE(Backend):
             raise CLEError("Install the pefile module to use the PE backend!")
 
         super(PE, self).__init__(*args, **kwargs)
+        self.segments = self.sections # in a PE, sections and segments have the same meaning
         self.os = 'windows'
         if self.binary is None:
             self._pe = pefile.PE(data=self.binary_stream.read())
