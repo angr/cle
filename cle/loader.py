@@ -84,7 +84,7 @@ class Loader(object):
         self._satisfied_deps = set([] if skip_libs is None else skip_libs)
         self._main_opts = {} if main_opts is None else main_opts
         self._lib_opts = {} if lib_opts is None else lib_opts
-        self._custom_ld_path = [] if custom_ld_path is None else custom_ld_path
+        self._custom_ld_path = [] if custom_ld_path is None else [custom_ld_path] if type(custom_ld_path) in (str, unicode) else custom_ld_path
         self._ignore_import_version_numbers = ignore_import_version_numbers
         self._rebase_granularity = rebase_granularity
         self._except_missing_libs = except_missing_libs
