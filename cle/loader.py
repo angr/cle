@@ -1,4 +1,4 @@
-import os
+import os, sys
 import logging
 from collections import OrderedDict
 
@@ -352,6 +352,8 @@ class Loader(object):
         if self._main_binary_path is not None:
             dirs += [os.path.dirname(self._main_binary_path)]
         dirs += self.main_bin.arch.library_search_path()
+        if sys.platform == 'win32':
+            dirs.append(os.path.join(os.environ['SYSTEMROOT'], 'System32'))
         for libdir in dirs:
             fullpath = os.path.realpath(os.path.join(libdir, path))
             if os.path.exists(fullpath): yield fullpath

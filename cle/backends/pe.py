@@ -153,8 +153,6 @@ class PE(Backend):
 
         self.memory.add_backer(0, self._pe.get_memory_mapped_image())
 
-        l.warning('The PE module is not well-supported. Good luck!')
-
     @staticmethod
     def is_compatible(stream):
         identstring = stream.read(0x1000)
