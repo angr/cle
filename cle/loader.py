@@ -506,6 +506,21 @@ class Loader(object):
 
     # Search functions
 
+    def find_symbol(self, name):
+        """
+        Search for the symbol with the given name. Return a :class:`cle.backends.Symbol` object if found, None
+        otherwise.
+        """
+        for so in self.all_objects:
+            sym = so.get_symbol(name)
+            if sym.is_import:
+                if sym.resolvedby is not None:
+                    return sym.resolvedby
+            else:
+                return sym
+
+        return None
+
     def find_symbol_name(self, addr):
         """
         Return the name of the function starting at `addr`.
