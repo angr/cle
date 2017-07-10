@@ -2,6 +2,8 @@ import os, sys
 import logging
 from collections import OrderedDict
 
+from cle.address_translator import AT
+
 try:
     import claripy
 except ImportError:
@@ -276,8 +278,8 @@ class Loader(object):
         outputlist = []
         for obj in self.all_objects:
             #TODO Fix Symbolic for tls whatever
-            if obj.aslr and isinstance(obj.rebase_addr_symbolic, claripy.ast.BV):
-                outputlist.append(obj.rebase_addr_symbolic == obj.rebase_addr)
+            if obj.aslr and isinstance(obj.mapped_base_symbolic, claripy.ast.BV):
+                outputlist.append(obj.mapped_base_symbolic == obj.mapped_base)
         return outputlist
 
     @staticmethod
@@ -460,7 +462,7 @@ class Loader(object):
                 return obj
 
             elif isinstance(obj.memory, Clemory):
-                if addr - obj.rebase_addr in obj.memory:
+                if AT.from_va(addr, obj).to_rva() in obj.memory:
                     return obj
 
             else:
@@ -477,7 +479,7 @@ class Loader(object):
         if o is None:
             return None
 
-        off = addr - o.rebase_addr
+        off = AT.from_va(addr, o).to_rva()
         nameof = 'main binary' if o is self.main_bin else o.provides
 
         if isinstance(o, ELF):
@@ -529,8 +531,8 @@ class Loader(object):
         Return the name of the function starting at `addr`.
         """
         for so in self.all_objects:
-            if addr - so.rebase_addr in so.symbols_by_addr:
-                return so.symbols_by_addr[addr - so.rebase_addr].name
+            if addr in so.symbols_by_addr:
+                return so.symbols_by_addr[addr].name
         return None
 
     def find_plt_stub_name(self, addr):
@@ -549,7 +551,7 @@ class Loader(object):
         """
         for o in self.all_objects:
             # The Elf class only works with static non-relocated addresses
-            if o.contains_addr(addr - o.rebase_addr):
+            if o.contains_addr(AT.from_va(addr, o).to_rva()):
                 return o.provides
 
     def find_symbol_got_entry(self, symbol):
@@ -669,7 +671,7 @@ class Loader(object):
             for resolver, dest in obj.irelatives:
                 val = resolver_func(resolver)
                 if val is not None:
-                    obj.memory.write_addr_at(dest, val)
+                    obj.memory.write_addr_at(AT.from_lva(dest, obj).to_rva(), val)
 
 from .errors import CLEError, CLEFileNotFoundError, CLECompatibilityError
 from .memory import Clemory

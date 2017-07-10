@@ -5,6 +5,7 @@
 import struct
 
 from ...errors import CLEInvalidBinaryError
+from ...address_translator import AT
 
 import logging
 l = logging.getLogger('cle.backends.macho.binding')
@@ -368,20 +369,24 @@ def default_binding_handler(state, binary):
     if state.binding_type == 1:  # POINTER
         l.info("Updating address %#x with symobl %r @ %#x", location, state.sym_name, value)
         binary.memory.write_bytes(
-                location,
-                struct.pack(binary.struct_byteorder + ("Q" if binary.arch.bits == 64 else "I"), value))
+            AT.from_lva(location, binary).to_rva(),
+            struct.pack(binary.struct_byteorder + ("Q" if binary.arch.bits == 64 else "I"), value))
         symbol.bind_xrefs.append(location)
     elif state.binding_type == 2:  # ABSOLUTE32
         location_32 = location % (2 ** 32)
         value_32 = value % (2 ** 32)
         l.info("Updating address %#x with symobl %r @ %#x", state.sym_name, location_32, value_32)
-        binary.memory.write_bytes(location_32, struct.pack(binary.struct_byteorder + "I", value_32))
+        binary.memory.write_bytes(
+            AT.from_lva(location_32, binary).to_rva(),
+            struct.pack(binary.struct_byteorder + "I", value_32))
         symbol.bind_xrefs.append(location_32)
     elif state.binding_type == 3:  # PCREL32
         location_32 = location % (2 ** 32)
         value_32 = (value - (location + 4)) % (2 ** 32)
         l.info("Updating address %#x with symobl %r @ %#x", state.sym_name, location_32, value_32)
-        binary.memory.write_bytes(location_32, struct.pack(binary.struct_byteorder + "I", value_32))
+        binary.memory.write_bytes(
+            AT.from_lva(location_32, binary).to_rva(),
+            struct.pack(binary.struct_byteorder + "I", value_32))
         symbol.bind_xrefs.append(location_32)
     else:
         l.error("Unknown BIND_TYPE: %d", state.binding_type)

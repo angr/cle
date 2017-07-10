@@ -12,6 +12,7 @@ from .relocations.generic import MipsGlobalReloc, MipsLocalReloc
 from ..patched_stream import PatchedStream
 from ..errors import CLEError, CLEInvalidBinaryError, CLECompatibilityError
 from ..utils import ALIGN_DOWN, ALIGN_UP, get_mmaped_data
+from ..address_translator import AT
 
 import logging
 l = logging.getLogger('cle.elf')
@@ -228,7 +229,7 @@ class ELF(MetaELF):
         self._populate_demangled_names()
 
         if patch_undo is not None:
-            self.memory.write_bytes(self.get_min_addr() + patch_undo[0], patch_undo[1])
+            self.memory.write_bytes(AT.from_lva(self.get_min_addr() + patch_undo[0], self).to_rva(), patch_undo[1])
 
     def __getstate__(self):
         if self.binary is None:
@@ -263,20 +264,22 @@ class ELF(MetaELF):
         self.reader = elffile.ELFFile(self.binary_stream)
         if self._dynamic and 'DT_STRTAB' in self._dynamic:
             fakestrtabheader = {
-                'sh_offset': self._dynamic['DT_STRTAB']
+                'sh_offset': AT.from_lva(self._dynamic['DT_STRTAB'], self).to_rva()
             }
             self.strtab = elffile.StringTableSection(fakestrtabheader, 'strtab_cle', self.memory)
             if 'DT_SYMTAB' in self._dynamic and 'DT_SYMENT' in self._dynamic:
                 fakesymtabheader = {
-                    'sh_offset': self._dynamic['DT_SYMTAB'],
+                    'sh_offset': AT.from_lva(self._dynamic['DT_SYMTAB'], self).to_rva(),
                     'sh_entsize': self._dynamic['DT_SYMENT'],
                     'sh_size': 0
                 } # bogus size: no iteration allowed
                 self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.memory, self.reader, self.strtab)
                 if 'DT_GNU_HASH' in self._dynamic:
-                    self.hashtable = GNUHashTable(self.dynsym, self.memory, self._dynamic['DT_GNU_HASH'], self.arch)
+                    self.hashtable = GNUHashTable(self.dynsym, self.memory,
+                                                  AT.from_lva(self._dynamic['DT_GNU_HASH'], self).to_rva(), self.arch)
                 elif 'DT_HASH' in self._dynamic:
-                    self.hashtable = ELFHashTable(self.dynsym, self.memory, self._dynamic['DT_HASH'], self.arch)
+                    self.hashtable = ELFHashTable(self.dynsym, self.memory,
+                                                  AT.from_lva(self._dynamic['DT_HASH'], self).to_rva(), self.arch)
 
     def _cache_symbol_name(self, symbol):
         name = symbol.name
@@ -350,21 +353,21 @@ class ELF(MetaELF):
     def _extract_init_fini(self):
         # Extract the initializers and finalizers
         if 'DT_PREINIT_ARRAY' in self._dynamic and 'DT_PREINIT_ARRAYSZ' in self._dynamic:
-            arr_start = self._dynamic['DT_PREINIT_ARRAY']
+            arr_start = AT.from_lva(self._dynamic['DT_PREINIT_ARRAY'], self).to_rva()
             arr_end = arr_start + self._dynamic['DT_PREINIT_ARRAYSZ']
             arr_entsize = self.arch.bytes
             self._preinit_arr = map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize))
         if 'DT_INIT' in self._dynamic:
-            self._init_func = self._dynamic['DT_INIT']
+            self._init_func = AT.from_lva(self._dynamic['DT_INIT'], self).to_rva()
         if 'DT_INIT_ARRAY' in self._dynamic and 'DT_INIT_ARRAYSZ' in self._dynamic:
-            arr_start = self._dynamic['DT_INIT_ARRAY']
+            arr_start = AT.from_lva(self._dynamic['DT_INIT_ARRAY'], self).to_rva()
             arr_end = arr_start + self._dynamic['DT_INIT_ARRAYSZ']
             arr_entsize = self.arch.bytes
             self._init_arr = map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize))
         if 'DT_FINI' in self._dynamic:
-            self._fini_func = self._dynamic['DT_FINI']
+            self._fini_func = AT.from_lva(self._dynamic['DT_FINI'], self).to_rva()
         if 'DT_FINI_ARRAY' in self._dynamic and 'DT_FINI_ARRAYSZ' in self._dynamic:
-            arr_start = self._dynamic['DT_FINI_ARRAY']
+            arr_start = AT.from_lva(self._dynamic['DT_FINI_ARRAY'], self).to_rva()
             arr_end = arr_start + self._dynamic['DT_FINI_ARRAYSZ']
             arr_entsize = self.arch.bytes
             self._fini_arr = map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize))
@@ -381,7 +384,7 @@ class ELF(MetaELF):
             # The init func and the init array in the dynamic section are only run by the dynamic loader in shared objects.
             # In the main binary they are run by libc_csu_init.
             if self._init_func is not None:
-                out.append(self._init_func + self.rebase_addr)
+                out.append(AT.from_lva(self._init_func, self).to_mva())
             out.extend(self._init_arr)
         return out
 
@@ -389,8 +392,8 @@ class ELF(MetaELF):
         if not self._inits_extracted: self._extract_init_fini()
         out = []
         if self._fini_func is not None:
-            out.append(self._fini_func + self.rebase_addr)
-        out.extend(map(self._rebase_addr, self._fini_arr))
+            out.append(AT.from_lva(self._fini_func, self).to_mva())
+        out.extend(map(lambda x: AT.from_lva(x, self).to_mva(), self._fini_arr))
         return out
 
     def __register_segments(self):
@@ -409,9 +412,6 @@ class ELF(MetaELF):
                 self.__register_tls(seg_readelf)
             elif seg_readelf.header.p_type == 'PT_GNU_STACK':
                 self.execstack = bool(seg_readelf.header.p_flags & 1)
-
-    def _rebase_addr(self, addr):
-        return addr + self.rebase_addr
 
     def _load_segment(self, seg):
         self._load_segment_metadata(seg)
@@ -459,7 +459,7 @@ class ELF(MetaELF):
             if zeroend > zeropage:
                 data = data.ljust(zeroend - mapstart, '\0')
 
-        self.memory.add_backer(mapstart, data)
+        self.memory.add_backer(AT.from_lva(mapstart, self).to_rva(), data)
 
     def __register_dyn(self, seg_readelf):
         """
@@ -478,7 +478,7 @@ class ELF(MetaELF):
             # To handle binaries without section headers, we need to hack around pyreadelf's assumptions
             # make our own string table
             fakestrtabheader = {
-                'sh_offset': self._dynamic['DT_STRTAB']
+                'sh_offset': AT.from_lva(self._dynamic['DT_STRTAB'], self).to_rva()
             }
             self.strtab = elffile.StringTableSection(fakestrtabheader, 'strtab_cle', self.memory)
 
@@ -493,7 +493,7 @@ class ELF(MetaELF):
             if 'DT_SYMTAB' in self._dynamic and 'DT_SYMENT' in self._dynamic:
                 # Construct our own symbol table to hack around pyreadelf assuming section headers are around
                 fakesymtabheader = {
-                    'sh_offset': self._dynamic['DT_SYMTAB'],
+                    'sh_offset': AT.from_lva(self._dynamic['DT_SYMTAB'], self).to_rva(),
                     'sh_entsize': self._dynamic['DT_SYMENT'],
                     'sh_size': 0
                 } # bogus size: no iteration allowed
@@ -502,9 +502,11 @@ class ELF(MetaELF):
                 # set up the hash table, prefering the gnu hash section to the old hash section
                 # the hash table lets you get any symbol given its name
                 if 'DT_GNU_HASH' in self._dynamic:
-                    self.hashtable = GNUHashTable(self.dynsym, self.memory, self._dynamic['DT_GNU_HASH'], self.arch)
+                    self.hashtable = GNUHashTable(
+                        self.dynsym, self.memory, AT.from_lva(self._dynamic['DT_GNU_HASH'], self).to_rva(), self.arch)
                 elif 'DT_HASH' in self._dynamic:
-                    self.hashtable = ELFHashTable(self.dynsym, self.memory, self._dynamic['DT_HASH'], self.arch)
+                    self.hashtable = ELFHashTable(
+                        self.dynsym, self.memory, AT.from_lva(self._dynamic['DT_HASH'], self).to_rva(), self.arch)
                 else:
                     l.warning("No hash table available in %s", self.binary)
 
@@ -534,7 +536,8 @@ class ELF(MetaELF):
 
                 # try to parse relocations out of a table of type DT_REL{,A}
                 if 'DT_' + self.rela_type in self._dynamic:
-                    reloffset = self._dynamic['DT_' + self.rela_type]
+                    reloffset = self._dynamic['DT_' + self.rela_type] and \
+                                AT.from_lva(self._dynamic['DT_' + self.rela_type], self).to_rva()
                     if 'DT_' + self.rela_type + 'SZ' not in self._dynamic:
                         raise CLEInvalidBinaryError('Dynamic section contains DT_' + self.rela_type +
                                 ', but DT_' + self.rela_type + 'SZ is not present')
@@ -550,7 +553,7 @@ class ELF(MetaELF):
 
                 # try to parse relocations out of a table of type DT_JMPREL
                 if 'DT_JMPREL' in self._dynamic:
-                    jmpreloffset = self._dynamic['DT_JMPREL']
+                    jmpreloffset = self._dynamic['DT_JMPREL'] and AT.from_lva(self._dynamic['DT_JMPREL'], self).to_rva()
                     if 'DT_PLTRELSZ' not in self._dynamic:
                         raise CLEInvalidBinaryError('Dynamic section contains DT_JMPREL, but DT_PLTRELSZ is not present')
                     jmprelsz = self._dynamic['DT_PLTRELSZ']
@@ -678,11 +681,11 @@ class ELF(MetaELF):
                 self.__register_relocs(sec_readelf)
 
             if section.occupies_memory:      # alloc flag - stick in memory maybe!
-                if section.vaddr not in self.memory:        # only allocate if not already allocated (i.e. by program header)
+                if AT.from_lva(section.vaddr, self).to_rva() not in self.memory:        # only allocate if not already allocated (i.e. by program header)
                     if section.type == 'SHT_NOBITS':
-                        self.memory.add_backer(section.vaddr, '\0'*sec_readelf.header['sh_size'])
+                        self.memory.add_backer(AT.from_lva(section.vaddr, self).to_rva(), '\0'*sec_readelf.header['sh_size'])
                     else: #elif section.type == 'SHT_PROGBITS':
-                        self.memory.add_backer(section.vaddr, sec_readelf.data())
+                        self.memory.add_backer(AT.from_lva(section.vaddr, self).to_rva(), sec_readelf.data())
 
     def __register_section_symbols(self, sec_re):
         for sym_re in sec_re.iter_symbols():

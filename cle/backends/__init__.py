@@ -217,7 +217,7 @@ class Symbol(object):
         """
         The address of this symbol in the global memory space
         """
-        return self.addr + self.owner_obj.rebase_addr
+        return AT.from_lva(self.addr, self.owner_obj).to_mva()
 
     @property
     def is_function(self):
@@ -534,8 +534,8 @@ class Backend(object):
     @property
     def entry(self):
         if self._custom_entry_point is not None:
-            return self._custom_entry_point + self.rebase_addr
-        return self._entry + self.rebase_addr
+            return AT.from_lva(self._custom_entry_point, self).to_mva()
+        return AT.from_lva(self._entry, self).to_mva()
 
     @property
     def segments(self):

@@ -1,3 +1,4 @@
+from ...address_translator import AT
 from ...errors import CLEOperationError
 from . import Relocation
 import struct
@@ -31,7 +32,7 @@ class GenericJumpslotReloc(Relocation):
 class GenericRelativeReloc(Relocation):
     @property
     def value(self):
-        return self.owner_obj.rebase_addr + self.addend
+        return self.owner_obj.mapped_base + self.addend
 
     def resolve_symbol(self, solist, bypass_compatibility=False):
         self.resolve(None)
@@ -40,23 +41,25 @@ class GenericRelativeReloc(Relocation):
 class GenericCopyReloc(Relocation):
     @property
     def value(self):
-        return self.resolvedby.owner_obj.memory.read_addr_at(self.resolvedby.addr)
+        return self.resolvedby.owner_obj.memory.read_addr_at(
+            AT.from_lva(self.resolvedby.addr, self.resolvedby.owner_obj).to_rva()
+        )
 
 class MipsGlobalReloc(GenericAbsoluteReloc):
     pass
 
 class MipsLocalReloc(Relocation):
     def relocate(self, solist, bypass_compatibility=False): # pylint: disable=unused-argument
-        if self.owner_obj.rebase_addr == 0:
+        if self.owner_obj.mapped_base == 0:
             self.resolve(None)
             return True                     # don't touch local relocations on the main bin
-        delta = self.owner_obj.rebase_addr - self.owner_obj._dynamic['DT_MIPS_BASE_ADDRESS']
+        delta = self.owner_obj.mapped_base - self.owner_obj._dynamic['DT_MIPS_BASE_ADDRESS']
         if delta == 0:
             self.resolve(None)
             return True
-        val = self.owner_obj.memory.read_addr_at(self.addr)
+        val = self.owner_obj.memory.read_addr_at(AT.from_lva(self.addr, self.owner_obj).to_rva())
         newval = val + delta
-        self.owner_obj.memory.write_addr_at(self.addr, newval)
+        self.owner_obj.memory.write_addr_at(AT.from_lva(self.addr, self.owner_obj).to_rva(), newval)
         self.resolve(None)
         return True
 
@@ -87,4 +90,4 @@ class RelocTruncate32Mixin(object):
                                     " relevant addresses fit in the 32-bit address space." % self.__class__.__name__)
 
         by = struct.pack(self.owner_obj.arch.struct_fmt(32), val % (2**32))
-        self.owner_obj.memory.write_bytes(self.dest_addr, by)
+        self.owner_obj.memory.write_bytes(AT.from_lva(self.dest_addr, self.owner_obj).to_rva(), by)

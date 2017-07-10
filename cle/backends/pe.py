@@ -5,6 +5,7 @@ import archinfo
 from . import Backend, Symbol, Section, register_backend
 from .relocations import Relocation
 from ..errors import CLEError
+from ..address_translator import AT
 
 try:
     import pefile
@@ -55,21 +56,25 @@ class WinReloc(Relocation):
                 # no work required
                 pass
             elif self.reloc_type == pefile.RELOCATION_TYPE['IMAGE_REL_BASED_HIGHLOW']:
-                org_bytes = ''.join(self.owner_obj.memory.read_bytes(self.addr, 4))
+                org_bytes = ''.join(self.owner_obj.memory.read_bytes(
+                    AT.from_lva(self.addr, self.owner_obj).to_rva(), 4))
                 org_value = struct.unpack('<I', org_bytes)[0]
-                rebased_value = org_value + self.owner_obj.rebase_addr - self.owner_obj.requested_base
-                rebased_bytes = struct.pack('<I', rebased_value % 2**32)
-                self.owner_obj.memory.write_bytes(self.dest_addr, rebased_bytes)
+                rebased_value = AT.from_lva(org_value, self.owner_obj).to_mva()
+                rebased_bytes = struct.pack('<I', rebased_value % 2 ** 32)
+                self.owner_obj.memory.write_bytes(
+                    AT.from_lva(self.dest_addr, self.owner_obj).to_rva(), rebased_bytes)
             elif self.reloc_type == pefile.RELOCATION_TYPE['IMAGE_REL_BASED_DIR64']:
-                org_bytes = ''.join(self.owner_obj.memory.read_bytes(self.addr, 8))
+                org_bytes = ''.join(self.owner_obj.memory.read_bytes(
+                    AT.from_lva(self.addr, self.owner_obj).to_rva(), 8))
                 org_value = struct.unpack('<Q', org_bytes)[0]
-                rebased_value = org_value + self.owner_obj.rebase_addr - self.owner_obj.requested_base
+                rebased_value = AT.from_lva(org_value, self.owner_obj).to_mva()
                 rebased_bytes = struct.pack('<Q', rebased_value)
-                self.owner_obj.memory.write_bytes(self.dest_addr, rebased_bytes)
+                self.owner_obj.memory.write_bytes(AT.from_lva(self.dest_addr, self.owner_obj).to_rva(), rebased_bytes)
             else:
                 l.warning('PE contains unimplemented relocation type %d', self.reloc_type)
         else:
             return super(WinReloc, self).relocate(solist, bypass_compatibility)
+
 
 class PESection(Section):
     """
@@ -122,7 +127,7 @@ class PE(Backend):
             self.set_arch(archinfo.arch_from_id(pefile.MACHINE_TYPE[self._pe.FILE_HEADER.Machine]))
 
         self.mapped_base = self.linked_base = self._pe.OPTIONAL_HEADER.ImageBase
-        self._entry = self._pe.OPTIONAL_HEADER.AddressOfEntryPoint
+        self._entry = AT.from_rva(self._pe.OPTIONAL_HEADER.AddressOfEntryPoint, self).to_lva()
 
         if hasattr(self._pe, 'DIRECTORY_ENTRY_IMPORT'):
             self.deps = [entry.dll for entry in self._pe.DIRECTORY_ENTRY_IMPORT]
@@ -167,13 +172,6 @@ class PE(Backend):
     # Public methods
     #
 
-    def get_min_addr(self):
-        return min(section.VirtualAddress + self.rebase_addr for section in self._pe.sections)
-
-    def get_max_addr(self):
-        return max(section.VirtualAddress + self.rebase_addr + section.Misc_VirtualSize - 1
-                   for section in self._pe.sections)
-
     def get_symbol(self, name):
         return self._exports.get(name, None)
 
@@ -192,7 +190,7 @@ class PE(Backend):
                     if imp_name is None: # must be an import by ordinal
                         imp_name = "%s.ordinal_import.%d" % (entry.dll, imp.ordinal)
                     symb = WinSymbol(self, imp_name, 0, True, False)
-                    reloc = WinReloc(self, symb, imp.address - self.requested_base, entry.dll)
+                    reloc = WinReloc(self, symb, imp.address, entry.dll)
                     self.imports[imp_name] = reloc
                     self.relocs.append(reloc)
 
@@ -239,7 +237,7 @@ class PE(Backend):
         """
         callbacks = []
 
-        callback_rva = addr - self.requested_base
+        callback_rva = AT.from_lva(addr, self).to_rva()
         callback = self._pe.get_dword_at_rva(callback_rva)
         while callback != 0:
             callbacks.append(callback)

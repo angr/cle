@@ -54,7 +54,7 @@ class ELFTLSObj(TLSObj):
             self.tp_offset = self.total_blocks_size
 
     def finalize(self):
-        assert self.rebase_addr != 0
+        assert self.mapped_base != 0
         temp_dict = defaultdict(lambda: '\0')
         def drop(string, offset):
             for i, c in enumerate(string):
@@ -66,7 +66,7 @@ class ELFTLSObj(TLSObj):
         for off in self.arch.elf_tls.head_offsets:
             drop_int(self.thread_pointer, off + self.tcb_offset)
         for off in self.arch.elf_tls.dtv_offsets:
-            drop_int(self.rebase_addr + self.dtv_offset, off + self.tcb_offset)
+            drop_int(self.mapped_base + self.dtv_offset, off + self.tcb_offset)
         for off in self.arch.elf_tls.pthread_offsets:
             drop_int(self.thread_pointer, off + self.tcb_offset)     # ?????
 
@@ -93,7 +93,7 @@ class ELFTLSObj(TLSObj):
         """
         The thread pointer. This is a technical term that refers to a specific location in the TLS segment.
         """
-        return self.rebase_addr + self.tp_offset
+        return self.mapped_base + self.tp_offset
 
     @property
     def user_thread_pointer(self):
@@ -103,10 +103,10 @@ class ELFTLSObj(TLSObj):
         return self.thread_pointer + self.arch.elf_tls.tp_offset
 
     def get_min_addr(self):
-        return self.rebase_addr
+        return self.mapped_base
 
     def get_max_addr(self):
-        return TLS_ALLOC_SIZE + self.rebase_addr
+        return TLS_ALLOC_SIZE + self.mapped_base
 
     def get_addr(self, module_id, offset):
         """

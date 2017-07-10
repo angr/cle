@@ -1,6 +1,7 @@
 import struct
 
 from . import TLSObj
+from ..address_translator import AT
 
 class PETLSObj(TLSObj):
     """
@@ -74,7 +75,7 @@ class PETLSObj(TLSObj):
         for i, m in enumerate(self.modules):
             # Assign the value of the TLS index to the place indicated by the
             # TLS directory's Address of Index field
-            m.memory.write_bytes(m.tls_index_address - m.rebase_addr,
+            m.memory.write_bytes(AT.from_lva(m.tls_index_address, m).to_rva(),
                                  struct.pack(struct_fmt, i))
 
             # Keep track of the TLS data's start address and insert it into the
@@ -84,8 +85,10 @@ class PETLSObj(TLSObj):
 
             # Copy the TLS data template into the TLS data area. Append the
             # zero fill
-            data_area.append('%s%s' % (''.join(m.memory.read_bytes(m.tls_data_start - m.rebase_addr, m.tls_data_size)),
-                                       '\0' * m.tls_size_of_zero_fill))
+            data_area.append(
+                '%s%s' % (''.join(m.memory.read_bytes(AT.from_lva(m.tls_data_start, m).to_rva(), m.tls_data_size)),
+                          '\0' * m.tls_size_of_zero_fill)
+            )
 
         self.memory.add_backer(0, '%s%s' % (''.join(array), ''.join(data_area)))
 
@@ -102,22 +105,22 @@ class PETLSObj(TLSObj):
             program and module.
         """
         if tls_idx < len(self.modules):
-            return self.rebase_addr + self.memory.read_addr_at(tls_idx * self.arch.bytes)
+            return self.mapped_base + self.memory.read_addr_at(tls_idx * self.arch.bytes)
         else:
             raise IndexError('TLS index out of range')
 
     def get_min_addr(self):
-        return self.rebase_addr
+        return self.mapped_base
 
     def get_max_addr(self):
-        return self.rebase_addr + self._size
+        return self.mapped_base + self._size
 
     # PE is MUCH simpler in terms of what's the pointer to the thread data. Add these properties for compatibility.
 
     @property
     def thread_pointer(self):
-        return self.rebase_addr
+        return self.mapped_base
 
     @property
     def user_thread_pointer(self):
-        return self.rebase_addr
+        return self.mapped_base
