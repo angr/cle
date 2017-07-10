@@ -494,6 +494,9 @@ class Backend(object):
 
         self.memory = None
 
+        # should be set inside `cle.Loader.add_object`
+        self._is_mapped = False
+
         if custom_arch is None:
             self.arch = None
         elif isinstance(custom_arch, str):

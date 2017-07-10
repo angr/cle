@@ -310,16 +310,14 @@ class Loader(object):
             if self._ignore_import_version_numbers:
                 self._satisfied_deps.add(obj.provides.strip('.0123456789'))
 
-        obj.rebase_addr = 0
-        obj_offset = obj.get_min_addr()
-        obj_size = obj.get_max_addr() - obj_offset
+        obj_size = obj.get_max_addr() - obj.get_min_addr()
 
-        if base_addr is not None and self._is_range_free(base_addr + obj_offset, obj_size):
+        if base_addr is not None and self._is_range_free(base_addr, obj_size):
             pass
-        elif obj._custom_base_addr is not None and self._is_range_free(obj._custom_base_addr + obj_offset, obj_size):
+        elif obj._custom_base_addr is not None and self._is_range_free(obj._custom_base_addr, obj_size):
             base_addr = obj._custom_base_addr
-        elif obj.requested_base is not None and self._is_range_free(obj.requested_base + obj_offset, obj_size):
-            base_addr = obj.requested_base
+        elif obj.linked_base and self._is_range_free(obj.linked_base, obj_size):
+            base_addr = obj.linked_base
         elif not obj.is_main_bin:
             base_addr = self._get_safe_rebase_addr()
         elif self.main_bin.pic:
@@ -335,9 +333,11 @@ class Loader(object):
 
         l.info("Rebasing %s at %#x", obj.binary, base_addr)
         self.memory.add_backer(base_addr, obj.memory)
-        obj.rebase_addr = base_addr
 
-    def _is_range_free(self, addr, size):
+        obj.mapped_base = base_addr
+        obj.rebase()
+        obj._is_mapped = True
+
         for o in self.all_objects:
             if (addr >= o.get_min_addr() and addr < o.get_max_addr()) or \
                (o.get_min_addr() >= addr and o.get_min_addr() < addr + size):
