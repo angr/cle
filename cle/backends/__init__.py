@@ -1,7 +1,9 @@
 import os
 import subprocess
 
+
 import archinfo
+from ..address_translator import AT
 from ..memory import Clemory
 from ..errors import CLECompatibilityError, CLEError
 
@@ -12,6 +14,7 @@ except ImportError:
 
 import logging
 l = logging.getLogger('cle.backends')
+
 
 class Region(object):
     """
@@ -33,17 +36,27 @@ class Region(object):
         self.filesize = filesize
         self.offset = offset
 
+    def _rebase(self, delta):
+        """
+        Does region rebasing to other base address.
+        Intended for usage by loader's add_object to reflect the rebasing.
+
+        :param delta: Delta offset between an old and a new image bases
+        :type delta: int
+        """
+        self.vaddr += delta
+
     def contains_addr(self, addr):
         """
         Does this region contain this virtual address?
         """
-        return (addr >= self.vaddr) and (addr < self.vaddr + self.memsize)
+        return self.vaddr <= addr < self.vaddr + self.memsize
 
     def contains_offset(self, offset):
         """
         Does this region contain this offset into the file?
         """
-        return (offset >= self.offset) and (offset < self.offset + self.filesize)
+        return self.offset <= offset < self.offset + self.filesize
 
     def addr_to_offset(self, addr):
         """
@@ -100,6 +113,7 @@ class Segment(Region):
     """
     pass
 
+
 class Section(Region):
     """
     Simple representation of a loaded section.
@@ -145,14 +159,8 @@ class Section(Region):
             self.memsize
         )
 
-class Symbol(object):
-    # enum for symbol types
-    TYPE_OTHER = 0
-    TYPE_NONE = 1
-    TYPE_FUNCTION = 2
-    TYPE_OBJECT = 3
-    TYPE_SECTION = 4
 
+class Symbol(object):
     """
     Representation of a symbol from a binary file. Smart enough to rebase itself.
 
@@ -170,6 +178,14 @@ class Symbol(object):
     :vartype resolvedby:    None or cle.backends.Symbol
     :ivar str resolvewith:  The name of the library we must use to resolve this symbol, or None if none is required.
     """
+
+    # enum for symbol types
+    TYPE_OTHER = 0
+    TYPE_NONE = 1
+    TYPE_FUNCTION = 2
+    TYPE_OBJECT = 3
+    TYPE_SECTION = 4
+
     def __init__(self, owner, name, addr, size, sym_type):
         """
         Not documenting this since if you try calling it, you're wrong.
@@ -255,12 +271,12 @@ class Regions(object):
     """
 
     def __init__(self, lst=None):
-        self._list = lst if lst is not None else [ ]
+        self._list = lst if lst is not None else []
 
         if self._list:
             self._sorted_list = self._make_sorted(self._list)
         else:
-            self._sorted_list = [ ]
+            self._sorted_list = []
 
     @property
     def raw_list(self):
@@ -302,6 +318,17 @@ class Regions(object):
     def __repr__(self):
         return "<Regions: %s>" % repr(self._list)
 
+    def _rebase(self, delta):
+        """
+        Does regions rebasing to other base address.
+        Modifies state of each internal object, so the list reference doesn't need to be updated,
+        the same is also valid for sorted list as operation preserves the ordering.
+
+        :param delta: Delta offset between an old and a new image bases
+        :type delta: int
+        """
+        map(lambda x: x._rebase(delta), self._list)
+
     def append(self, region):
         """
         Append a new Region instance into the list.
@@ -317,9 +344,10 @@ class Regions(object):
         """
         Find the region that contains a specific address. Returns None if none of the regions covers the address.
 
-        :param int addr:  The address.
-        :return:          The region that covers the specific address, or None if no such region is found.
-        :rtype:    Region or None
+        :param addr:    The address.
+        :type addr:     int
+        :return:        The region that covers the specific address, or None if no such region is found.
+        :rtype:         Region or None
         """
 
         pos = self.bisect_find(self._sorted_list, addr,
@@ -528,6 +556,15 @@ class Backend(object):
         else:
             raise ValueError('Unsupported type %s set as sections.' % type(v))
 
+    def rebase(self):
+        """
+        Rebase backend's regions to the new base where they were mapped by the loader
+        """
+        if self.sections:
+            self.sections._rebase(self.image_base_delta)
+        if self.segments:
+            self.segments._rebase(self.image_base_delta)
+
     def contains_addr(self, addr):
         """
         Is `addr` in one of the binary's segments/sections we have loaded? (i.e. is it mapped into memory ?)
@@ -542,21 +579,19 @@ class Backend(object):
         """
         Returns the segment that contains `addr`, or ``None``.
         """
-
-        return self.segments.find_region_containing(addr - self.rebase_addr)
+        return self.segments.find_region_containing(addr)
 
     def find_section_containing(self, addr):
         """
         Returns the section that contains `addr` or ``None``.
         """
-
-        return self.sections.find_region_containing(addr - self.rebase_addr)
+        return self.sections.find_region_containing(addr)
 
     def addr_to_offset(self, addr):
         loadable = self.find_loadable_containing(addr)
 
         if loadable is not None:
-            return loadable.addr_to_offset(addr - self.rebase_addr)
+            return loadable.addr_to_offset(addr)
         else:
             return None
 
@@ -564,11 +599,11 @@ class Backend(object):
         if self.segments:
             for s in self.segments:
                 if s.contains_offset(offset):
-                    return s.offset_to_addr(offset) + self.rebase_addr
+                    return s.offset_to_addr(offset)
         else:
             for s in self.sections:
                 if s.contains_offset(offset):
-                    return s.offset_to_addr(offset) + self.rebase_addr
+                    return s.offset_to_addr(offset)
 
         return None
 
@@ -577,35 +612,20 @@ class Backend(object):
         This returns the lowest virtual address contained in any loaded segment of the binary.
         """
 
-        out = None
-        for segment in self.segments:
-            if out is None or segment.min_addr < out:
-                out = segment.min_addr
-
-        if out is None:
-            for section in self.sections:
-                if out is None or section.min_addr < out:
-                    out = section.min_addr
-
-        if out is None:
-            return self.rebase_addr
-        else:
-            return out + self.rebase_addr
+        out = self.mapped_base
+        if self.segments or self.sections:
+            out = min(map(lambda x: x.min_addr, self.segments or self.sections))
+        return out
 
     def get_max_addr(self):
         """
         This returns the highest virtual address contained in any loaded segment of the binary.
         """
 
-        out = self.segments.max_addr
-
-        if out is None:
-            out = self.sections.max_addr
-
-        if out is None:
-            return self.rebase_addr
-        else:
-            return out + self.rebase_addr
+        out = self.mapped_base
+        if self.segments or self.sections:
+            out = max(map(lambda x: x.max_addr, self.segments or self.sections))
+        return out
 
     def set_got_entry(self, symbol_name, newaddr):
         """
@@ -614,11 +634,10 @@ class Backend(object):
         """
 
         if symbol_name not in self.imports:
-            l.warning("Could not override the address of symbol %s: symbol entry not "
-                    "found in GOT", symbol_name)
+            l.warning("Could not override the address of symbol %s: symbol entry not found in GOT", symbol_name)
             return
 
-        self.memory.write_addr_at(self.imports[symbol_name].addr, newaddr)
+        self.memory.write_addr_at(AT.from_lva(self.imports[symbol_name].addr, self).to_rva(), newaddr)
 
     def get_initializers(self): # pylint: disable=no-self-use
         """
