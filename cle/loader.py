@@ -513,6 +513,9 @@ class Loader(object):
         """
         for so in self.all_objects:
             sym = so.get_symbol(name)
+            if sym is None:
+                continue
+
             if sym.is_import:
                 if sym.resolvedby is not None:
                     return sym.resolvedby
