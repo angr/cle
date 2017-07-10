@@ -366,7 +366,7 @@ def default_binding_handler(state, binary):
 
     value = symbol.addr + state.addend
     if state.binding_type == 1:  # POINTER
-        l.info("Updating address %#x with symobl %r @ %#x", state.sym_name, location, value)
+        l.info("Updating address %#x with symobl %r @ %#x", location, state.sym_name, value)
         binary.memory.write_bytes(
                 location,
                 struct.pack(binary.struct_byteorder + ("Q" if binary.arch.bits == 64 else "I"), value))
