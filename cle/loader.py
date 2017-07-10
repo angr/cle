@@ -121,8 +121,7 @@ class Loader(object):
     def __repr__(self):
         if self._main_binary_stream is None:
             return '<Loaded %s, maps [%#x:%#x]>' % (os.path.basename(self._main_binary_path), self.min_addr(), self.max_addr())
-        else:
-            return '<Loaded from stream, maps [%#x:%#x]>' % (self.min_addr(), self.max_addr())
+        return '<Loaded from stream, maps [%#x:%#x]>' % (self.min_addr(), self.max_addr())
 
     def get_initializers(self):
         """
@@ -183,7 +182,7 @@ class Loader(object):
         self.add_object(self.main_bin)
 
     def _load_dependencies(self):
-        while len(self._unsatisfied_deps) > 0:
+        while self._unsatisfied_deps:
             dep = self._unsatisfied_deps.pop(0)
             if isinstance(dep, (str, unicode)):
                 if os.path.basename(dep) in self._satisfied_deps:
@@ -340,12 +339,11 @@ class Loader(object):
         obj.rebase()
         obj._is_mapped = True
 
+    def _is_range_free(self, va, size):
         for o in self.all_objects:
-            if (addr >= o.get_min_addr() and addr < o.get_max_addr()) or \
-               (o.get_min_addr() >= addr and o.get_min_addr() < addr + size):
+            if o.get_min_addr() <= va < o.get_max_addr() or va <= o.get_min_addr() < va + size:
                 return False
         return True
-
 
     def _possible_paths(self, path):
         if os.path.exists(path): yield path
@@ -438,9 +436,9 @@ class Loader(object):
         # TODO: This assert ensures that we have either ELF or PE modules, but not both.
         # Do we need to handle the case where we have both ELF and PE modules?
         assert num_elf_modules != num_pe_modules or num_elf_modules == 0 or num_pe_modules == 0
-        if len(elf_modules) > 0:
+        if elf_modules:
             self.tls_object = ELFTLSObj(elf_modules)
-        elif len(pe_modules) > 0:
+        elif pe_modules:
             self.tls_object = PETLSObj(pe_modules)
 
         if self.tls_object:
@@ -455,7 +453,7 @@ class Loader(object):
 
     def addr_belongs_to_object(self, addr):
         for obj in self.all_objects:
-            if not (addr >= obj.get_min_addr() and addr < obj.get_max_addr()):
+            if not obj.get_min_addr() <= addr < obj.get_max_addr():
                 continue
 
             if isinstance(obj.memory, str):
@@ -486,7 +484,7 @@ class Loader(object):
             if addr in o.plt.values():
                 for k,v in o.plt.iteritems():
                     if v == addr:
-                        return  "PLT stub of %s in %s (offset %#x)" % (k, nameof, off)
+                        return "PLT stub of %s in %s (offset %#x)" % (k, nameof, off)
 
         if off in o.symbols_by_addr:
             name = o.symbols_by_addr[off].name

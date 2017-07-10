@@ -283,7 +283,7 @@ class ELF(MetaELF):
 
     def _cache_symbol_name(self, symbol):
         name = symbol.name
-        if len(name) > 0:
+        if name:
             if name in self._symbols_by_name:
                 old_symbol = self._symbols_by_name[name]
                 if not old_symbol.is_weak and symbol.is_weak:
@@ -718,11 +718,10 @@ class ELF(MetaELF):
         been implemented, then update self.demangled_names in Symbol
         """
 
-        if not len(self.symbols_by_addr):
+        if not self.symbols_by_addr:
             return
 
-        names = [self.symbols_by_addr[s].name for s in self.symbols_by_addr]
-        names = filter(lambda n: n.startswith("_Z"), names)
+        names = filter(lambda n: n.startswith("_Z"), (s.name for s in self.symbols_by_addr.itervalues()))
         lookup_names = map(lambda n: n.split("@@")[0], names)
         # this monstrosity taken from stackoverflow
         # http://stackoverflow.com/questions/6526500/c-name-mangling-library-for-python

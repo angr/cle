@@ -148,7 +148,7 @@ class PE(Backend):
         self._handle_relocs()
         self._register_tls()
         self._register_sections()
-        self.linking = 'dynamic' if len(self.deps) > 0 else 'static'
+        self.linking = 'dynamic' if self.deps else 'static'
 
         self.jmprel = self._get_jmprel()
 

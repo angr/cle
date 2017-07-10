@@ -251,7 +251,7 @@ class Symbol(object):
             stdout, _ = pipe.communicate()
             demangled = stdout.split("\n")
 
-            if len(demangled) > 0:
+            if demangled:
                 return demangled[0]
 
         return None
@@ -459,7 +459,7 @@ class Backend(object):
                 self.binary_stream = None
 
         if kwargs != {}:
-            l.warning("Unused kwargs for loading binary %s: %s", self.binary, ', '.join(str(x) for x in kwargs.keys()))
+            l.warning("Unused kwargs for loading binary %s: %s", self.binary, ', '.join(kwargs.iterkeys()))
 
         self.is_main_bin = is_main_bin
         self.loader = loader

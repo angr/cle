@@ -139,7 +139,7 @@ class Clemory(object):
         to_insert = [ ]
         i = 0
 
-        while i < len(self._backers) and len(data):
+        while i < len(self._backers) and data:
             start, backer_data = self._backers[i] # self._backers is always sorted
             size = len(backer_data)
             stop = start + size

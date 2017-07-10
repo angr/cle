@@ -147,7 +147,7 @@ class MetaELF(Backend):
             except (AssertionError, KeyError, pyvex.PyVEXError):
                 return False
 
-        if len(self._plt) == 0 and '__libc_start_main' in self.jmprel and self.entry != 0:
+        if not self._plt and '__libc_start_main' in self.jmprel and self.entry != 0:
             # try to scan forward through control flow to find __libc_start_main!
             try:
                 last_jk = None
@@ -177,7 +177,7 @@ class MetaELF(Backend):
             tick.bailout_timer = 5
             scan_forward(self.sections_map['.plt'].vaddr, self.jmprel.keys()[0], push=True)
 
-        if len(self._plt) == 0:
+        if not self._plt:
             # \(_^^)/
             return
 
