@@ -29,6 +29,7 @@ class WinSymbol(Symbol):
         self.is_import = is_import
         self.is_export = is_export
 
+
 class WinReloc(Relocation):
     """
     Represents a relocation for the PE format.
@@ -80,15 +81,9 @@ class PESection(Section):
     """
     Represents a section for the PE format.
     """
-    def __init__(self, pe_section):
-        super(PESection, self).__init__(
-            pe_section.Name,
-            pe_section.Misc_PhysicalAddress,
-            pe_section.VirtualAddress,
-            pe_section.Misc_VirtualSize,
-        )
-
-        self.characteristics = pe_section.Characteristics
+    def __init__(self, name, offset, vaddr, size, chars):
+        super(PESection, self).__init__(name, offset, vaddr, size)
+        self.characteristics = chars
 
     #
     # Public properties
@@ -105,6 +100,7 @@ class PESection(Section):
     @property
     def is_executable(self):
         return self.characteristics & 0x20000000 != 0
+
 
 class PE(Backend):
     """
@@ -252,7 +248,11 @@ class PE(Backend):
         """
 
         for pe_section in self._pe.sections:
-            section = PESection(pe_section)
+            section = PESection(
+                pe_section.Name, pe_section.Misc_PhysicalAddress,
+                AT.from_rva(pe_section.VirtualAddress, self).to_mva(),
+                pe_section.Misc_VirtualSize, pe_section.Characteristics
+            )
             self.sections.append(section)
             self.sections_map[section.name] = section
 
