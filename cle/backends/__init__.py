@@ -424,10 +424,10 @@ class Backend(object):
     :vartype arch:          archinfo.arch.Arch
     :ivar str os:           The operating system this binary is meant to run under
     :ivar compatible_with:  Another Backend object this object must be compatibile with, or None
-    :ivar int rebase_addr:  The base address of this object in virtual memory
+    :ivar int mapped_base:  The base address of this object in virtual memory
     :ivar deps:             A list of names of shared libraries this binary depends on
     :ivar linking:          'dynamic' or 'static'
-    :ivar requested_base:   The base address this object requests to be loaded at, or None
+    :ivar linked_base:      The base address this object requests to be loaded at
     :ivar bool pic:         Whether this object is position-independent
     :ivar bool execstack:   Whether this executable has an executable stack
     :ivar str provides:     The name of the shared library dependancy that this object resolves
@@ -478,13 +478,12 @@ class Backend(object):
         self.compatible_with = compatible_with
         self._symbol_cache = {}
 
-        self.rebase_addr_symbolic = 0
+        self.mapped_base_symbolic = 0
         # These are set by cle, and should not be overriden manually
-        self.rebase_addr = 0 # not to be set manually - used by CLE
+        self.mapped_base = self.linked_base = 0 # not to be set manually - used by CLE
 
         self.deps = []           # Needed shared objects (libraries dependencies)
         self.linking = None # Dynamic or static linking
-        self.requested_base = None
         self.pic = False
         self.execstack = False
 
@@ -506,7 +505,6 @@ class Backend(object):
         else:
             raise CLEError("Bad parameter: custom_arch=%s" % custom_arch)
 
-
     def close(self):
         if self.binary_stream is not None:
             self.binary_stream.close()
@@ -514,15 +512,21 @@ class Backend(object):
 
     def __repr__(self):
         if self.binary is not None:
-            return '<%s Object %s, maps [%#x:%#x]>' % (self.__class__.__name__, os.path.basename(self.binary), self.get_min_addr(), self.get_max_addr())
+            return '<%s Object %s, maps [%#x:%#x]>' % \
+                   (self.__class__.__name__, os.path.basename(self.binary), self.get_min_addr(), self.get_max_addr())
         else:
-            return '<%s Object from stream, maps [%#x:%#x]>' % (self.__class__.__name__, self.get_min_addr(), self.get_max_addr())
+            return '<%s Object from stream, maps [%#x:%#x]>' % \
+                   (self.__class__.__name__, self.get_min_addr(), self.get_max_addr())
 
     def set_arch(self, arch):
         if self.compatible_with is not None and self.compatible_with.arch != arch:
             raise CLECompatibilityError("Binary %s not compatible with arch %s" % (self.binary, self.compatible_with.arch))
         self.arch = arch
         self.memory = Clemory(arch) # Private virtual address space, without relocations
+
+    @property
+    def image_base_delta(self):
+        return - self.linked_base + self.mapped_base
 
     @property
     def entry(self):
