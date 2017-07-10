@@ -31,7 +31,7 @@ class MachO(Backend):
     *   Sections are always part of a segment, self.sections will thus be empty
     *   Symbols cannot be categorized like in ELF
     *   Symbol resolution must be handled by the binary
-    *   Rebasing cannot be done statically (i.e. self.rebase_addr is ignored for now)
+    *   Rebasing cannot be done statically (i.e. self.mapped_base is ignored for now)
     *   ...
     """
     MH_MAGIC_64 = 0xfeedfacf
@@ -44,7 +44,6 @@ class MachO(Backend):
         l.warning('The Mach-O backend is not well-supported. Good luck!')
 
         super(MachO, self).__init__(binary, **kwargs)
-        self.rebase_addr = 0  # required for some angr stuffs even though not supported
 
         self.struct_byteorder = None  # holds byteorder for struct.unpack(...)
         self.cputype = None

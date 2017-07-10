@@ -121,7 +121,7 @@ class PE(Backend):
         if self.arch is None:
             self.set_arch(archinfo.arch_from_id(pefile.MACHINE_TYPE[self._pe.FILE_HEADER.Machine]))
 
-        self.requested_base = self._pe.OPTIONAL_HEADER.ImageBase
+        self.mapped_base = self.linked_base = self._pe.OPTIONAL_HEADER.ImageBase
         self._entry = self._pe.OPTIONAL_HEADER.AddressOfEntryPoint
 
         if hasattr(self._pe, 'DIRECTORY_ENTRY_IMPORT'):
