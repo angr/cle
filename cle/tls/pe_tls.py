@@ -111,3 +111,13 @@ class PETLSObj(TLSObj):
 
     def get_max_addr(self):
         return self.rebase_addr + self._size
+
+    # PE is MUCH simpler in terms of what's the pointer to the thread data. Add these properties for compatibility.
+
+    @property
+    def thread_pointer(self):
+        return self.rebase_addr
+
+    @property
+    def user_thread_pointer(self):
+        return self.rebase_addr
