@@ -168,6 +168,7 @@ class Symbol(object):
     :ivar bool resolved:    Whether this import symbol has been resolved to a real symbol
     :ivar resolvedby:       The real symbol this import symbol has been resolve to
     :vartype resolvedby:    None or cle.backends.Symbol
+    :ivar str resolvewith:  The name of the library we must use to resolve this symbol, or None if none is required.
     """
     def __init__(self, owner, name, addr, size, sym_type):
         """
@@ -181,6 +182,7 @@ class Symbol(object):
         self.type = sym_type
         self.resolved = False
         self.resolvedby = None
+        self.resolvewith = None
         if (claripy and isinstance(self.addr, claripy.ast.Base)) or self.addr != 0:
             self.owner_obj.symbols_by_addr[self.addr] = self
             # would be nice if we could populate demangled_names here...
