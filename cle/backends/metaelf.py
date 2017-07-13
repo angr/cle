@@ -1,5 +1,6 @@
 import pyvex
 import elftools
+import os
 
 from . import Backend
 from ..errors import CLEOperationError
