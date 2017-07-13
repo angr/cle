@@ -398,7 +398,7 @@ class Regions(object):
         :rtype:           list
         """
 
-        return sorted(lst, lambda x: x.vaddr)
+        return sorted(lst, key=lambda x: x.vaddr)
 
 
 class Backend(object):
