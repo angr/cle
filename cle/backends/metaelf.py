@@ -3,6 +3,7 @@ import elftools
 import os
 
 from . import Backend
+from ..address_translator import AT
 from ..errors import CLEOperationError
 from ..utils import stream_or_path
 
@@ -26,7 +27,7 @@ class MetaELF(Backend):
         thumb = self.arch.name.startswith("ARM") and addr % 2 == 1
         realaddr = addr
         if thumb: realaddr -= 1
-        dat = ''.join(self.memory.read_bytes(realaddr, 40))
+        dat = ''.join(self.memory.read_bytes(AT.from_lva(realaddr, self).to_rva(), 40))
         return pyvex.IRSB(dat, addr, self.arch, bytes_offset=1 if thumb else 0, opt_level=1)
 
     def _add_plt_stub(self, name, addr, sanity_check=True):
@@ -64,7 +65,10 @@ class MetaELF(Backend):
         if self.arch.name in ('X86', 'AMD64'):
             for name, reloc in self.jmprel.iteritems():
                 try:
-                    self._add_plt_stub(name, self.memory.read_addr_at(reloc.addr) - 6, sanity_check=not self.pic)
+                    self._add_plt_stub(
+                        name,
+                        self.memory.read_addr_at(AT.from_lva(reloc.addr, reloc.owner_obj).to_rva()) - 6,
+                        sanity_check=not self.pic)
                 except KeyError:
                     pass
 
@@ -75,7 +79,10 @@ class MetaELF(Backend):
         # ATTEMPT 3: one ppc scheme I've seen is that there are 16-byte stubs packed together
         # right before the resolution stubs.
         if self.arch.name in ('PPC32',):
-            resolver_stubs = sorted((self.memory.read_addr_at(reloc.addr), name) for name, reloc in self.jmprel.iteritems())
+            resolver_stubs = sorted(
+                (self.memory.read_addr_at(AT.from_lva(reloc.addr, reloc.owner_obj).to_rva()), name)
+                for name, reloc in self.jmprel.iteritems()
+            )
             if resolver_stubs:
                 stubs_table = resolver_stubs[0][0] - 16 * len(resolver_stubs)
                 for i, (_, name) in enumerate(resolver_stubs):
@@ -141,7 +148,7 @@ class MetaELF(Backend):
             except (AssertionError, KeyError, pyvex.PyVEXError):
                 return False
 
-        if len(self._plt) == 0 and '__libc_start_main' in self.jmprel and self.entry != 0:
+        if not self._plt and '__libc_start_main' in self.jmprel and self.entry != 0:
             # try to scan forward through control flow to find __libc_start_main!
             try:
                 last_jk = None
@@ -171,7 +178,7 @@ class MetaELF(Backend):
             tick.bailout_timer = 5
             scan_forward(self.sections_map['.plt'].vaddr, self.jmprel.keys()[0], push=True)
 
-        if len(self._plt) == 0:
+        if not self._plt:
             # \(_^^)/
             return
 
@@ -214,14 +221,14 @@ class MetaELF(Backend):
         """
         Maps names to addresses.
         """
-        return {k: v + self.rebase_addr for (k, v) in self._plt.iteritems()}
+        return {k: AT.from_lva(v, self).to_mva() for (k, v) in self._plt.iteritems()}
 
     @property
     def reverse_plt(self):
         """
         Maps addresses to names.
         """
-        return {v + self.rebase_addr: k for (k, v) in self._plt.iteritems()}
+        return {AT.from_lva(v, self).to_mva(): k for (k, v) in self._plt.iteritems()}
 
     def get_call_stub_addr(self, name):
         """
@@ -231,7 +238,7 @@ class MetaELF(Backend):
             raise CLEOperationError("FIXME: this doesn't work on PPC64")
 
         if name in self._plt:
-            return self._plt[name] + self.rebase_addr
+            return AT.from_lva(self._plt[name], self).to_mva()
         return None
 
     @property
@@ -254,8 +261,8 @@ class MetaELF(Backend):
 
         if self.is_ppc64_abiv1:
             ep_offset = self._entry
-            self._entry = self.memory.read_addr_at(ep_offset)
-            self.ppc64_initial_rtoc = self.memory.read_addr_at(ep_offset+8)
+            self._entry = self.memory.read_addr_at(AT.from_lva(ep_offset, self).to_rva())
+            self.ppc64_initial_rtoc = self.memory.read_addr_at(AT.from_lva(ep_offset+8, self).to_rva())
 
     @staticmethod
     def extract_soname(path):

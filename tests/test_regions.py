@@ -5,6 +5,7 @@ import nose
 
 import cle
 from cle.backends import Section, Segment
+from cle.address_translator import AT
 
 
 TESTS_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)),
@@ -63,7 +64,7 @@ def run_sections(arch, filename, sections):
     for i, section in enumerate(ld.main_bin.sections):
         nose.tools.assert_equal(section.name, sections[i].name)
         nose.tools.assert_equal(section.offset, sections[i].offset)
-        nose.tools.assert_equal(section.vaddr, sections[i].vaddr)
+        nose.tools.assert_equal(AT.from_mva(section.vaddr, ld.main_bin).to_lva(), sections[i].vaddr)
         nose.tools.assert_equal(section.memsize, sections[i].memsize)
 
     # address lookups

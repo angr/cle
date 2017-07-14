@@ -2,6 +2,8 @@ import os, sys
 import logging
 from collections import OrderedDict
 
+from cle.address_translator import AT
+
 try:
     import claripy
 except ImportError:
@@ -181,7 +183,7 @@ class Loader(object):
         self.add_object(self.main_bin)
 
     def _load_dependencies(self):
-        while len(self._unsatisfied_deps) > 0:
+        while self._unsatisfied_deps:
             dep = self._unsatisfied_deps.pop(0)
             if isinstance(dep, (str, unicode)):
                 if os.path.basename(dep) in self._satisfied_deps:
@@ -276,8 +278,8 @@ class Loader(object):
         outputlist = []
         for obj in self.all_objects:
             #TODO Fix Symbolic for tls whatever
-            if obj.aslr and isinstance(obj.rebase_addr_symbolic, claripy.ast.BV):
-                outputlist.append(obj.rebase_addr_symbolic == obj.rebase_addr)
+            if obj.aslr and isinstance(obj.mapped_base_symbolic, claripy.ast.BV):
+                outputlist.append(obj.mapped_base_symbolic == obj.mapped_base)
         return outputlist
 
     @staticmethod
@@ -310,16 +312,14 @@ class Loader(object):
             if self._ignore_import_version_numbers:
                 self._satisfied_deps.add(obj.provides.strip('.0123456789'))
 
-        obj.rebase_addr = 0
-        obj_offset = obj.get_min_addr()
-        obj_size = obj.get_max_addr() - obj_offset
+        obj_size = obj.get_max_addr() - obj.get_min_addr()
 
-        if base_addr is not None and self._is_range_free(base_addr + obj_offset, obj_size):
+        if base_addr is not None and self._is_range_free(base_addr, obj_size):
             pass
-        elif obj._custom_base_addr is not None and self._is_range_free(obj._custom_base_addr + obj_offset, obj_size):
+        elif obj._custom_base_addr is not None and self._is_range_free(obj._custom_base_addr, obj_size):
             base_addr = obj._custom_base_addr
-        elif obj.requested_base is not None and self._is_range_free(obj.requested_base + obj_offset, obj_size):
-            base_addr = obj.requested_base
+        elif obj.linked_base and self._is_range_free(obj.linked_base, obj_size):
+            base_addr = obj.linked_base
         elif not obj.is_main_bin:
             base_addr = self._get_safe_rebase_addr()
         elif self.main_bin.pic:
@@ -335,15 +335,16 @@ class Loader(object):
 
         l.info("Rebasing %s at %#x", obj.binary, base_addr)
         self.memory.add_backer(base_addr, obj.memory)
-        obj.rebase_addr = base_addr
 
-    def _is_range_free(self, addr, size):
+        obj.mapped_base = base_addr
+        obj.rebase()
+        obj._is_mapped = True
+
+    def _is_range_free(self, va, size):
         for o in self.all_objects:
-            if (addr >= o.get_min_addr() and addr < o.get_max_addr()) or \
-               (o.get_min_addr() >= addr and o.get_min_addr() < addr + size):
+            if o.get_min_addr() <= va < o.get_max_addr() or va <= o.get_min_addr() < va + size:
                 return False
         return True
-
 
     def _possible_paths(self, path):
         if os.path.exists(path): yield path
@@ -436,9 +437,9 @@ class Loader(object):
         # TODO: This assert ensures that we have either ELF or PE modules, but not both.
         # Do we need to handle the case where we have both ELF and PE modules?
         assert num_elf_modules != num_pe_modules or num_elf_modules == 0 or num_pe_modules == 0
-        if len(elf_modules) > 0:
+        if elf_modules:
             self.tls_object = ELFTLSObj(elf_modules)
-        elif len(pe_modules) > 0:
+        elif pe_modules:
             self.tls_object = PETLSObj(pe_modules)
 
         if self.tls_object:
@@ -453,14 +454,14 @@ class Loader(object):
 
     def addr_belongs_to_object(self, addr):
         for obj in self.all_objects:
-            if not (addr >= obj.get_min_addr() and addr < obj.get_max_addr()):
+            if not obj.get_min_addr() <= addr < obj.get_max_addr():
                 continue
 
             if isinstance(obj.memory, str):
                 return obj
 
             elif isinstance(obj.memory, Clemory):
-                if addr - obj.rebase_addr in obj.memory:
+                if AT.from_va(addr, obj).to_rva() in obj.memory:
                     return obj
 
             else:
@@ -477,14 +478,14 @@ class Loader(object):
         if o is None:
             return None
 
-        off = addr - o.rebase_addr
+        off = AT.from_va(addr, o).to_rva()
         nameof = 'main binary' if o is self.main_bin else o.provides
 
         if isinstance(o, ELF):
             if addr in o.plt.values():
                 for k,v in o.plt.iteritems():
                     if v == addr:
-                        return  "PLT stub of %s in %s (offset %#x)" % (k, nameof, off)
+                        return "PLT stub of %s in %s (offset %#x)" % (k, nameof, off)
 
         if off in o.symbols_by_addr:
             name = o.symbols_by_addr[off].name
@@ -529,8 +530,8 @@ class Loader(object):
         Return the name of the function starting at `addr`.
         """
         for so in self.all_objects:
-            if addr - so.rebase_addr in so.symbols_by_addr:
-                return so.symbols_by_addr[addr - so.rebase_addr].name
+            if addr in so.symbols_by_addr:
+                return so.symbols_by_addr[addr].name
         return None
 
     def find_plt_stub_name(self, addr):
@@ -549,7 +550,7 @@ class Loader(object):
         """
         for o in self.all_objects:
             # The Elf class only works with static non-relocated addresses
-            if o.contains_addr(addr - o.rebase_addr):
+            if o.contains_addr(AT.from_va(addr, o).to_rva()):
                 return o.provides
 
     def find_symbol_got_entry(self, symbol):
@@ -669,7 +670,7 @@ class Loader(object):
             for resolver, dest in obj.irelatives:
                 val = resolver_func(resolver)
                 if val is not None:
-                    obj.memory.write_addr_at(dest, val)
+                    obj.memory.write_addr_at(AT.from_lva(dest, obj).to_rva(), val)
 
 from .errors import CLEError, CLEFileNotFoundError, CLECompatibilityError
 from .memory import Clemory

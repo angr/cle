@@ -2,6 +2,7 @@ import archinfo
 
 import os
 import importlib
+from ...address_translator import AT
 from collections import defaultdict
 
 import logging
@@ -79,7 +80,7 @@ class Relocation(object):
         if self.is_rela:
             return self._addend
         else:
-            return self.owner_obj.memory.read_addr_at(self.addr, orig=True)
+            return self.owner_obj.memory.read_addr_at(AT.from_lva(self.addr, self.owner_obj).to_rva(), orig=True)
 
     def resolve_symbol(self, solist, bypass_compatibility=False):
         if self.symbol.is_static:
@@ -121,7 +122,7 @@ class Relocation(object):
 
     @property
     def rebased_addr(self):
-        return self.addr + self.owner_obj.rebase_addr
+        return AT.from_lva(self.addr, self.owner_obj).to_mva()
 
     @property
     def dest_addr(self):
@@ -144,6 +145,6 @@ class Relocation(object):
         if not self.resolve_symbol(solist, bypass_compatibility):
             return False
 
-        self.owner_obj.memory.write_addr_at(self.dest_addr, self.value)
+        self.owner_obj.memory.write_addr_at(AT.from_lva(self.dest_addr, self.owner_obj).to_rva(), self.value)
 
 load_relocations()

@@ -268,8 +268,8 @@ class IDABin(Backend):
     @property
     def entry(self):
         if self._custom_entry_point is not None:
-            return self._custom_entry_point + self.rebase_addr
-        return self.ida.idc.BeginEA() + self.rebase_addr
+            return self._custom_entry_point + self.mapped_base
+        return self.ida.idc.BeginEA() + self.mapped_base
 
     def resolve_import_dirty(self, sym, new_val):
         """

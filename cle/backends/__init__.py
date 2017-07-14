@@ -1,9 +1,11 @@
 import os
 import subprocess
 
+
 import archinfo
+from ..address_translator import AT
 from ..memory import Clemory
-from ..errors import CLECompatibilityError, CLEError
+from ..errors import CLECompatibilityError, CLEOperationError, CLEError
 
 try:
     import claripy
@@ -12,6 +14,7 @@ except ImportError:
 
 import logging
 l = logging.getLogger('cle.backends')
+
 
 class Region(object):
     """
@@ -33,17 +36,27 @@ class Region(object):
         self.filesize = filesize
         self.offset = offset
 
+    def _rebase(self, delta):
+        """
+        Does region rebasing to other base address.
+        Intended for usage by loader's add_object to reflect the rebasing.
+
+        :param delta: Delta offset between an old and a new image bases
+        :type delta: int
+        """
+        self.vaddr += delta
+
     def contains_addr(self, addr):
         """
         Does this region contain this virtual address?
         """
-        return (addr >= self.vaddr) and (addr < self.vaddr + self.memsize)
+        return self.vaddr <= addr < self.vaddr + self.memsize
 
     def contains_offset(self, offset):
         """
         Does this region contain this offset into the file?
         """
-        return (offset >= self.offset) and (offset < self.offset + self.filesize)
+        return self.offset <= offset < self.offset + self.filesize
 
     def addr_to_offset(self, addr):
         """
@@ -100,6 +113,7 @@ class Segment(Region):
     """
     pass
 
+
 class Section(Region):
     """
     Simple representation of a loaded section.
@@ -145,14 +159,8 @@ class Section(Region):
             self.memsize
         )
 
-class Symbol(object):
-    # enum for symbol types
-    TYPE_OTHER = 0
-    TYPE_NONE = 1
-    TYPE_FUNCTION = 2
-    TYPE_OBJECT = 3
-    TYPE_SECTION = 4
 
+class Symbol(object):
     """
     Representation of a symbol from a binary file. Smart enough to rebase itself.
 
@@ -170,6 +178,14 @@ class Symbol(object):
     :vartype resolvedby:    None or cle.backends.Symbol
     :ivar str resolvewith:  The name of the library we must use to resolve this symbol, or None if none is required.
     """
+
+    # enum for symbol types
+    TYPE_OTHER = 0
+    TYPE_NONE = 1
+    TYPE_FUNCTION = 2
+    TYPE_OBJECT = 3
+    TYPE_SECTION = 4
+
     def __init__(self, owner, name, addr, size, sym_type):
         """
         Not documenting this since if you try calling it, you're wrong.
@@ -201,7 +217,7 @@ class Symbol(object):
         """
         The address of this symbol in the global memory space
         """
-        return self.addr + self.owner_obj.rebase_addr
+        return AT.from_lva(self.addr, self.owner_obj).to_mva()
 
     @property
     def is_function(self):
@@ -235,7 +251,7 @@ class Symbol(object):
             stdout, _ = pipe.communicate()
             demangled = stdout.split("\n")
 
-            if len(demangled) > 0:
+            if demangled:
                 return demangled[0]
 
         return None
@@ -255,12 +271,12 @@ class Regions(object):
     """
 
     def __init__(self, lst=None):
-        self._list = lst if lst is not None else [ ]
+        self._list = lst if lst is not None else []
 
         if self._list:
             self._sorted_list = self._make_sorted(self._list)
         else:
-            self._sorted_list = [ ]
+            self._sorted_list = []
 
     @property
     def raw_list(self):
@@ -302,6 +318,17 @@ class Regions(object):
     def __repr__(self):
         return "<Regions: %s>" % repr(self._list)
 
+    def _rebase(self, delta):
+        """
+        Does regions rebasing to other base address.
+        Modifies state of each internal object, so the list reference doesn't need to be updated,
+        the same is also valid for sorted list as operation preserves the ordering.
+
+        :param delta: Delta offset between an old and a new image bases
+        :type delta: int
+        """
+        map(lambda x: x._rebase(delta), self._list)
+
     def append(self, region):
         """
         Append a new Region instance into the list.
@@ -317,9 +344,10 @@ class Regions(object):
         """
         Find the region that contains a specific address. Returns None if none of the regions covers the address.
 
-        :param int addr:  The address.
-        :return:          The region that covers the specific address, or None if no such region is found.
-        :rtype:    Region or None
+        :param addr:    The address.
+        :type addr:     int
+        :return:        The region that covers the specific address, or None if no such region is found.
+        :rtype:         Region or None
         """
 
         pos = self.bisect_find(self._sorted_list, addr,
@@ -370,7 +398,7 @@ class Regions(object):
         :rtype:           list
         """
 
-        return sorted(lst, lambda x: x.vaddr)
+        return sorted(lst, key=lambda x: x.vaddr)
 
 
 class Backend(object):
@@ -396,10 +424,10 @@ class Backend(object):
     :vartype arch:          archinfo.arch.Arch
     :ivar str os:           The operating system this binary is meant to run under
     :ivar compatible_with:  Another Backend object this object must be compatibile with, or None
-    :ivar int rebase_addr:  The base address of this object in virtual memory
+    :ivar int mapped_base:  The base address of this object in virtual memory
     :ivar deps:             A list of names of shared libraries this binary depends on
     :ivar linking:          'dynamic' or 'static'
-    :ivar requested_base:   The base address this object requests to be loaded at, or None
+    :ivar linked_base:      The base address this object requests to be loaded at
     :ivar bool pic:         Whether this object is position-independent
     :ivar bool execstack:   Whether this executable has an executable stack
     :ivar str provides:     The name of the shared library dependancy that this object resolves
@@ -431,7 +459,7 @@ class Backend(object):
                 self.binary_stream = None
 
         if kwargs != {}:
-            l.warning("Unused kwargs for loading binary %s: %s", self.binary, ', '.join(str(x) for x in kwargs.keys()))
+            l.warning("Unused kwargs for loading binary %s: %s", self.binary, ', '.join(kwargs.iterkeys()))
 
         self.is_main_bin = is_main_bin
         self.loader = loader
@@ -450,13 +478,12 @@ class Backend(object):
         self.compatible_with = compatible_with
         self._symbol_cache = {}
 
-        self.rebase_addr_symbolic = 0
+        self.mapped_base_symbolic = 0
         # These are set by cle, and should not be overriden manually
-        self.rebase_addr = 0 # not to be set manually - used by CLE
+        self.mapped_base = self.linked_base = 0 # not to be set manually - used by CLE
 
         self.deps = []           # Needed shared objects (libraries dependencies)
         self.linking = None # Dynamic or static linking
-        self.requested_base = None
         self.pic = False
         self.execstack = False
 
@@ -466,6 +493,9 @@ class Backend(object):
         self.provides = os.path.basename(self.binary) if self.binary is not None else None
 
         self.memory = None
+
+        # should be set inside `cle.Loader.add_object`
+        self._is_mapped = False
 
         if custom_arch is None:
             self.arch = None
@@ -478,7 +508,6 @@ class Backend(object):
         else:
             raise CLEError("Bad parameter: custom_arch=%s" % custom_arch)
 
-
     def close(self):
         if self.binary_stream is not None:
             self.binary_stream.close()
@@ -486,9 +515,11 @@ class Backend(object):
 
     def __repr__(self):
         if self.binary is not None:
-            return '<%s Object %s, maps [%#x:%#x]>' % (self.__class__.__name__, os.path.basename(self.binary), self.get_min_addr(), self.get_max_addr())
+            return '<%s Object %s, maps [%#x:%#x]>' % \
+                   (self.__class__.__name__, os.path.basename(self.binary), self.get_min_addr(), self.get_max_addr())
         else:
-            return '<%s Object from stream, maps [%#x:%#x]>' % (self.__class__.__name__, self.get_min_addr(), self.get_max_addr())
+            return '<%s Object from stream, maps [%#x:%#x]>' % \
+                   (self.__class__.__name__, self.get_min_addr(), self.get_max_addr())
 
     def set_arch(self, arch):
         if self.compatible_with is not None and self.compatible_with.arch != arch:
@@ -497,10 +528,14 @@ class Backend(object):
         self.memory = Clemory(arch) # Private virtual address space, without relocations
 
     @property
+    def image_base_delta(self):
+        return self.mapped_base - self.linked_base
+
+    @property
     def entry(self):
         if self._custom_entry_point is not None:
-            return self._custom_entry_point + self.rebase_addr
-        return self._entry + self.rebase_addr
+            return AT.from_lva(self._custom_entry_point, self).to_mva()
+        return AT.from_lva(self._entry, self).to_mva()
 
     @property
     def segments(self):
@@ -528,6 +563,17 @@ class Backend(object):
         else:
             raise ValueError('Unsupported type %s set as sections.' % type(v))
 
+    def rebase(self):
+        """
+        Rebase backend's regions to the new base where they were mapped by the loader
+        """
+        if self._is_mapped:
+            raise CLEOperationError("Image already rebased from %#x to %#x" % (self.linked_base, self.mapped_base))
+        if self.sections:
+            self.sections._rebase(self.image_base_delta)
+        if self.segments:
+            self.segments._rebase(self.image_base_delta)
+
     def contains_addr(self, addr):
         """
         Is `addr` in one of the binary's segments/sections we have loaded? (i.e. is it mapped into memory ?)
@@ -542,21 +588,19 @@ class Backend(object):
         """
         Returns the segment that contains `addr`, or ``None``.
         """
-
-        return self.segments.find_region_containing(addr - self.rebase_addr)
+        return self.segments.find_region_containing(addr)
 
     def find_section_containing(self, addr):
         """
         Returns the section that contains `addr` or ``None``.
         """
-
-        return self.sections.find_region_containing(addr - self.rebase_addr)
+        return self.sections.find_region_containing(addr)
 
     def addr_to_offset(self, addr):
         loadable = self.find_loadable_containing(addr)
 
         if loadable is not None:
-            return loadable.addr_to_offset(addr - self.rebase_addr)
+            return loadable.addr_to_offset(addr)
         else:
             return None
 
@@ -564,11 +608,11 @@ class Backend(object):
         if self.segments:
             for s in self.segments:
                 if s.contains_offset(offset):
-                    return s.offset_to_addr(offset) + self.rebase_addr
+                    return s.offset_to_addr(offset)
         else:
             for s in self.sections:
                 if s.contains_offset(offset):
-                    return s.offset_to_addr(offset) + self.rebase_addr
+                    return s.offset_to_addr(offset)
 
         return None
 
@@ -577,35 +621,20 @@ class Backend(object):
         This returns the lowest virtual address contained in any loaded segment of the binary.
         """
 
-        out = None
-        for segment in self.segments:
-            if out is None or segment.min_addr < out:
-                out = segment.min_addr
-
-        if out is None:
-            for section in self.sections:
-                if out is None or section.min_addr < out:
-                    out = section.min_addr
-
-        if out is None:
-            return self.rebase_addr
-        else:
-            return out + self.rebase_addr
+        out = self.mapped_base
+        if self.segments or self.sections:
+            out = min(map(lambda x: x.min_addr, self.segments or self.sections))
+        return out
 
     def get_max_addr(self):
         """
         This returns the highest virtual address contained in any loaded segment of the binary.
         """
 
-        out = self.segments.max_addr
-
-        if out is None:
-            out = self.sections.max_addr
-
-        if out is None:
-            return self.rebase_addr
-        else:
-            return out + self.rebase_addr
+        out = self.mapped_base
+        if self.segments or self.sections:
+            out = max(map(lambda x: x.max_addr, self.segments or self.sections))
+        return out
 
     def set_got_entry(self, symbol_name, newaddr):
         """
@@ -614,11 +643,10 @@ class Backend(object):
         """
 
         if symbol_name not in self.imports:
-            l.warning("Could not override the address of symbol %s: symbol entry not "
-                    "found in GOT", symbol_name)
+            l.warning("Could not override the address of symbol %s: symbol entry not found in GOT", symbol_name)
             return
 
-        self.memory.write_addr_at(self.imports[symbol_name].addr, newaddr)
+        self.memory.write_addr_at(AT.from_lva(self.imports[symbol_name].addr, self).to_rva(), newaddr)
 
     def get_initializers(self): # pylint: disable=no-self-use
         """
