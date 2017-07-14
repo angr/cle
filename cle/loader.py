@@ -578,7 +578,7 @@ class Loader(object):
             gmap = {}
             for line in data:
                 line_items = line.split()
-                if line == '\n':
+                if line in ('\n', '\r\n'):
                     continue
                 # Get rid of all metadata, just extract lines containing addresses
                 if "0x" not in line_items[0]:
