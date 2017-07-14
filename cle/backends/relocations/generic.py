@@ -26,7 +26,8 @@ class GenericJumpslotReloc(Relocation):
     def value(self):
         if self.is_rela:
             return self.resolvedby.rebased_addr + self.addend
-        return self.resolvedby.rebased_addr
+        else:
+            return self.resolvedby.rebased_addr
 
 class GenericRelativeReloc(Relocation):
     @property

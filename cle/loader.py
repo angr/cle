@@ -121,7 +121,8 @@ class Loader(object):
     def __repr__(self):
         if self._main_binary_stream is None:
             return '<Loaded %s, maps [%#x:%#x]>' % (os.path.basename(self._main_binary_path), self.min_addr(), self.max_addr())
-        return '<Loaded from stream, maps [%#x:%#x]>' % (self.min_addr(), self.max_addr())
+        else:
+            return '<Loaded from stream, maps [%#x:%#x]>' % (self.min_addr(), self.max_addr())
 
     def get_initializers(self):
         """
