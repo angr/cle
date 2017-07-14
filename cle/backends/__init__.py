@@ -5,7 +5,7 @@ import subprocess
 import archinfo
 from ..address_translator import AT
 from ..memory import Clemory
-from ..errors import CLECompatibilityError, CLEError
+from ..errors import CLECompatibilityError, CLEOperationError, CLEError
 
 try:
     import claripy
@@ -567,6 +567,8 @@ class Backend(object):
         """
         Rebase backend's regions to the new base where they were mapped by the loader
         """
+        if self._is_mapped:
+            raise CLEOperationError("Image already rebased from %#x to %#x" % (self.linked_base, self.mapped_base))
         if self.sections:
             self.sections._rebase(self.image_base_delta)
         if self.segments:
