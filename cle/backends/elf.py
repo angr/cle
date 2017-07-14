@@ -215,10 +215,9 @@ class ELF(MetaELF):
         # The linked image base should be evaluated before registering any segment or section due to
         # the fact that elffile, used by those methods, is working only with un-based virtual addresses, but Clemories
         # themselves are organized as a tree where each node backer internally uses relative addressing
-        self.mapped_base = self.linked_base = min(
-            map(lambda x: x['p_vaddr'],
-                filter(lambda x: x.header.p_type == 'PT_LOAD', self.reader.iter_segments())) or [0]
-        )
+        seg_addrs = (ALIGN_DOWN(x['p_vaddr'], self.loader.page_size)
+                     for x in self.reader.iter_segments() if x.header.p_type == 'PT_LOAD')
+        self.mapped_base = self.linked_base = min(seg_addrs) if seg_addrs else 0
         self.__register_segments()
         self.__register_sections()
 
