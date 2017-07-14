@@ -529,7 +529,7 @@ class Backend(object):
 
     @property
     def image_base_delta(self):
-        return - self.linked_base + self.mapped_base
+        return self.mapped_base - self.linked_base
 
     @property
     def entry(self):
