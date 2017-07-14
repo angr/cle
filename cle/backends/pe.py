@@ -61,7 +61,7 @@ class WinReloc(Relocation):
                     AT.from_lva(self.addr, self.owner_obj).to_rva(), 4))
                 org_value = struct.unpack('<I', org_bytes)[0]
                 rebased_value = AT.from_lva(org_value, self.owner_obj).to_mva()
-                rebased_bytes = struct.pack('<I', rebased_value % 2 ** 32)
+                rebased_bytes = struct.pack('<I', rebased_value % 2**32)
                 self.owner_obj.memory.write_bytes(
                     AT.from_lva(self.dest_addr, self.owner_obj).to_rva(), rebased_bytes)
             elif self.reloc_type == pefile.RELOCATION_TYPE['IMAGE_REL_BASED_DIR64']:
