@@ -532,6 +532,9 @@ class Loader(object):
         for so in self.all_objects:
             if addr in so.symbols_by_addr:
                 return so.symbols_by_addr[addr].name
+            addr2 = AT.from_mva(addr, so).to_rva() # XXX QUICK HACK
+            if addr2 in so.symbols_by_addr:
+                return so.symbols_by_addr[addr2].name
         return None
 
     def find_plt_stub_name(self, addr):
