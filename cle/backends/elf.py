@@ -1,6 +1,7 @@
 import struct
 import subprocess
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
+
 from elftools.elf import elffile, sections
 from elftools.common.exceptions import ELFError
 import archinfo
@@ -401,16 +402,25 @@ class ELF(MetaELF):
             # WTF?
             raise CLEError("Relocatable objects with segments are not supported.")
 
+        type_to_seg_mapping = defaultdict(list)
         for seg_readelf in self.reader.iter_segments():
-            if seg_readelf.header.p_type == 'PT_LOAD':
-                self._load_segment(seg_readelf)
-            elif seg_readelf.header.p_type == 'PT_DYNAMIC':
-                self.__register_dyn(seg_readelf)
-                self.linking = 'dynamic'
-            elif seg_readelf.header.p_type == 'PT_TLS':
-                self.__register_tls(seg_readelf)
-            elif seg_readelf.header.p_type == 'PT_GNU_STACK':
-                self.execstack = bool(seg_readelf.header.p_flags & 1)
+            type_to_seg_mapping[seg_readelf.header.p_type].append(seg_readelf)
+
+        # PT_LOAD segments must be processed first so that the memory_backers for the other segments exist
+        for seg in type_to_seg_mapping['PT_LOAD']:
+            self._load_segment(seg)
+
+        # the order of processing for the other three handled segment_types should not matter, but let's have it consistent
+        for seg in type_to_seg_mapping['PT_DYNAMIC']:
+            self.__register_dyn(seg)
+            self.linking = 'dynamic'
+
+        for seg in type_to_seg_mapping['PT_TLS']:
+            self.__register_tls(seg)
+
+        for seg in type_to_seg_mapping['PT_GNU_STACK']:
+            self.execstack = bool(seg.header.p_flags & 1)
+
 
     def _load_segment(self, seg):
         self._load_segment_metadata(seg)
