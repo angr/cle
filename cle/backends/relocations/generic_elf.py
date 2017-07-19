@@ -16,8 +16,7 @@ class GenericTLSModIdReloc(Relocation):
             if not self.resolve_symbol(solist):
                 return False
             self.owner_obj.memory.write_addr_at(
-                AT.from_lva(self.addr, self.resolvedby.owner_obj).to_rva(),
-                self.resolvedby.owner_obj.tls_module_id)
+                AT.from_lva(self.addr, self.owner_obj).to_rva(), self.resolvedby.owner_obj.tls_module_id)
         return True
 
 
