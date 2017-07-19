@@ -81,9 +81,15 @@ class PESection(Section):
     """
     Represents a section for the PE format.
     """
-    def __init__(self, name, offset, vaddr, size, chars):
-        super(PESection, self).__init__(name, offset, vaddr, size)
-        self.characteristics = chars
+    def __init__(self, pe_section, remap_offset=0):
+        super(PESection, self).__init__(
+            pe_section.Name,
+            pe_section.Misc_PhysicalAddress,
+            pe_section.VirtualAddress + remap_offset,
+            pe_section.Misc_VirtualSize,
+        )
+
+        self.characteristics = pe_section.Characteristics
 
     #
     # Public properties
@@ -248,11 +254,7 @@ class PE(Backend):
         """
 
         for pe_section in self._pe.sections:
-            section = PESection(
-                pe_section.Name, pe_section.Misc_PhysicalAddress,
-                AT.from_rva(pe_section.VirtualAddress, self).to_mva(),
-                pe_section.Misc_VirtualSize, pe_section.Characteristics
-            )
+            section = PESection(pe_section, remap_offset=self.linked_base)
             self.sections.append(section)
             self.sections_map[section.name] = section
 
