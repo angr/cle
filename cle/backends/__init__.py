@@ -6,6 +6,7 @@ import archinfo
 from ..address_translator import AT
 from ..memory import Clemory
 from ..errors import CLECompatibilityError, CLEOperationError, CLEError
+from ..utils import key_bisect_find, key_bisect_insort_left
 
 try:
     import claripy
@@ -338,7 +339,7 @@ class Regions(object):
         """
 
         self._list.append(region)
-        self.bisect_insort_left(self._sorted_list, region, keyfunc=lambda r: r.vaddr)
+        key_bisect_insort_left(self._sorted_list, region, keyfunc=lambda r: r.vaddr)
 
     def find_region_containing(self, addr):
         """
@@ -350,43 +351,14 @@ class Regions(object):
         :rtype:         Region or None
         """
 
-        pos = self.bisect_find(self._sorted_list, addr,
-                                    keyfunc=lambda r: r if type(r) in (int, long) else r.vaddr + r.memsize
-                                    )
+        pos = key_bisect_find(self._sorted_list, addr,
+                              keyfunc=lambda r: r if type(r) in (int, long) else r.vaddr + r.memsize)
         if pos >= len(self._sorted_list):
             return None
         region = self._sorted_list[pos]
         if region.contains_addr(addr):
             return region
         return None
-
-    @staticmethod
-    def bisect_find(lst, item, lo=0, hi=None, keyfunc=lambda x: x):
-        if lo < 0:
-            raise ValueError('lo must be non-negative')
-        if hi is None:
-            hi = len(lst)
-        while lo < hi:
-            mid = (lo + hi) // 2
-            if keyfunc(lst[mid]) <= keyfunc(item):
-                lo = mid + 1
-            else:
-                hi = mid
-        return lo
-
-    @staticmethod
-    def bisect_insort_left(lst, item, lo=0, hi=None, keyfunc=lambda x: x):
-        if lo < 0:
-            raise ValueError('lo must be non-negative')
-        if hi is None:
-            hi = len(lst)
-        while lo < hi:
-            mid = (lo + hi) // 2
-            if keyfunc(lst[mid]) < keyfunc(item):
-                lo = mid + 1
-            else:
-                hi = mid
-        lst.insert(lo, item)
 
     @staticmethod
     def _make_sorted(lst):
@@ -620,17 +592,15 @@ class Backend(object):
         """
         This returns the lowest virtual address contained in any loaded segment of the binary.
         """
-
-        out = self.mapped_base
-        if self.segments or self.sections:
-            out = min(map(lambda x: x.min_addr, self.segments or self.sections))
-        return out
+        # Loader maps the object at chosen mapped base anyway and independently of the internal structure
+        return self.mapped_base
 
     def get_max_addr(self):
         """
         This returns the highest virtual address contained in any loaded segment of the binary.
         """
 
+        # TODO: The access should be constant time, as the region interval is immutable after load
         out = self.mapped_base
         if self.segments or self.sections:
             out = max(map(lambda x: x.max_addr, self.segments or self.sections))
