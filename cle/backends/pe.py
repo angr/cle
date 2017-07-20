@@ -29,6 +29,11 @@ class WinSymbol(Symbol):
         self.is_import = is_import
         self.is_export = is_export
 
+    @property
+    def rebased_addr(self):
+        # Windows does everything with RVAs, so override the default which assumes this is a LVA
+        return AT.from_rva(self.addr, self.owner_obj).to_mva()
+
 
 class WinReloc(Relocation):
     """
@@ -50,6 +55,11 @@ class WinReloc(Relocation):
         if self.resolved:
             return self.resolvedby.rebased_addr
 
+    @property
+    def rebased_addr(self):
+        # Windows does everything with RVAs, so override the default which assumes this is a LVA
+        return AT.from_rva(self.addr, self.owner_obj).to_mva()
+
     def relocate(self, solist, bypass_compatibility=False):
         # no symbol -> this is a relocation described in the DIRECTORY_ENTRY_BASERELOC table
         if self.symbol is None:
@@ -57,20 +67,17 @@ class WinReloc(Relocation):
                 # no work required
                 pass
             elif self.reloc_type == pefile.RELOCATION_TYPE['IMAGE_REL_BASED_HIGHLOW']:
-                org_bytes = ''.join(self.owner_obj.memory.read_bytes(
-                    AT.from_lva(self.addr, self.owner_obj).to_rva(), 4))
+                org_bytes = ''.join(self.owner_obj.memory.read_bytes(self.addr, 4))
                 org_value = struct.unpack('<I', org_bytes)[0]
                 rebased_value = AT.from_lva(org_value, self.owner_obj).to_mva()
                 rebased_bytes = struct.pack('<I', rebased_value % 2**32)
-                self.owner_obj.memory.write_bytes(
-                    AT.from_lva(self.dest_addr, self.owner_obj).to_rva(), rebased_bytes)
+                self.owner_obj.memory.write_bytes(self.addr, rebased_bytes)
             elif self.reloc_type == pefile.RELOCATION_TYPE['IMAGE_REL_BASED_DIR64']:
-                org_bytes = ''.join(self.owner_obj.memory.read_bytes(
-                    AT.from_lva(self.addr, self.owner_obj).to_rva(), 8))
+                org_bytes = ''.join(self.owner_obj.memory.read_bytes(self.addr, 8))
                 org_value = struct.unpack('<Q', org_bytes)[0]
                 rebased_value = AT.from_lva(org_value, self.owner_obj).to_mva()
                 rebased_bytes = struct.pack('<Q', rebased_value)
-                self.owner_obj.memory.write_bytes(AT.from_lva(self.dest_addr, self.owner_obj).to_rva(), rebased_bytes)
+                self.owner_obj.memory.write_bytes(self.addr, rebased_bytes)
             else:
                 l.warning('PE contains unimplemented relocation type %d', self.reloc_type)
         else:
@@ -149,6 +156,7 @@ class PE(Backend):
         self.tls_size_of_zero_fill = None
 
         self._exports = {}
+        self._symbol_cache = self._exports # same thing
         self._handle_imports()
         self._handle_exports()
         self._handle_relocs()
@@ -176,6 +184,10 @@ class PE(Backend):
 
     def get_symbol(self, name):
         return self._exports.get(name, None)
+
+    @property
+    def supports_nx(self):
+        return self._pe.OPTIONAL_HEADER.DllCharacteristics & 0x100 != 0
 
     #
     # Private methods

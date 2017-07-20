@@ -547,6 +547,9 @@ class Loader(object):
         for so in self.all_objects:
             if addr in so.symbols_by_addr:
                 return so.symbols_by_addr[addr].name
+            addr2 = AT.from_mva(addr, so).to_rva() # XXX QUICK HACK
+            if addr2 in so.symbols_by_addr:
+                return so.symbols_by_addr[addr2].name
         return None
 
     def find_plt_stub_name(self, addr):
@@ -679,6 +682,10 @@ class Loader(object):
     @property
     def all_elf_objects(self):
         return [o for o in self.all_objects if isinstance(o, MetaELF)]
+
+    @property
+    def all_pe_objects(self):
+        return [o for o in self.all_objects if isinstance(o, PE)]
 
     def perform_irelative_relocs(self, resolver_func):
         for obj in self.all_objects:
