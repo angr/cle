@@ -150,6 +150,7 @@ class PE(Backend):
         self.tls_size_of_zero_fill = None
 
         self._exports = {}
+        self._symbol_cache = self._exports # same thing
         self._handle_imports()
         self._handle_exports()
         self._handle_relocs()
@@ -181,6 +182,10 @@ class PE(Backend):
     def get_min_addr(self):
         # the PE header is always mapped at the base address of the program, but this isn't part of any section, so...
         return self.mapped_base
+
+    @property
+    def supports_nx(self):
+        return self._pe.OPTIONAL_HEADER.DllCharacteristics & 0x100 != 0
 
     #
     # Private methods

@@ -668,6 +668,10 @@ class Loader(object):
     def all_elf_objects(self):
         return [o for o in self.all_objects if isinstance(o, MetaELF)]
 
+    @property
+    def all_pe_objects(self):
+        return [o for o in self.all_objects if isinstance(o, PE)]
+
     def perform_irelative_relocs(self, resolver_func):
         for obj in self.all_objects:
             for resolver, dest in obj.irelatives:
