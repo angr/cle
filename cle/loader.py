@@ -343,9 +343,14 @@ class Loader(object):
         obj._is_mapped = True
 
     def _is_range_free(self, va, size):
+        # self.main_bin should not be None here
+        if va + size >= 2**self.main_bin.arch.bits:
+            return False
+
         for o in self.all_objects:
             if o.get_min_addr() <= va < o.get_max_addr() or va <= o.get_min_addr() < va + size:
                 return False
+
         return True
 
     def _possible_paths(self, path):
@@ -413,23 +418,20 @@ class Loader(object):
 
     def _get_safe_rebase_addr(self, size):
         """
-        Get a "safe" rebase addr, i.e., that won't overlap with already loaded stuff. This is used as a fallback when we
-        cannot use LD to tell use where to load a binary object. It is also a workaround to IDA crashes when we try to
-        rebase binaries at too high addresses.
-
-        :param size:    object size should be mapped inside top-level Clemory
-        :type size:     int
-        :return:        valid virtual address (VA/MVA)
-        :rtype:         int
+        Return a "safe" virtual address to map an object of size ``size``, i.e. one that won't
+        overlap with anything already loaded.
         """
-        # FIXME: Cant understand how zero page can be used for object mapping
-        # FIXME: At least it's not a common case
-        gap_start = self._rebase_granularity
+        # this assumes that self.main_bin exists, which should... definitely be safe
+        gap_start = ALIGN_UP(self.main_bin.get_max_addr(), self._rebase_granularity)
         for o in self.all_objects:
-            if size <= o.get_min_addr() - gap_start:
+            if gap_start + size <= o.get_min_addr():
                 break
             else:
                 gap_start = ALIGN_UP(o.get_max_addr(), self._rebase_granularity)
+
+        if gap_start + size >= 2**self.main_bin.arch.bits:
+            raise CLEOperationError("Ran out of room in address space")
+
         return gap_start
 
     def _load_tls(self):
