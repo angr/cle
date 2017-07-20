@@ -620,17 +620,15 @@ class Backend(object):
         """
         This returns the lowest virtual address contained in any loaded segment of the binary.
         """
-
-        out = self.mapped_base
-        if self.segments or self.sections:
-            out = min(map(lambda x: x.min_addr, self.segments or self.sections))
-        return out
+        # Loader maps the object at chosen mapped base anyway and independently of the internal structure
+        return self.mapped_base
 
     def get_max_addr(self):
         """
         This returns the highest virtual address contained in any loaded segment of the binary.
         """
 
+        # TODO: The access should be constant time, as the region interval is immutable after load
         out = self.mapped_base
         if self.segments or self.sections:
             out = max(map(lambda x: x.max_addr, self.segments or self.sections))
