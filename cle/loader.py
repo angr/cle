@@ -3,6 +3,7 @@ import logging
 from collections import OrderedDict
 
 from cle.address_translator import AT
+from utils import ALIGN_UP, key_bisect_insort_left
 
 try:
     import claripy
@@ -321,7 +322,7 @@ class Loader(object):
         elif obj.linked_base and self._is_range_free(obj.linked_base, obj_size):
             base_addr = obj.linked_base
         elif not obj.is_main_bin:
-            base_addr = self._get_safe_rebase_addr()
+            base_addr = self._get_safe_rebase_addr(obj_size)
         elif self.main_bin.pic:
             l.warning("The main binary is a position-independent executable. "
                       "It is being loaded with a base address of 0x400000.")
@@ -329,7 +330,6 @@ class Loader(object):
         else:
             base_addr = 0
 
-        self.all_objects.append(obj)
         if obj.provides is not None:
             self.shared_objects[obj.provides] = obj
 
@@ -337,6 +337,7 @@ class Loader(object):
         self.memory.add_backer(base_addr, obj.memory)
 
         obj.mapped_base = base_addr
+        key_bisect_insort_left(self.all_objects, obj, keyfunc=lambda o: o.get_min_addr())
         obj.rebase()
         obj._is_mapped = True
 
@@ -409,15 +410,26 @@ class Loader(object):
                     if reloc.symbol and reloc.symbol.name in symbols:
                         reloc.relocate(solist, bypass_compatibility=True)
 
-
-    def _get_safe_rebase_addr(self):
+    def _get_safe_rebase_addr(self, size):
         """
         Get a "safe" rebase addr, i.e., that won't overlap with already loaded stuff. This is used as a fallback when we
         cannot use LD to tell use where to load a binary object. It is also a workaround to IDA crashes when we try to
         rebase binaries at too high addresses.
+
+        :param size:    object size should be mapped inside top-level Clemory
+        :type size:     int
+        :return:        valid virtual address (VA/MVA)
+        :rtype:         int
         """
-        granularity = self._rebase_granularity
-        return self.max_addr() + (granularity - self.max_addr() % granularity)
+        # FIXME: Cant understand how zero page can be used for object mapping
+        # FIXME: At least it's not a common case
+        gap_start = self._rebase_granularity
+        for o in self.all_objects:
+            if size <= o.get_min_addr() - gap_start:
+                break
+            else:
+                gap_start = ALIGN_UP(o.get_max_addr(), self._rebase_granularity)
+        return gap_start
 
     def _load_tls(self):
         """
