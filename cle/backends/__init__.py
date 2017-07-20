@@ -620,11 +620,7 @@ class Backend(object):
         """
         This returns the lowest virtual address contained in any loaded segment of the binary.
         """
-
-        out = self.mapped_base
-        if self.segments or self.sections:
-            out = min(map(lambda x: x.min_addr, self.segments or self.sections))
-        return out
+        return self.mapped_base
 
     def get_max_addr(self):
         """
