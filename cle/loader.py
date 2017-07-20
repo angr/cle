@@ -4,7 +4,7 @@ import logging
 from collections import OrderedDict
 
 from cle.address_translator import AT
-from utils import ALIGN_UP, key_bisect_insort_left
+from .utils import ALIGN_UP, key_bisect_insort_left
 
 try:
     import claripy
@@ -694,7 +694,7 @@ class Loader(object):
                 if val is not None:
                     obj.memory.write_addr_at(AT.from_lva(dest, obj).to_rva(), val)
 
-from .errors import CLEError, CLEFileNotFoundError, CLECompatibilityError
+from .errors import CLEError, CLEFileNotFoundError, CLECompatibilityError, CLEOperationError
 from .memory import Clemory
 from .tls import ELFTLSObj, PETLSObj
 from .backends import IDABin, MetaELF, ELF, PE, ALL_BACKENDS, Backend, Symbol
