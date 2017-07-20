@@ -217,7 +217,7 @@ class ELF(MetaELF):
         # the fact that elffile, used by those methods, is working only with un-based virtual addresses, but Clemories
         # themselves are organized as a tree where each node backer internally uses relative addressing
         seg_addrs = (ALIGN_DOWN(x['p_vaddr'], self.loader.page_size)
-                     for x in self.reader.iter_segments() if x.header.p_type == 'PT_LOAD')
+                     for x in self.reader.iter_segments() if x.header.p_type == 'PT_LOAD' and x.header.p_memsz > 0)
         self.mapped_base = self.linked_base = min(seg_addrs) if seg_addrs else 0
         self.__register_segments()
         self.__register_sections()
