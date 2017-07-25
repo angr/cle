@@ -72,6 +72,7 @@ class Relocation(object):
         self._addend = addend
         self.resolvedby = None
         self.resolved = False
+        self.resolvewith = None
         if self.symbol is not None and self.symbol.is_import:
             self.owner_obj.imports[self.symbol.name] = self
 
@@ -110,7 +111,12 @@ class Relocation(object):
             self.resolve(weak_result)
             return True
 
-        return False
+        if self.symbol.is_weak:
+            return False
+
+        new_symbol = self.owner_obj.loader.extern_object.make_extern(self.symbol.name)
+        self.resolve(new_symbol)
+        return True
 
     def resolve(self, obj):
         self.resolvedby = obj

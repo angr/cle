@@ -20,8 +20,8 @@ def test_mipsel():
     ping = os.path.join(test_location, 'mipsel', 'darpa_ping')
     skip=['libgcc_s.so.1', 'libresolv.so.0']
     ld = cle.Loader(ping, skip_libs=skip)
-    dep = ld._satisfied_deps
-    loadedlibs = set(ld.shared_objects.keys())
+    dep = set(ld._satisfied_deps)
+    loadedlibs = set(ld.shared_objects)
 
     # 1) check dependencies and loaded binaries
     nose.tools.assert_true(dep.issuperset({'libresolv.so.0', 'libgcc_s.so.1', 'libc.so.6', 'ld.so.1'}))
@@ -34,11 +34,11 @@ def test_mipsel():
     # nose.tools.assert_equal(addr, sproc_addr)
     # TODO: Get the right version of uClibc and devise a test that doesn't use angr
 
-    ioctl = ld.find_symbol_got_entry("ioctl")
-    setsockopt = ld.find_symbol_got_entry("setsockopt")
+    ioctl = ld.find_relevant_relocations("ioctl").next()
+    setsockopt = ld.find_relevant_relocations("setsockopt").next()
 
-    nose.tools.assert_equal(ioctl, 4494300)
-    nose.tools.assert_equal(setsockopt, 4494112)
+    nose.tools.assert_equal(ioctl.rebased_addr, 4494300)
+    nose.tools.assert_equal(setsockopt.rebased_addr, 4494112)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

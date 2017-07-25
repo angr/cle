@@ -5,7 +5,7 @@ import subprocess
 import archinfo
 from ..address_translator import AT
 from ..memory import Clemory
-from ..errors import CLECompatibilityError, CLEOperationError, CLEError
+from ..errors import CLEOperationError, CLEError
 from ..utils import key_bisect_find, key_bisect_insort_left
 
 try:
@@ -171,7 +171,7 @@ class Symbol(object):
     :ivar owner_obj:        The object that contains this symbol
     :vartype owner_obj:     cle.backends.Backend
     :ivar str name:         The name of this symbol
-    :ivar int addr:         The address of this symbol
+    :ivar int addr:         The un-based address of this symbol, an RVA
     :iver int size:         The size of this symbol
     :ivar int type:         The type of this symbol as one of SYMBOL.TYPE_*
     :ivar bool resolved:    Whether this import symbol has been resolved to a real symbol
@@ -199,9 +199,8 @@ class Symbol(object):
         self.type = sym_type
         self.resolved = False
         self.resolvedby = None
-        self.resolvewith = None
         if (claripy and isinstance(self.addr, claripy.ast.Base)) or self.addr != 0:
-            self.owner_obj.symbols_by_addr[self.addr] = self
+            self.owner_obj._symbols_by_addr[self.addr] = self
             # would be nice if we could populate demangled_names here...
 
             #demangled = self.demangled_name
@@ -218,7 +217,7 @@ class Symbol(object):
         """
         The address of this symbol in the global memory space
         """
-        return AT.from_lva(self.addr, self.owner_obj).to_mva()
+        return AT.from_rva(self.addr, self.owner_obj).to_mva()
 
     @property
     def is_function(self):
@@ -384,7 +383,6 @@ class Backend(object):
     :ivar segments:         A listing of all the loaded segments in this file
     :ivar sections:         A listing of all the demarked sections in the file
     :ivar sections_map:     A dict mapping from section name to section
-    :ivar symbols_by_addr:  A mapping from address to Symbol
     :ivar imports:          A mapping from symbol name to import symbol
     :ivar resolved_imports: A list of all the import symbols that are successfully resolved
     :ivar relocs:           A list of all the relocations in this binary
@@ -395,7 +393,6 @@ class Backend(object):
     :ivar arch:             The architecture of this binary
     :vartype arch:          archinfo.arch.Arch
     :ivar str os:           The operating system this binary is meant to run under
-    :ivar compatible_with:  Another Backend object this object must be compatibile with, or None
     :ivar int mapped_base:  The base address of this object in virtual memory
     :ivar deps:             A list of names of shared libraries this binary depends on
     :ivar linking:          'dynamic' or 'static'
@@ -409,7 +406,6 @@ class Backend(object):
             binary,
             loader=None,
             is_main_bin=False,
-            compatible_with=None,
             filename=None,
             custom_entry_point=None,
             custom_arch=None,
@@ -418,7 +414,6 @@ class Backend(object):
         """
         :param binary:          The path to the binary to load
         :param is_main_bin:     Whether this binary should be loaded as the main executable
-        :param compatible_with: An optional Backend object to force compatibility with
         """
         if hasattr(binary, 'seek') and hasattr(binary, 'read'):
             self.binary = filename
@@ -439,7 +434,7 @@ class Backend(object):
         self._segments = Regions() # List of segments
         self._sections = Regions() # List of sections
         self.sections_map = {}  # Mapping from section name to section
-        self.symbols_by_addr = {}
+        self._symbols_by_addr = {}
         self.imports = {}
         self.resolved_imports = []
         self.relocs = []
@@ -447,7 +442,6 @@ class Backend(object):
         self.jmprel = {}
         self.arch = None
         self.os = None  # Let other stuff override this
-        self.compatible_with = compatible_with
         self._symbol_cache = {}
 
         self.mapped_base_symbolic = 0
@@ -488,14 +482,12 @@ class Backend(object):
     def __repr__(self):
         if self.binary is not None:
             return '<%s Object %s, maps [%#x:%#x]>' % \
-                   (self.__class__.__name__, os.path.basename(self.binary), self.get_min_addr(), self.get_max_addr())
+                   (self.__class__.__name__, os.path.basename(self.binary), self.min_addr, self.max_addr)
         else:
             return '<%s Object from stream, maps [%#x:%#x]>' % \
-                   (self.__class__.__name__, self.get_min_addr(), self.get_max_addr())
+                   (self.__class__.__name__, self.min_addr, self.max_addr)
 
     def set_arch(self, arch):
-        if self.compatible_with is not None and self.compatible_with.arch != arch:
-            raise CLECompatibilityError("Binary %s not compatible with arch %s" % (self.binary, self.compatible_with.arch))
         self.arch = arch
         self.memory = Clemory(arch) # Private virtual address space, without relocations
 
@@ -535,6 +527,10 @@ class Backend(object):
         else:
             raise ValueError('Unsupported type %s set as sections.' % type(v))
 
+    @property
+    def symbols_by_addr(self):
+        return {AT.from_rva(x, self).to_mva(): self._symbols_by_addr[x] for x in self._symbols_by_addr}
+
     def rebase(self):
         """
         Rebase backend's regions to the new base where they were mapped by the loader
@@ -570,7 +566,6 @@ class Backend(object):
 
     def addr_to_offset(self, addr):
         loadable = self.find_loadable_containing(addr)
-
         if loadable is not None:
             return loadable.addr_to_offset(addr)
         else:
@@ -586,16 +581,16 @@ class Backend(object):
                 if s.contains_offset(offset):
                     return s.offset_to_addr(offset)
 
-        return None
-
-    def get_min_addr(self):
+    @property
+    def min_addr(self):
         """
         This returns the lowest virtual address contained in any loaded segment of the binary.
         """
         # Loader maps the object at chosen mapped base anyway and independently of the internal structure
         return self.mapped_base
 
-    def get_max_addr(self):
+    @property
+    def max_addr(self):
         """
         This returns the highest virtual address contained in any loaded segment of the binary.
         """
@@ -606,28 +601,18 @@ class Backend(object):
             out = max(map(lambda x: x.max_addr, self.segments or self.sections))
         return out
 
-    def set_got_entry(self, symbol_name, newaddr):
-        """
-        This overrides the address of the function defined by *symbol* with the new address *newaddr*. This is used to
-        call simprocedures instead of actual code,
-        """
-
-        if symbol_name not in self.imports:
-            l.warning("Could not override the address of symbol %s: symbol entry not found in GOT", symbol_name)
-            return
-
-        self.memory.write_addr_at(AT.from_lva(self.imports[symbol_name].addr, self).to_rva(), newaddr)
-
-    def get_initializers(self): # pylint: disable=no-self-use
+    @property
+    def initializers(self): # pylint: disable=no-self-use
         """
         Stub function. Should be overridden by backends that can provide initializer functions that ought to be run
         before execution reaches the entry point. Addresses should be rebased.
         """
         return []
 
-    def get_finalizers(self): # pylint: disable=no-self-use
+    @property
+    def finalizers(self): # pylint: disable=no-self-use
         """
-        Stub function. Like get_initializers, but with finalizers.
+        Stub function. Like initializers, but with finalizers.
         """
         return []
 
@@ -645,6 +630,13 @@ class Backend(object):
         Extracts the shared object identifier from the path, or returns None if it cannot.
         """
         return None
+
+    @classmethod
+    def check_compatibility(cls, spec, other_obj): # pylint: disable=unused-argument
+        """
+        Performs a minimal static load of ``spec`` and returns whether it's compatible with other_obj
+        """
+        return False
 
 ALL_BACKENDS = dict()
 

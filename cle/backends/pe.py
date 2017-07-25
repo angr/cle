@@ -47,7 +47,7 @@ class WinReloc(Relocation):
 
     def resolve_symbol(self, solist, bypass_compatibility=False):
         if not bypass_compatibility:
-            solist = [x for x in solist if self.resolvewith == x.provides]
+            solist = [x for x in solist if self.resolvewith.lower() == x.provides]
         return super(WinReloc, self).resolve_symbol(solist)
 
     @property
@@ -139,12 +139,12 @@ class PE(Backend):
         self._entry = AT.from_rva(self._pe.OPTIONAL_HEADER.AddressOfEntryPoint, self).to_lva()
 
         if hasattr(self._pe, 'DIRECTORY_ENTRY_IMPORT'):
-            self.deps = [entry.dll for entry in self._pe.DIRECTORY_ENTRY_IMPORT]
+            self.deps = [entry.dll.lower() for entry in self._pe.DIRECTORY_ENTRY_IMPORT]
         else:
             self.deps = []
 
         if self.binary is not None and not self.is_main_bin:
-            self.provides = os.path.basename(self.binary)
+            self.provides = os.path.basename(self.binary).lower()
         else:
             self.provides = None
 
@@ -154,6 +154,8 @@ class PE(Backend):
         self.tls_index_address = None
         self.tls_callbacks = None
         self.tls_size_of_zero_fill = None
+        self.tls_module_id = None
+        self.tls_data_pointer = None
 
         self._exports = {}
         self._symbol_cache = self._exports # same thing
@@ -177,6 +179,16 @@ class PE(Backend):
             if peptr < len(identstring) and identstring[peptr:peptr + 4] == 'PE\0\0':
                 return True
         return False
+
+    @classmethod
+    def check_compatibility(cls, spec, obj):
+        if hasattr(spec, 'read') and hasattr(spec, 'seek'):
+            pe = pefile.PE(data=spec.read(), fast_load=True)
+        else:
+            pe = pefile.PE(spec, fast_load=True)
+
+        arch = archinfo.arch_from_id(pefile.MACHINE_TYPE[pe.FILE_HEADER.Machine])
+        return arch == obj.arch
 
     #
     # Public methods

@@ -4,7 +4,6 @@ import os
 
 from . import Backend
 from ..address_translator import AT
-from ..errors import CLEOperationError
 from ..utils import stream_or_path
 
 __all__ = ('MetaELF',)
@@ -229,17 +228,6 @@ class MetaELF(Backend):
         Maps addresses to names.
         """
         return {AT.from_lva(v, self).to_mva(): k for (k, v) in self._plt.iteritems()}
-
-    def get_call_stub_addr(self, name):
-        """
-        Takes the name of an imported function and returns the address of the stub function that jumps to it.
-        """
-        if self.arch.name in ('PPC64',):
-            raise CLEOperationError("FIXME: this doesn't work on PPC64")
-
-        if name in self._plt:
-            return AT.from_lva(self._plt[name], self).to_mva()
-        return None
 
     @property
     def is_ppc64_abiv1(self):

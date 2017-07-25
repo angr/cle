@@ -12,7 +12,7 @@ from .relocations import get_relocation
 from .relocations.generic import MipsGlobalReloc, MipsLocalReloc
 from ..patched_stream import PatchedStream
 from ..errors import CLEError, CLEInvalidBinaryError, CLECompatibilityError
-from ..utils import ALIGN_DOWN, ALIGN_UP, get_mmaped_data
+from ..utils import ALIGN_DOWN, ALIGN_UP, get_mmaped_data, stream_or_path
 from ..address_translator import AT
 
 import logging
@@ -50,7 +50,7 @@ class ELFSymbol(Symbol):
 
         super(ELFSymbol, self).__init__(owner,
                                         symb.name,
-                                        value,
+                                        AT.from_lva(value, owner).to_rva(),
                                         symb.entry.st_size,
                                         symtype)
 
@@ -163,16 +163,7 @@ class ELF(MetaELF):
 
         # Get an appropriate archinfo.Arch for this binary, unless the user specified one
         if self.arch is None:
-            arch_str = self.reader['e_machine']
-            if arch_str == 'ARM':
-                if self.reader.header.e_flags & 0x200:
-                    self.set_arch(archinfo.ArchARMEL('Iend_LE' if self.reader.little_endian else 'Iend_BE'))
-                elif self.reader.header.e_flags & 0x400:
-                    self.set_arch(archinfo.ArchARMHF('Iend_LE' if self.reader.little_endian else 'Iend_BE'))
-            else:
-                self.set_arch(archinfo.arch_from_id(arch_str,
-                                                'le' if self.reader.little_endian else 'be',
-                                                self.reader.elfclass))
+            self.set_arch(self.extract_arch(self.reader))
 
         self.strtab = None
         self.dynsym = None
@@ -189,10 +180,10 @@ class ELF(MetaELF):
         self._fini_func = None
         self._fini_arr = []
         self._nullsymbol = Symbol(self, '', 0, 0, Symbol.TYPE_NONE)
+        self._nullsymbol.is_static = True
 
         self._symbol_cache = {}
         self._symbols_by_name = {}
-        self.symbols_by_addr = {}
         self.demangled_names = {}
         self.imports = {}
         self.resolved_imports = []
@@ -229,7 +220,7 @@ class ELF(MetaELF):
         self._populate_demangled_names()
 
         if patch_undo is not None:
-            self.memory.write_bytes(AT.from_lva(self.get_min_addr() + patch_undo[0], self).to_rva(), patch_undo[1])
+            self.memory.write_bytes(AT.from_lva(self.min_addr + patch_undo[0], self).to_rva(), patch_undo[1])
 
     def __getstate__(self):
         if self.binary is None:
@@ -254,6 +245,23 @@ class ELF(MetaELF):
                 return False
             return True
         return False
+
+    @classmethod
+    def check_compatibility(cls, spec, obj):
+        with stream_or_path(spec) as stream:
+            return cls.extract_arch(elffile.ELFFile(stream)) == obj.arch
+
+    @staticmethod
+    def extract_arch(reader):
+        arch_str = reader['e_machine']
+        if arch_str == 'ARM':
+            if reader.header.e_flags & 0x200:
+                return archinfo.ArchARMEL('Iend_LE' if reader.little_endian else 'Iend_BE')
+            elif reader.header.e_flags & 0x400:
+                return archinfo.ArchARMHF('Iend_LE' if reader.little_endian else 'Iend_BE')
+        else:
+            return archinfo.arch_from_id(arch_str, 'le' if reader.little_endian else 'be', reader.elfclass)
+
 
     def __setstate__(self, data):
         self.__dict__.update(data)
@@ -374,7 +382,8 @@ class ELF(MetaELF):
         self._inits_extracted = True
 
 
-    def get_initializers(self):
+    @property
+    def initializers(self):
         if not self._inits_extracted: self._extract_init_fini()
         out = []
         if self.is_main_bin:
@@ -388,7 +397,8 @@ class ELF(MetaELF):
             out.extend(self._init_arr)
         return out
 
-    def get_finalizers(self):
+    @property
+    def finalizers(self):
         if not self._inits_extracted: self._extract_init_fini()
         out = []
         if self._fini_func is not None:
@@ -727,10 +737,10 @@ class ELF(MetaELF):
         been implemented, then update self.demangled_names in Symbol
         """
 
-        if not self.symbols_by_addr:
+        if not self._symbols_by_addr:
             return
 
-        names = filter(lambda n: n.startswith("_Z"), (s.name for s in self.symbols_by_addr.itervalues()))
+        names = filter(lambda n: n.startswith("_Z"), (s.name for s in self._symbols_by_addr.itervalues()))
         lookup_names = map(lambda n: n.split("@@")[0], names)
         # this monstrosity taken from stackoverflow
         # http://stackoverflow.com/questions/6526500/c-name-mangling-library-for-python
@@ -854,6 +864,7 @@ class GNUHashTable(object):
         for c in key:
             h = h * 33 + ord(c)
         return h & 0xFFFFFFFF
+
 
 
 register_backend('elf', ELF)

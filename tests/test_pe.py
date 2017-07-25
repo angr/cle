@@ -12,9 +12,9 @@ TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)),
 def test_exe():
     exe = os.path.join(TEST_BASE, 'tests', 'x86', 'windows', 'TLS.exe')
     ld = cle.Loader(exe, auto_load_libs=False)
-    nose.tools.assert_true(isinstance(ld.main_bin,cle.PE))
-    nose.tools.assert_equals(ld.main_bin.os, 'windows')
-    nose.tools.assert_equals(sorted([sec.name for sec in ld.main_bin.sections]),
+    nose.tools.assert_true(isinstance(ld.main_object,cle.PE))
+    nose.tools.assert_equals(ld.main_object.os, 'windows')
+    nose.tools.assert_equals(sorted([sec.name for sec in ld.main_object.sections]),
                              sorted(['.textbss',
                                      '.text\x00\x00\x00',
                                      '.rdata\x00\x00',
@@ -24,12 +24,12 @@ def test_exe():
                                      '.gfids\x00\x00',
                                      '.00cfg\x00\x00',
                                      '.rsrc\x00\x00\x00']))
-    nose.tools.assert_is(ld.main_bin.segments, ld.main_bin.sections)
-    nose.tools.assert_equals(sorted(ld.main_bin.deps),
-                             sorted(['KERNEL32.dll',
-                                     'VCRUNTIME140D.dll',
+    nose.tools.assert_is(ld.main_object.segments, ld.main_object.sections)
+    nose.tools.assert_equals(sorted(ld.main_object.deps),
+                             sorted(['kernel32.dll',
+                                     'vcruntime140d.dll',
                                      'ucrtbased.dll']))
-    nose.tools.assert_equals(sorted(ld.main_bin.imports),
+    nose.tools.assert_equals(sorted(ld.main_object.imports),
                              sorted(['_configure_narrow_argv',
                                      'GetLastError',
                                      'HeapFree',
@@ -96,7 +96,7 @@ def test_exe():
                                      '_initterm',
                                      'GetCurrentThreadId',
                                      '_crt_atexit']))
-    nose.tools.assert_is_none(ld.main_bin.provides)
+    nose.tools.assert_is_none(ld.main_object.provides)
 
 def test_dll():
     pass
@@ -105,17 +105,17 @@ def test_tls():
     exe = os.path.join(TEST_BASE, 'tests', 'x86', 'windows', 'TLS.exe')
     ld = cle.Loader(exe, auto_load_libs=False)
 
-    nose.tools.assert_true(ld.main_bin.tls_used)
-    nose.tools.assert_equals(ld.main_bin.tls_data_start, 0x41b000)
-    nose.tools.assert_equals(ld.main_bin.tls_data_size, 520)
-    nose.tools.assert_equals(ld.main_bin.tls_index_address, 0x41913C)
-    nose.tools.assert_equals(ld.main_bin.tls_callbacks, [0x411302])
-    nose.tools.assert_equals(ld.main_bin.tls_size_of_zero_fill, 0)
+    nose.tools.assert_true(ld.main_object.tls_used)
+    nose.tools.assert_equals(ld.main_object.tls_data_start, 0x41b000)
+    nose.tools.assert_equals(ld.main_object.tls_data_size, 520)
+    nose.tools.assert_equals(ld.main_object.tls_index_address, 0x41913C)
+    nose.tools.assert_equals(ld.main_object.tls_callbacks, [0x411302])
+    nose.tools.assert_equals(ld.main_object.tls_size_of_zero_fill, 0)
 
     tls = ld.tls_object
     nose.tools.assert_is_not_none(tls)
     nose.tools.assert_equals(len(tls.modules), 1)
-    nose.tools.assert_equals(tls.get_tls_data_addr(0), 0x1000004)
+    nose.tools.assert_equals(tls.get_tls_data_addr(0), tls.memory.read_addr_at(0))
     nose.tools.assert_raises(IndexError, tls.get_tls_data_addr, 1)
 
 if __name__ == '__main__':

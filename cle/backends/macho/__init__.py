@@ -353,7 +353,7 @@ class MachO(Backend):
         for sym in self.symbols:
             if not sym.is_stab:
                 if sym.addr is not None:
-                    self.symbols_by_addr[sym.addr] = sym
+                    self._symbols_by_addr[sym.addr] = sym
                 else:
                     # todo: this might be worth an error
                     l.warn("Non-stab symbol %r @ %#x has no address.", sym.name, sym.symtab_offset)

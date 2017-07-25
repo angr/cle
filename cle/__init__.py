@@ -15,5 +15,7 @@ from .memory import *
 from .errors import *
 from .backends import *
 from .backends.macho import MachO
-from .tls import *
+from .backends.tls import *
+from .backends.externs import *
 from .patched_stream import *
+from .gdb import *
