@@ -24,10 +24,11 @@ class WinSymbol(Symbol):
     """
     Represents a symbol for the PE format.
     """
-    def __init__(self, owner, name, addr, is_import, is_export):
+    def __init__(self, owner, name, addr, is_import, is_export, ordinal_number):
         super(WinSymbol, self).__init__(owner, name, addr, owner.arch.bytes, Symbol.TYPE_FUNCTION)
         self.is_import = is_import
         self.is_export = is_export
+        self.ordinal_number = ordinal_number
 
     @property
     def rebased_addr(self):
@@ -158,6 +159,7 @@ class PE(Backend):
         self.tls_data_pointer = None
 
         self._exports = {}
+        self._ordinal_exports = {}
         self._symbol_cache = self._exports # same thing
         self._handle_imports()
         self._handle_exports()
@@ -195,6 +197,8 @@ class PE(Backend):
     #
 
     def get_symbol(self, name):
+        if name.startswith('ordinal.'):
+            return self._ordinal_exports.get(int(name.split('.')[1]), None)
         return self._exports.get(name, None)
 
     @property
@@ -214,8 +218,8 @@ class PE(Backend):
                 for imp in entry.imports:
                     imp_name = imp.name
                     if imp_name is None: # must be an import by ordinal
-                        imp_name = "%s.ordinal_import.%d" % (entry.dll, imp.ordinal)
-                    symb = WinSymbol(self, imp_name, 0, True, False)
+                        imp_name = "%s.ordinal.%d" % (entry.dll, imp.ordinal)
+                    symb = WinSymbol(self, imp_name, 0, True, False, imp.ordinal)
                     reloc = WinReloc(self, symb, imp.address, entry.dll)
                     self.imports[imp_name] = reloc
                     self.relocs.append(reloc)
@@ -224,8 +228,9 @@ class PE(Backend):
         if hasattr(self._pe, 'DIRECTORY_ENTRY_EXPORT'):
             symbols = self._pe.DIRECTORY_ENTRY_EXPORT.symbols
             for exp in symbols:
-                symb = WinSymbol(self, exp.name, exp.address, False, True)
+                symb = WinSymbol(self, exp.name, exp.address, False, True, exp.ordinal)
                 self._exports[exp.name] = symb
+                self._ordinal_exports[exp.ordinal] = symb
 
     def _handle_relocs(self):
         if hasattr(self._pe, 'DIRECTORY_ENTRY_BASERELOC'):

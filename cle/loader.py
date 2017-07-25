@@ -46,7 +46,7 @@ class Loader(object):
     :ivar main_object:          The object representing the main binary (i.e., the executable).
     :ivar shared_objects:       A dictionary mapping loaded library names to the objects representing them.
     :ivar all_objects:          A list containing representations of all the different objects loaded.
-    :ivar requested_objects:    A set containing the names of all the different shared libraries that were marked as a
+    :ivar requested_names:      A set containing the names of all the different shared libraries that were marked as a
                                 dependency by somebody.
     :ivar tls_object:           An object dealing with the region of memory allocated for thread-local storage.
 
@@ -100,9 +100,9 @@ class Loader(object):
         self._extern_object = None
         self.shared_objects = OrderedDict()
         self.all_objects = []
-        self.requested_objects = set()
+        self.requested_names = set()
 
-        self._internal_load(main_binary, *force_load_libs)
+        self.initial_load_objects = self._internal_load(main_binary, *force_load_libs)
 
     # Basic functions and properties
 
@@ -189,9 +189,13 @@ class Loader(object):
     def all_pe_objects(self):
         return [o for o in self.all_objects if isinstance(o, PE)]
 
+    @property
+    def missing_dependencies(self):
+        return self.requested_names - set(self._satisfied_deps)
+
     def describe_addr(self, addr):
         """
-        Tells you what's at `addr` in terms of the offset in one of the loaded binary objects.
+        Returns a textual description of what's in memory at the provided address
         """
         o = self.find_object_containing(addr)
 
@@ -214,6 +218,21 @@ class Loader(object):
         return "Offset %#x in %s" % (off, nameof)
 
     # Search functions
+
+    def find_object(self, spec, extra_objects=()):
+        """
+        If the given library specification has been loaded, return its object, otherwise return None.
+        """
+        extra_idents = {}
+        for obj in extra_objects:
+            for ident in self._possible_idents(obj):
+                extra_idents[ident] = obj
+
+        for ident in self._possible_idents(spec):
+            if ident in self._satisfied_deps:
+                return self._satisfied_deps[ident]
+            if ident in extra_idents:
+                return extra_idents[ident]
 
     def find_object_containing(self, addr):
         """
@@ -289,22 +308,22 @@ class Loader(object):
                 if val is not None:
                     obj.memory.write_addr_at(AT.from_lva(dest, obj).to_rva(), val)
 
-    def lookup_object(self, spec, extra_objects=()):
-        """
-        If the given library specification has been loaded, return its object, otherwise return None.
-        """
-        extra_idents = {}
-        for obj in extra_objects:
-            for ident in self._possible_idents(obj):
-                extra_idents[ident] = obj
-
-        for ident in self._possible_idents(spec):
-            if ident in self._satisfied_deps:
-                return self._satisfied_deps[ident]
-            if ident in extra_idents:
-                return extra_idents[ident]
-
         return None
+
+    def dynamic_load(self, spec):
+        """
+        Load ``spec`` into the address space. Note that the sematics of ``auto_load_libs`` and ``except_missing_libs``
+        apply at all times.
+
+        It will return a list of all the objects successfully loaded, which may be empty if this object was previously
+        loaded. If the main object specified failed to load for any reason, including the file not being found, it will
+        return None.
+        """
+        try:
+            return self._internal_load(spec)
+        except CLEFileNotFoundError as e:
+            l.warning("Dynamic load failed: %r", e)
+            return None
 
     def get_loader_symbolic_constraints(self):
         if not self.aslr:
@@ -331,10 +350,19 @@ class Loader(object):
         return 'ld.so' in name or 'ld64.so' in name or 'ld-linux' in name
 
     def _internal_load(self, *args):
+        """
+        Pass this any number of files or libraries to load. If it can't load any of them for any reason, it will
+        except out. Note that the sematics of ``auto_load_libs`` and ``except_missing_libs`` apply at all times.
+
+        It will return a list of all the objects successfully loaded, which may be smaller than the list you provided
+        if any of them were previously loaded.
+        """
         objects = []
         dependencies = []
 
         for main_spec in args:
+            if self.find_object(main_spec, extra_objects=objects) is not None:
+                continue
             main_obj = self._load_object_isolated(main_spec)
             objects.append(main_obj)
             dependencies.extend(main_obj.deps)
@@ -345,7 +373,7 @@ class Loader(object):
 
         while self._auto_load_libs and dependencies:
             dep_spec = dependencies.pop(0)
-            if self.lookup_object(dep_spec, extra_objects=objects) is not None:
+            if self.find_object(dep_spec, extra_objects=objects) is not None:
                 continue
 
             try:
@@ -372,8 +400,10 @@ class Loader(object):
             if isinstance(obj, (MetaELF, PE)) and obj.tls_used:
                 self.tls_object.map_object(obj)
 
+        return objects
+
     def _register_object(self, obj):
-        self.requested_objects.update(obj.deps)
+        self.requested_names.update(obj.deps)
         for ident in self._possible_idents(obj):
             self._satisfied_deps[ident] = obj
 
