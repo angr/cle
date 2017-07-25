@@ -115,7 +115,6 @@ class PESection(Section):
     def is_executable(self):
         return self.characteristics & 0x20000000 != 0
 
-
 class PE(Backend):
     """
     Representation of a PE (i.e. Windows) binary.
@@ -130,8 +129,11 @@ class PE(Backend):
         self.os = 'windows'
         if self.binary is None:
             self._pe = pefile.PE(data=self.binary_stream.read())
+        elif self.binary in self._pefile_cache: # these objects are not mutated, so they are reusable within a process
+            self._pe = self._pefile_cache[self.binary]
         else:
             self._pe = pefile.PE(self.binary)
+            self._pefile_cache[self.binary] = self._pe
 
         if self.arch is None:
             self.set_arch(archinfo.arch_from_id(pefile.MACHINE_TYPE[self._pe.FILE_HEADER.Machine]))
@@ -171,6 +173,8 @@ class PE(Backend):
         self.jmprel = self._get_jmprel()
 
         self.memory.add_backer(0, self._pe.get_memory_mapped_image())
+
+    _pefile_cache = {}
 
     @staticmethod
     def is_compatible(stream):
