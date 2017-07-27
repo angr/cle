@@ -1,3 +1,5 @@
+import archinfo
+
 from . import Backend, register_backend
 from ..errors import CLEError
 
@@ -5,6 +7,23 @@ import logging
 l = logging.getLogger("cle.blob")
 
 __all__ = ('Blob',)
+
+def bytes_to_nytes(b):
+    bin_str = "".join("0" + bin(ord(c))[2:].zfill(8) for c in b)
+    return "".join(chr(int(bin_str[i:i+8], 2)) for i in xrange(0, len(bin_str), 8))
+def nytes_to_array(n):
+    bin_str = "".join(bin(ord(c))[2:].zfill(8) for c in n)
+    return [int(bin_str[i:i+9], 2) for i in xrange(0, len(bin_str), 9)]
+def nytes_to_bytes(n):
+    return "".join(chr(c) for c in nytes_to_array(n))
+
+def convert_backer(s):
+    if archinfo.BYTE_BITS == 9:
+        return nytes_to_array(s)
+    elif archinfo.BYTE_BITS == 8:
+        return [ord(c) for c in s]
+    else:
+        raise ValueError("FUCK YOU BITS")
 
 class Blob(Backend):
     """
@@ -69,8 +88,9 @@ class Blob(Backend):
 
         self.binary_stream.seek(file_offset)
         string = self.binary_stream.read(size)
-        self.memory.add_backer(mem_addr, string)
-        self._max_addr = max(len(string) + mem_addr, self._max_addr)
+        data = convert_backer(string)
+        self.memory.add_backer(mem_addr, data)
+        self._max_addr = max(len(data) + mem_addr, self._max_addr)
         self._min_addr = min(mem_addr, self._min_addr)
 
     def function_name(self, addr): #pylint: disable=unused-argument,no-self-use

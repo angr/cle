@@ -1,8 +1,10 @@
 import bisect
 import struct
 import cffi
+import archinfo
 
 __all__ = ('Clemory',)
+
 
 # TODO: Further optimization is possible now that the list of backers is sorted
 
@@ -30,8 +32,8 @@ class Clemory(object):
         :param start:   The address where the backer should be loaded.
         :param data:    The backer itself. Can be either a string or another :class:`Clemory`.
         """
-        if not isinstance(data, (str, Clemory)):
-            raise TypeError("Data must be a string or a Clemory")
+        if not isinstance(data, (list, Clemory)):
+            raise TypeError("Data must be a list or a Clemory")
         if start in self:
             raise ValueError("Address %#x is already backed!" % start)
         if isinstance(data, Clemory) and data._root:
@@ -40,8 +42,8 @@ class Clemory(object):
         self._needs_flattening_personal = True
 
     def update_backer(self, start, data):
-        if not isinstance(data, (str, Clemory)):
-            raise TypeError("Data must be a string or a Clemory")
+        if not isinstance(data, (list, Clemory)):
+            raise TypeError("Data must be a list or a Clemory")
         for i, (oldstart, _) in enumerate(self._backers):
             if oldstart == start:
                 self._backers[i] = (start, data)
@@ -61,7 +63,7 @@ class Clemory(object):
 
     def __iter__(self):
         for start, string in self._backers:
-            if isinstance(string, str):
+            if isinstance(string, list):
                 for x in xrange(len(string)):
                     yield start + x
             else:
@@ -76,7 +78,7 @@ class Clemory(object):
             return self._updates[k]
         else:
             for start, data in self._backers:
-                if isinstance(data, str):
+                if isinstance(data, list):
                     if 0 <= k - start < len(data):
                         return data[k - start]
                 elif isinstance(data, Clemory):
@@ -203,8 +205,8 @@ class Clemory(object):
     def _stride_repr(self):
         out = []
         for start, data in self._backers:
-            if isinstance(data, str):
-                out.append((start, bytearray(data)))
+            if isinstance(data, list):
+                out.append((start, list(data)))
             else:
                 out += map(lambda (substart, subdata), start=start: (substart+start, subdata), data._stride_repr)
         for key, val in self._updates.iteritems():
@@ -221,7 +223,7 @@ class Clemory(object):
         """
         Returns a representation of memory in a list of (start, end, data) where data is a string.
         """
-        return map(lambda (start, bytearr): (start, start+len(bytearr), str(bytearr)), self._stride_repr)
+        return map(lambda (start, bytearr): (start, start+len(bytearr), list(bytearr)), self._stride_repr)
 
     def seek(self, value):
         """
@@ -245,11 +247,11 @@ class Clemory(object):
                 self._pointer += 1
                 return out
             except KeyError:
-                return ''
+                return []
         else:
             out = self.read_bytes(self._pointer, nbytes)
             self._pointer += len(out)
-            return ''.join(out)
+            return out
 
     def tell(self):
         return self._pointer
@@ -281,7 +283,7 @@ class Clemory(object):
 
         self._cbackers = [ ]
         for start, data in strides:
-            cbacker = ffi.new("unsigned char [%d]" % len(data), str(data))
+            cbacker = ffi.new("unsigned short [%d]" % len(data), str(data))
             self._cbackers.append((start, cbacker))
 
     @property
