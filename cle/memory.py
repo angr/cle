@@ -283,7 +283,7 @@ class Clemory(object):
 
         self._cbackers = [ ]
         for start, data in strides:
-            cbacker = ffi.new("unsigned short [%d]" % len(data), str(data))
+            cbacker = ffi.new("unsigned short [%d]" % len(data), map(ord, data))
             self._cbackers.append((start, cbacker))
 
     @property
