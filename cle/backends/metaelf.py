@@ -257,10 +257,16 @@ class MetaELF(Backend):
         with stream_or_path(path) as f:
             try:
                 e = elftools.elf.elffile.ELFFile(f)
+                # TODO: make this not depend on sections...
                 dyn = e.get_section_by_name('.dynamic')
+                if dyn is None:
+                    return None
+
                 soname = [ x.soname for x in list(dyn.iter_tags()) if x.entry.d_tag == 'DT_SONAME']
                 if not soname:
-                    return os.path.basename(path)
+                    if type(path) in (str, unicode):
+                        return os.path.basename(path)
+                    return None
                 return soname[0]
             except elftools.common.exceptions.ELFError:
                 return None
