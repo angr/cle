@@ -1,7 +1,10 @@
 import os
+import logging
 
 from .backends.metaelf import MetaELF
 from .errors import CLEFileNotFoundError
+
+l = logging.getLogger('cle.gdb')
 
 def convert_info_sharedlibrary(fname):
     """
@@ -37,8 +40,15 @@ def _parse_gdb_map(gdb_map, gdb_fix):
         # Get rid of all metadata, just extract lines containing addresses
         if "0x" not in line_items[0]:
             continue
-        elif any(s in line_items[-1] for s in ("linux-vdso", "[vdso]")):
+        if line_items[-1].startswith('['):
             continue
+        try:
+            int(line_items[-1], 16)
+        except ValueError:
+            pass
+        else:
+            continue
+
         addr, objfile = int(line_items[0], 16), line_items[-1].strip()
 
         # Get the smallest address of each libs' mappings
@@ -58,35 +68,43 @@ def _parse_gdb_map(gdb_map, gdb_fix):
     smallest_addr = min(gmap.values())
 
     for lib, addr in gmap.items():
-        if addr == smallest_addr:
+        if addr == smallest_addr and not gdb_fix:
             # this is the main binary
             opts = main_opts
         else:
-            if not os.path.exists(lib):
-                lib = _simple_search(lib)
+            #if not os.path.exists(lib):
+            #    lib = _simple_search(lib)
             force_load_libs.append(lib)
             opts = {}
             lib_opts[lib] = opts
 
         # address of .text -> base address of the library
         if gdb_fix:
-            addr = addr - MetaELF.get_text_offset(lib)
+            found = _simple_search(lib)
+            if found:
+                addr = addr - MetaELF.get_text_offset(found)
 
         l.info("gdb_plugin: mapped %s to %#x", lib, addr)
         opts["custom_base_addr"] = addr
 
     return {'force_load_libs': force_load_libs, 'main_opts': main_opts, 'lib_opts': lib_opts}
 
+GDB_SEARCH_PATH = ['/lib', '/usr/lib']
+
 def _simple_search(libname):
-    dirs = ['/lib', '/usr/lib']
+    dirs = list(GDB_SEARCH_PATH)
     while dirs:
-        dir = dirs.pop(0)
-        for name in os.listdir(dir):
-            if name in ('.', '..'):
-                continue
-            full = os.path.join(dir, name)
-            if os.path.isdir(full):
-                dirs.append(full)
-            if os.path.isfile(full) and name == libname:
-                return full
+        dirname = dirs.pop(0)
+        try:
+            for name in os.listdir(dirname):
+                if name in ('.', '..'):
+                    continue
+                full = os.path.join(dirname, name)
+                if os.path.isdir(full):
+                    if full.count('/') < 12: # don't go too deep
+                        dirs.append(full)
+                if os.path.isfile(full) and name == libname:
+                    return full
+        except OSError:
+            pass
     return libname
