@@ -218,7 +218,12 @@ class ELF(MetaELF):
         # themselves are organized as a tree where each node backer internally uses relative addressing
         seg_addrs = (ALIGN_DOWN(x['p_vaddr'], self.loader.page_size)
                      for x in self.reader.iter_segments() if x.header.p_type == 'PT_LOAD' and x.header.p_memsz > 0)
-        self.mapped_base = self.linked_base = min(seg_addrs) if seg_addrs else 0
+        self.mapped_base = self.linked_base = 0
+        try:
+            self.mapped_base = self.linked_base = min(seg_addrs)
+        except ValueError:
+            l.warn('no segments identified in PT_LOAD')
+        
         self.__register_segments()
         self.__register_sections()
 
