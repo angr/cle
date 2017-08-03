@@ -417,7 +417,7 @@ class Loader(object):
         """
         # STEP 1: identify file
         if isinstance(spec, Backend):
-            full_spec = spec
+            return spec
         elif hasattr(spec, 'read') and hasattr(spec, 'seek'):
             full_spec = spec
         elif type(spec) in (bytes, unicode):
@@ -441,6 +441,8 @@ class Loader(object):
         backend_cls = self._backend_resolver(backend_spec)
         if backend_cls is None:
             backend_cls = self._static_backend(full_spec)
+        if backend_cls is None:
+            raise CLECompatibilityError("Unable to find a loader backend for %s.  Perhaps try the 'blob' loader?" % spec)
 
         # STEP 4: LOAD!
         return backend_cls(full_spec, is_main_bin=self.main_object is None, loader=self, **options)
@@ -531,20 +533,14 @@ class Loader(object):
         It will prefer files of a known filetype over files of an unknown filetype.
         """
         # this could be converted to being an iterator pretty easily
-        weak_possibilities = []
         for path in self._possible_paths(spec):
             if self.main_object is not None:
                 backend_cls = self._static_backend(path)
-                if backend_cls is not None:
-                    if not backend_cls.check_compatibility(path, self.main_object):
-                        continue
-                else:
-                    weak_possibilities.append(path)
+                if backend_cls is None:
+                    continue
+                if not backend_cls.check_compatibility(path, self.main_object):
                     continue
 
-            return path
-
-        for path in weak_possibilities:
             return path
 
         raise CLEFileNotFoundError("Could not find file %s" % spec)
@@ -594,11 +590,12 @@ class Loader(object):
                     yield os.path.basename(spec.binary).rstrip('.0123456789')
         elif hasattr(spec, 'read') and hasattr(spec, 'seek'):
             backend_cls = self._static_backend(spec)
-            soname = backend_cls.extract_soname(spec)
-            if soname is not None:
-                yield soname
-                if self._ignore_import_version_numbers:
-                    yield soname.rstrip('.0123456789')
+            if backend_cls is not None:
+                soname = backend_cls.extract_soname(spec)
+                if soname is not None:
+                    yield soname
+                    if self._ignore_import_version_numbers:
+                        yield soname.rstrip('.0123456789')
         elif type(spec) in (bytes, unicode):
             yield spec
             yield os.path.basename(spec)
@@ -607,11 +604,12 @@ class Loader(object):
 
             if os.path.exists(spec):
                 backend_cls = self._static_backend(spec)
-                soname = backend_cls.extract_soname(spec)
-                if soname is not None:
-                    yield soname
-                    if self._ignore_import_version_numbers:
-                        yield soname.rstrip('.0123456789')
+                if backend_cls is not None:
+                    soname = backend_cls.extract_soname(spec)
+                    if soname is not None:
+                        yield soname
+                        if self._ignore_import_version_numbers:
+                            yield soname.rstrip('.0123456789')
 
         if not lowercase and sys.platform == 'win32':
             for name in self._possible_idents(spec, lowercase=True):
@@ -630,7 +628,7 @@ class Loader(object):
                 if rear.is_compatible(stream):
                     return rear
 
-        raise CLECompatibilityError("Unable to find a loader backend for this binary.  Perhaps try the 'blob' loader?")
+        return None
 
     @staticmethod
     def _backend_resolver(backend, default=None):
