@@ -21,8 +21,20 @@ class ExternObject(Backend):
             pass
 
         addr = self.allocate(1, alignment=alignment)
+
+        if hasattr(self.loader.main_object, 'is_ppc64_abiv1') and self.loader.main_object.is_ppc64_abiv1:
+            func_symbol = Symbol(self, name + '#func', AT.from_mva(addr, self).to_rva(), 1, Symbol.TYPE_FUNCTION)
+            func_symbol.is_export = True
+            func_symbol.is_extern = True
+            self._symbol_cache[name + '#func'] = func_symbol
+
+            toc = self.allocate(0x18, alignment=8)
+            self.memory.write_addr_at(AT.from_mva(toc, self).to_rva(), addr)
+            addr = toc
+
         new_symbol = Symbol(self, name, AT.from_mva(addr, self).to_rva(), 1, Symbol.TYPE_FUNCTION)
         new_symbol.is_export = True
+        new_symbol.is_extern = True
 
         self._symbol_cache[name] = new_symbol
         return new_symbol

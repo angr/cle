@@ -232,6 +232,7 @@ class Symbol(object):
     is_import = False
     is_export = False
     is_weak = False
+    is_extern = False
 
     @property
     def demangled_name(self):
