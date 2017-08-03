@@ -41,9 +41,7 @@ class GenericRelativeReloc(Relocation):
 class GenericCopyReloc(Relocation):
     @property
     def value(self):
-        return self.resolvedby.owner_obj.memory.read_addr_at(
-            AT.from_lva(self.resolvedby.addr, self.resolvedby.owner_obj).to_rva()
-        )
+        return self.resolvedby.owner_obj.memory.read_addr_at(self.resolvedby.addr)
 
 class MipsGlobalReloc(GenericAbsoluteReloc):
     pass
@@ -57,9 +55,9 @@ class MipsLocalReloc(Relocation):
         if delta == 0:
             self.resolve(None)
             return True
-        val = self.owner_obj.memory.read_addr_at(AT.from_lva(self.addr, self.owner_obj).to_rva())
+        val = self.owner_obj.memory.read_addr_at(self.addr)
         newval = val + delta
-        self.owner_obj.memory.write_addr_at(AT.from_lva(self.addr, self.owner_obj).to_rva(), newval)
+        self.owner_obj.memory.write_addr_at(self.addr, newval)
         self.resolve(None)
         return True
 
@@ -90,4 +88,4 @@ class RelocTruncate32Mixin(object):
                                     " relevant addresses fit in the 32-bit address space." % self.__class__.__name__)
 
         by = struct.pack(self.owner_obj.arch.struct_fmt(32), val % (2**32))
-        self.owner_obj.memory.write_bytes(AT.from_lva(self.dest_addr, self.owner_obj).to_rva(), by)
+        self.owner_obj.memory.write_bytes(self.dest_addr, by)

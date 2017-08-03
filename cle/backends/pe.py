@@ -30,11 +30,6 @@ class WinSymbol(Symbol):
         self.is_export = is_export
         self.ordinal_number = ordinal_number
 
-    @property
-    def rebased_addr(self):
-        # Windows does everything with RVAs, so override the default which assumes this is a LVA
-        return AT.from_rva(self.addr, self.owner_obj).to_mva()
-
 
 class WinReloc(Relocation):
     """
@@ -55,11 +50,6 @@ class WinReloc(Relocation):
     def value(self):
         if self.resolved:
             return self.resolvedby.rebased_addr
-
-    @property
-    def rebased_addr(self):
-        # Windows does everything with RVAs, so override the default which assumes this is a LVA
-        return AT.from_rva(self.addr, self.owner_obj).to_mva()
 
     def relocate(self, solist, bypass_compatibility=False):
         # no symbol -> this is a relocation described in the DIRECTORY_ENTRY_BASERELOC table
@@ -224,7 +214,7 @@ class PE(Backend):
                     if imp_name is None: # must be an import by ordinal
                         imp_name = "%s.ordinal.%d" % (entry.dll, imp.ordinal)
                     symb = WinSymbol(self, imp_name, 0, True, False, imp.ordinal)
-                    reloc = WinReloc(self, symb, imp.address, entry.dll)
+                    reloc = WinReloc(self, symb, AT.from_lva(imp.address, self).to_rva(), entry.dll)
                     self.imports[imp_name] = reloc
                     self.relocs.append(reloc)
 

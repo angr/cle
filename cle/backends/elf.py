@@ -655,12 +655,11 @@ class ELF(MetaELF):
         if RelocClass is None:
             return None
 
+        address = AT.from_lva(readelf_reloc.entry.r_offset, self).to_rva()
         if dest_section is not None:
-            remap_offset = dest_section.remap_offset
-        else:
-            remap_offset = 0
+            address += dest_section.remap_offset
 
-        return RelocClass(self, symbol, readelf_reloc.entry.r_offset + remap_offset, addend)
+        return RelocClass(self, symbol, address, addend)
 
     def __register_tls(self, seg_readelf):
         self.tls_used = True
@@ -718,7 +717,7 @@ class ELF(MetaELF):
         # a.k.a the index of the first global GOT entry
         symtab_got_idx = self._dynamic['DT_MIPS_GOTSYM']   # index of first symbol w/ GOT entry
         symbol_count = self._dynamic['DT_MIPS_SYMTABNO']
-        gotaddr = self._dynamic['DT_PLTGOT']
+        gotaddr = AT.from_lva(self._dynamic['DT_PLTGOT'], self).to_rva()
         wordsize = self.arch.bytes
         for i in range(2, got_local_num):
             reloc = MipsLocalReloc(self, None, gotaddr + i*wordsize)

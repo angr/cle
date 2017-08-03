@@ -26,7 +26,7 @@ TESTS_ARCHES = [os.path.join('i386', 'libc.so.6'),
 
 def check_plt_entries(filename):
     real_filename = os.path.join(TESTS_BASE, 'tests', filename)
-    ld = cle.Loader(real_filename, auto_load_libs=False)
+    ld = cle.Loader(real_filename, auto_load_libs=False, main_opts={'custom_base_addr': 0})
 
     if filename == os.path.join('ppc', 'libc.so.6'):
         # objdump can't find PLT stubs for this...
@@ -38,23 +38,23 @@ def check_plt_entries(filename):
 
     if filename == os.path.join('mips', 'libc.so.6'):
         nose.tools.assert_in('__tls_get_addr', ld.main_object._plt)
-        nose.tools.assert_equal(ld.main_object._plt['__tls_get_addr'], 1331168)
+        nose.tools.assert_equal(ld.main_object.plt['__tls_get_addr'], 1331168)
         return
 
     if filename == os.path.join('mips', 'fauxware'):
-        nose.tools.assert_equal(ld.main_object._plt, {'puts': 4197264, 'read': 4197232, '__libc_start_main': 4197312, 'printf': 4197248, 'exit': 4197280, 'open': 4197296, 'strcmp': 4197216})
+        nose.tools.assert_equal(ld.main_object.plt, {'puts': 4197264, 'read': 4197232, '__libc_start_main': 4197312, 'printf': 4197248, 'exit': 4197280, 'open': 4197296, 'strcmp': 4197216})
         return
 
     if filename == os.path.join('mips64', 'libc.so.6'):
-        nose.tools.assert_equal(ld.main_object._plt, {'__tls_get_addr': 1458432, '_dl_find_dso_for_object': 1458448})
+        nose.tools.assert_equal(ld.main_object.plt, {'__tls_get_addr': 1458432, '_dl_find_dso_for_object': 1458448})
         return
 
     if filename == os.path.join('mips64', 'test_arrays'):
-        nose.tools.assert_equal(ld.main_object._plt, {'__libc_start_main': 4831841456, 'puts': 4831841440})
+        nose.tools.assert_equal(ld.main_object.plt, {'__libc_start_main': 4831841456, 'puts': 4831841440})
         return
 
     if filename == os.path.join('armel', 'helloworld'):
-        nose.tools.assert_equal(ld.main_object._plt, {'printf': 0x102e0, '__libc_start_main': 0x102ec,
+        nose.tools.assert_equal(ld.main_object.plt, {'printf': 0x102e0, '__libc_start_main': 0x102ec,
                                                    '__gmon_start__': 0x102f8, 'abort': 0x10304
                                                    }
                                 )
@@ -86,7 +86,7 @@ def check_plt_entries(filename):
     #    ideal_plt['malloc'] += 4
     #PLT_CACHE[filename.replace('\\', '/')] = ideal_plt
     ideal_plt = PLT_CACHE[filename.replace('\\', '/')]
-    nose.tools.assert_equal(ideal_plt, ld.main_object._plt)
+    nose.tools.assert_equal(ideal_plt, ld.main_object.plt)
 
 PLT_CACHE = {}
 PLT_CACHE = pickle.load(open(os.path.join(TESTS_BASE, 'tests_data', 'objdump-grep-plt.p'), 'rb'))

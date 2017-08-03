@@ -9,14 +9,12 @@ l = logging.getLogger('cle.relocations.generic_elf')
 class GenericTLSModIdReloc(Relocation):
     def relocate(self, solist, bypass_compatibility=False):
         if self.symbol.type == Symbol.TYPE_NONE:
-            self.owner_obj.memory.write_addr_at(
-                AT.from_lva(self.addr, self.owner_obj).to_rva(), self.owner_obj.tls_module_id)
+            self.owner_obj.memory.write_addr_at(self.addr, self.owner_obj.tls_module_id)
             self.resolve(None)
         else:
             if not self.resolve_symbol(solist):
                 return False
-            self.owner_obj.memory.write_addr_at(
-                AT.from_lva(self.addr, self.owner_obj).to_rva(), self.resolvedby.owner_obj.tls_module_id)
+            self.owner_obj.memory.write_addr_at(self.addr, self.resolvedby.owner_obj.tls_module_id)
         return True
 
 
@@ -35,14 +33,14 @@ class GenericTLSOffsetReloc(Relocation):
         hell_offset = self.owner_obj.arch.elf_tls.tp_offset
         if self.symbol.type == Symbol.TYPE_NONE:
             self.owner_obj.memory.write_addr_at(
-                AT.from_lva(self.addr, self.owner_obj).to_rva(),
+                self.addr,
                 self.owner_obj.tls_block_offset + self.addend + self.symbol.addr - hell_offset)
             self.resolve(None)
         else:
             if not self.resolve_symbol(solist, bypass_compatibility):
                 return False
             self.owner_obj.memory.write_addr_at(
-                AT.from_lva(self.addr, self.owner_obj).to_rva(),
+                self.addr,
                 self.resolvedby.owner_obj.tls_block_offset + self.addend + self.symbol.addr - hell_offset)
         return True
 
