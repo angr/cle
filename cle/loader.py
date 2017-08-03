@@ -451,25 +451,28 @@ class Loader(object):
         """
         obj_size = obj.max_addr - obj.min_addr
 
-        if obj._custom_base_addr is not None and self._is_range_free(obj._custom_base_addr, obj_size):
-            base_addr = obj._custom_base_addr
-        elif obj.linked_base and self._is_range_free(obj.linked_base, obj_size):
-            base_addr = obj.linked_base
-        elif not obj.is_main_bin:
-            base_addr = self._find_safe_rebase_addr(obj_size)
-        elif self.main_object.pic:
-            l.warning("The main binary is a position-independent executable. "
-                      "It is being loaded with a base address of 0x400000.")
-            base_addr = 0x400000
+        if obj.pic:
+            if obj._custom_base_addr is not None and self._is_range_free(obj._custom_base_addr, obj_size):
+                base_addr = obj._custom_base_addr
+            elif obj.linked_base and self._is_range_free(obj.linked_base, obj_size):
+                base_addr = obj.linked_base
+            elif not obj.is_main_bin:
+                base_addr = self._find_safe_rebase_addr(obj_size)
+            else:
+                l.warning("The main binary is a position-independent executable. "
+                          "It is being loaded with a base address of 0x400000.")
+                base_addr = 0x400000
+
+            obj.mapped_base = base_addr
+            obj.rebase()
         else:
-            base_addr = 0
+            base_addr = obj.linked_base
+            if not self._is_range_free(obj.linked_base, obj_size):
+                raise CLEError("Position-DEPENDENT object %s cannot be loaded at %#x"% (obj.binary, base_addr))
 
-        l.info("Rebasing %s at %#x", obj.binary, base_addr)
+        l.info("Mapping %s at %#x", obj.binary, base_addr)
         self.memory.add_backer(base_addr, obj.memory)
-
-        obj.mapped_base = base_addr
         key_bisect_insort_left(self.all_objects, obj, keyfunc=lambda o: o.min_addr)
-        obj.rebase()
         obj._is_mapped = True
 
     def _relocate_object(self, obj):

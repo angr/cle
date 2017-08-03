@@ -8,6 +8,7 @@ class MockBackend(cle.backends.Backend):
         super(MockBackend, self).__init__('/dev/zero', **kwargs)
         self.mapped_base = self.linked_base = linked_base
         self.size = size
+        self.pic = True
 
     @property
     def max_addr(self):

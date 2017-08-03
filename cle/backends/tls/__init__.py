@@ -14,6 +14,7 @@ class TLSObject(Backend):
         self.arch = self.loader.main_object.arch
         self.memory = Clemory(self.arch)
         self.modules = []
+        self.pic = True
 
     def register_object(self, obj):
         """

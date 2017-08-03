@@ -11,6 +11,7 @@ class ExternObject(Backend):
         self.set_arch(loader.main_object.arch)
         self.memory.add_backer(0, '\0'*map_size)
         self.provides = 'extern-address space'
+        self.pic = True
 
 
     def make_extern(self, name, alignment=8):
@@ -47,6 +48,7 @@ class KernelObject(Backend):
         self.set_arch(loader.main_object.arch)
         self.memory.add_backer(0, '\0'*map_size)
         self.provides = 'kernel space'
+        self.pic = True
 
     def add_name(self, name, addr):
         self._symbol_cache[name] = Symbol(self, name, AT.from_mva(addr, self).to_rva(), 1, Symbol.TYPE_FUNCTION)
