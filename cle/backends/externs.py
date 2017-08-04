@@ -1,7 +1,12 @@
-from . import Backend, Symbol
+from . import Backend, Symbol, Segment
 from ..utils import ALIGN_UP
 from ..errors import CLEOperationError
 from ..address_translator import AT
+
+class ExternSegment(Segment):
+    is_readable = True
+    is_writable = False
+    is_executable = True
 
 class ExternObject(Backend):
     def __init__(self, loader, map_size=0x8000):
@@ -12,6 +17,8 @@ class ExternObject(Backend):
         self.memory.add_backer(0, '\0'*map_size)
         self.provides = 'extern-address space'
         self.pic = True
+
+        self.segments.append(ExternSegment('externs', 0, 0, self.map_size))
 
 
     def make_extern(self, name, alignment=8):
