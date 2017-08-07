@@ -82,6 +82,7 @@ class R_ARM_PREL31(Relocation):
         - P is the target location (place being relocated)
         - T is 1 if the symbol is of type STT_FUNC and addresses a Thumb instruction
     """
+    
     @property
     def value(self):
         P = self.rebased_addr                           # Location of this instruction
@@ -97,12 +98,60 @@ class R_ARM_PREL31(Relocation):
         l.debug("%s relocated as R_ARM_PREL31 to: 0x%x", self.symbol.name, result)
         return result
 
+class R_ARM_REL32(Relocation):
+    """
+    Relocate R_ARM_REL32 symbols. This is essentially the same as 
+    generic.GenericPCRelativeAddendReloc with the addition of a check
+    for whether or not the target is Thumb.
+    
+    Class: Static
+    Type: Data
+    Code: 3
+    Operation: ((S + A) | T) - P
+        - S is the address of the symbol
+        - A is the addend
+        - P is the target location (place being relocated)
+        - T is 1 if the symbol is of type STT_FUNC and addresses a Thumb instruction
+    """
+    
+    @property
+    def value(self):
+        P = self.rebased_addr                           # Location of this instruction
+        A = self.addend                                 # The instruction
+        S = self.resolvedby.rebased_addr                # The symbol's "value", where it points to
+        T = ARMRelocation._isThumbFunc(self.symbol, S)
+        result = ((S + A) | T) - P        
+        return result
 
+class R_ARM_ABS32(Relocation):
+    """
+    Relocate R_ARM_REL32 symbols. This is essentially the same as 
+    generic.GenericAbsoluteAddendReloc with the addition of a check
+    for whether or not the target is Thumb.
+    
+    Class: Static
+    Type: Data
+    Code: 3
+    Operation: (S + A) | T
+        - S is the address of the symbol
+        - A is the addend
+        - T is 1 if the symbol is of type STT_FUNC and addresses a Thumb instruction
+    """
+    
+    @property
+    def value(self):
+        A = self.addend                                 # The instruction
+        S = self.resolvedby.rebased_addr                # The symbol's "value", where it points to
+        T = ARMRelocation._isThumbFunc(self.symbol, S)
+        result = (S + A) | T
+        return result
+        
 R_ARM_COPY          = generic.GenericCopyReloc
 R_ARM_GLOB_DAT      = generic.GenericJumpslotReloc
 R_ARM_JUMP_SLOT     = generic.GenericJumpslotReloc
 R_ARM_RELATIVE      = generic.GenericRelativeReloc
-R_ARM_ABS32         = generic.GenericAbsoluteAddendReloc
+R_ARM_ABS32_NOI     = generic.GenericAbsoluteAddendReloc
+R_ARM_REL32_NOI     = generic.GenericPCRelativeAddendReloc
 
 R_ARM_TLS_DTPMOD32  = generic_elf.GenericTLSModIdReloc
 R_ARM_TLS_DTPOFF32  = generic_elf.GenericTLSDoffsetReloc
