@@ -9,7 +9,7 @@ class TLSObject(Backend):
     ``finalize()`` is called.
     """
     def __init__(self, loader):
-        super(TLSObject, self).__init__('##cle_tls##', loader=loader)
+        super(TLSObject, self).__init__('cle##tls', loader=loader)
         self.arch = self.loader.main_object.arch
         self.memory = Clemory(self.arch)
         self.modules = []

@@ -48,7 +48,7 @@ class Loader(object):
                                 equivalent, for example libc.so.6 and libc.so.0
     :param rebase_granularity:  The alignment to use for rebasing shared objects
     :param except_missing_libs: Throw an exception when a shared library can't be found.
-    :param aslr:                Load libraries in symbolic address space.
+    :param aslr:                Load libraries in symbolic address space. Do not use this option.
     :param page_size:           The granularity with which data is mapped into memory. Set to 1 if you are working
                                 in a non-paged environment.
 
@@ -59,7 +59,7 @@ class Loader(object):
     :ivar all_objects:          A list containing representations of all the different objects loaded.
     :ivar requested_names:      A set containing the names of all the different shared libraries that were marked as a
                                 dependency by somebody.
-    :ivar tls_object:           An object dealing with the region of memory allocated for thread-local storage.
+    :ivar initial_load_objects: A list of all the objects that were loaded as a result of the initial load request.
 
     When reference is made to a dictionary of options, it requires a dictionary with zero or more of the following keys:
 
@@ -118,6 +118,9 @@ class Loader(object):
     # Basic functions and properties
 
     def close(self):
+        """
+        Release any resources held by this loader.
+        """
         for obj in self.all_objects:
             obj.close()
 
@@ -159,6 +162,9 @@ class Loader(object):
 
     @property
     def linux_loader_object(self):
+        """
+        If the linux dynamic loader is present in memory, return it
+        """
         for obj in self.all_objects:
             if obj.provides is None:
                 continue
@@ -168,6 +174,11 @@ class Loader(object):
 
     @property
     def extern_object(self):
+        """
+        Return the extern object used to provide addresses to unresolved symbols and angr internals.
+
+        Accessing this property will load this object into memory if it was not previously present.
+        """
         if self._extern_object is None:
             self._extern_object = ExternObject(self)
             self._map_object(self._extern_object)
@@ -175,6 +186,11 @@ class Loader(object):
 
     @property
     def kernel_object(self):
+        """
+        Return the object used to provide addresses to syscalls.
+
+        Accessing this property will load this object into memory if it was not previously present.
+        """
         if self._kernel_object is None:
             self._kernel_object = KernelObject(self)
             self._map_object(self._kernel_object)
@@ -182,6 +198,11 @@ class Loader(object):
 
     @property
     def tls_object(self):
+        """
+        Return the object used to provide addresses for thread-local storage.
+
+        Accessing this property will load this object into memory if it was not previously present.
+        """
         if self._tls_object is None:
             if isinstance(self.main_object, MetaELF):
                 self._tls_object = ELFTLSObject(self)
@@ -194,14 +215,23 @@ class Loader(object):
 
     @property
     def all_elf_objects(self):
+        """
+        Return a list of every object that was loaded from an ELF file.
+        """
         return [o for o in self.all_objects if isinstance(o, MetaELF)]
 
     @property
     def all_pe_objects(self):
+        """
+        Return a list of every object that was loaded from an ELF file.
+        """
         return [o for o in self.all_objects if isinstance(o, PE)]
 
     @property
     def missing_dependencies(self):
+        """
+        Return a set of every name that was requested as a shared object dependency but could not be loaded
+        """
         return self.requested_names - set(self._satisfied_deps)
 
     def describe_addr(self, addr):
@@ -302,7 +332,7 @@ class Loader(object):
 
     def find_relevant_relocations(self, name):
         """
-        Iterate through all the relocations referring to the symbol with the given name
+        Iterate through all the relocations referring to the symbol with the given ``name``
         """
         for so in self.all_objects:
             for reloc in so.relocs:
@@ -313,6 +343,15 @@ class Loader(object):
     # Complicated stuff
 
     def perform_irelative_relocs(self, resolver_func):
+        """
+        Use this method to satisfy ``IRelative`` relocations in the binary that require execution of loaded code.
+
+        Note that this does NOT handle ``IFunc`` symbols, which must be handled separately. (this could be changed, but
+        at the moment it's desirable to support lazy IFunc resolution, since emulation is usually slow)
+
+        :param resolver_func:   A callback function that takes an address, runs the code at that address, and returns
+                                the return value from the emulated function.
+        """
         for obj in self.all_objects:
             for resolver, dest in obj.irelatives:
                 val = resolver_func(resolver)
@@ -323,12 +362,15 @@ class Loader(object):
 
     def dynamic_load(self, spec):
         """
-        Load ``spec`` into the address space. Note that the sematics of ``auto_load_libs`` and ``except_missing_libs``
+        Load a file into the address space. Note that the sematics of ``auto_load_libs`` and ``except_missing_libs``
         apply at all times.
 
-        It will return a list of all the objects successfully loaded, which may be empty if this object was previously
-        loaded. If the main object specified failed to load for any reason, including the file not being found, it will
-        return None.
+        :param spec:    The path to the file to load. May be an absolute path, a relative path, or a name to search in
+                        the load path.
+
+        :return:        A list of all the objects successfully loaded, which may be empty if this object was previously
+                        loaded. If the object specified in ``spec`` failed to load for any reason, including the file
+                        not being found, return None.
         """
         try:
             return self._internal_load(spec)
@@ -337,6 +379,9 @@ class Loader(object):
             return None
 
     def get_loader_symbolic_constraints(self):
+        """
+        Do not use this method.
+        """
         if not self.aslr:
             return []
         if not claripy:
@@ -414,6 +459,9 @@ class Loader(object):
         return objects
 
     def _register_object(self, obj):
+        """
+        Insert this object's clerical information into the loader
+        """
         self.requested_names.update(obj.deps)
         for ident in self._possible_idents(obj):
             self._satisfied_deps[ident] = obj
