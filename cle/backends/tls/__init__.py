@@ -1,5 +1,4 @@
 from .. import Backend
-#from ..relocations import Relocation
 from ...memory import Clemory
 
 class TLSObject(Backend):

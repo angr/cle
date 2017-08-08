@@ -1,7 +1,7 @@
 import os
 import logging
 
-from .backends.metaelf import MetaELF
+from .backends.elf.metaelf import MetaELF
 from .errors import CLEFileNotFoundError
 
 l = logging.getLogger('cle.gdb')

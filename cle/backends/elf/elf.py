@@ -1,138 +1,27 @@
 import struct
 import subprocess
-from collections import OrderedDict, defaultdict
-
-from elftools.elf import elffile, sections
-from elftools.common.exceptions import ELFError
+import logging
 import archinfo
 import elftools
-from .  import Symbol, Segment, Section, register_backend
-from .metaelf import MetaELF
-from .relocations import get_relocation
-from .relocations.generic import MipsGlobalReloc, MipsLocalReloc
-from ..patched_stream import PatchedStream
-from ..errors import CLEError, CLEInvalidBinaryError, CLECompatibilityError
-from ..utils import ALIGN_DOWN, ALIGN_UP, get_mmaped_data, stream_or_path
-from ..address_translator import AT
+from elftools.elf import elffile, sections
+from elftools.common.exceptions import ELFError
+from collections import OrderedDict, defaultdict
 
-import logging
+from .symbol import ELFSymbol, Symbol
+from .regions import ELFSection, ELFSegment
+from .hashtable import ELFHashTable, GNUHashTable
+from .metaelf import MetaELF
+from .. import register_backend
+from ..relocations import get_relocation
+from ..relocations.generic import MipsGlobalReloc, MipsLocalReloc
+from ...patched_stream import PatchedStream
+from ...errors import CLEError, CLEInvalidBinaryError, CLECompatibilityError
+from ...utils import ALIGN_DOWN, ALIGN_UP, get_mmaped_data, stream_or_path
+from ...address_translator import AT
+
 l = logging.getLogger('cle.elf')
 
 __all__ = ('ELFSymbol', 'ELF')
-
-
-class ELFSymbol(Symbol):
-    """
-    Represents a symbol for the ELF format.
-
-    :ivar str elftype:      The type of this symbol as an ELF enum string
-    :ivar str binding:      The binding of this symbol as an ELF enum string
-    :ivar section:          The section associated with this symbol, or None
-    """
-    def __init__(self, owner, symb):
-        realtype = owner.arch.translate_symbol_type(symb.entry.st_info.type)
-        if realtype == 'STT_FUNC':
-            symtype = Symbol.TYPE_FUNCTION
-        elif realtype == 'STT_OBJECT':
-            symtype = Symbol.TYPE_OBJECT
-        elif realtype == 'STT_SECTION':
-            symtype = Symbol.TYPE_SECTION
-        elif realtype == 'STT_NOTYPE':
-            symtype = Symbol.TYPE_NONE
-        else:
-            symtype = Symbol.TYPE_OTHER
-
-        sec_ndx, value = symb.entry.st_shndx, symb.entry.st_value
-
-        # A relocatable object's symbol's value is relative to its section's addr.
-        if owner.is_relocatable and isinstance(sec_ndx, (int, long)):
-            value += owner.sections[sec_ndx].remap_offset
-
-        super(ELFSymbol, self).__init__(owner,
-                                        symb.name,
-                                        AT.from_lva(value, owner).to_rva(),
-                                        symb.entry.st_size,
-                                        symtype)
-
-        self.elftype = realtype
-        self.binding = symb.entry.st_info.bind
-        self.section = sec_ndx if type(sec_ndx) is not str else None
-        self.is_static = self.type == Symbol.TYPE_SECTION or sec_ndx == 'SHN_ABS'
-        self.is_common = sec_ndx == 'SHN_COMMON'
-        self.is_weak = self.binding == 'STB_WEAK'
-
-        # these do not appear to be 100% correct, but they work so far...
-        # e.g. the "stdout" import symbol will be marked as an export symbol by this
-        # there does not seem to be a good way to reliably isolate import symbols
-        self.is_import = self.section is None and self.binding in ('STB_GLOBAL', 'STB_WEAK')
-        self.is_export = self.section is not None and self.binding in ('STB_GLOBAL', 'STB_WEAK')
-
-
-class ELFSegment(Segment):
-    """
-    Represents a segment for the ELF format.
-    """
-    def __init__(self, readelf_seg):
-        self.flags = readelf_seg.header.p_flags
-        super(ELFSegment, self).__init__(readelf_seg.header.p_offset,
-                                         readelf_seg.header.p_vaddr,
-                                         readelf_seg.header.p_filesz,
-                                         readelf_seg.header.p_memsz)
-
-    @property
-    def is_readable(self):
-        return self.flags & 4 != 0
-
-    @property
-    def is_writable(self):
-        return self.flags & 2 != 0
-
-    @property
-    def is_executable(self):
-        return self.flags & 1 != 0
-
-
-class ELFSection(Section):
-    SHF_WRITE = 0x1
-    SHF_ALLOC = 0x2
-    SHF_EXECINSTR = 0x4
-    SHF_STRINGS = 0x20
-
-    def __init__(self, readelf_sec, remap_offset=0):
-        super(ELFSection, self).__init__(
-            readelf_sec.name,
-            readelf_sec.header.sh_offset,
-            readelf_sec.header.sh_addr + remap_offset,
-            readelf_sec.header.sh_size
-        )
-
-        self.type = readelf_sec.header.sh_type
-        self.entsize = readelf_sec.header.sh_entsize
-        self.flags = readelf_sec.header.sh_flags
-        self.link = readelf_sec.header.sh_link
-        self.info = readelf_sec.header.sh_info
-        self.align = readelf_sec.header.sh_addralign
-        self.remap_offset = remap_offset
-
-    @property
-    def is_readable(self):
-        return True
-
-    @property
-    def is_writable(self):
-        return self.flags & self.SHF_WRITE != 0
-
-    @property
-    def occupies_memory(self):
-        return self.flags & self.SHF_ALLOC != 0
-
-    @property
-    def is_executable(self):
-        return self.flags & self.SHF_EXECINSTR != 0
-
-    @property
-    def is_strings(self):
-        return self.flags & self.SHF_STRINGS != 0
 
 
 class ELF(MetaELF):
@@ -753,117 +642,5 @@ class ELF(MetaELF):
             self.demangled_names = dict(zip(names, demangled))
         except OSError:
             pass
-
-class ELFHashTable(object):
-    """
-    Functions to do lookup from a HASH section of an ELF file.
-
-    Information: http://docs.oracle.com/cd/E23824_01/html/819-0690/chapter6-48031.html
-    """
-    def __init__(self, symtab, stream, offset, arch):
-        """
-        :param symtab:  The symbol table to perform lookups from (as a pyelftools SymbolTableSection).
-        :param stream:  A file-like object to read from the ELF's memory.
-        :param offset:  The offset in the object where the table starts.
-        :param arch:    The ArchInfo object for the ELF file.
-        """
-        self.symtab = symtab
-        fmt = '<' if arch.memory_endness == 'Iend_LE' else '>'
-        stream.seek(offset)
-        self.nbuckets, self.nchains = struct.unpack(fmt + 'II', stream.read(8))
-        self.buckets = struct.unpack(fmt + 'I'*self.nbuckets, stream.read(4*self.nbuckets))
-        self.chains = struct.unpack(fmt + 'I'*self.nchains, stream.read(4*self.nchains))
-
-    def get(self, k):
-        """
-        Perform a lookup. Returns a pyelftools Symbol object, or None if there is no match.
-
-        :param k:   The string to look up.
-        """
-        hval = self.elf_hash(k) % self.nbuckets
-        symndx = self.buckets[hval]
-        while symndx != 0:
-            sym = self.symtab.get_symbol(symndx)
-            if sym.name == k:
-                return sym
-            symndx = self.chains[symndx]
-        return None
-
-    # from http://www.partow.net/programming/hashfunctions/
-    @staticmethod
-    def elf_hash(key):
-        h = 0
-        x = 0
-        for c in key:
-            h = (h << 4) + ord(c)
-            x = h & 0xF0000000
-            if x != 0:
-                h ^= (x >> 24)
-            h &= ~x
-        return h
-
-class GNUHashTable(object):
-    """
-    Functions to do lookup from a GNU_HASH section of an ELF file.
-
-    Information: https://blogs.oracle.com/ali/entry/gnu_hash_elf_sections
-    """
-    def __init__(self, symtab, stream, offset, arch):
-        """
-        :param symtab:       The symbol table to perform lookups from (as a pyelftools SymbolTableSection).
-        :param stream:       A file-like object to read from the ELF's memory.
-        :param offset:       The offset in the object where the table starts.
-        :param arch:         The ArchInfo object for the ELF file.
-        """
-        self.symtab = symtab
-        fmt = '<' if arch.memory_endness == 'Iend_LE' else '>'
-        self.c = arch.bits
-        fmtsz = 'I' if self.c == 32 else 'Q'
-
-        stream.seek(offset)
-        self.nbuckets, self.symndx, self.maskwords, self.shift2 = \
-                struct.unpack(fmt + 'IIII', stream.read(16))
-
-        self.bloom = struct.unpack(fmt + fmtsz*self.maskwords, stream.read(self.c*self.maskwords/8))
-        self.buckets = struct.unpack(fmt + 'I'*self.nbuckets, stream.read(4*self.nbuckets))
-        self.hash_ptr = stream.tell()
-        self.stream = stream
-
-    def _matches_bloom(self, H1):
-        C = self.c
-        H2 = H1 >> self.shift2
-        N = ((H1 / C) & (self.maskwords - 1))
-        BITMASK = (1 << (H1 % C)) | (1 << (H2 % C))
-        return (self.bloom[N] & BITMASK) == BITMASK
-
-    def get(self, k):
-        """
-        Perform a lookup. Returns a pyelftools Symbol object, or None if there is no match.
-
-        :param k:        The string to look up
-        """
-        h = self.gnu_hash(k)
-        if not self._matches_bloom(h):
-            return None
-        n = self.buckets[h % self.nbuckets]
-        if n == 0:
-            return None
-        while True:
-            sym = self.symtab.get_symbol(n)
-            if sym.name == k:
-                return sym
-            if struct.unpack('I', ''.join(self.stream.read_bytes(self.hash_ptr + 4*(n-self.symndx), 4)))[0] & 1 == 1:
-                break
-            n += 1
-        return None
-
-    @staticmethod
-    def gnu_hash(key):
-        h = 5381
-        for c in key:
-            h = h * 33 + ord(c)
-        return h & 0xFFFFFFFF
-
-
 
 register_backend('elf', ELF)

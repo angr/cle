@@ -2,9 +2,9 @@ import pyvex
 import elftools
 import os
 
-from . import Backend
-from ..address_translator import AT
-from ..utils import stream_or_path
+from .. import Backend
+from ...address_translator import AT
+from ...utils import stream_or_path
 
 __all__ = ('MetaELF',)
 

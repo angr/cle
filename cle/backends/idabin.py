@@ -1,15 +1,15 @@
+import os
+import logging
+
+from . import Backend, register_backend
+from ..errors import CLEError, CLEFileNotFoundError
+
+l = logging.getLogger("cle.idabin")
+
 try:
     idalink = __import__('idalink').idalink
 except ImportError:
     idalink = None
-
-from ..errors import CLEError, CLEFileNotFoundError
-from . import Backend, register_backend
-import os
-import logging
-l = logging.getLogger("cle.idabin")
-
-__all__ = ('IDABin',)
 
 
 class IDABin(Backend):

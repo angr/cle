@@ -1,109 +1,17 @@
 import os
 import struct
-
-import archinfo
-from . import Backend, Symbol, Section, register_backend
-from .relocations import Relocation
-from ..errors import CLEError
-from ..address_translator import AT
-
-try:
-    import pefile
-except ImportError:
-    pefile = None
-
-__all__ = ('PE',)
-
 import logging
+import archinfo
+import pefile
+
+from .symbol import WinSymbol
+from .reloc import WinReloc
+from .regions import PESection
+from .. import register_backend, Backend
+from ...address_translator import AT
+
 l = logging.getLogger('cle.pe')
 
-# Reference: https://msdn.microsoft.com/en-us/library/ms809762.aspx
-
-
-class WinSymbol(Symbol):
-    """
-    Represents a symbol for the PE format.
-    """
-    def __init__(self, owner, name, addr, is_import, is_export, ordinal_number):
-        super(WinSymbol, self).__init__(owner, name, addr, owner.arch.bytes, Symbol.TYPE_FUNCTION)
-        self.is_import = is_import
-        self.is_export = is_export
-        self.ordinal_number = ordinal_number
-
-
-class WinReloc(Relocation):
-    """
-    Represents a relocation for the PE format.
-    """
-    def __init__(self, owner, symbol, addr, resolvewith, reloc_type=None, next_rva=None):
-        super(WinReloc, self).__init__(owner, symbol, addr, None)
-        self.resolvewith = resolvewith
-        self.reloc_type = reloc_type
-        self.next_rva = next_rva # only used for IMAGE_REL_BASED_HIGHADJ
-
-    def resolve_symbol(self, solist, bypass_compatibility=False):
-        if not bypass_compatibility:
-            solist = [x for x in solist if self.resolvewith.lower() == x.provides]
-        return super(WinReloc, self).resolve_symbol(solist)
-
-    @property
-    def value(self):
-        if self.resolved:
-            return self.resolvedby.rebased_addr
-
-    def relocate(self, solist, bypass_compatibility=False):
-        # no symbol -> this is a relocation described in the DIRECTORY_ENTRY_BASERELOC table
-        if self.symbol is None:
-            if self.reloc_type == pefile.RELOCATION_TYPE['IMAGE_REL_BASED_ABSOLUTE']:
-                # no work required
-                pass
-            elif self.reloc_type == pefile.RELOCATION_TYPE['IMAGE_REL_BASED_HIGHLOW']:
-                org_bytes = ''.join(self.owner_obj.memory.read_bytes(self.addr, 4))
-                org_value = struct.unpack('<I', org_bytes)[0]
-                rebased_value = AT.from_lva(org_value, self.owner_obj).to_mva()
-                rebased_bytes = struct.pack('<I', rebased_value % 2**32)
-                self.owner_obj.memory.write_bytes(self.addr, rebased_bytes)
-            elif self.reloc_type == pefile.RELOCATION_TYPE['IMAGE_REL_BASED_DIR64']:
-                org_bytes = ''.join(self.owner_obj.memory.read_bytes(self.addr, 8))
-                org_value = struct.unpack('<Q', org_bytes)[0]
-                rebased_value = AT.from_lva(org_value, self.owner_obj).to_mva()
-                rebased_bytes = struct.pack('<Q', rebased_value)
-                self.owner_obj.memory.write_bytes(self.addr, rebased_bytes)
-            else:
-                l.warning('PE contains unimplemented relocation type %d', self.reloc_type)
-        else:
-            return super(WinReloc, self).relocate(solist, bypass_compatibility)
-
-
-class PESection(Section):
-    """
-    Represents a section for the PE format.
-    """
-    def __init__(self, pe_section, remap_offset=0):
-        super(PESection, self).__init__(
-            pe_section.Name,
-            pe_section.Misc_PhysicalAddress,
-            pe_section.VirtualAddress + remap_offset,
-            pe_section.Misc_VirtualSize,
-        )
-
-        self.characteristics = pe_section.Characteristics
-
-    #
-    # Public properties
-    #
-
-    @property
-    def is_readable(self):
-        return self.characteristics & 0x40000000 != 0
-
-    @property
-    def is_writable(self):
-        return self.characteristics & 0x80000000 != 0
-
-    @property
-    def is_executable(self):
-        return self.characteristics & 0x20000000 != 0
 
 class PE(Backend):
     """
@@ -111,9 +19,6 @@ class PE(Backend):
     """
 
     def __init__(self, *args, **kwargs):
-        if pefile is None:
-            raise CLEError("Install the pefile module to use the PE backend!")
-
         super(PE, self).__init__(*args, **kwargs)
         self.segments = self.sections # in a PE, sections and segments have the same meaning
         self.os = 'windows'
