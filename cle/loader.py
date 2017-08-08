@@ -15,6 +15,17 @@ __all__ = ('Loader',)
 
 l = logging.getLogger("cle.loader")
 
+already_complained = set()
+def deprecated(replacement):
+    def outer(func):
+        def inner(*args, **kwargs):
+            if func not in already_complained:
+                print "\x1b[31;1mDeprecation warning: Use %s instead of %s\x1b[0m" % (replacement, func.func_name)
+                already_complained.add(func)
+            return func(*args, **kwargs)
+        return inner
+    return outer
+
 class Loader(object):
     """
     The loader loads all the objects and exports an abstraction of the memory of the process. What you see here is an
@@ -642,9 +653,51 @@ class Loader(object):
             raise CLEError('Invalid backend: %s' % backend)
 
 
+    # deprecated stuff
+
+    @deprecated('initializers (property, not function)')
+    def get_initializers(self):
+        return self.initializers
+
+    @deprecated('finalizers (property, not function)')
+    def get_finalizers(self):
+        return self.finalizers
+
+    @deprecated('find_object_containing')
+    def addr_belongs_to_object(self, addr):
+        return self.find_object_containing(addr)
+
+    @deprecated('describe_addr')
+    def whats_at(self, addr):
+        return self.describe_addr(addr)
+
+    @deprecated('find_symbol().name')
+    def find_symbol_name(self, addr):
+        sym = self.find_symbol(addr)
+        if sym is not None:
+            return sym.name
+        return None
+
+    @deprecated('find_object_containing().provides')
+    def find_module_name(self, addr):
+        obj = self.find_object_containing(addr)
+        if obj is not None:
+            return obj.provides
+        return None
+
+    @deprecated('find_relevant_relocations')
+    def find_symbol_got_entry(self, symbol):
+        return self.find_relevant_relocations(symbol).next()
+
+    @property
+    @deprecated('main_object')
+    def main_bin(self):
+        return self.main_object
+
+
 from .errors import CLEError, CLEFileNotFoundError, CLECompatibilityError, CLEOperationError
 from .memory import Clemory
-from .backends import IDABin, MetaELF, ELF, PE, ALL_BACKENDS, Backend, Symbol
+from .backends import MetaELF, ELF, PE, ALL_BACKENDS, Backend
 from .backends.tls import PETLSObject, ELFTLSObject
 from .backends.externs import ExternObject, KernelObject
 from .utils import stream_or_path

@@ -1,9 +1,6 @@
 import subprocess
-import logging
 
 from ..address_translator import AT
-
-l = logging.getLogger('cle.backends.symbol')
 
 try:
     import claripy
@@ -78,7 +75,7 @@ class Symbol(object):
     @property
     def addr(self):
         if not Symbol.warned_addr:
-            l.critical("Deprecation notice: Symbol.addr is ambiguous, please use relative_addr, linked_addr, or rebased_addr")
+            print "\x1b[31;1mDeprecation warning: Symbol.addr is ambiguous, please use relative_addr, linked_addr, or rebased_addr\x1b[0m"
             Symbol.warned_addr = True
         return self.linked_addr
 
