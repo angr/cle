@@ -36,10 +36,6 @@ def test_cclemory():
     nose.tools.assert_equal(out, 0)
 
 def test_clemory():
-    """
-    Some basic tests of the Clemory class
-    """
-
     # directly write bytes to backers
     clemory = cle.Clemory(None, root=True)
     clemory.add_backer(0, "A" * 20)

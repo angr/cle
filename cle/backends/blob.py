@@ -56,10 +56,12 @@ class Blob(Backend):
     def is_compatible(stream):
         return stream == 0  # I hate pylint
 
-    def get_min_addr(self):
+    @property
+    def min_addr(self):
         return self._min_addr
 
-    def get_max_addr(self):
+    @property
+    def max_addr(self):
         return self._max_addr
 
     def _load(self, file_offset, mem_addr, size):

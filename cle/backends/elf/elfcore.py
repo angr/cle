@@ -1,10 +1,11 @@
 import struct
-
-from .elf import ELF
-from ..errors import CLEError, CLECompatibilityError
-from . import register_backend
 import elftools
 import logging
+
+from .elf import ELF
+from .. import register_backend
+from ...errors import CLEError, CLECompatibilityError
+
 l = logging.getLogger('cle.elfcore')
 
 

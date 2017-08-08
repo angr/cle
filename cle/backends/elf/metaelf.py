@@ -2,10 +2,9 @@ import pyvex
 import elftools
 import os
 
-from . import Backend
-from ..address_translator import AT
-from ..errors import CLEOperationError
-from ..utils import stream_or_path
+from .. import Backend
+from ...address_translator import AT
+from ...utils import stream_or_path
 
 __all__ = ('MetaELF',)
 
@@ -31,14 +30,17 @@ class MetaELF(Backend):
         return pyvex.IRSB(dat, addr, self.arch, bytes_offset=1 if thumb else 0, opt_level=1)
 
     def _add_plt_stub(self, name, addr, sanity_check=True):
+        # addr is an LVA
         if addr == 0: return False
+        target_addr = self.jmprel[name].linked_addr
         try:
-            if not sanity_check or self.jmprel[name].addr in [c.value for c in self._block(addr).all_constants]:
-                self._plt[name] = addr
-                return True
+            if sanity_check and target_addr not in [c.value for c in self._block(addr).all_constants]:
+                return False
         except (pyvex.PyVEXError, KeyError):
-            pass
-        return False
+            return False
+        else:
+            self._plt[name] = AT.from_lva(addr, self).to_rva()
+            return True
 
     def _load_plt(self):
         # The main problem here is that there's literally no good way to do this.
@@ -57,8 +59,8 @@ class MetaELF(Backend):
                 plt_sec = self.sections_map['.MIPS.stubs']
 
             for name, reloc in self.jmprel.iteritems():
-                if plt_sec is None or plt_sec.contains_addr(reloc.symbol.addr):
-                    self._add_plt_stub(name, reloc.symbol.addr, sanity_check=plt_sec is None)
+                if plt_sec is None or plt_sec.contains_addr(reloc.symbol.linked_addr):
+                    self._add_plt_stub(name, reloc.symbol.linked_addr, sanity_check=plt_sec is None)
 
         # ATTEMPT 2: on intel chips the data in the got slot pre-relocation points to a lazy-resolver
         # stub immediately after the plt stub
@@ -67,7 +69,7 @@ class MetaELF(Backend):
                 try:
                     self._add_plt_stub(
                         name,
-                        self.memory.read_addr_at(AT.from_lva(reloc.addr, reloc.owner_obj).to_rva()) - 6,
+                        self.memory.read_addr_at(reloc.relative_addr) - 6,
                         sanity_check=not self.pic)
                 except KeyError:
                     pass
@@ -80,7 +82,7 @@ class MetaELF(Backend):
         # right before the resolution stubs.
         if self.arch.name in ('PPC32',):
             resolver_stubs = sorted(
-                (self.memory.read_addr_at(AT.from_lva(reloc.addr, reloc.owner_obj).to_rva()), name)
+                (self.memory.read_addr_at(reloc.relative_addr), name)
                 for name, reloc in self.jmprel.iteritems()
             )
             if resolver_stubs:
@@ -105,7 +107,7 @@ class MetaELF(Backend):
         tick.bailout_timer = 5
 
         def scan_forward(addr, name, push=False):
-            gotslot = self.jmprel[name].addr
+            gotslot = self.jmprel[name].linked_addr
 
             instruction_alignment = self.arch.instruction_alignment
             if self.arch.name in ('ARMEL', 'ARMHF'):
@@ -183,7 +185,10 @@ class MetaELF(Backend):
             return
 
         # if we've gotten this far there is at least one plt slot address known, guaranteed.
-        plt_hitlist = [(name, self._plt.get(name)) for name in self.jmprel]
+        plt_hitlist = [
+                (name, AT.from_rva(self._plt[name], self).to_lva() if name in self._plt else None)
+                for name in self.jmprel
+            ]
         last_good_idx = None
         stub_size = None
 
@@ -195,7 +200,7 @@ class MetaELF(Backend):
             scan_forward(guessed_addr, name)
             if name in self._plt:
                 # resolved :-)
-                plt_hitlist[0] = (name, self._plt[name])
+                plt_hitlist[0] = (name, AT.from_rva(self._plt[name], self).to_lva())
 
         for i, (name, addr) in enumerate(plt_hitlist):
             if addr is not None:
@@ -221,25 +226,14 @@ class MetaELF(Backend):
         """
         Maps names to addresses.
         """
-        return {k: AT.from_lva(v, self).to_mva() for (k, v) in self._plt.iteritems()}
+        return {k: AT.from_rva(v, self).to_mva() for (k, v) in self._plt.iteritems()}
 
     @property
     def reverse_plt(self):
         """
         Maps addresses to names.
         """
-        return {AT.from_lva(v, self).to_mva(): k for (k, v) in self._plt.iteritems()}
-
-    def get_call_stub_addr(self, name):
-        """
-        Takes the name of an imported function and returns the address of the stub function that jumps to it.
-        """
-        if self.arch.name in ('PPC64',):
-            raise CLEOperationError("FIXME: this doesn't work on PPC64")
-
-        if name in self._plt:
-            return AT.from_lva(self._plt[name], self).to_mva()
-        return None
+        return {AT.from_rva(v, self).to_mva(): k for (k, v) in self._plt.iteritems()}
 
     @property
     def is_ppc64_abiv1(self):
@@ -269,10 +263,16 @@ class MetaELF(Backend):
         with stream_or_path(path) as f:
             try:
                 e = elftools.elf.elffile.ELFFile(f)
+                # TODO: make this not depend on sections...
                 dyn = e.get_section_by_name('.dynamic')
+                if dyn is None:
+                    return None
+
                 soname = [ x.soname for x in list(dyn.iter_tags()) if x.entry.d_tag == 'DT_SONAME']
                 if not soname:
-                    return os.path.basename(path)
+                    if type(path) in (str, unicode):
+                        return os.path.basename(path)
+                    return None
                 return soname[0]
             except elftools.common.exceptions.ELFError:
                 return None

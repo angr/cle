@@ -1,118 +1,16 @@
 import os
 import struct
-
-import archinfo
-from . import Backend, Symbol, Section, register_backend
-from .relocations import Relocation
-from ..errors import CLEError
-from ..address_translator import AT
-
-try:
-    import pefile
-except ImportError:
-    pefile = None
-
-__all__ = ('PE',)
-
 import logging
+import archinfo
+import pefile
+
+from .symbol import WinSymbol
+from .reloc import WinReloc
+from .regions import PESection
+from .. import register_backend, Backend
+from ...address_translator import AT
+
 l = logging.getLogger('cle.pe')
-
-# Reference: https://msdn.microsoft.com/en-us/library/ms809762.aspx
-
-
-class WinSymbol(Symbol):
-    """
-    Represents a symbol for the PE format.
-    """
-    def __init__(self, owner, name, addr, is_import, is_export):
-        super(WinSymbol, self).__init__(owner, name, addr, owner.arch.bytes, Symbol.TYPE_FUNCTION)
-        self.is_import = is_import
-        self.is_export = is_export
-
-    @property
-    def rebased_addr(self):
-        # Windows does everything with RVAs, so override the default which assumes this is a LVA
-        return AT.from_rva(self.addr, self.owner_obj).to_mva()
-
-
-class WinReloc(Relocation):
-    """
-    Represents a relocation for the PE format.
-    """
-    def __init__(self, owner, symbol, addr, resolvewith, reloc_type=None, next_rva=None):
-        super(WinReloc, self).__init__(owner, symbol, addr, None)
-        self.resolvewith = resolvewith
-        self.reloc_type = reloc_type
-        self.next_rva = next_rva # only used for IMAGE_REL_BASED_HIGHADJ
-
-    def resolve_symbol(self, solist, bypass_compatibility=False):
-        if not bypass_compatibility:
-            solist = [x for x in solist if self.resolvewith == x.provides]
-        return super(WinReloc, self).resolve_symbol(solist)
-
-    @property
-    def value(self):
-        if self.resolved:
-            return self.resolvedby.rebased_addr
-
-    @property
-    def rebased_addr(self):
-        # Windows does everything with RVAs, so override the default which assumes this is a LVA
-        return AT.from_rva(self.addr, self.owner_obj).to_mva()
-
-    def relocate(self, solist, bypass_compatibility=False):
-        # no symbol -> this is a relocation described in the DIRECTORY_ENTRY_BASERELOC table
-        if self.symbol is None:
-            if self.reloc_type == pefile.RELOCATION_TYPE['IMAGE_REL_BASED_ABSOLUTE']:
-                # no work required
-                pass
-            elif self.reloc_type == pefile.RELOCATION_TYPE['IMAGE_REL_BASED_HIGHLOW']:
-                org_bytes = ''.join(self.owner_obj.memory.read_bytes(self.addr, 4))
-                org_value = struct.unpack('<I', org_bytes)[0]
-                rebased_value = AT.from_lva(org_value, self.owner_obj).to_mva()
-                rebased_bytes = struct.pack('<I', rebased_value % 2**32)
-                self.owner_obj.memory.write_bytes(self.addr, rebased_bytes)
-            elif self.reloc_type == pefile.RELOCATION_TYPE['IMAGE_REL_BASED_DIR64']:
-                org_bytes = ''.join(self.owner_obj.memory.read_bytes(self.addr, 8))
-                org_value = struct.unpack('<Q', org_bytes)[0]
-                rebased_value = AT.from_lva(org_value, self.owner_obj).to_mva()
-                rebased_bytes = struct.pack('<Q', rebased_value)
-                self.owner_obj.memory.write_bytes(self.addr, rebased_bytes)
-            else:
-                l.warning('PE contains unimplemented relocation type %d', self.reloc_type)
-        else:
-            return super(WinReloc, self).relocate(solist, bypass_compatibility)
-
-
-class PESection(Section):
-    """
-    Represents a section for the PE format.
-    """
-    def __init__(self, pe_section, remap_offset=0):
-        super(PESection, self).__init__(
-            pe_section.Name,
-            pe_section.Misc_PhysicalAddress,
-            pe_section.VirtualAddress + remap_offset,
-            pe_section.Misc_VirtualSize,
-        )
-
-        self.characteristics = pe_section.Characteristics
-
-    #
-    # Public properties
-    #
-
-    @property
-    def is_readable(self):
-        return self.characteristics & 0x40000000 != 0
-
-    @property
-    def is_writable(self):
-        return self.characteristics & 0x80000000 != 0
-
-    @property
-    def is_executable(self):
-        return self.characteristics & 0x20000000 != 0
 
 
 class PE(Backend):
@@ -121,16 +19,16 @@ class PE(Backend):
     """
 
     def __init__(self, *args, **kwargs):
-        if pefile is None:
-            raise CLEError("Install the pefile module to use the PE backend!")
-
         super(PE, self).__init__(*args, **kwargs)
         self.segments = self.sections # in a PE, sections and segments have the same meaning
         self.os = 'windows'
         if self.binary is None:
             self._pe = pefile.PE(data=self.binary_stream.read())
+        elif self.binary in self._pefile_cache: # these objects are not mutated, so they are reusable within a process
+            self._pe = self._pefile_cache[self.binary]
         else:
             self._pe = pefile.PE(self.binary)
+            self._pefile_cache[self.binary] = self._pe
 
         if self.arch is None:
             self.set_arch(archinfo.arch_from_id(pefile.MACHINE_TYPE[self._pe.FILE_HEADER.Machine]))
@@ -139,12 +37,12 @@ class PE(Backend):
         self._entry = AT.from_rva(self._pe.OPTIONAL_HEADER.AddressOfEntryPoint, self).to_lva()
 
         if hasattr(self._pe, 'DIRECTORY_ENTRY_IMPORT'):
-            self.deps = [entry.dll for entry in self._pe.DIRECTORY_ENTRY_IMPORT]
+            self.deps = [entry.dll.lower() for entry in self._pe.DIRECTORY_ENTRY_IMPORT]
         else:
             self.deps = []
 
         if self.binary is not None and not self.is_main_bin:
-            self.provides = os.path.basename(self.binary)
+            self.provides = os.path.basename(self.binary).lower()
         else:
             self.provides = None
 
@@ -154,8 +52,11 @@ class PE(Backend):
         self.tls_index_address = None
         self.tls_callbacks = None
         self.tls_size_of_zero_fill = None
+        self.tls_module_id = None
+        self.tls_data_pointer = None
 
         self._exports = {}
+        self._ordinal_exports = {}
         self._symbol_cache = self._exports # same thing
         self._handle_imports()
         self._handle_exports()
@@ -168,6 +69,8 @@ class PE(Backend):
 
         self.memory.add_backer(0, self._pe.get_memory_mapped_image())
 
+    _pefile_cache = {}
+
     @staticmethod
     def is_compatible(stream):
         identstring = stream.read(0x1000)
@@ -178,11 +81,23 @@ class PE(Backend):
                 return True
         return False
 
+    @classmethod
+    def check_compatibility(cls, spec, obj):
+        if hasattr(spec, 'read') and hasattr(spec, 'seek'):
+            pe = pefile.PE(data=spec.read(), fast_load=True)
+        else:
+            pe = pefile.PE(spec, fast_load=True)
+
+        arch = archinfo.arch_from_id(pefile.MACHINE_TYPE[pe.FILE_HEADER.Machine])
+        return arch == obj.arch
+
     #
     # Public methods
     #
 
     def get_symbol(self, name):
+        if name.startswith('ordinal.'):
+            return self._ordinal_exports.get(int(name.split('.')[1]), None)
         return self._exports.get(name, None)
 
     @property
@@ -202,9 +117,9 @@ class PE(Backend):
                 for imp in entry.imports:
                     imp_name = imp.name
                     if imp_name is None: # must be an import by ordinal
-                        imp_name = "%s.ordinal_import.%d" % (entry.dll, imp.ordinal)
-                    symb = WinSymbol(self, imp_name, 0, True, False)
-                    reloc = WinReloc(self, symb, imp.address, entry.dll)
+                        imp_name = "%s.ordinal.%d" % (entry.dll, imp.ordinal)
+                    symb = WinSymbol(self, imp_name, 0, True, False, imp.ordinal)
+                    reloc = WinReloc(self, symb, AT.from_lva(imp.address, self).to_rva(), entry.dll)
                     self.imports[imp_name] = reloc
                     self.relocs.append(reloc)
 
@@ -212,8 +127,9 @@ class PE(Backend):
         if hasattr(self._pe, 'DIRECTORY_ENTRY_EXPORT'):
             symbols = self._pe.DIRECTORY_ENTRY_EXPORT.symbols
             for exp in symbols:
-                symb = WinSymbol(self, exp.name, exp.address, False, True)
+                symb = WinSymbol(self, exp.name, exp.address, False, True, exp.ordinal)
                 self._exports[exp.name] = symb
+                self._ordinal_exports[exp.ordinal] = symb
 
     def _handle_relocs(self):
         if hasattr(self._pe, 'DIRECTORY_ENTRY_BASERELOC'):

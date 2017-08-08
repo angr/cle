@@ -1,7 +1,7 @@
 import os
 import contextlib
 
-from .errors import CLEError
+from .errors import CLEError, CLEFileNotFoundError
 
 # https://code.woboq.org/userspace/glibc/include/libc-pointer-arith.h.html#43
 def ALIGN_DOWN(base, size):
@@ -64,7 +64,7 @@ def stream_or_path(obj, perms='rb'):
         yield obj
     else:
         if not os.path.exists(obj):
-            raise CLEError("%r is not a valid path" % obj)
+            raise CLEFileNotFoundError("%r is not a valid path" % obj)
 
         with open(obj, perms) as f:
             yield f

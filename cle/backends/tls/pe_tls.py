@@ -1,9 +1,8 @@
-import struct
+from . import TLSObject, InternalTLSRelocation
+from ...address_translator import AT
+from ...errors import CLEError
 
-from . import TLSObj
-from ..address_translator import AT
-
-class PETLSObj(TLSObj):
+class PETLSObject(TLSObject):
     """
     This class is used when parsing the Thread Local Storage of a PE binary. It
     represents both the TLS array and the TLS data area for a specific thread.
@@ -28,7 +27,7 @@ class PETLSObj(TLSObj):
         | index = 0 | index = 1 |     | index = n |
         +-----------+-----------+-----+-----------+
 
-    The size of each address is architecture independant (e.g. on X86 it is
+    The size of each address is architecture independent (e.g. on X86 it is
     4 bytes). The number of addresses in the TLS array is equal to the number
     of modules that contain TLS data. At load time (i.e. in the ``finalize``
     method), each module is assigned an index into the TLS array. The address
@@ -54,43 +53,46 @@ class PETLSObj(TLSObj):
     TLS array to get the start address of the TLS data.
     """
 
-    def __init__(self, modules):
-        super(PETLSObj, self).__init__(modules)
+    def __init__(self, loader, max_modules=256, max_data=0x8000):
+        super(PETLSObject, self).__init__(loader)
+        self.max_modules = max_modules
+        self.max_data = max_data
 
-        # The total size of the TLS object is the sum of each module's TLS data
-        # address, the size of the data block in the TLS template and the
-        # size of the zero fill
-        self._size = 0
-        for m in modules:
-            self._size += (self.arch.bytes +        # Size of the TLS data's address
-                           m.tls_data_size +        # Size of the actual TLS data
-                           m.tls_size_of_zero_fill) # Size of the zero fill
+        self.used_data = 0
+        self.next_module_id = 0
+        self.data_start = self.arch.bytes*max_modules
 
-    def finalize(self):
-        struct_fmt = self.arch.struct_fmt()
-        array = []      # The TLS array
-        data_area = []  # The TLS data area
-        data_offset = len(self.modules) * self.arch.bytes   # The TLS data area directly follows the TLS array, so skip this memory
+        self.memory.add_backer(0, '\0'*self.data_start)
 
-        for i, m in enumerate(self.modules):
-            # Assign the value of the TLS index to the place indicated by the
-            # TLS directory's Address of Index field
-            m.memory.write_bytes(AT.from_lva(m.tls_index_address, m).to_rva(),
-                                 struct.pack(struct_fmt, i))
+    def register_object(self, obj):
+        if not obj.tls_used:
+            return
 
-            # Keep track of the TLS data's start address and insert it into the
-            # TLS array
-            array.append(struct.pack(struct_fmt, data_offset))
-            data_offset += m.tls_data_size + m.tls_size_of_zero_fill
+        super(PETLSObject, self).register_object(obj)
 
-            # Copy the TLS data template into the TLS data area. Append the
-            # zero fill
-            data_area.append(
-                '%s%s' % (''.join(m.memory.read_bytes(AT.from_lva(m.tls_data_start, m).to_rva(), m.tls_data_size)),
-                          '\0' * m.tls_size_of_zero_fill)
-            )
+        obj.tls_module_id = self.next_module_id
+        self.next_module_id += 1
+        if self.next_module_id > self.max_modules:
+            raise CLEError("Too many loaded modules for TLS to handle... file this as a bug")
 
-        self.memory.add_backer(0, '%s%s' % (''.join(array), ''.join(data_area)))
+        data_start = self.data_start + self.used_data
+        obj.tls_data_pointer = AT.from_rva(data_start, self).to_mva()
+        self.used_data += obj.tls_data_size + obj.tls_size_of_zero_fill
+        if self.used_data > self.max_data:
+            raise CLEError("Too much TLS data to handle... file this as a bug")
+
+        # The PE TLS header says to write its index into a given address
+        obj.memory.write_addr_at(AT.from_lva(obj.tls_index_address, obj).to_rva(), obj.tls_module_id)
+
+        # Write the address of the data start into the array
+        self.memory.write_addr_at(obj.tls_module_id*self.arch.bytes, AT.from_rva(data_start, self).to_mva())
+        self.relocs.append(InternalTLSRelocation(data_start, obj.tls_module_id*self.arch.bytes, self))
+
+    def map_object(self, obj):
+        # Add the data image
+        obj.memory.seek(AT.from_lva(obj.tls_data_start, obj).to_rva())
+        image = obj.memory.read(obj.tls_data_size) + '\0'*obj.tls_size_of_zero_fill
+        self.memory.add_backer(AT.from_mva(obj.tls_data_pointer, self).to_rva(), image)
 
     def get_tls_data_addr(self, tls_idx):
         """
@@ -104,16 +106,14 @@ class PETLSObj(TLSObj):
             array) to get the address of the TLS data area for the given
             program and module.
         """
-        if tls_idx < len(self.modules):
-            return self.mapped_base + self.memory.read_addr_at(tls_idx * self.arch.bytes)
+        if 0 <= tls_idx < self.next_module_id:
+            return self.memory.read_addr_at(tls_idx * self.arch.bytes)
         else:
             raise IndexError('TLS index out of range')
 
-    def get_min_addr(self):
-        return self.mapped_base
-
-    def get_max_addr(self):
-        return self.mapped_base + self._size
+    @property
+    def max_addr(self):
+        return self.mapped_base + self.data_start + self.used_data
 
     # PE is MUCH simpler in terms of what's the pointer to the thread data. Add these properties for compatibility.
 

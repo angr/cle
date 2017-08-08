@@ -1,15 +1,15 @@
+import os
+import logging
+
+from . import Backend, register_backend
+from ..errors import CLEError, CLEFileNotFoundError
+
+l = logging.getLogger("cle.idabin")
+
 try:
     idalink = __import__('idalink').idalink
 except ImportError:
     idalink = None
-
-from ..errors import CLEError, CLEFileNotFoundError
-from . import Backend, register_backend
-import os
-import logging
-l = logging.getLogger("cle.idabin")
-
-__all__ = ('IDABin',)
 
 
 class IDABin(Backend):
@@ -241,7 +241,8 @@ class IDABin(Backend):
                     l.debug("\t -> has import %s - GOT entry @ 0x%x", name, addr)
         return imports
 
-    def get_min_addr(self):
+    @property
+    def min_addr(self):
         """
         Get the min address of the binary (IDA).
         """
@@ -253,7 +254,8 @@ class IDABin(Backend):
         else:
             return pm
 
-    def get_max_addr(self):
+    @property
+    def max_addr(self):
         """
         Get the max address of the binary (IDA).
         """

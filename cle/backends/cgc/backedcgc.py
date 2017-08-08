@@ -1,5 +1,6 @@
-from . import Segment, register_backend
 from .cgc import CGC
+from .. import register_backend
+from ..regions import Segment
 
 
 class FakeSegment(Segment):

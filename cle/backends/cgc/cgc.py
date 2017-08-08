@@ -1,7 +1,6 @@
-from .elf import ELF
-from ..patched_stream import PatchedStream
-from . import register_backend
-from ..address_translator import AT
+from .. import register_backend
+from ..elf import ELF
+from ...patched_stream import PatchedStream
 
 ELF_HEADER = "7f45 4c46 0101 0100 0000 0000 0000 0000".replace(" ","").decode('hex')
 CGC_HEADER = "7f43 4743 0101 0143 014d 6572 696e 6f00".replace(" ","").decode('hex')
@@ -22,7 +21,7 @@ class CGC(ELF):
             stream = PatchedStream(open(binary, 'rb'), [(0, ELF_HEADER)])
         kwargs['filename'] = filename
         super(CGC, self).__init__(stream, *args, **kwargs)
-        self.memory.write_bytes(AT.from_lva(self.get_min_addr(), self).to_rva(), CGC_HEADER) # repair CGC header
+        self.memory.write_bytes(0, CGC_HEADER) # repair CGC header
         self.os = 'cgc'
         self.execstack = True  # the stack is always executable in CGC
 

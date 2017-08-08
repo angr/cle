@@ -1,11 +1,11 @@
 import archinfo
-
+import logging
 import os
 import importlib
-from ...address_translator import AT
 from collections import defaultdict
 
-import logging
+from ...address_translator import AT
+
 l = logging.getLogger('cle.relocations')
 
 ALL_RELOCATIONS = defaultdict(dict)
@@ -56,22 +56,23 @@ class Relocation(object):
 
     :ivar owner_obj:    The binary this relocation was originaly found in, as a cle object
     :ivar symbol:       The Symbol object this relocation refers to
-    :ivar addr:         The address in owner_obj this relocation would like to write to
+    :ivar relative_addr:    The address in owner_obj this relocation would like to write to
     :ivar rebased_addr: The address in the global memory space this relocation would like to write to
     :ivar resolvedby:   If the symbol this relocation refers to is an import symbol and that import has been resolved,
                         this attribute holds the symbol from a different binary that was used to resolve the import.
     :ivar resolved:     Whether the application of this relocation was succesful
     """
-    def __init__(self, owner, symbol, addr, addend=None):
+    def __init__(self, owner, symbol, relative_addr, addend=None):
         super(Relocation, self).__init__()
         self.owner_obj = owner
         self.arch = owner.arch
         self.symbol = symbol
-        self.addr = addr
+        self.relative_addr = relative_addr
         self.is_rela = addend is not None
         self._addend = addend
         self.resolvedby = None
         self.resolved = False
+        self.resolvewith = None
         if self.symbol is not None and self.symbol.is_import:
             self.owner_obj.imports[self.symbol.name] = self
 
@@ -80,9 +81,9 @@ class Relocation(object):
         if self.is_rela:
             return self._addend
         else:
-            return self.owner_obj.memory.read_addr_at(AT.from_lva(self.addr, self.owner_obj).to_rva(), orig=True)
+            return self.owner_obj.memory.read_addr_at(self.relative_addr, orig=True)
 
-    def resolve_symbol(self, solist, bypass_compatibility=False):
+    def resolve_symbol(self, solist, bypass_compatibility=False): # pylint: disable=unused-argument
         if self.symbol.is_static:
             # A static symbol should only be resolved by itself.
             self.resolve(self.symbol)
@@ -110,7 +111,12 @@ class Relocation(object):
             self.resolve(weak_result)
             return True
 
-        return False
+        if self.symbol.is_weak:
+            return False
+
+        new_symbol = self.owner_obj.loader.extern_object.make_extern(self.symbol.name)
+        self.resolve(new_symbol)
+        return True
 
     def resolve(self, obj):
         self.resolvedby = obj
@@ -122,11 +128,24 @@ class Relocation(object):
 
     @property
     def rebased_addr(self):
-        return AT.from_lva(self.addr, self.owner_obj).to_mva()
+        return AT.from_rva(self.relative_addr, self.owner_obj).to_mva()
+
+    @property
+    def linked_addr(self):
+        return AT.from_rva(self.relative_addr, self.owner_obj).to_lva()
+
+    warned_addr = False
+
+    @property
+    def addr(self):
+        if not Relocation.warned_addr:
+            print "\x1b[31;1mDeprecation warning: Relocation.addr is ambiguous, please use relative_addr, linked_addr, or rebased_addr\x1b[0m"
+            Relocation.warned_addr = True
+        return self.linked_addr
 
     @property
     def dest_addr(self):
-        return self.addr
+        return self.relative_addr
 
     @property
     def value(self):    # pylint: disable=no-self-use
@@ -145,6 +164,6 @@ class Relocation(object):
         if not self.resolve_symbol(solist, bypass_compatibility):
             return False
 
-        self.owner_obj.memory.write_addr_at(AT.from_lva(self.dest_addr, self.owner_obj).to_rva(), self.value)
+        self.owner_obj.memory.write_addr_at(self.dest_addr, self.value)
 
 load_relocations()

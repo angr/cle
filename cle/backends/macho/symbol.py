@@ -80,9 +80,10 @@ class MachOSymbol(Symbol):
         l.warn("It is not possible to decide wether a symbol is a function or not for MachOSymbols")
         return False
 
+    @property
     def rebased_addr(self):
         l.warn("Rebasing not implemented for Mach-O")
-        return self.addr
+        return self.linked_addr
 
     def resolve(self, obj):
         # Incompatibility to CLE
