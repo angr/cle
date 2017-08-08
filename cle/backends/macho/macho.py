@@ -322,17 +322,17 @@ class MachO(Backend):
                     sym.segment_name = sec.segname
                     sym.section_name = sec.sectname
 
-                sym.addr = sym.n_value
+                sym.relative_addr = sym.n_value
 
             elif sym.is_import():
                 l.debug("Symbol %r is imported!", sym.name)
                 sym.library_name = self.imported_libraries[sym.library_ordinal]
 
             # if the symbol has no address we assign one from the special memory area
-            if sym.addr is None:
-                sym.addr = ext_symbol_end
+            if sym.relative_addr is None:
+                sym.relative_addr = ext_symbol_end
                 ext_symbol_end += sym.size
-                l.debug("Assigning address %#x to symbol %r", sym.addr, sym.name)
+                l.debug("Assigning address %#x to symbol %r", sym.relative_addr, sym.name)
 
         # Add special memory area for symbols:
         self.memory.add_backer(ext_symbol_start, "\x00" * (ext_symbol_end - ext_symbol_start))
@@ -349,8 +349,8 @@ class MachO(Backend):
         # All (resolvable) symbols should be resolved by now
         for sym in self.symbols:
             if not sym.is_stab:
-                if sym.addr is not None:
-                    self._symbols_by_addr[sym.addr] = sym
+                if sym.relative_addr is not None:
+                    self._symbols_by_addr[sym.relative_addr] = sym
                 else:
                     # todo: this might be worth an error
                     l.warn("Non-stab symbol %r @ %#x has no address.", sym.name, sym.symtab_offset)
@@ -700,7 +700,7 @@ class MachO(Backend):
         sym.symbol_stubs
         """
         for sym in self.symbols:
-            if address == sym.addr or address in sym.bind_xrefs or address in sym.symbol_stubs:
+            if address == sym.relative_addr or address in sym.bind_xrefs or address in sym.symbol_stubs:
                 return sym
 
     def get_symbol(self, name, include_stab=False, fuzzy=False): # pylint: disable=arguments-differ

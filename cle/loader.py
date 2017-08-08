@@ -306,7 +306,7 @@ class Loader(object):
             for resolver, dest in obj.irelatives:
                 val = resolver_func(resolver)
                 if val is not None:
-                    obj.memory.write_addr_at(AT.from_lva(dest, obj).to_rva(), val)
+                    obj.memory.write_addr_at(dest, val)
 
         return None
 

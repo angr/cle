@@ -1,11 +1,15 @@
 import subprocess
+import logging
+
+from ..address_translator import AT
+
+l = logging.getLogger('cle.backends.symbol')
 
 try:
     import claripy
 except ImportError:
     claripy = None
 
-from ..address_translator import AT
 
 class Symbol(object):
     """
@@ -33,20 +37,20 @@ class Symbol(object):
     TYPE_OBJECT = 3
     TYPE_SECTION = 4
 
-    def __init__(self, owner, name, addr, size, sym_type):
+    def __init__(self, owner, name, relative_addr, size, sym_type):
         """
         Not documenting this since if you try calling it, you're wrong.
         """
         super(Symbol, self).__init__()
         self.owner_obj = owner
         self.name = name
-        self.addr = addr
+        self.relative_addr = relative_addr
         self.size = size
         self.type = sym_type
         self.resolved = False
         self.resolvedby = None
-        if (claripy and isinstance(self.addr, claripy.ast.Base)) or self.addr != 0:
-            self.owner_obj._symbols_by_addr[self.addr] = self
+        if (claripy and isinstance(self.relative_addr, claripy.ast.Base)) or self.relative_addr != 0:
+            self.owner_obj._symbols_by_addr[self.relative_addr] = self
             # would be nice if we could populate demangled_names here...
 
             #demangled = self.demangled_name
@@ -63,7 +67,20 @@ class Symbol(object):
         """
         The address of this symbol in the global memory space
         """
-        return AT.from_rva(self.addr, self.owner_obj).to_mva()
+        return AT.from_rva(self.relative_addr, self.owner_obj).to_mva()
+
+    @property
+    def linked_addr(self):
+        return AT.from_rva(self.relative_addr, self.owner_obj).to_lva()
+
+    warned_addr = False
+
+    @property
+    def addr(self):
+        if not Symbol.warned_addr:
+            l.critical("Deprecation notice: Symbol.addr is ambiguous, please use relative_addr, linked_addr, or rebased_addr")
+            Symbol.warned_addr = True
+        return self.linked_addr
 
     @property
     def is_function(self):

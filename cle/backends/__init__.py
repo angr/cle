@@ -27,7 +27,7 @@ class Backend(object):
     :ivar relocs:           A list of all the relocations in this binary
     :ivar irelatives:       A list of tuples representing all the irelative relocations that need to be performed. The
                             first item in the tuple is the address of the resolver function, and the second item is the
-                            address of where to write the result. The destination address is not rebased.
+                            address of where to write the result. The destination address is an RVA.
     :ivar jmprel:           A mapping from symbol name to the address of its jump slot relocation, i.e. its GOT entry.
     :ivar arch:             The architecture of this binary
     :vartype arch:          archinfo.arch.Arch

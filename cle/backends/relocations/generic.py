@@ -41,7 +41,7 @@ class GenericRelativeReloc(Relocation):
 class GenericCopyReloc(Relocation):
     @property
     def value(self):
-        return self.resolvedby.owner_obj.memory.read_addr_at(self.resolvedby.addr)
+        return self.resolvedby.owner_obj.memory.read_addr_at(self.resolvedby.relative_addr)
 
 class MipsGlobalReloc(GenericAbsoluteReloc):
     pass
@@ -55,9 +55,9 @@ class MipsLocalReloc(Relocation):
         if delta == 0:
             self.resolve(None)
             return True
-        val = self.owner_obj.memory.read_addr_at(self.addr)
+        val = self.owner_obj.memory.read_addr_at(self.relative_addr)
         newval = val + delta
-        self.owner_obj.memory.write_addr_at(self.addr, newval)
+        self.owner_obj.memory.write_addr_at(self.relative_addr, newval)
         self.resolve(None)
         return True
 

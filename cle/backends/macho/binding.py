@@ -365,7 +365,7 @@ def default_binding_handler(state, binary):
     symbol = matches[0]
     location = state.address
 
-    value = symbol.addr + state.addend
+    value = symbol.linked_addr + state.addend
     if state.binding_type == 1:  # POINTER
         l.info("Updating address %#x with symobl %r @ %#x", location, state.sym_name, value)
         binary.memory.write_bytes(

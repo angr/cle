@@ -32,7 +32,7 @@ class MetaELF(Backend):
     def _add_plt_stub(self, name, addr, sanity_check=True):
         # addr is an LVA
         if addr == 0: return False
-        target_addr = AT.from_rva(self.jmprel[name].addr, self).to_lva()
+        target_addr = self.jmprel[name].linked_addr
         try:
             if sanity_check and target_addr not in [c.value for c in self._block(addr).all_constants]:
                 return False
@@ -59,8 +59,8 @@ class MetaELF(Backend):
                 plt_sec = self.sections_map['.MIPS.stubs']
 
             for name, reloc in self.jmprel.iteritems():
-                if plt_sec is None or plt_sec.contains_addr(reloc.symbol.rebased_addr):
-                    self._add_plt_stub(name, reloc.symbol.rebased_addr, sanity_check=plt_sec is None)
+                if plt_sec is None or plt_sec.contains_addr(reloc.symbol.linked_addr):
+                    self._add_plt_stub(name, reloc.symbol.linked_addr, sanity_check=plt_sec is None)
 
         # ATTEMPT 2: on intel chips the data in the got slot pre-relocation points to a lazy-resolver
         # stub immediately after the plt stub
@@ -69,7 +69,7 @@ class MetaELF(Backend):
                 try:
                     self._add_plt_stub(
                         name,
-                        self.memory.read_addr_at(reloc.addr) - 6,
+                        self.memory.read_addr_at(reloc.relative_addr) - 6,
                         sanity_check=not self.pic)
                 except KeyError:
                     pass
@@ -82,7 +82,7 @@ class MetaELF(Backend):
         # right before the resolution stubs.
         if self.arch.name in ('PPC32',):
             resolver_stubs = sorted(
-                (self.memory.read_addr_at(reloc.addr), name)
+                (self.memory.read_addr_at(reloc.relative_addr), name)
                 for name, reloc in self.jmprel.iteritems()
             )
             if resolver_stubs:
@@ -107,7 +107,7 @@ class MetaELF(Backend):
         tick.bailout_timer = 5
 
         def scan_forward(addr, name, push=False):
-            gotslot = AT.from_rva(self.jmprel[name].addr, self).to_lva()
+            gotslot = self.jmprel[name].linked_addr
 
             instruction_alignment = self.arch.instruction_alignment
             if self.arch.name in ('ARMEL', 'ARMHF'):

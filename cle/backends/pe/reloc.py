@@ -35,17 +35,17 @@ class WinReloc(Relocation):
                 # no work required
                 pass
             elif self.reloc_type == pefile.RELOCATION_TYPE['IMAGE_REL_BASED_HIGHLOW']:
-                org_bytes = ''.join(self.owner_obj.memory.read_bytes(self.addr, 4))
+                org_bytes = ''.join(self.owner_obj.memory.read_bytes(self.relative_addr, 4))
                 org_value = struct.unpack('<I', org_bytes)[0]
                 rebased_value = AT.from_lva(org_value, self.owner_obj).to_mva()
                 rebased_bytes = struct.pack('<I', rebased_value % 2**32)
-                self.owner_obj.memory.write_bytes(self.addr, rebased_bytes)
+                self.owner_obj.memory.write_bytes(self.relative_addr, rebased_bytes)
             elif self.reloc_type == pefile.RELOCATION_TYPE['IMAGE_REL_BASED_DIR64']:
-                org_bytes = ''.join(self.owner_obj.memory.read_bytes(self.addr, 8))
+                org_bytes = ''.join(self.owner_obj.memory.read_bytes(self.relative_addr, 8))
                 org_value = struct.unpack('<Q', org_bytes)[0]
                 rebased_value = AT.from_lva(org_value, self.owner_obj).to_mva()
                 rebased_bytes = struct.pack('<Q', rebased_value)
-                self.owner_obj.memory.write_bytes(self.addr, rebased_bytes)
+                self.owner_obj.memory.write_bytes(self.relative_addr, rebased_bytes)
             else:
                 l.warning('PE contains unimplemented relocation type %d', self.reloc_type)
         else:
