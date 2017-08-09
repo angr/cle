@@ -54,6 +54,12 @@ class Symbol(object):
             #if demangled is not None:
             #    self.owner_obj.demangled_names[self.name] = demangled
 
+    def __repr__(self):
+        if self.is_import:
+            return '<Symbol "%s" in %s (import)>' % (self.name, self.owner_obj.provides)
+        else:
+            return '<Symbol "%s" in %s at %#x>' % (self.name, self.owner_obj.provides, self.rebased_addr)
+
     def resolve(self, obj):
         self.resolved = True
         self.resolvedby = obj

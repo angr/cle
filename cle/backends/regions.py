@@ -61,7 +61,7 @@ class Region(object):
         return addr
 
     def __repr__(self):
-        return '{}({})'.format(self.__class__, ', '.join(['{}=0x{:x}'.format(k, v) for k, v in self.__dict__.iteritems()]))
+        return '<{} {}>'.format(self.__class__.__name__, ', '.join(['{}=0x{:x}'.format(k, v) for k, v in self.__dict__.iteritems()]))
 
     @property
     def max_addr(self):
