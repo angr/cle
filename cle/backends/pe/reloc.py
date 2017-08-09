@@ -14,13 +14,13 @@ class WinReloc(Relocation):
     """
     def __init__(self, owner, symbol, addr, resolvewith, reloc_type=None, next_rva=None):
         super(WinReloc, self).__init__(owner, symbol, addr, None)
-        self.resolvewith = resolvewith
+        self.resolvewith = resolvewith.lower()
         self.reloc_type = reloc_type
         self.next_rva = next_rva # only used for IMAGE_REL_BASED_HIGHADJ
 
     def resolve_symbol(self, solist, bypass_compatibility=False):
         if not bypass_compatibility:
-            solist = [x for x in solist if self.resolvewith.lower() == x.provides]
+            solist = [x for x in solist if self.resolvewith == x.provides]
         return super(WinReloc, self).resolve_symbol(solist)
 
     @property
