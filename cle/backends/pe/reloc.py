@@ -14,7 +14,9 @@ class WinReloc(Relocation):
     """
     def __init__(self, owner, symbol, addr, resolvewith, reloc_type=None, next_rva=None):
         super(WinReloc, self).__init__(owner, symbol, addr, None)
-        self.resolvewith = resolvewith.lower()
+        self.resolvewith = resolvewith
+        if self.resolvewith is not None:
+            self.resolvewith = self.resolvewith.lower()
         self.reloc_type = reloc_type
         self.next_rva = next_rva # only used for IMAGE_REL_BASED_HIGHADJ
 
