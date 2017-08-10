@@ -136,6 +136,7 @@ class PE(Backend):
             for base_reloc in self._pe.DIRECTORY_ENTRY_BASERELOC:
                 entry_idx = 0
                 while entry_idx < len(base_reloc.entries):
+                    self.pic = True # no idea how else to do this...
                     reloc_data = base_reloc.entries[entry_idx]
                     if reloc_data.type == pefile.RELOCATION_TYPE['IMAGE_REL_BASED_HIGHADJ']: #occupies 2 entries
                         if entry_idx == len(base_reloc.entries):
