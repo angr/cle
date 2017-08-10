@@ -309,6 +309,8 @@ class Loader(object):
                     return so._symbols_by_addr[addr]
         else:
             for so in self.all_objects:
+                if so is self._extern_object:
+                    continue
                 sym = so.get_symbol(name)
                 if sym is None:
                     continue
@@ -317,6 +319,11 @@ class Loader(object):
                     if sym.resolvedby is not None:
                         return sym.resolvedby
                 else:
+                    return sym
+
+            if self._extern_object is not None:
+                sym = self.extern_object.get_symbol(name)
+                if sym is not None:
                     return sym
 
         return None
