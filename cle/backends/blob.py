@@ -20,7 +20,6 @@ class Blob(Backend):
 
         You can't specify both ``custom_offset`` and ``segments``.
         """
-
         super(Blob, self).__init__(path, **kwargs)
 
         if self.arch is None:
@@ -33,6 +32,7 @@ class Blob(Backend):
         self._entry = self._custom_entry_point
         self._max_addr = 0
         self._min_addr = 2**64
+        self.linked_base = kwargs.get('custom_base_addr', self.linked_base)
 
         self.os = 'unknown'
 
