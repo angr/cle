@@ -43,6 +43,7 @@ class Loader(object):
     :param lib_opts:            A dictionary mapping library names to the dictionaries of options to be used when
                                 loading them.
     :param custom_ld_path:      A list of paths in which we can search for shared libraries.
+    :param use_system_libs:     Whether or not to search the system load path for requested libraries. Default True.
     :param ignore_import_version_numbers:
                                 Whether libraries with different version numbers in the filename will be considered
                                 equivalent, for example libc.so.6 and libc.so.0
@@ -73,7 +74,7 @@ class Loader(object):
 
     def __init__(self, main_binary, auto_load_libs=True,
                  force_load_libs=(), skip_libs=(),
-                 main_opts=None, lib_opts=None, custom_ld_path=(),
+                 main_opts=None, lib_opts=None, custom_ld_path=(), use_system_libs=True,
                  ignore_import_version_numbers=True, rebase_granularity=0x1000000,
                  except_missing_libs=False, aslr=False,
                  page_size=0x1000):
@@ -88,6 +89,7 @@ class Loader(object):
         self._main_opts = {} if main_opts is None else main_opts
         self._lib_opts = {} if lib_opts is None else lib_opts
         self._custom_ld_path = [custom_ld_path] if type(custom_ld_path) in (str, unicode) else custom_ld_path
+        self._use_system_libs = use_system_libs
         self._ignore_import_version_numbers = ignore_import_version_numbers
         self._rebase_granularity = rebase_granularity
         self._except_missing_libs = except_missing_libs
@@ -623,11 +625,12 @@ class Loader(object):
         if self.main_object is not None:
             if self.main_object.binary is not None:
                 dirs.append(os.path.dirname(self.main_object.binary))
-            dirs.extend(self.main_object.arch.library_search_path())
+            if self._use_system_libs:
+                dirs.extend(self.main_object.arch.library_search_path())
 
         dirs.append('.')
 
-        if sys.platform == 'win32':
+        if self._use_system_libs and sys.platform == 'win32':
             dirs.append(os.path.join(os.environ['SYSTEMROOT'], 'System32'))
 
         for libdir in dirs:
