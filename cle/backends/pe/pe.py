@@ -28,7 +28,9 @@ class PE(Backend):
             self._pe = self._pefile_cache[self.binary]
         else:
             self._pe = pefile.PE(self.binary)
-            self._pefile_cache[self.binary] = self._pe
+            if not self.is_main_bin:
+                # only cache shared libraries, the main binary will not be reused
+                self._pefile_cache[self.binary] = self._pe
 
         if self.arch is None:
             self.set_arch(archinfo.arch_from_id(pefile.MACHINE_TYPE[self._pe.FILE_HEADER.Machine]))
