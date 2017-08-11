@@ -3,16 +3,32 @@ from . import generic_elf
 
 arch = 'AMD64'
 
-R_X86_64_64 = generic.GenericAbsoluteAddendReloc
-R_X86_64_COPY = generic.GenericCopyReloc
-R_X86_64_GLOB_DAT = generic.GenericJumpslotReloc
-R_X86_64_JUMP_SLOT = generic.GenericJumpslotReloc
-R_X86_64_RELATIVE = generic.GenericRelativeReloc
-R_X86_64_IRELATIVE = generic_elf.GenericIRelativeReloc
+class R_X86_64_64(generic.GenericAbsoluteAddendReloc):
+    pass
 
-R_X86_64_DTPMOD64 = generic_elf.GenericTLSModIdReloc
-R_X86_64_DTPOFF64 = generic_elf.GenericTLSDoffsetReloc
-R_X86_64_TPOFF64 = generic_elf.GenericTLSOffsetReloc
+class R_X86_64_COPY(generic.GenericCopyReloc):
+    pass
+
+class R_X86_64_RELATIVE(generic.GenericRelativeReloc):
+    pass
+
+class R_X86_64_IRELATIVE(generic_elf.GenericIRelativeReloc):
+    pass
+
+class R_X86_64_GLOB_DAT(generic.GenericJumpslotReloc):
+    pass
+
+class R_X86_64_JUMP_SLOT(generic.GenericJumpslotReloc):
+    pass
+
+class R_X86_64_DTPMOD64(generic_elf.GenericTLSModIdReloc):
+    pass
+
+class R_X86_64_DTPOFF64(generic_elf.GenericTLSDoffsetReloc):
+    pass
+
+class R_X86_64_TPOFF64(generic_elf.GenericTLSOffsetReloc):
+    pass
 
 class R_X86_64_PC32(generic.RelocTruncate32Mixin, generic.GenericPCRelativeAddendReloc):
     check_sign_extend = True
