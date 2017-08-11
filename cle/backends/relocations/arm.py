@@ -153,16 +153,35 @@ class R_ARM_ABS32(Relocation):
         l.debug("%s relocated as R_ARM_ABS32 to: 0x%x", self.symbol.name, result)
         return result
 
-R_ARM_COPY          = generic.GenericCopyReloc
-R_ARM_GLOB_DAT      = generic.GenericJumpslotReloc
-R_ARM_JUMP_SLOT     = generic.GenericJumpslotReloc
-R_ARM_RELATIVE      = generic.GenericRelativeReloc
-R_ARM_ABS32_NOI     = generic.GenericAbsoluteAddendReloc
-R_ARM_REL32_NOI     = generic.GenericPCRelativeAddendReloc
+class R_ARM_COPY(generic.GenericCopyReloc):
+    pass
 
-R_ARM_TLS_DTPMOD32  = generic_elf.GenericTLSModIdReloc
-R_ARM_TLS_DTPOFF32  = generic_elf.GenericTLSDoffsetReloc
-R_ARM_TLS_TPOFF32   = generic_elf.GenericTLSOffsetReloc
+class R_ARM_GLOB_DAT(generic.GenericJumpslotReloc):
+    pass
 
-R_ARM_JUMP24        = R_ARM_CALL
-R_ARM_PC24          = R_ARM_CALL
+class R_ARM_JUMP_SLOT(generic.GenericJumpslotReloc):
+    pass
+
+class R_ARM_RELATIVE(generic.GenericRelativeReloc):
+    pass
+
+class R_ARM_ABS32_NOI(generic.GenericAbsoluteAddendReloc):
+    pass
+
+class R_ARM_REL32_NOI(generic.GenericPCRelativeAddendReloc):
+    pass
+
+class R_ARM_TLS_DTPMOD32(generic_elf.GenericTLSModIdReloc):
+    pass
+
+class R_ARM_TLS_DTPOFF32(generic_elf.GenericTLSDoffsetReloc):
+    pass
+
+class R_ARM_TLS_TPOFF32(generic_elf.GenericTLSOffsetReloc):
+    pass
+
+class R_ARM_JUMP24(R_ARM_CALL):
+    pass
+
+class R_ARM_PC24(R_ARM_CALL):
+    pass
