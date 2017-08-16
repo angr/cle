@@ -172,7 +172,7 @@ class PE(Backend):
 
         callback_rva = AT.from_lva(addr, self).to_rva()
         callback = self._pe.get_dword_at_rva(callback_rva)
-        while callback != 0:
+        while callback != 0 and callback is not None:
             callbacks.append(callback)
             callback_rva += 4
             callback = self._pe.get_dword_at_rva(callback_rva)
