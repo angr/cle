@@ -50,6 +50,11 @@ class ELF(MetaELF):
             except ELFError:
                 raise CLECompatibilityError
 
+        # Get the OS ABI for this binary
+        os = '_'.join(self.reader.header['e_ident']['EI_OSABI'].split('_').lower())
+
+        self.os = 'unix' if os == 'sysv' or os == 'default_' else os
+
         # Get an appropriate archinfo.Arch for this binary, unless the user specified one
         if self.arch is None:
             self.set_arch(self.extract_arch(self.reader))
