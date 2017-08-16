@@ -371,7 +371,7 @@ class Loader(object):
 
     def dynamic_load(self, spec):
         """
-        Load a file into the address space. Note that the sematics of ``auto_load_libs`` and ``except_missing_libs``
+        Load a file into the address space. Note that the semantics of ``auto_load_libs`` and ``except_missing_libs``
         apply at all times.
 
         :param spec:    The path to the file to load. May be an absolute path, a relative path, or a name to search in
@@ -417,7 +417,7 @@ class Loader(object):
     def _internal_load(self, *args):
         """
         Pass this any number of files or libraries to load. If it can't load any of them for any reason, it will
-        except out. Note that the sematics of ``auto_load_libs`` and ``except_missing_libs`` apply at all times.
+        except out. Note that the semantics of ``auto_load_libs`` and ``except_missing_libs`` apply at all times.
 
         It will return a list of all the objects successfully loaded, which may be smaller than the list you provided
         if any of them were previously loaded.
