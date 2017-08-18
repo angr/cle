@@ -5,6 +5,7 @@ import os
 from .. import Backend
 from ...address_translator import AT
 from ...utils import stream_or_path
+from elftools.elf.descriptions import describe_ei_osabi
 
 __all__ = ('MetaELF',)
 
@@ -14,7 +15,7 @@ class MetaELF(Backend):
     """
     def __init__(self, *args, **kwargs):
         super(MetaELF, self).__init__(*args, **kwargs)
-        self.os = "unix"  #TODO: FIXME: HACK: Put a real parsing of the OS in the elf header here some day
+        self.os = describe_ei_osabi(elftools.elf.elffile.ELFFile(self.binary_stream).header.e_ident.EI_OSABI)
         self._plt = {}
         self.elfflags = 0
         self.ppc64_initial_rtoc = None
