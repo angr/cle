@@ -47,6 +47,8 @@ class Loader(object):
     :param ignore_import_version_numbers:
                                 Whether libraries with different version numbers in the filename will be considered
                                 equivalent, for example libc.so.6 and libc.so.0
+    :param case_insensitive:    If this is set to True, filesystem loads will be done case-insensitively regardless of
+                                the case-sensitivity of the underlying filesystem.
     :param rebase_granularity:  The alignment to use for rebasing shared objects
     :param except_missing_libs: Throw an exception when a shared library can't be found.
     :param aslr:                Load libraries in symbolic address space. Do not use this option.
@@ -75,7 +77,7 @@ class Loader(object):
     def __init__(self, main_binary, auto_load_libs=True,
                  force_load_libs=(), skip_libs=(),
                  main_opts=None, lib_opts=None, custom_ld_path=(), use_system_libs=True,
-                 ignore_import_version_numbers=True, rebase_granularity=0x1000000,
+                 ignore_import_version_numbers=True, case_insensitive=False, rebase_granularity=0x1000000,
                  except_missing_libs=False, aslr=False,
                  page_size=0x1000):
         if hasattr(main_binary, 'seek') and hasattr(main_binary, 'read'):
@@ -91,12 +93,13 @@ class Loader(object):
         self._custom_ld_path = [custom_ld_path] if type(custom_ld_path) in (str, unicode) else custom_ld_path
         self._use_system_libs = use_system_libs
         self._ignore_import_version_numbers = ignore_import_version_numbers
+        self._case_insensitive = case_insensitive
         self._rebase_granularity = rebase_granularity
         self._except_missing_libs = except_missing_libs
         self._relocated_objects = set()
 
         # case insensitivity setup
-        if sys.platform == 'win32':
+        if sys.platform == 'win32': # TODO: a real check for case insensitive filesystems
             if self._main_binary_path: self._main_binary_path = self._main_binary_path.lower()
             force_load_libs = [x.lower() if type(x) in (str, unicode) else x for x in force_load_libs]
             for x in self._satisfied_deps: self._satisfied_deps[x.lower()] = self._satisfied_deps[x]
@@ -266,6 +269,8 @@ class Loader(object):
         """
         If the given library specification has been loaded, return its object, otherwise return None.
         """
+        if self._case_insensitive:
+            spec = spec.lower()
         extra_idents = {}
         for obj in extra_objects:
             for ident in self._possible_idents(obj):
@@ -633,15 +638,62 @@ class Loader(object):
         if self._use_system_libs and sys.platform == 'win32':
             dirs.append(os.path.join(os.environ['SYSTEMROOT'], 'System32'))
 
+        if self._case_insensitive:
+            spec = spec.lower()
+
         for libdir in dirs:
-            fullpath = os.path.realpath(os.path.join(libdir, spec))
-            if os.path.exists(fullpath): yield fullpath
+            if self._case_insensitive:
+                insensitive_path = self._path_insensitive(os.path.join(libdir, spec))
+                if insensitive_path is not None:
+                    yield os.path.realpath(insensitive_path)
+            else:
+                fullpath = os.path.realpath(os.path.join(libdir, spec))
+                if os.path.exists(fullpath):
+                    yield fullpath
+
             if self._ignore_import_version_numbers:
                 try:
                     for libname in os.listdir(libdir):
-                        if libname.strip('.0123456789') == spec.strip('.0123456789'):
+                        ilibname = libname.lower() if self._case_insensitive else libname
+                        if ilibname.strip('.0123456789') == spec.strip('.0123456789'):
                             yield os.path.realpath(os.path.join(libdir, libname))
                 except (IOError, OSError): pass
+
+    @classmethod
+    def _path_insensitive(cls, path):
+        """
+        Get a case-insensitive path for use on a case sensitive system, or return None if it doesn't exist.
+
+        From https://stackoverflow.com/a/8462613
+        """
+        if path == '' or os.path.exists(path):
+            return path
+        base = os.path.basename(path)  # may be a directory or a file
+        dirname = os.path.dirname(path)
+        suffix = ''
+        if not base:  # dir ends with a slash?
+            if len(dirname) < len(path):
+                suffix = path[:len(path) - len(dirname)]
+            base = os.path.basename(dirname)
+            dirname = os.path.dirname(dirname)
+        if not os.path.exists(dirname):
+            dirname = cls._path_insensitive(dirname)
+            if not dirname:
+                return
+        # at this point, the directory exists but not the file
+        try:  # we are expecting dirname to be a directory, but it could be a file
+            files = os.listdir(dirname)
+        except OSError:
+            return
+        baselow = base.lower()
+        try:
+            basefinal = next(fl for fl in files if fl.lower() == baselow)
+        except StopIteration:
+            return
+        if basefinal:
+            return os.path.join(dirname, basefinal) + suffix
+        else:
+            return
 
     def _possible_idents(self, spec, lowercase=False):
         """
@@ -680,7 +732,7 @@ class Loader(object):
                         if self._ignore_import_version_numbers:
                             yield soname.rstrip('.0123456789')
 
-        if not lowercase and sys.platform == 'win32':
+        if not lowercase and (sys.platform == 'win32' or self._case_insensitive):
             for name in self._possible_idents(spec, lowercase=True):
                 yield name.lower()
 
