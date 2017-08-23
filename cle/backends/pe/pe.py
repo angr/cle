@@ -119,7 +119,7 @@ class PE(Backend):
                 for imp in entry.imports:
                     imp_name = imp.name
                     if imp_name is None: # must be an import by ordinal
-                        imp_name = "%s.ordinal.%d" % (entry.dll, imp.ordinal)
+                        imp_name = "ordinal.%d.%s" % (imp.ordinal, entry.dll.lower())
                     symb = WinSymbol(self, imp_name, 0, True, False, imp.ordinal)
                     reloc = WinReloc(self, symb, AT.from_lva(imp.address, self).to_rva(), entry.dll)
                     self.imports[imp_name] = reloc
