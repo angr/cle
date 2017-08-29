@@ -1,4 +1,8 @@
+import logging
 from ...relocation import Relocation
+
+l = logging.getLogger('cle.backends.elf.relocation.elfreloc')
+
 
 class ELFReloc(Relocation):
     def __init__(self, owner, symbol, relative_addr, addend=None):
@@ -16,3 +20,8 @@ class ELFReloc(Relocation):
             return self._addend
         else:
             return self.owner_obj.memory.read_addr_at(self.relative_addr, orig=True)
+
+    @property
+    def value(self):    # pylint: disable=no-self-use
+        l.error('Value property of Relocation must be overridden by subclass!')
+        return 0

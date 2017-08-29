@@ -9,7 +9,7 @@ from .regions import PESection
 from .. import register_backend, Backend
 from ...address_translator import AT
 from .relocation import get_relocation
-from .relocation.generic import DllImport, IMAGE_REL_BASED_HIGHADJ, IMAGE_REL_BASED_ABSOLUTE
+from .relocation.generic import DllImport, IMAGE_REL_BASED_HIGHADJ
 
 l = logging.getLogger('cle.pe')
 
@@ -179,8 +179,7 @@ class PE(Backend):
         # Handle special cases first
 
         if reloc_type == 0:         # 0 simply means "ignore this relocation"
-            reloc = IMAGE_REL_BASED_ABSOLUTE(owner=self, symbol=symbol, addr=addr, resolvewith=resolvewith)
-            return reloc
+            return None
         if reloc_type is None:      # for DLL imports
             reloc = DllImport(owner=self, symbol=symbol, addr=addr, resolvewith=resolvewith)
             return reloc
