@@ -1,10 +1,9 @@
 import logging
 from . import generic
-from . import generic_elf
-from . import Relocation
-from ...address_translator import AT
+from .elfreloc import ELFReloc
+from ....address_translator import AT
 
-l = logging.getLogger('cle.relocations.arm')
+l = logging.getLogger('cle.backends.elf.relocations.arm')
 arch = 'ARM'
 
 # Reference: "ELF for the ARM Architecture ABI r2.10"
@@ -29,7 +28,7 @@ def _isThumbFunc(symbol, addr):
     """
     return (addr % 2 == 1) and symbol.is_function
 
-class R_ARM_CALL(Relocation):
+class R_ARM_CALL(ELFReloc):
     """
     Relocate R_ARM_CALL symbols via instruction modification. It additionally
     handles R_ARM_PC24 and R_ARM_JUMP24. The former is deprecated and is now
@@ -72,7 +71,7 @@ class R_ARM_CALL(Relocation):
         l.debug("%s relocated as R_ARM_CALL with new instruction: 0x%x", self.symbol.name, result)
         return True
 
-class R_ARM_PREL31(Relocation):
+class R_ARM_PREL31(ELFReloc):
     """
     Relocate R_ARM_PREL31 symbols via instruction modification. The difference
     between this and R_ARM_CALL/R_ARM_PC24/R_ARM_JUMP24 is that it's a data
@@ -103,7 +102,7 @@ class R_ARM_PREL31(Relocation):
         l.debug("%s relocated as R_ARM_PREL31 to: 0x%x", self.symbol.name, result)
         return result
 
-class R_ARM_REL32(Relocation):
+class R_ARM_REL32(ELFReloc):
     """
     Relocate R_ARM_REL32 symbols. This is essentially the same as
     generic.GenericPCRelativeAddendReloc with the addition of a check
@@ -129,9 +128,9 @@ class R_ARM_REL32(Relocation):
         l.debug("%s relocated as R_ARM_REL32 to: 0x%x", self.symbol.name, result)
         return result
 
-class R_ARM_ABS32(Relocation):
+class R_ARM_ABS32(ELFReloc):
     """
-    Relocate R_ARM_REL32 symbols. This is essentially the same as
+    Relocate R_ARM_ABS32 symbols. This is essentially the same as
     generic.GenericAbsoluteAddendReloc with the addition of a check
     for whether or not the target is Thumb.
 
@@ -171,13 +170,13 @@ class R_ARM_ABS32_NOI(generic.GenericAbsoluteAddendReloc):
 class R_ARM_REL32_NOI(generic.GenericPCRelativeAddendReloc):
     pass
 
-class R_ARM_TLS_DTPMOD32(generic_elf.GenericTLSModIdReloc):
+class R_ARM_TLS_DTPMOD32(generic.GenericTLSModIdReloc):
     pass
 
-class R_ARM_TLS_DTPOFF32(generic_elf.GenericTLSDoffsetReloc):
+class R_ARM_TLS_DTPOFF32(generic.GenericTLSDoffsetReloc):
     pass
 
-class R_ARM_TLS_TPOFF32(generic_elf.GenericTLSOffsetReloc):
+class R_ARM_TLS_TPOFF32(generic.GenericTLSOffsetReloc):
     pass
 
 class R_ARM_JUMP24(R_ARM_CALL):
