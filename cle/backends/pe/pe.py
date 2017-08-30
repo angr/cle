@@ -120,7 +120,7 @@ class PE(Backend):
                     imp_name = imp.name
                     if imp_name is None: # must be an import by ordinal
                         imp_name = "ordinal.%d.%s" % (imp.ordinal, entry.dll.lower())
-                    symb = WinSymbol(self, imp_name, 0, True, False, imp.ordinal)
+                    symb = WinSymbol(self, imp_name, 0, True, False, imp.ordinal, None)
                     reloc = WinReloc(self, symb, AT.from_lva(imp.address, self).to_rva(), entry.dll)
                     self.imports[imp_name] = reloc
                     self.relocs.append(reloc)
@@ -129,7 +129,7 @@ class PE(Backend):
         if hasattr(self._pe, 'DIRECTORY_ENTRY_EXPORT'):
             symbols = self._pe.DIRECTORY_ENTRY_EXPORT.symbols
             for exp in symbols:
-                symb = WinSymbol(self, exp.name, exp.address, False, True, exp.ordinal)
+                symb = WinSymbol(self, exp.name, exp.address, False, True, exp.ordinal, exp.forwarder)
                 self._exports[exp.name] = symb
                 self._ordinal_exports[exp.ordinal] = symb
 
