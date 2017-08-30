@@ -133,6 +133,11 @@ class PE(Backend):
                 self._exports[exp.name] = symb
                 self._ordinal_exports[exp.ordinal] = symb
 
+                if exp.forwarder is not None:
+                    forwardlib = exp.forwarder.split('.', 1)[0].lower() + '.dll'
+                    if forwardlib not in self.deps:
+                        self.deps.append(forwardlib)
+
     def _handle_relocs(self):
         if hasattr(self._pe, 'DIRECTORY_ENTRY_BASERELOC'):
             for base_reloc in self._pe.DIRECTORY_ENTRY_BASERELOC:
