@@ -10,3 +10,15 @@ class WinSymbol(Symbol):
         self.is_export = is_export
         self.ordinal_number = ordinal_number
         self.forwarder = forwarder
+        self.is_foward = forwarder is not None
+
+    def resolve_forwarder(self):
+        sym = self
+        while sym is not None and sym.is_foward and sym.forwarder is not None: # FORWARDING
+            owner, name = sym.forwarder.split('.', 1)
+            owner_obj = self.owner_obj.loader.find_object(owner)
+            if owner_obj is None:
+                return None
+            sym = owner_obj.get_symbol(name)
+
+        return sym

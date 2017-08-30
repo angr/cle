@@ -99,6 +99,7 @@ class Symbol(object):
     is_export = False
     is_weak = False
     is_extern = False
+    is_forward = False
 
     @property
     def demangled_name(self):
@@ -122,3 +123,9 @@ class Symbol(object):
                 return demangled[0]
 
         return None
+
+    def resolve_forwarder(self):
+        """
+        If this symbol is a forwarding export, return the symbol the forwarding refers to, or None if it cannot be found.
+        """
+        return self

@@ -26,22 +26,17 @@ class WinReloc(Relocation):
             solist = [x for x in solist if self.resolvewith == x.provides]
         out = super(WinReloc, self).resolve_symbol(solist)
 
-        while isinstance(self.resolvedby, WinSymbol) and self.resolvedby.forwarder is not None: # FORWARDING
-            owner, name = self.resolvedby.forwarder.split('.', 1)
-            owner_obj = self.owner_obj.loader.find_object(owner)
-            if owner_obj is None:
-                self.resolvedby = None
-                self.resolved = False
-                out = False
-                break
-            self.resolvedby = owner_obj.get_symbol(name)
-            out = self.resolvedby is not None
+        if not out:
+            return False
 
-        if out:
+        newsym = self.resolvedby.resolve_forwarder()
+        if newsym is None:
+            new_symbol = self.owner_obj.loader.extern_object.make_extern(self.symbol.name)
+            self.resolve(new_symbol)
             return True
 
-        new_symbol = self.owner_obj.loader.extern_object.make_extern(self.symbol.name)
-        self.resolve(new_symbol)
+        self.resolvedby = newsym
+        self.symbol.resolvedby = newsym
         return True
 
     @property
