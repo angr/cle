@@ -1,5 +1,4 @@
 import logging
-from .symbol import WinSymbol
 from ...relocation import Relocation
 
 l=logging.getLogger('cle.cle.backends.pe.relocation.pereloc')
@@ -30,7 +29,7 @@ class PEReloc(Relocation):
         self.resolvedby = newsym
         self.symbol.resolvedby = newsym
         return True
-        
+
     def relocate(self, solist, bypass_compatibility=False):
         if self.symbol is None:  # relocation described in the DIRECTORY_ENTRY_BASERELOC table
             if self.value is None:

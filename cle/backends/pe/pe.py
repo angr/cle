@@ -3,13 +3,13 @@ import struct
 import logging
 import archinfo
 import pefile
-
 from .symbol import WinSymbol
 from .regions import PESection
+from .relocation.generic import DllImport, IMAGE_REL_BASED_HIGHADJ, IMAGE_REL_BASED_ABSOLUTE
+from .relocation import get_relocation
 from .. import register_backend, Backend
 from ...address_translator import AT
-from .relocation import get_relocation
-from .relocation.generic import DllImport, IMAGE_REL_BASED_HIGHADJ
+
 
 l = logging.getLogger('cle.pe')
 
@@ -123,7 +123,7 @@ class PE(Backend):
                     if imp_name is None: # must be an import by ordinal
                         imp_name = "ordinal.%d.%s" % (imp.ordinal, entry.dll.lower())
 
-                    symb = WinSymbol(owner=self, name=imp_name, addr=0, is_import=True, is_export=False, ordinal_number=imp.ordinal, resolvewith=entry.dll, forwarder=None)
+                    symb = WinSymbol(owner=self, name=imp_name, addr=0, is_import=True, is_export=False, ordinal_number=imp.ordinal, forwarder=None)
                     reloc = self._make_reloc(addr=AT.from_lva(imp.address, self).to_rva(), reloc_type=None, symbol=symb, resolvewith=entry.dll)
 
                     if reloc is not None:
@@ -179,12 +179,13 @@ class PE(Backend):
         # Handle special cases first
 
         if reloc_type == 0:         # 0 simply means "ignore this relocation"
-            return None
+            reloc = IMAGE_REL_BASED_ABSOLUTE(owner=self, symbol=symbol, addr=addr, resolvewith=resolvewith)
+            return reloc
         if reloc_type is None:      # for DLL imports
             reloc = DllImport(owner=self, symbol=symbol, addr=addr, resolvewith=resolvewith)
             return reloc
         if next_rva is not None:
-            reloc = generic_pe.IMAGE_REL_BASED_HIGHADJ(owner=self, symbol=None, addr=addr, next_rva=next_rva)
+            reloc = IMAGE_REL_BASED_HIGHADJ(owner=self, addr=addr, next_rva=next_rva)
             return reloc
 
         # Handle all the normal base relocations
