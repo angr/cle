@@ -1,5 +1,7 @@
+import logging
 from . import generic
-from . import generic_elf
+
+l = logging.getLogger('cle.backends.elf.relocations.aarch64')
 
 # http://infocenter.arm.com/help/topic/com.arm.doc.ihi0056b/IHI0056B_aaelf64.pdf
 arch = 'AARCH64'
@@ -19,14 +21,14 @@ class R_AARCH64_JUMP_SLOT(generic.GenericJumpslotReloc):
 class R_AARCH64_RELATIVE(generic.GenericRelativeReloc):
     pass
 
-class R_AARCH64_IRELATIVE(generic_elf.GenericIRelativeReloc):
+class R_AARCH64_IRELATIVE(generic.GenericIRelativeReloc):
     pass
 
-class R_AARCH64_TLS_DTPREL(generic_elf.GenericTLSDoffsetReloc):
+class R_AARCH64_TLS_DTPREL(generic.GenericTLSDoffsetReloc):
     pass
 
-class R_AARCH64_TLS_DTPMOD(generic_elf.GenericTLSModIdReloc):
+class R_AARCH64_TLS_DTPMOD(generic.GenericTLSModIdReloc):
     pass
 
-class R_AARCH64_TLS_TPREL(generic_elf.GenericTLSOffsetReloc):
+class R_AARCH64_TLS_TPREL(generic.GenericTLSOffsetReloc):
     pass

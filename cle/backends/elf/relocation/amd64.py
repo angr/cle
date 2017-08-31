@@ -1,6 +1,7 @@
+import logging
 from . import generic
-from . import generic_elf
 
+l = logging.getLogger('cle.backends.elf.relocation.amd64')
 arch = 'AMD64'
 
 class R_X86_64_64(generic.GenericAbsoluteAddendReloc):
@@ -12,7 +13,7 @@ class R_X86_64_COPY(generic.GenericCopyReloc):
 class R_X86_64_RELATIVE(generic.GenericRelativeReloc):
     pass
 
-class R_X86_64_IRELATIVE(generic_elf.GenericIRelativeReloc):
+class R_X86_64_IRELATIVE(generic.GenericIRelativeReloc):
     pass
 
 class R_X86_64_GLOB_DAT(generic.GenericJumpslotReloc):
@@ -21,13 +22,13 @@ class R_X86_64_GLOB_DAT(generic.GenericJumpslotReloc):
 class R_X86_64_JUMP_SLOT(generic.GenericJumpslotReloc):
     pass
 
-class R_X86_64_DTPMOD64(generic_elf.GenericTLSModIdReloc):
+class R_X86_64_DTPMOD64(generic.GenericTLSModIdReloc):
     pass
 
-class R_X86_64_DTPOFF64(generic_elf.GenericTLSDoffsetReloc):
+class R_X86_64_DTPOFF64(generic.GenericTLSDoffsetReloc):
     pass
 
-class R_X86_64_TPOFF64(generic_elf.GenericTLSOffsetReloc):
+class R_X86_64_TPOFF64(generic.GenericTLSOffsetReloc):
     pass
 
 class R_X86_64_PC32(generic.RelocTruncate32Mixin, generic.GenericPCRelativeAddendReloc):

@@ -1,6 +1,7 @@
+import logging
 from . import generic
-from . import generic_elf
 
+l = logging.getLogger('cle.backends.elf.relocation.x86')
 arch = 'X86'
 
 class R_386_32(generic.GenericAbsoluteAddendReloc):
@@ -21,14 +22,14 @@ class R_386_JMP_SLOT(generic.GenericJumpslotReloc):
 class R_386_RELATIVE(generic.GenericRelativeReloc):
     pass
 
-class R_386_IRELATIVE(generic_elf.GenericIRelativeReloc):
+class R_386_IRELATIVE(generic.GenericIRelativeReloc):
     pass
 
-class R_386_TLS_DTPMOD32(generic_elf.GenericTLSModIdReloc):
+class R_386_TLS_DTPMOD32(generic.GenericTLSModIdReloc):
     pass
 
-class R_386_TLS_TPOFF(generic_elf.GenericTLSOffsetReloc):
+class R_386_TLS_TPOFF(generic.GenericTLSOffsetReloc):
     pass
 
-class R_386_TLS_DTPOFF32(generic_elf.GenericTLSDoffsetReloc):
+class R_386_TLS_DTPOFF32(generic.GenericTLSDoffsetReloc):
     pass

@@ -1,11 +1,13 @@
+import logging
 from . import generic
-from . import generic_elf
-from . import Relocation
+from .elfreloc import ELFReloc
+
+l = logging.getLogger('cle.backends.elf.relocations.ppc64')
 
 # http://refspecs.linuxfoundation.org/ELF/ppc64/PPC-elf64abi-1.9.pdf
 arch = 'PPC64'
 
-class R_PPC64_JMP_SLOT(Relocation):
+class R_PPC64_JMP_SLOT(ELFReloc):
     def relocate(self, solist, bypass_compatibility=False):
         if not self.resolve_symbol(solist, bypass_compatibility):
             return False
@@ -27,7 +29,7 @@ class R_PPC64_JMP_SLOT(Relocation):
 class R_PPC64_RELATIVE(generic.GenericRelativeReloc):
     pass
 
-class R_PPC64_IRELATIVE(generic_elf.GenericIRelativeReloc):
+class R_PPC64_IRELATIVE(generic.GenericIRelativeReloc):
     pass
 
 class R_PPC64_ADDR64(generic.GenericAbsoluteAddendReloc):
@@ -36,11 +38,11 @@ class R_PPC64_ADDR64(generic.GenericAbsoluteAddendReloc):
 class R_PPC64_GLOB_DAT(generic.GenericJumpslotReloc):
     pass
 
-class R_PPC64_DTPMOD64(generic_elf.GenericTLSModIdReloc):
+class R_PPC64_DTPMOD64(generic.GenericTLSModIdReloc):
     pass
 
-class R_PPC64_DTPREL64(generic_elf.GenericTLSDoffsetReloc):
+class R_PPC64_DTPREL64(generic.GenericTLSDoffsetReloc):
     pass
 
-class R_PPC64_TPREL64(generic_elf.GenericTLSOffsetReloc):
+class R_PPC64_TPREL64(generic.GenericTLSOffsetReloc):
     pass

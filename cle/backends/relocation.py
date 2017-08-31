@@ -1,53 +1,7 @@
-import archinfo
 import logging
-import os
-import importlib
-from collections import defaultdict
+from ..address_translator import AT
 
-from ...address_translator import AT
-
-l = logging.getLogger('cle.relocations')
-
-ALL_RELOCATIONS = defaultdict(dict)
-complaint_log = set()
-path = os.path.dirname(os.path.abspath(__file__))
-
-
-def load_relocations():
-    for filename in os.listdir(path):
-        if not filename.endswith('.py'):
-            continue
-        if filename == '__init__.py':
-            continue
-
-        module = importlib.import_module('.%s' % filename[:-3], 'cle.backends.relocations')
-
-        try:
-            arch_name = module.arch
-        except AttributeError:
-            continue
-
-        for item_name in dir(module):
-            if item_name not in archinfo.defines:
-                continue
-            item = getattr(module, item_name)
-            if not isinstance(item, type) or not issubclass(item, Relocation):
-                continue
-
-            ALL_RELOCATIONS[arch_name][archinfo.defines[item_name]] = item
-
-
-def get_relocation(arch, r_type):
-    if r_type == 0:
-        return None
-    try:
-        return ALL_RELOCATIONS[arch][r_type]
-    except KeyError:
-        if (arch, r_type) not in complaint_log:
-            complaint_log.add((arch, r_type))
-            l.warning("Unknown reloc %d on %s", r_type, arch)
-        return None
-
+l = logging.getLogger('cle.backends.relocation')
 
 class Relocation(object):
     """
@@ -62,26 +16,17 @@ class Relocation(object):
                         this attribute holds the symbol from a different binary that was used to resolve the import.
     :ivar resolved:     Whether the application of this relocation was succesful
     """
-    def __init__(self, owner, symbol, relative_addr, addend=None):
+    def __init__(self, owner, symbol, relative_addr):
         super(Relocation, self).__init__()
         self.owner_obj = owner
         self.arch = owner.arch
         self.symbol = symbol
         self.relative_addr = relative_addr
-        self.is_rela = addend is not None
-        self._addend = addend
         self.resolvedby = None
         self.resolved = False
         self.resolvewith = None
         if self.symbol is not None and self.symbol.is_import:
             self.owner_obj.imports[self.symbol.name] = self
-
-    @property
-    def addend(self):
-        if self.is_rela:
-            return self._addend
-        else:
-            return self.owner_obj.memory.read_addr_at(self.relative_addr, orig=True)
 
     def resolve_symbol(self, solist, bypass_compatibility=False): # pylint: disable=unused-argument
         if self.symbol.is_static:
@@ -165,5 +110,3 @@ class Relocation(object):
             return False
 
         self.owner_obj.memory.write_addr_at(self.dest_addr, self.value)
-
-load_relocations()
