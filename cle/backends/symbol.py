@@ -61,7 +61,7 @@ class Symbol(object):
             return '<Symbol "%s" in %s at %#x>' % (self.name, self.owner_obj.provides, self.rebased_addr)
 
     def resolve(self, obj):
-        self.resolved = True
+        self.resolved = True if obj else False
         self.resolvedby = obj
         self.owner_obj.resolved_imports.append(self)
 
