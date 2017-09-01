@@ -1,27 +1,72 @@
-from ...address_translator import AT
-from ...errors import CLEOperationError
-from . import Relocation
+from ....address_translator import AT
+from ....errors import CLEOperationError
+from .elfreloc import ELFReloc
+from ... import Symbol
+
 import struct
 
 import logging
-l = logging.getLogger('cle.relocations.generic')
+l = logging.getLogger('cle.backends.elf.relocation.generic')
 
-class GenericAbsoluteReloc(Relocation):
+class GenericTLSDoffsetReloc(ELFReloc):
     @property
     def value(self):
-        return self.resolvedby.rebased_addr
+        return self.addend + self.symbol.relative_addr
 
-class GenericAbsoluteAddendReloc(Relocation):
+    def resolve_symbol(self, solist, bypass_compatibility=False):   # pylint: disable=unused-argument
+        self.resolve(None)
+        return True
+
+class GenericTLSOffsetReloc(ELFReloc):
+    def relocate(self, solist, bypass_compatibility=False):
+        hell_offset = self.owner_obj.arch.elf_tls.tp_offset
+        if self.symbol.type == Symbol.TYPE_NONE:
+            self.owner_obj.memory.write_addr_at(
+                self.relative_addr,
+                self.owner_obj.tls_block_offset + self.addend + self.symbol.relative_addr - hell_offset)
+            self.resolve(None)
+        else:
+            if not self.resolve_symbol(solist, bypass_compatibility):
+                return False
+            self.owner_obj.memory.write_addr_at(
+                self.relative_addr,
+                self.resolvedby.owner_obj.tls_block_offset + self.addend + self.symbol.relative_addr - hell_offset)
+        return True
+
+class GenericTLSModIdReloc(ELFReloc):
+    def relocate(self, solist, bypass_compatibility=False):
+        if self.symbol.type == Symbol.TYPE_NONE:
+            self.owner_obj.memory.write_addr_at(self.relative_addr, self.owner_obj.tls_module_id)
+            self.resolve(None)
+        else:
+            if not self.resolve_symbol(solist):
+                return False
+            self.owner_obj.memory.write_addr_at(self.relative_addr, self.resolvedby.owner_obj.tls_module_id)
+        return True
+
+class GenericIRelativeReloc(ELFReloc):
+    def relocate(self, solist, bypass_compatibility=False):
+        if self.symbol.type == Symbol.TYPE_NONE:
+            self.owner_obj.irelatives.append((AT.from_lva(self.addend, self.owner_obj).to_mva(), self.relative_addr))
+            self.resolve(None)
+            return True
+
+        if not self.resolve_symbol(solist, bypass_compatibility):
+            return False
+
+        self.owner_obj.irelatives.append((self.resolvedby.mapped_base, self.relative_addr))
+
+class GenericAbsoluteAddendReloc(ELFReloc):
     @property
     def value(self):
         return self.resolvedby.rebased_addr + self.addend
 
-class GenericPCRelativeAddendReloc(Relocation):
+class GenericPCRelativeAddendReloc(ELFReloc):
     @property
     def value(self):
         return self.resolvedby.rebased_addr + self.addend - self.rebased_addr
 
-class GenericJumpslotReloc(Relocation):
+class GenericJumpslotReloc(ELFReloc):
     @property
     def value(self):
         if self.is_rela:
@@ -29,7 +74,7 @@ class GenericJumpslotReloc(Relocation):
         else:
             return self.resolvedby.rebased_addr
 
-class GenericRelativeReloc(Relocation):
+class GenericRelativeReloc(ELFReloc):
     @property
     def value(self):
         return self.owner_obj.mapped_base + self.addend
@@ -38,7 +83,12 @@ class GenericRelativeReloc(Relocation):
         self.resolve(None)
         return True
 
-class GenericCopyReloc(Relocation):
+class GenericAbsoluteReloc(ELFReloc):
+    @property
+    def value(self):
+        return self.resolvedby.rebased_addr
+
+class GenericCopyReloc(ELFReloc):
     @property
     def value(self):
         return self.resolvedby.owner_obj.memory.read_addr_at(self.resolvedby.relative_addr)
@@ -46,7 +96,7 @@ class GenericCopyReloc(Relocation):
 class MipsGlobalReloc(GenericAbsoluteReloc):
     pass
 
-class MipsLocalReloc(Relocation):
+class MipsLocalReloc(ELFReloc):
     def relocate(self, solist, bypass_compatibility=False): # pylint: disable=unused-argument
         if self.owner_obj.mapped_base == 0:
             self.resolve(None)

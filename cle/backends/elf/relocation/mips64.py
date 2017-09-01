@@ -1,5 +1,4 @@
 from . import generic
-from . import generic_elf
 
 arch = 'MIPS64'
 
@@ -12,11 +11,11 @@ class R_MIPS_REL32(generic.GenericRelativeReloc):
 class R_MIPS_COPY(generic.GenericCopyReloc):
     pass
 
-class R_MIPS_TLS_DTPMOD64(generic_elf.GenericTLSModIdReloc):
+class R_MIPS_TLS_DTPMOD64(generic.GenericTLSModIdReloc):
     pass
 
-class R_MIPS_TLS_DTPREL64(generic_elf.GenericTLSDoffsetReloc):
+class R_MIPS_TLS_DTPREL64(generic.GenericTLSDoffsetReloc):
     pass
 
-class R_MIPS_TLS_TPREL64(generic_elf.GenericTLSOffsetReloc):
+class R_MIPS_TLS_TPREL64(generic.GenericTLSOffsetReloc):
     pass

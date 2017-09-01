@@ -3,12 +3,13 @@ import struct
 import logging
 import archinfo
 import pefile
-
 from .symbol import WinSymbol
-from .reloc import WinReloc
 from .regions import PESection
+from .relocation.generic import DllImport, IMAGE_REL_BASED_HIGHADJ, IMAGE_REL_BASED_ABSOLUTE
+from .relocation import get_relocation
 from .. import register_backend, Backend
 from ...address_translator import AT
+
 
 l = logging.getLogger('cle.pe')
 
@@ -36,6 +37,7 @@ class PE(Backend):
             self.set_arch(archinfo.arch_from_id(pefile.MACHINE_TYPE[self._pe.FILE_HEADER.Machine]))
 
         self.mapped_base = self.linked_base = self._pe.OPTIONAL_HEADER.ImageBase
+
         self._entry = AT.from_rva(self._pe.OPTIONAL_HEADER.AddressOfEntryPoint, self).to_lva()
 
         if hasattr(self._pe, 'DIRECTORY_ENTRY_IMPORT'):
@@ -62,7 +64,7 @@ class PE(Backend):
         self._symbol_cache = self._exports # same thing
         self._handle_imports()
         self._handle_exports()
-        self._handle_relocs()
+        self.__register_relocs()
         self._register_tls()
         self._register_sections()
         self.linking = 'dynamic' if self.deps else 'static'
@@ -120,37 +122,83 @@ class PE(Backend):
                     imp_name = imp.name
                     if imp_name is None: # must be an import by ordinal
                         imp_name = "ordinal.%d.%s" % (imp.ordinal, entry.dll.lower())
-                    symb = WinSymbol(self, imp_name, 0, True, False, imp.ordinal)
-                    reloc = WinReloc(self, symb, AT.from_lva(imp.address, self).to_rva(), entry.dll)
-                    self.imports[imp_name] = reloc
-                    self.relocs.append(reloc)
+
+                    symb = WinSymbol(owner=self, name=imp_name, addr=0, is_import=True, is_export=False, ordinal_number=imp.ordinal, forwarder=None)
+                    reloc = self._make_reloc(addr=AT.from_lva(imp.address, self).to_rva(), reloc_type=None, symbol=symb, resolvewith=entry.dll)
+
+                    if reloc is not None:
+                        self.imports[imp_name] = reloc
+                        self.relocs.append(reloc)
+
 
     def _handle_exports(self):
         if hasattr(self._pe, 'DIRECTORY_ENTRY_EXPORT'):
             symbols = self._pe.DIRECTORY_ENTRY_EXPORT.symbols
             for exp in symbols:
-                symb = WinSymbol(self, exp.name, exp.address, False, True, exp.ordinal)
+                symb = WinSymbol(self, exp.name, exp.address, False, True, exp.ordinal, exp.forwarder)
                 self._exports[exp.name] = symb
                 self._ordinal_exports[exp.ordinal] = symb
 
-    def _handle_relocs(self):
-        if hasattr(self._pe, 'DIRECTORY_ENTRY_BASERELOC'):
-            for base_reloc in self._pe.DIRECTORY_ENTRY_BASERELOC:
-                entry_idx = 0
-                while entry_idx < len(base_reloc.entries):
-                    self.pic = True # no idea how else to do this...
-                    reloc_data = base_reloc.entries[entry_idx]
-                    if reloc_data.type == pefile.RELOCATION_TYPE['IMAGE_REL_BASED_HIGHADJ']: #occupies 2 entries
-                        if entry_idx == len(base_reloc.entries):
-                            l.warning('PE contains corrupt relocation table')
-                            break
-                        next_entry = base_reloc.entries[entry_idx]
-                        entry_idx += 1
-                        reloc = WinReloc(self, None, reloc_data.rva, None, reloc_type=reloc_data.type, next_rva=next_entry.rva)
-                    else:
-                        reloc = WinReloc(self, None, reloc_data.rva, None, reloc_type=reloc_data.type)
-                    self.relocs.append(reloc)
+
+                if exp.forwarder is not None:
+                    forwardlib = exp.forwarder.split('.', 1)[0].lower() + '.dll'
+                    if forwardlib not in self.deps:
+                        self.deps.append(forwardlib)
+
+
+    def __register_relocs(self):
+        if not hasattr(self._pe, 'DIRECTORY_ENTRY_BASERELOC'):
+            l.warn('No relocations found')
+            return
+
+        for base_reloc in self._pe.DIRECTORY_ENTRY_BASERELOC:
+            entry_idx = 0
+            while entry_idx < len(base_reloc.entries):
+                self.pic = True # no idea how else to do this...
+                reloc_data = base_reloc.entries[entry_idx]
+                if reloc_data.type == pefile.RELOCATION_TYPE['IMAGE_REL_BASED_HIGHADJ']: # special case, occupies 2 entries
+                    if entry_idx == len(base_reloc.entries):
+                        l.warning('PE contains corrupt base relocation table')
+                        break
+
+                    next_entry = base_reloc.entries[entry_idx]
                     entry_idx += 1
+                    reloc = self._make_reloc(addr=reloc_data.rva, reloc_type=reloc_data.type, next_rva=next_entry.rva)
+                else:
+                    reloc = self._make_reloc(addr=reloc_data.rva, reloc_type=reloc_data.type)
+
+                if reloc is not None:
+                    self.relocs.append(reloc)
+
+                entry_idx += 1
+
+        return self.relocs
+
+    def _make_reloc(self, addr, reloc_type, symbol=None, next_rva=None, resolvewith=None):
+
+        # Handle special cases first
+
+        if reloc_type == 0:         # 0 simply means "ignore this relocation"
+            reloc = IMAGE_REL_BASED_ABSOLUTE(owner=self, symbol=symbol, addr=addr, resolvewith=resolvewith)
+            return reloc
+        if reloc_type is None:      # for DLL imports
+            reloc = DllImport(owner=self, symbol=symbol, addr=addr, resolvewith=resolvewith)
+            return reloc
+        if next_rva is not None:
+            reloc = IMAGE_REL_BASED_HIGHADJ(owner=self, addr=addr, next_rva=next_rva)
+            return reloc
+
+        # Handle all the normal base relocations
+        RelocClass = get_relocation(self.arch.name, reloc_type)
+        if RelocClass is None:
+            l.debug('Failed to find relocation class for arch %s, type %d', 'pe'+self.arch.name, reloc_type)
+            return None
+
+        cls = RelocClass(owner=self, symbol=symbol, addr=addr)
+        if cls is None:
+            l.warn('Failed to retrieve relocation for %s of type %s', symbol.name, reloc_type)
+
+        return cls
 
     def _register_tls(self):
         if hasattr(self._pe, 'DIRECTORY_ENTRY_TLS'):

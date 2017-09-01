@@ -707,6 +707,7 @@ class Loader(object):
             if spec.binary:
                 yield spec.binary
                 yield os.path.basename(spec.binary)
+                yield os.path.basename(spec.binary).split('.')[0]
                 if self._ignore_import_version_numbers:
                     yield os.path.basename(spec.binary).rstrip('.0123456789')
         elif hasattr(spec, 'read') and hasattr(spec, 'seek'):
@@ -720,6 +721,7 @@ class Loader(object):
         elif type(spec) in (bytes, unicode):
             yield spec
             yield os.path.basename(spec)
+            yield os.path.basename(spec).split('.')[0]
             if self._ignore_import_version_numbers:
                 yield os.path.basename(spec).rstrip('.0123456789')
 
