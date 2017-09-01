@@ -79,7 +79,7 @@ class Loader(object):
                  main_opts=None, lib_opts=None, custom_ld_path=(), use_system_libs=True,
                  ignore_import_version_numbers=True, case_insensitive=False, rebase_granularity=0x1000000,
                  except_missing_libs=False, aslr=False,
-                 page_size=0x1000):
+                 page_size=0x1):
         if hasattr(main_binary, 'seek') and hasattr(main_binary, 'read'):
             self._main_binary_path = None
             self._main_binary_stream = main_binary
