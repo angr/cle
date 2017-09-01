@@ -70,6 +70,22 @@ def stream_or_path(obj, perms='rb'):
             yield f
 
 
+def key_bisect_floor_key(lst, key, lo=0, hi=None, keyfunc=lambda x: x):
+    if lo < 0:
+        raise ValueError('lo must be non-negative')
+    if hi is None:
+        hi = len(lst)
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if keyfunc(lst[mid]) <= key:
+            lo = mid + 1
+        else:
+            hi = mid
+    if lo <= len(lst) and lo > 0:
+        return lst[lo - 1]
+    return None
+
+
 def key_bisect_find(lst, item, lo=0, hi=None, keyfunc=lambda x: x):
     if lo < 0:
         raise ValueError('lo must be non-negative')
