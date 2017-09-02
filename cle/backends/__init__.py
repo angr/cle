@@ -183,6 +183,9 @@ class Backend(object):
         if self.segments:
             self.segments._rebase(self.image_base_delta)
 
+        # clear the cached max_addr
+        self._max_addr = None
+
     def contains_addr(self, addr):
         """
         Is `addr` in one of the binary's segments/sections we have loaded? (i.e. is it mapped into memory ?)
