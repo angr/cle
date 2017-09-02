@@ -291,5 +291,5 @@ from .pe import PE
 from .idabin import IDABin
 from .blob import Blob
 from .cgc import CGC, BackedCGC
-from .hex import Hex
+from .ihex import Hex
 from .macho import MachO
