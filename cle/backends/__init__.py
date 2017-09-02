@@ -101,6 +101,8 @@ class Backend(object):
 
         # should be set inside `cle.Loader.add_object`
         self._is_mapped = False
+        # cached max_addr
+        self._max_addr = None
 
         if custom_arch is None:
             self.arch = None
@@ -181,6 +183,9 @@ class Backend(object):
         if self.segments:
             self.segments._rebase(self.image_base_delta)
 
+        # clear the cached max_addr
+        self._max_addr = None
+
     def contains_addr(self, addr):
         """
         Is `addr` in one of the binary's segments/sections we have loaded? (i.e. is it mapped into memory ?)
@@ -234,11 +239,12 @@ class Backend(object):
         This returns the highest virtual address contained in any loaded segment of the binary.
         """
 
-        # TODO: The access should be constant time, as the region interval is immutable after load
-        out = self.mapped_base
-        if self.segments or self.sections:
-            out = max(map(lambda x: x.max_addr, self.segments or self.sections))
-        return out
+        if self._max_addr is None:
+            out = self.mapped_base
+            if self.segments or self.sections:
+                out = max(map(lambda x: x.max_addr, self.segments or self.sections))
+            self._max_addr = out
+        return self._max_addr
 
     @property
     def initializers(self): # pylint: disable=no-self-use

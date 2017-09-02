@@ -3,8 +3,8 @@ import sys
 import logging
 from collections import OrderedDict
 
-from cle.address_translator import AT
-from .utils import ALIGN_UP, key_bisect_insort_left
+from .address_translator import AT
+from .utils import ALIGN_UP, key_bisect_insort_left, key_bisect_floor_key
 
 try:
     import claripy
@@ -115,7 +115,7 @@ class Loader(object):
         self._kernel_object = None
         self._extern_object = None
         self.shared_objects = OrderedDict()
-        self.all_objects = []
+        self.all_objects = []  # this list should always be sorted by min_addr
         self.requested_names = set()
 
         self.initial_load_objects = self._internal_load(main_binary, *force_load_libs)
@@ -217,7 +217,6 @@ class Loader(object):
                 self._map_object(self._tls_object)
         return self._tls_object
 
-
     @property
     def all_elf_objects(self):
         """
@@ -286,19 +285,22 @@ class Loader(object):
         """
         Return the object that contains the given address, or None if the address is unmapped.
         """
-        for obj in self.all_objects:
-            if not obj.min_addr <= addr < obj.max_addr:
-                continue
 
-            if isinstance(obj.memory, str):
+        if addr >= self.max_addr or addr < self.min_addr:
+            return None
+
+        obj = key_bisect_floor_key(self.all_objects, addr, keyfunc=lambda obj: obj.min_addr)
+        if obj is None:
+            return None
+        if not obj.min_addr <= addr < obj.max_addr:
+            return None
+        if isinstance(obj.memory, str):
+            return obj
+        elif isinstance(obj.memory, Clemory):
+            if AT.from_va(addr, obj).to_rva() in obj.memory:
                 return obj
-            elif isinstance(obj.memory, Clemory):
-                if AT.from_va(addr, obj).to_rva() in obj.memory:
-                    return obj
-            else:
-                raise CLEError('Unsupported memory type %s' % type(obj.memory))
-
-        return None
+        else:
+            raise CLEError('Unsupported memory type %s' % type(obj.memory))
 
     def find_symbol(self, name):
         """
