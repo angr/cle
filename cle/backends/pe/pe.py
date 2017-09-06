@@ -59,6 +59,9 @@ class PE(Backend):
         self.tls_module_id = None
         self.tls_data_pointer = None
 
+        self.supports_nx = self._pe.OPTIONAL_HEADER.DllCharacteristics & 0x100 != 0
+        self.pic = self._pe.OPTIONAL_HEADER.DllCharacteristics & 0x40 != 0
+
         self._exports = {}
         self._ordinal_exports = {}
         self._symbol_cache = self._exports # same thing
@@ -69,11 +72,7 @@ class PE(Backend):
         self._register_sections()
 
         self.linking = 'dynamic' if self.deps else 'static'
-        self.supports_nx = self._pe.OPTIONAL_HEADER.DllCharacteristics & 0x100 != 0
-        self.pic = self._pe.OPTIONAL_HEADER.DllCharacteristics & 0x40 != 0
-
         self.jmprel = self._get_jmprel()
-
         self.memory.add_backer(0, self._pe.get_memory_mapped_image())
 
     _pefile_cache = {}
@@ -167,6 +166,7 @@ class PE(Backend):
                     reloc = self._make_reloc(addr=reloc_data.rva, reloc_type=reloc_data.type)
 
                 if reloc is not None:
+                    self.pic = True # I've seen binaries with the DYNAMIC_BASE DllCharacteristic unset but have tons of fixup relocations
                     self.relocs.append(reloc)
 
                 entry_idx += 1
