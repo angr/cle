@@ -79,7 +79,7 @@ class Loader(object):
                  main_opts=None, lib_opts=None, custom_ld_path=(), use_system_libs=True,
                  ignore_import_version_numbers=True, case_insensitive=False, rebase_granularity=0x1000000,
                  except_missing_libs=False, aslr=False,
-                 page_size=0x1):
+                 page_size=0x1, extern_size=0x8000):
         if hasattr(main_binary, 'seek') and hasattr(main_binary, 'read'):
             self._main_binary_path = None
             self._main_binary_stream = main_binary
@@ -96,6 +96,7 @@ class Loader(object):
         self._case_insensitive = case_insensitive
         self._rebase_granularity = rebase_granularity
         self._except_missing_libs = except_missing_libs
+        self._extern_size = extern_size
         self._relocated_objects = set()
 
         # case insensitivity setup
@@ -185,7 +186,10 @@ class Loader(object):
         Accessing this property will load this object into memory if it was not previously present.
         """
         if self._extern_object is None:
-            self._extern_object = ExternObject(self)
+            if self.main_object.arch.bits < 32 and self._extern_size == 0x8000:
+                l.warning("Your extern object is probably too big for your memory space.  Making it 0x200")
+                self._extern_size = 0x200
+            self._extern_object = ExternObject(self, map_size=self._extern_size)
             self._map_object(self._extern_object)
         return self._extern_object
 
@@ -574,7 +578,11 @@ class Loader(object):
         overlap with anything already loaded.
         """
         # this assumes that self.main_object exists, which should... definitely be safe
-        gap_start = ALIGN_UP(self.main_object.max_addr, self._rebase_granularity)
+        if self.main_object.arch.bits < 32:
+            # HACK: On small arches, we should be more aggressive in packing stuff in.
+            gap_start = 0
+        else:
+            gap_start = ALIGN_UP(self.main_object.max_addr, self._rebase_granularity)
         for o in self.all_objects:
             if gap_start + size <= o.min_addr:
                 break
