@@ -5,7 +5,7 @@ from ..address_translator import AT
 
 class ExternSegment(Segment):
     is_readable = True
-    is_writable = False
+    is_writable = True
     is_executable = True
 
 class ExternObject(Backend):
