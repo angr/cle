@@ -13,11 +13,11 @@ setup(
     version='7.7.9.8',
     packages=packages,
     install_requires=[
-        "pyelftools>=0.24",
-        "cffi",
-        "idalink",
-        "archinfo",
-        "pyvex",
-        "pefile",
+        'pyelftools>=0.24',
+        'cffi',
+        'idalink',
+        'archinfo',
+        'pyvex',
+        'pefile',
     ]
 )
