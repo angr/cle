@@ -3,7 +3,8 @@ class AddressTranslator(object):
     Mediates address translations between typed addresses such as RAW, RVA, LVA, MVA and VA
     including address owner and its state (linked or mapped)
 
-    Semantics:
+    Semantics::
+
         owner - object associated with the address
             (any object class based on `cle.Backend`)
         owner mapping state - sparse object can be either mapped or not

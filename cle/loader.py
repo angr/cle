@@ -32,7 +32,7 @@ class Loader(object):
     address space with loaded and rebased binaries.
 
     :param main_binary:         The path to the main binary you're loading, or a file-like object with the binary
-    in it.
+                                in it.
 
     The following parameters are optional.
 

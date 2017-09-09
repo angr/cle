@@ -25,8 +25,7 @@ class Region(object):
         Does region rebasing to other base address.
         Intended for usage by loader's add_object to reflect the rebasing.
 
-        :param delta: Delta offset between an old and a new image bases
-        :type delta: int
+        :param int delta: Delta offset between an old and a new image bases
         """
         self.vaddr += delta
 
@@ -217,9 +216,7 @@ class Regions(object):
         Append a new Region instance into the list.
 
         :param Region region: The region to append.
-        :return: None
         """
-
         self._list.append(region)
         key_bisect_insort_left(self._sorted_list, region, keyfunc=lambda r: r.vaddr)
 
