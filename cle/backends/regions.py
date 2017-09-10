@@ -1,143 +1,5 @@
+
 from ..utils import key_bisect_find, key_bisect_insort_left
-
-class Region(object):
-    """
-    A region of memory that is mapped in the object's file.
-
-    :ivar offset:       The offset into the file the region starts.
-    :ivar vaddr:        The virtual address.
-    :ivar filesize:     The size of the region in the file.
-    :ivar memsize:      The size of the region when loaded into memory.
-
-    The prefix `v-` on a variable or parameter name indicates that it refers to the virtual, loaded memory space,
-    while a corresponding variable without the `v-` refers to the flat zero-based memory of the file.
-
-    When used next to each other, `addr` and `offset` refer to virtual memory address and file offset, respectively.
-    """
-    def __init__(self, offset, vaddr, filesize, memsize):
-        self.vaddr = vaddr
-        self.memsize = memsize
-        self.filesize = filesize
-        self.offset = offset
-
-    def _rebase(self, delta):
-        """
-        Does region rebasing to other base address.
-        Intended for usage by loader's add_object to reflect the rebasing.
-
-        :param int delta: Delta offset between an old and a new image bases
-        """
-        self.vaddr += delta
-
-    def contains_addr(self, addr):
-        """
-        Does this region contain this virtual address?
-        """
-        return self.vaddr <= addr < self.vaddr + self.memsize
-
-    def contains_offset(self, offset):
-        """
-        Does this region contain this offset into the file?
-        """
-        return self.offset <= offset < self.offset + self.filesize
-
-    def addr_to_offset(self, addr):
-        """
-        Convert a virtual memory address into a file offset
-        """
-        offset = addr - self.vaddr + self.offset
-        if not self.contains_offset(offset):
-            return None
-        return offset
-
-    def offset_to_addr(self, offset):
-        """
-        Convert a file offset into a virtual memory address
-        """
-        addr = offset - self.offset + self.vaddr
-        if not self.contains_addr(addr):
-            return None
-        return addr
-
-    def __repr__(self):
-        return '<{} {}>'.format(self.__class__.__name__, ', '.join(['{}=0x{:x}'.format(k, v) for k, v in self.__dict__.iteritems()]))
-
-    @property
-    def max_addr(self):
-        """
-        The maximum virtual address of this region
-        """
-        return self.vaddr + self.memsize - 1
-
-    @property
-    def min_addr(self):
-        """
-        The minimum virtual address of this region
-        """
-        return self.vaddr
-
-    @property
-    def max_offset(self):
-        """
-        The maximum file offset of this region
-        """
-        return self.offset + self.filesize - 1
-
-    def min_offset(self):
-        """
-        The minimum file offset of this region
-        """
-        return self.offset
-
-
-class Segment(Region):
-    pass
-
-
-class Section(Region):
-    """
-    Simple representation of a loaded section.
-
-    :ivar str name:     The name of the section
-    """
-    def __init__(self, name, offset, vaddr, size):
-        """
-        :param str name:    The name of the section
-        :param int offset:  The offset into the binary file this section begins
-        :param int vaddr:   The address in virtual memory this section begins
-        :param int size:    How large this section is
-        """
-        super(Section, self).__init__(offset, vaddr, size, size)
-        self.name = name
-
-    @property
-    def is_readable(self):
-        """
-        Whether this section has read permissions
-        """
-        raise NotImplementedError()
-
-    @property
-    def is_writable(self):
-        """
-        Whether this section has write permissions
-        """
-        raise NotImplementedError()
-
-    @property
-    def is_executable(self):
-        """
-        Whether this section has execute permissions
-        """
-        raise NotImplementedError()
-
-    def __repr__(self):
-        return "<%s | offset %#x, vaddr %#x, size %#x>" % (
-            self.name if self.name else "Unnamed",
-            self.offset,
-            self.vaddr,
-            self.memsize
-        )
 
 #
 # Container
@@ -218,7 +80,8 @@ class Regions(object):
         :param Region region: The region to append.
         """
         self._list.append(region)
-        if region.memsize > 0:
+
+        if self._is_region_mapped(region):
             key_bisect_insort_left(self._sorted_list, region, keyfunc=lambda r: r.vaddr)
 
     def find_region_containing(self, addr):
@@ -241,6 +104,19 @@ class Regions(object):
         return None
 
     @staticmethod
+    def _is_region_mapped(region):
+
+        # delayed import
+        from .elf.regions import ELFSection
+
+        mapped = True
+        if region.memsize == 0:
+            mapped = False
+        elif isinstance(region, ELFSection) and not region.occupies_memory:
+            mapped = False
+        return mapped
+
+    @staticmethod
     def _make_sorted(lst):
         """
         Return a sorted list of regions that are mapped into memory.
@@ -250,4 +126,4 @@ class Regions(object):
         :rtype:           list
         """
 
-        return sorted([ r for r in lst if r.memsize > 0 ], key=lambda x: x.vaddr)
+        return sorted([ r for r in lst if Regions._is_region_mapped(r) ], key=lambda x: x.vaddr)

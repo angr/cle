@@ -1,4 +1,4 @@
-from ..regions import Section
+from ..region import Section
 
 class PESection(Section):
     """

@@ -1,4 +1,5 @@
-from ..regions import Segment, Section
+from ..region import Segment, Section
+
 
 class ELFSegment(Segment):
     """
