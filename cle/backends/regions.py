@@ -147,7 +147,7 @@ class Section(Region):
 class Regions(object):
     """
     A container class acting as a list of regions (sections or segments). Additionally, it keeps an sorted list of
-    those regions to allow fast lookups.
+    all regions that are mapped into memory to allow fast lookups.
 
     We assume none of the regions overlap with others.
     """
@@ -218,7 +218,8 @@ class Regions(object):
         :param Region region: The region to append.
         """
         self._list.append(region)
-        key_bisect_insort_left(self._sorted_list, region, keyfunc=lambda r: r.vaddr)
+        if region.memsize > 0:
+            key_bisect_insort_left(self._sorted_list, region, keyfunc=lambda r: r.vaddr)
 
     def find_region_containing(self, addr):
         """
@@ -242,11 +243,11 @@ class Regions(object):
     @staticmethod
     def _make_sorted(lst):
         """
-        Return a sorted list of regions.
+        Return a sorted list of regions that are mapped into memory.
 
         :param list lst:  A list of regions.
         :return:          A sorted list of regions.
         :rtype:           list
         """
 
-        return sorted(lst, key=lambda x: x.vaddr)
+        return sorted([ r for r in lst if r.memsize > 0 ], key=lambda x: x.vaddr)
