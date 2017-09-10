@@ -67,8 +67,8 @@ class R_ARM_CALL(ELFReloc):
             mask = 0xFFFFFF
             result = _applyReloc(inst, imm24, mask)
 
-        self.owner_obj.memory.write_addr_at(AT.from_lva(self.addr, self.owner_obj).to_rva(), result)
-        l.debug("%s relocated as R_ARM_CALL with new instruction: 0x%x", self.symbol.name, result)
+        self.owner_obj.memory.write_addr_at(self.relative_addr, result)
+        l.debug("%s relocated as R_ARM_CALL with new instruction: %#x", self.symbol.name, result)
         return True
 
 class R_ARM_PREL31(ELFReloc):
