@@ -1,7 +1,6 @@
 import logging
 from . import generic
 from .elfreloc import ELFReloc
-from ....address_translator import AT
 
 l = logging.getLogger('cle.backends.elf.relocations.arm')
 arch = 'ARM'
