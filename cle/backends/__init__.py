@@ -2,7 +2,8 @@ import os
 import logging
 
 import archinfo
-from .regions import Region, Segment, Section, Regions
+from .region import Region, Segment, Section
+from .regions import Regions
 from .symbol import Symbol
 from ..address_translator import AT
 from ..memory import Clemory
