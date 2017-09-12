@@ -181,11 +181,8 @@ class Backend(object):
             raise CLEOperationError("Image already rebased from %#x to %#x" % (self.linked_base, self.mapped_base))
         if self.sections:
             self.sections._rebase(self.image_base_delta)
-        if self.segments:
+        if self.segments and self.sections is not self.segments:
             self.segments._rebase(self.image_base_delta)
-
-        # clear the cached max_addr
-        self._max_addr = None
 
     def contains_addr(self, addr):
         """
@@ -244,8 +241,8 @@ class Backend(object):
             out = self.mapped_base
             if self.segments or self.sections:
                 out = max(map(lambda x: x.max_addr, self.segments or self.sections))
-            self._max_addr = out
-        return self._max_addr
+            self._max_addr = out - self.mapped_base
+        return self._max_addr + self.mapped_base
 
     @property
     def initializers(self): # pylint: disable=no-self-use

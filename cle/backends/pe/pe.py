@@ -146,8 +146,7 @@ class PE(Backend):
 
     def __register_relocs(self):
         if not hasattr(self._pe, 'DIRECTORY_ENTRY_BASERELOC'):
-            if self.pic:
-                l.info('No relocations found in PIC binary')
+            l.debug("%s has no relocations", self.binary)
             return
 
         for base_reloc in self._pe.DIRECTORY_ENTRY_BASERELOC:

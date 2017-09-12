@@ -1,5 +1,6 @@
 import os
 import sys
+import platform
 import logging
 from collections import OrderedDict
 
@@ -438,7 +439,9 @@ class Loader(object):
 
         for main_spec in args:
             if self.find_object(main_spec, extra_objects=objects) is not None:
+                l.info("Skipping load request %s - already loaded", main_spec)
                 continue
+            l.info("loading %s...", main_spec)
             main_obj = self._load_object_isolated(main_spec)
             objects.append(main_obj)
             dependencies.extend(main_obj.deps)
@@ -450,11 +453,14 @@ class Loader(object):
         while self._auto_load_libs and dependencies:
             dep_spec = dependencies.pop(0)
             if self.find_object(dep_spec, extra_objects=objects) is not None:
+                l.debug("Skipping implicit dependency %s - already loaded", dep_spec)
                 continue
 
             try:
+                l.info("Loading %s...", dep_spec)
                 dep_obj = self._load_object_isolated(dep_spec)
             except CLEFileNotFoundError:
+                l.info("... not found")
                 if self._except_missing_libs:
                     raise
                 else:
@@ -501,6 +507,7 @@ class Loader(object):
             full_spec = spec
         elif type(spec) in (bytes, unicode):
             full_spec = self._search_load_path(spec) # this is allowed to cheat and do partial static loading
+            l.debug("... using full path %s", full_spec)
         else:
             raise CLEError("Bad library specification: %s" % spec)
 
@@ -524,6 +531,7 @@ class Loader(object):
             raise CLECompatibilityError("Unable to find a loader backend for %s.  Perhaps try the 'blob' loader?" % spec)
 
         # STEP 4: LOAD!
+        l.debug("... loading with %s", backend_cls)
         return backend_cls(full_spec, is_main_bin=self.main_object is None, loader=self, **options)
 
     def _map_object(self, obj):
@@ -551,6 +559,9 @@ class Loader(object):
             if not self._is_range_free(obj.linked_base, obj_size):
                 raise CLEError("Position-DEPENDENT object %s cannot be loaded at %#x"% (obj.binary, base_addr))
 
+        assert obj.min_addr < obj.max_addr
+        assert obj.mapped_base >= 0
+
         l.info("Mapping %s at %#x", obj.binary, base_addr)
         self.memory.add_backer(base_addr, obj.memory)
         key_bisect_insort_left(self.all_objects, obj, keyfunc=lambda o: o.min_addr)
@@ -568,6 +579,7 @@ class Loader(object):
         for dep_obj in dep_objs:
             self._relocate_object(dep_obj)
 
+        l.info("Relocating %s", obj.binary)
         for reloc in obj.relocs:
             if not reloc.resolved:
                 reloc.relocate(([self.main_object] if self.main_object is not obj else []) + dep_objs + [obj])
@@ -641,12 +653,30 @@ class Loader(object):
             if self.main_object.binary is not None:
                 dirs.append(os.path.dirname(self.main_object.binary))
             if self._use_system_libs:
-                dirs.extend(self.main_object.arch.library_search_path())
+                if sys.platform.startswith('linux'):
+                    dirs.extend(self.main_object.arch.library_search_path())
+                elif sys.platform == 'win32':
+                    native_dirs = os.environ['PATH'].split(';')
+
+                    # simulate the wow64 filesystem redirect, working around the fact that WE may be impacted by it as
+                    # a 32-bit python process.......
+                    python_is_32bit = platform.architecture()[0] == '32bit'
+                    guest_is_32bit = self.main_object.arch.bits == 32
+
+                    if python_is_32bit != guest_is_32bit:
+                        redirect_dir = os.path.join(os.environ['SystemRoot'], 'system32').lower()
+                        target_dir = os.path.join(os.environ['SystemRoot'], 'SysWOW64' if guest_is_32bit else 'sysnative')
+                        i = 0
+                        while i < len(native_dirs):
+                            if native_dirs[i].lower().startswith(redirect_dir):
+                                # replace the access to System32 with SysWOW64 or sysnative
+                                native_dirs[i] = target_dir + native_dirs[i][len(target_dir):]
+                            i += 1
+
+                    dirs.extend(native_dirs)
 
         dirs.append('.')
 
-        if self._use_system_libs and sys.platform == 'win32':
-            dirs.append(os.path.join(os.environ['SYSTEMROOT'], 'System32'))
 
         if self._case_insensitive:
             spec = spec.lower()

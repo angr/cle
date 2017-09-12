@@ -23,6 +23,7 @@ class PEReloc(Relocation):
         newsym = self.resolvedby.resolve_forwarder()
         if newsym is None:
             new_symbol = self.owner_obj.loader.extern_object.make_extern(self.symbol.name)
+            self.resolvedby.resolvedby = new_symbol
             self.resolve(new_symbol)
             return True
 
