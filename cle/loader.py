@@ -436,6 +436,7 @@ class Loader(object):
         """
         objects = []
         dependencies = []
+        cached_failures = set() # this assumes that the load path is global and immutable by the time we enter this func
 
         for main_spec in args:
             if self.find_object(main_spec, extra_objects=objects) is not None:
@@ -452,6 +453,9 @@ class Loader(object):
 
         while self._auto_load_libs and dependencies:
             dep_spec = dependencies.pop(0)
+            if dep_spec in cached_failures:
+                l.debug("Skipping implicit dependency %s - cached failure", dep_spec)
+                continue
             if self.find_object(dep_spec, extra_objects=objects) is not None:
                 l.debug("Skipping implicit dependency %s - already loaded", dep_spec)
                 continue
@@ -461,6 +465,7 @@ class Loader(object):
                 dep_obj = self._load_object_isolated(dep_spec)
             except CLEFileNotFoundError:
                 l.info("... not found")
+                cached_failures.add(dep_spec)
                 if self._except_missing_libs:
                     raise
                 else:
