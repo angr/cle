@@ -102,6 +102,9 @@ class PE(Backend):
     #
 
     def get_symbol(self, name):
+        """
+        Look up the symbol with the given name. Symbols can be looked up by ordinal with the name ``"ordinal.%d" % num``
+        """
         if name.startswith('ordinal.'):
             return self._ordinal_exports.get(int(name.split('.')[1]), None)
         return self._exports.get(name, None)
