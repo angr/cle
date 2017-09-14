@@ -331,8 +331,12 @@ class Loader(object):
 
                 if sym.is_import:
                     if sym.resolvedby is not None:
+                        if sym.resolvedby.is_forward and sym.resolvedby.resolvedby is not None:
+                            return sym.resolvedby.resolvedby
                         return sym.resolvedby
                 else:
+                    if sym.is_forward and sym.resolvedby is not None:
+                        return sym.resolvedby
                     return sym
 
             if self._extern_object is not None:
@@ -341,6 +345,28 @@ class Loader(object):
                     return sym
 
         return None
+
+    def find_all_symbols(self, name, exclude_imports=True, exclude_externs=False, exclude_forwards=True):
+        """
+        Iterate over all symbols present in the set of loaded binaries that have the given name
+
+        :param name:                The name to search for
+        :param exclude_imports:     Whether to exclude import symbols. Default True.
+        :param exclude_externs:     Whether to exclude symbols in the extern object. Default False.
+        :param exclude_forwards:    Whether to exclude forward symbols. Default True.
+        """
+        for so in self.all_objects:
+            sym = so.get_symbol(name)
+            if sym is None:
+                continue
+            if sym.is_import and exclude_imports:
+                continue
+            if sym.owner_obj is self._extern_object and exclude_externs:
+                continue
+            if sym.is_forward and exclude_forwards:
+                continue
+
+            yield sym
 
     def find_plt_stub_name(self, addr):
         """

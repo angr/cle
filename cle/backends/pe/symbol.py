@@ -14,7 +14,7 @@ class WinSymbol(Symbol):
         self.is_export = is_export
         self.ordinal_number = ordinal_number
         self.forwarder = forwarder
-        self.is_foward = forwarder is not None
+        self.is_forward = forwarder is not None
 
     def resolve_forwarder(self):
         if self.resolvedby is not None:
@@ -22,7 +22,7 @@ class WinSymbol(Symbol):
 
         sym = self
         seen = set()
-        while sym is not None and sym.is_foward and sym.forwarder is not None: # FORWARDING
+        while sym is not None and sym.is_forward and sym.forwarder is not None: # FORWARDING
             if sym.forwarder in seen:
                 l.warning("Infinite forwarding loop for %s", self)
                 return None
