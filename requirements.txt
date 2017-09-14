@@ -2,5 +2,5 @@ pyelftools>=0.24
 pefile
 cffi
 idalink
-archinfo>=7.7.9.8
-pyvex>=7.7.9.8
+archinfo>=7.7.9.14
+pyvex>=7.7.9.14
