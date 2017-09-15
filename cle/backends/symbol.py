@@ -1,3 +1,4 @@
+from __future__ import print_function
 import subprocess
 
 from ..address_translator import AT
@@ -81,7 +82,7 @@ class Symbol(object):
     @property
     def addr(self):
         if not Symbol.warned_addr:
-            print "\x1b[31;1mDeprecation warning: Symbol.addr is ambiguous, please use relative_addr, linked_addr, or rebased_addr\x1b[0m"
+            print("\x1b[31;1mDeprecation warning: Symbol.addr is ambiguous, please use relative_addr, linked_addr, or rebased_addr\x1b[0m")
             Symbol.warned_addr = True
         return self.linked_addr
 

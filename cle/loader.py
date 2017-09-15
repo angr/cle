@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import sys
 import platform
@@ -21,7 +22,7 @@ def deprecated(replacement):
     def outer(func):
         def inner(*args, **kwargs):
             if func not in already_complained:
-                print "\x1b[31;1mDeprecation warning: Use %s instead of %s\x1b[0m" % (replacement, func.func_name)
+                print("\x1b[31;1mDeprecation warning: Use %s instead of %s\x1b[0m" % (replacement, func.func_name))
                 already_complained.add(func)
             return func(*args, **kwargs)
         return inner
@@ -870,7 +871,7 @@ class Loader(object):
 
     @deprecated('find_relevant_relocations')
     def find_symbol_got_entry(self, symbol):
-        return self.find_relevant_relocations(symbol).next()
+        return next(self.find_relevant_relocations(symbol))
 
     @property
     @deprecated('main_object')

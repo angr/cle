@@ -34,8 +34,8 @@ def test_mipsel():
     # nose.tools.assert_equal(addr, sproc_addr)
     # TODO: Get the right version of uClibc and devise a test that doesn't use angr
 
-    ioctl = ld.find_relevant_relocations("ioctl").next()
-    setsockopt = ld.find_relevant_relocations("setsockopt").next()
+    ioctl = next(ld.find_relevant_relocations("ioctl"))
+    setsockopt = next(ld.find_relevant_relocations("setsockopt"))
 
     nose.tools.assert_equal(ioctl.rebased_addr, 4494300)
     nose.tools.assert_equal(setsockopt.rebased_addr, 4494112)

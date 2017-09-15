@@ -1,3 +1,4 @@
+from __future__ import print_function
 import logging
 from ..address_translator import AT
 
@@ -84,7 +85,7 @@ class Relocation(object):
     @property
     def addr(self):
         if not Relocation.warned_addr:
-            print "\x1b[31;1mDeprecation warning: Relocation.addr is ambiguous, please use relative_addr, linked_addr, or rebased_addr\x1b[0m"
+            print("\x1b[31;1mDeprecation warning: Relocation.addr is ambiguous, please use relative_addr, linked_addr, or rebased_addr\x1b[0m")
             Relocation.warned_addr = True
         return self.linked_addr
 
