@@ -33,6 +33,7 @@ class Blob(Backend):
         self._max_addr = 0
         self._min_addr = 2**64
         self.linked_base = kwargs.get('custom_base_addr', self.linked_base)
+        self.mapped_base = self.linked_base
 
         self.os = 'unknown'
 
@@ -47,7 +48,7 @@ class Blob(Backend):
                 pass
             else:
                 self.binary_stream.seek(0, 2)
-                segments = [(0, 0, self.binary_stream.tell())]
+                segments = [(0, self.linked_base, self.binary_stream.tell())]
 
         for file_offset, mem_addr, size in segments:
             self._load(file_offset, mem_addr, size)
@@ -71,7 +72,7 @@ class Blob(Backend):
 
         self.binary_stream.seek(file_offset)
         string = self.binary_stream.read(size)
-        self.memory.add_backer(mem_addr, string)
+        self.memory.add_backer(mem_addr - self.linked_base, string)
         self._max_addr = max(len(string) + mem_addr, self._max_addr)
         self._min_addr = min(mem_addr, self._min_addr)
 
