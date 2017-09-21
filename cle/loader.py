@@ -87,7 +87,7 @@ class Loader(object):
             self._main_binary_path = os.path.realpath(str(main_binary))
             self._main_binary_stream = None
         self._auto_load_libs = auto_load_libs
-        self._satisfied_deps = dict((x, None) for x in skip_libs)
+        self._satisfied_deps = dict((x, False) for x in skip_libs)
         self._main_opts = {} if main_opts is None else main_opts
         self._lib_opts = {} if lib_opts is None else lib_opts
         self._custom_ld_path = [custom_ld_path] if type(custom_ld_path) in (str, unicode) else custom_ld_path
@@ -284,6 +284,8 @@ class Loader(object):
                 return self._satisfied_deps[ident]
             if ident in extra_idents:
                 return extra_idents[ident]
+
+        return None
 
     def find_object_containing(self, addr):
         """
