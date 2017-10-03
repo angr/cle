@@ -290,9 +290,9 @@ class ELF(MetaELF):
             l.error("ELF file %s is loading a segment which is not page-aligned... do you need to change the page size?", self.binary)
 
         if (ph.p_vaddr - ph.p_offset) & (ph.p_align - 1) != 0:
-            raise CLEInvalidBinaryError("ELF file %s is loading a segment with an inappropriate alignment", self.binary)
+            raise CLEInvalidBinaryError("ELF file %s is loading a segment with an inappropriate alignment" % self.binary)
         if ph.p_filesz > ph.p_memsz:
-            raise CLEInvalidBinaryError("ELF file %s is loading a segment with an inappropriate allocation", self.binary)
+            raise CLEInvalidBinaryError("ELF file %s is loading a segment with an inappropriate allocation" % self.binary)
 
         mapstart = ALIGN_DOWN(ph.p_vaddr, self.loader.page_size)
         mapend = ALIGN_UP(ph.p_vaddr + ph.p_filesz, self.loader.page_size)
