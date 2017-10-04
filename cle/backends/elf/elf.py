@@ -224,6 +224,17 @@ class ELF(MetaELF):
         else:
             raise CLEError("Bad symbol identifier: %r" % (symid,))
 
+    @property
+    def symbols(self):
+        """
+        Returns an iterator of the (known) symbols in this object.
+
+        Note that this may return a subset of all symbols in an object since it is not always possible
+        to find all available symbols. When new symbols are accessed more symbols of the object may
+        become known.
+        """
+        return self._symbol_cache.itervalues()
+
     #
     # Private Methods
     #
