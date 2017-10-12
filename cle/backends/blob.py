@@ -69,7 +69,7 @@ class Blob(Backend):
         """
         Load a segment into memory.
         """
-
+        l.error("LOL")
         self.binary_stream.seek(file_offset)
         string = self.binary_stream.read(size)
         self.memory.add_backer(mem_addr - self.linked_base, string)

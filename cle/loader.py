@@ -573,7 +573,7 @@ class Loader(object):
         This will integrate the object into the global address space, but will not perform relocations.
         """
         obj_size = obj.max_addr - obj.min_addr
-
+        l.error(hex(obj.min_addr) + " " + hex(obj.max_addr))
         if obj.pic:
             if obj._custom_base_addr is not None and self._is_range_free(obj._custom_base_addr, obj_size):
                 base_addr = obj._custom_base_addr

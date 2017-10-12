@@ -297,3 +297,4 @@ from .blob import Blob
 from .cgc import CGC, BackedCGC
 from .ihex import Hex
 from .macho import MachO
+from .autoblob import AutoBlob
