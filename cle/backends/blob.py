@@ -26,13 +26,17 @@ class Blob(Backend):
             raise CLEError("Must specify custom_arch when loading blob!")
 
         if self._custom_entry_point is None:
-            l.warning("No custom_entry_point was specified for blob, assuming 0")
+            l.warning("No custom_entry_point was specified for blob %s, assuming 0", path)
             self._custom_entry_point = 0
 
         self._entry = self._custom_entry_point
         self._max_addr = 0
         self._min_addr = 2**64
-        self.linked_base = kwargs.get('custom_base_addr', self.linked_base)
+
+        try:
+            self.linked_base = kwargs['custom_base_addr']
+        except KeyError:
+            l.warning("No custom_base_addr was specified for blob %s, assuming 0", path)
         self.mapped_base = self.linked_base
 
         self.os = 'unknown'
@@ -90,5 +94,9 @@ class Blob(Backend):
         Blobs don't support segments.
         """
         return None
+
+    @classmethod
+    def check_compatibility(cls, spec, obj): # pylint: disable=unused-argument
+        return True
 
 register_backend("blob", Blob)
