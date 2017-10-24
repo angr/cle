@@ -1,15 +1,15 @@
+import os
+import logging
+
+from . import Backend, register_backend
+from ..errors import CLEError, CLEFileNotFoundError
+
+l = logging.getLogger("cle.idabin")
+
 try:
     idalink = __import__('idalink').idalink
 except ImportError:
     idalink = None
-
-from ..errors import CLEError
-from . import Backend
-
-import logging
-l = logging.getLogger("cle.idabin")
-
-__all__ = ('IDABin',)
 
 
 class IDABin(Backend):
@@ -32,7 +32,7 @@ class IDABin(Backend):
 
         l.debug("Loading binary %s using IDA with arch %s", self.binary, processor_type)
 
-        self.ida_path = Loader._make_tmp_copy(self.binary)
+        self.ida_path = self._make_tmp_copy(self.binary)
         try:
             self.ida = idalink(self.ida_path, ida_prog=ida_prog,
                                        processor_type=processor_type).link
@@ -61,7 +61,40 @@ class IDABin(Backend):
 
         l.warning('The IDABin module is not well supported. Good luck!')
 
-    supported_filetypes = ['elf', 'pe', 'mach-o']
+    @staticmethod
+    def _make_tmp_copy(path, suffix=None):
+        """
+        Makes a copy of obj into CLE's tmp directory.
+        """
+        if not os.path.exists('/tmp/cle'):
+            os.mkdir('/tmp/cle')
+
+        if hasattr(path, 'seek') and hasattr(path, 'read'):
+            stream = path
+        else:
+            try:
+                stream = open(path, 'rb')
+            except IOError:
+                raise CLEFileNotFoundError("File %s does not exist :(. Please check that the"
+                                           " path is correct" % path)
+        bn = os.urandom(5).encode('hex')
+        if suffix is not None:
+            bn += suffix
+        dest = os.path.join('/tmp/cle', bn)
+        l.info("\t -> copy obj %s to %s", path, dest)
+
+        with open(dest, 'wb') as dest_stream:
+            while True:
+                dat = stream.read(1024 * 1024)
+                if len(dat) == 0:
+                    break
+                dest_stream.write(dat)
+
+        return dest
+
+    @staticmethod
+    def is_compatible(stream):
+        return stream == 0  # Don't use this for anything unless it's manually selected
 
     def in_which_segment(self, addr):
         """
@@ -208,7 +241,8 @@ class IDABin(Backend):
                     l.debug("\t -> has import %s - GOT entry @ 0x%x", name, addr)
         return imports
 
-    def get_min_addr(self):
+    @property
+    def min_addr(self):
         """
         Get the min address of the binary (IDA).
         """
@@ -220,7 +254,8 @@ class IDABin(Backend):
         else:
             return pm
 
-    def get_max_addr(self):
+    @property
+    def max_addr(self):
         """
         Get the max address of the binary (IDA).
         """
@@ -235,8 +270,8 @@ class IDABin(Backend):
     @property
     def entry(self):
         if self._custom_entry_point is not None:
-            return self._custom_entry_point + self.rebase_addr
-        return self.ida.idc.BeginEA() + self.rebase_addr
+            return self._custom_entry_point + self.mapped_base
+        return self.ida.idc.BeginEA() + self.mapped_base
 
     def resolve_import_dirty(self, sym, new_val):
         """
@@ -338,4 +373,4 @@ class IDABin(Backend):
         # IDA 6.9 segfaults when loading ppc64 abiv1 binaries so....
         return False
 
-from ..loader import Loader
+register_backend("idabin", IDABin)

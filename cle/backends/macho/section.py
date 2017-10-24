@@ -11,17 +11,18 @@ ATTRIBUTES_MASK = 0xffffff00
 class MachOSection(Region):
     """
     Mach-O Section, only defined within the context of a Mach-O Segment.
-    offset is the offset into the file the region starts
-    vaddr (or just addr) is the virtual address
-    filesize (or just size) is the size of the region in the file
-    memsize (or vsize) is the size of the region when loaded into memory
-    segname is the corresponding segment's name without padding
-    sectname is the section's name without padding
-    align is the sections alignment as a power of 2
-    reloff is the file offset to the section's relocation entries
-    nreloc is the number of relocation entries for this section
-    flags is a bit vector containing per-section flags
-    r1 and r2 are values for the reserved1 and reserved2 fields respectively
+
+        - offset is the offset into the file the region starts
+        - vaddr (or just addr) is the virtual address
+        - filesize (or just size) is the size of the region in the file
+        - memsize (or vsize) is the size of the region when loaded into memory
+        - segname is the corresponding segment's name without padding
+        - sectname is the section's name without padding
+        - align is the sections alignment as a power of 2
+        - reloff is the file offset to the section's relocation entries
+        - nreloc is the number of relocation entries for this section
+        - flags is a bit vector containing per-section flags
+        - r1 and r2 are values for the reserved1 and reserved2 fields respectively
     """
 
     def __init__(self, offset, vaddr, size, vsize, segname, sectname, align, reloff, nreloc, flags, r1, r2):
