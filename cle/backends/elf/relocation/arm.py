@@ -68,7 +68,7 @@ class R_ARM_CALL(ELFReloc):
 
         self.owner_obj.memory.write_addr_at(self.relative_addr, result)
         l.debug("%s relocated as R_ARM_CALL with new instruction: %#x", self.symbol.name, result)
-        return True
+        return result
 
 class R_ARM_PREL31(ELFReloc):
     """
