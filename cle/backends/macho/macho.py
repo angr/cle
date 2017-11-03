@@ -300,6 +300,7 @@ class MachO(Backend):
             l.info("Found weak binding blob. According to current state of knowledge, weak binding "
                    "is only sensible if multiple binaries are involved and is thus skipped.")
 
+        self.binding_done=True
 
     def _parse_exports(self):
         """
