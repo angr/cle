@@ -8,7 +8,6 @@ import sys
 import cStringIO
 import archinfo
 
-from .symbol import SYMBOL_TYPE_SECT
 from .section import MachOSection
 from .symbol import MachOSymbol
 from .segment import MachOSegment
@@ -19,7 +18,7 @@ from ...errors import CLEInvalidBinaryError, CLECompatibilityError, CLEOperation
 import logging
 l = logging.getLogger('cle.backends.macho')
 
-__all__ = ('MachO', 'MachOSection', 'MachOSegment','BindingError')
+__all__ = ('MachO', 'MachOSection', 'MachOSegment')
 
 
 
