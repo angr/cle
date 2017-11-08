@@ -30,7 +30,7 @@ class Clemory(object):
         :param start:   The address where the backer should be loaded.
         :param data:    The backer itself. Can be either a string or another :class:`Clemory`.
         """
-        if not isinstance(data, (str, Clemory)):
+        if not isinstance(data, (bytes, unicode, Clemory)):
             raise TypeError("Data must be a string or a Clemory")
         if start in self:
             raise ValueError("Address %#x is already backed!" % start)
@@ -40,7 +40,7 @@ class Clemory(object):
         self._needs_flattening_personal = True
 
     def update_backer(self, start, data):
-        if not isinstance(data, (str, Clemory)):
+        if not isinstance(data, (bytes, unicode, Clemory)):
             raise TypeError("Data must be a string or a Clemory")
         for i, (oldstart, _) in enumerate(self._backers):
             if oldstart == start:
@@ -61,7 +61,7 @@ class Clemory(object):
 
     def __iter__(self):
         for start, string in self._backers:
-            if isinstance(string, str):
+            if isinstance(string, (bytes, unicode)):
                 for x in xrange(len(string)):
                     yield start + x
             else:
@@ -76,7 +76,7 @@ class Clemory(object):
             return self._updates[k]
         else:
             for start, data in self._backers:
-                if isinstance(data, str):
+                if isinstance(data, (bytes, unicode)):
                     if 0 <= k - start < len(data):
                         return data[k - start]
                 elif isinstance(data, Clemory):
@@ -203,8 +203,10 @@ class Clemory(object):
     def _stride_repr(self):
         out = []
         for start, data in self._backers:
-            if isinstance(data, str):
+            if isinstance(data, bytes):
                 out.append((start, bytearray(data)))
+            elif isinstance(data, unicode):
+                out.append((start, map(ord, data)))
             else:
                 out += map(lambda (substart, subdata), start=start: (substart+start, subdata), data._stride_repr)
         for key, val in self._updates.iteritems():
@@ -221,7 +223,7 @@ class Clemory(object):
         """
         Returns a representation of memory in a list of (start, end, data) where data is a string.
         """
-        return map(lambda (start, bytearr): (start, start+len(bytearr), str(bytearr)), self._stride_repr)
+        return map(lambda (start, bytearr): (start, start+len(bytearr), str(bytearr) if type(bytearr) is bytearray else bytearr), self._stride_repr)
 
     def seek(self, value):
         """
