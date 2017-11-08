@@ -46,7 +46,7 @@ class Blob(Backend):
                 l.error("You can't specify both custom_offset and segments. Taking only the segments data")
             else:
                 self.binary_stream.seek(0, 2)
-                segments = [(custom_offset, 0, self.binary_stream.tell() - custom_offset)]
+                segments = [(custom_offset, self.linked_base, self.binary_stream.tell() - custom_offset)]
         else:
             if segments is not None:
                 pass
