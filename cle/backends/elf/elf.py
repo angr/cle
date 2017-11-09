@@ -404,6 +404,8 @@ class ELF(MetaELF):
         if self._dynamic and 'DT_STRTAB' in self._dynamic:
             fakestrtabheader = {
                 'sh_offset': AT.from_lva(self._dynamic['DT_STRTAB'], self).to_rva(),
+                'sh_size': 0,
+                'sh_addralign': 0,
                 'sh_flags': 0
             }
             self.strtab = elffile.StringTableSection(fakestrtabheader, 'strtab_cle', self.reader)
@@ -412,6 +414,7 @@ class ELF(MetaELF):
                     'sh_offset': AT.from_lva(self._dynamic['DT_SYMTAB'], self).to_rva(),
                     'sh_entsize': self._dynamic['DT_SYMENT'],
                     'sh_size': 0,
+                    'sh_addralign': 0,
                     'sh_flags': 0
                 } # bogus size: no iteration allowed
                 self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.reader, self.strtab)
@@ -465,6 +468,8 @@ class ELF(MetaELF):
             # make our own string table
             fakestrtabheader = {
                 'sh_offset': AT.from_lva(self._dynamic['DT_STRTAB'], self).to_rva(),
+                'sh_size': 0,
+                'sh_addralign': 0,
                 'sh_flags': 0
             }
             self.strtab = elffile.StringTableSection(fakestrtabheader, 'strtab_cle', self.reader)
@@ -483,6 +488,7 @@ class ELF(MetaELF):
                     'sh_offset': AT.from_lva(self._dynamic['DT_SYMTAB'], self).to_rva(),
                     'sh_entsize': self._dynamic['DT_SYMENT'],
                     'sh_size': 0,
+                    'sh_addralign': 0,
                     'sh_flags': 0
                 } # bogus size: no iteration allowed
                 self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.reader, self.strtab)
@@ -535,6 +541,7 @@ class ELF(MetaELF):
                         'sh_type': 'SHT_' + self.rela_type,
                         'sh_entsize': relentsz,
                         'sh_size': relsz,
+                        'sh_addralign': 0,
                         'sh_flags': 0
                     }
                     readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self.reader)
@@ -551,6 +558,7 @@ class ELF(MetaELF):
                         'sh_type': 'SHT_' + self.rela_type,
                         'sh_entsize': relentsz,
                         'sh_size': jmprelsz,
+                        'sh_addralign': 0,
                         'sh_flags': 0
                     }
                     readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.reader)
