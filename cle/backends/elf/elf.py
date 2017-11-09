@@ -405,14 +405,14 @@ class ELF(MetaELF):
             fakestrtabheader = {
                 'sh_offset': AT.from_lva(self._dynamic['DT_STRTAB'], self).to_rva()
             }
-            self.strtab = elffile.StringTableSection(fakestrtabheader, 'strtab_cle', self.memory)
+            self.strtab = elffile.StringTableSection(fakestrtabheader, 'strtab_cle', self.reader)
             if 'DT_SYMTAB' in self._dynamic and 'DT_SYMENT' in self._dynamic:
                 fakesymtabheader = {
                     'sh_offset': AT.from_lva(self._dynamic['DT_SYMTAB'], self).to_rva(),
                     'sh_entsize': self._dynamic['DT_SYMENT'],
                     'sh_size': 0
                 } # bogus size: no iteration allowed
-                self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.memory, self.reader, self.strtab)
+                self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.reader, self.strtab)
                 if 'DT_GNU_HASH' in self._dynamic:
                     self.hashtable = GNUHashTable(self.dynsym, self.memory,
                                                   AT.from_lva(self._dynamic['DT_GNU_HASH'], self).to_rva(), self.arch)
@@ -464,7 +464,7 @@ class ELF(MetaELF):
             fakestrtabheader = {
                 'sh_offset': AT.from_lva(self._dynamic['DT_STRTAB'], self).to_rva()
             }
-            self.strtab = elffile.StringTableSection(fakestrtabheader, 'strtab_cle', self.memory)
+            self.strtab = elffile.StringTableSection(fakestrtabheader, 'strtab_cle', self.reader)
 
             # get the list of strings that are the required shared libraries
             self.deps = map(self.strtab.get_string, self.deps)
@@ -481,7 +481,7 @@ class ELF(MetaELF):
                     'sh_entsize': self._dynamic['DT_SYMENT'],
                     'sh_size': 0
                 } # bogus size: no iteration allowed
-                self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.memory, self.reader, self.strtab)
+                self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.reader, self.strtab)
 
                 # set up the hash table, prefering the gnu hash section to the old hash section
                 # the hash table lets you get any symbol given its name
@@ -532,7 +532,7 @@ class ELF(MetaELF):
                         'sh_entsize': relentsz,
                         'sh_size': relsz
                     }
-                    readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self.memory, self.reader)
+                    readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self.reader)
                     self.__register_relocs(readelf_relocsec)
 
                 # try to parse relocations out of a table of type DT_JMPREL
@@ -547,7 +547,7 @@ class ELF(MetaELF):
                         'sh_entsize': relentsz,
                         'sh_size': jmprelsz
                     }
-                    readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.memory, self.reader)
+                    readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.reader)
                     self.jmprel = OrderedDict((reloc.symbol.name, reloc) for reloc in self.__register_relocs(readelf_jmprelsec) if reloc.symbol.name != '')
 
     def __register_relocs(self, section):
