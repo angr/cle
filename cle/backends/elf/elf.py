@@ -403,14 +403,16 @@ class ELF(MetaELF):
         self.reader = elffile.ELFFile(self.binary_stream)
         if self._dynamic and 'DT_STRTAB' in self._dynamic:
             fakestrtabheader = {
-                'sh_offset': AT.from_lva(self._dynamic['DT_STRTAB'], self).to_rva()
+                'sh_offset': AT.from_lva(self._dynamic['DT_STRTAB'], self).to_rva(),
+                'sh_flags': 0
             }
             self.strtab = elffile.StringTableSection(fakestrtabheader, 'strtab_cle', self.reader)
             if 'DT_SYMTAB' in self._dynamic and 'DT_SYMENT' in self._dynamic:
                 fakesymtabheader = {
                     'sh_offset': AT.from_lva(self._dynamic['DT_SYMTAB'], self).to_rva(),
                     'sh_entsize': self._dynamic['DT_SYMENT'],
-                    'sh_size': 0
+                    'sh_size': 0,
+                    'sh_flags': 0
                 } # bogus size: no iteration allowed
                 self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.reader, self.strtab)
                 if 'DT_GNU_HASH' in self._dynamic:
@@ -462,7 +464,8 @@ class ELF(MetaELF):
             # To handle binaries without section headers, we need to hack around pyreadelf's assumptions
             # make our own string table
             fakestrtabheader = {
-                'sh_offset': AT.from_lva(self._dynamic['DT_STRTAB'], self).to_rva()
+                'sh_offset': AT.from_lva(self._dynamic['DT_STRTAB'], self).to_rva(),
+                'sh_flags': 0
             }
             self.strtab = elffile.StringTableSection(fakestrtabheader, 'strtab_cle', self.reader)
 
@@ -479,7 +482,8 @@ class ELF(MetaELF):
                 fakesymtabheader = {
                     'sh_offset': AT.from_lva(self._dynamic['DT_SYMTAB'], self).to_rva(),
                     'sh_entsize': self._dynamic['DT_SYMENT'],
-                    'sh_size': 0
+                    'sh_size': 0,
+                    'sh_flags': 0
                 } # bogus size: no iteration allowed
                 self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.reader, self.strtab)
 
@@ -530,7 +534,8 @@ class ELF(MetaELF):
                         'sh_offset': reloffset,
                         'sh_type': 'SHT_' + self.rela_type,
                         'sh_entsize': relentsz,
-                        'sh_size': relsz
+                        'sh_size': relsz,
+                        'sh_flags': 0
                     }
                     readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self.reader)
                     self.__register_relocs(readelf_relocsec)
@@ -545,7 +550,8 @@ class ELF(MetaELF):
                         'sh_offset': jmpreloffset,
                         'sh_type': 'SHT_' + self.rela_type,
                         'sh_entsize': relentsz,
-                        'sh_size': jmprelsz
+                        'sh_size': jmprelsz,
+                        'sh_flags': 0
                     }
                     readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.reader)
                     self.jmprel = OrderedDict((reloc.symbol.name, reloc) for reloc in self.__register_relocs(readelf_jmprelsec) if reloc.symbol.name != '')
