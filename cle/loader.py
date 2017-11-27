@@ -7,7 +7,7 @@ from collections import OrderedDict
 
 from .address_translator import AT
 from .utils import ALIGN_UP, key_bisect_insort_left, key_bisect_floor_key
-
+from .backends import lookup_backend
 try:
     import claripy
 except ImportError:
@@ -816,7 +816,6 @@ class Loader(object):
         """
         Returns the correct loader for the file at `spec`.
         Returns None if it's a blob or some unknown type.
-        TODO: Implement some binwalk-like thing to carve up blobs automatically
         """
 
         try:
@@ -825,18 +824,26 @@ class Loader(object):
             pass
 
         with stream_or_path(spec) as stream:
-            for rear in ALL_BACKENDS.values():
-                if rear.is_compatible(stream):
+            for _, rear in ALL_BACKENDS:
+                if rear.default and rear.is_compatible(stream):
                     return rear
 
         return None
 
     @staticmethod
     def _backend_resolver(backend, default=None):
+        """
+        Convert either a string or class into a Backend class
+        (used for handling user-provided params)
+        :param backend: str or class object
+        :param default: A default
+        :return:
+        """
         if isinstance(backend, type) and issubclass(backend, Backend):
             return backend
-        elif backend in ALL_BACKENDS:
-            return ALL_BACKENDS[backend]
+        rear = lookup_backend(backend)
+        if rear:
+            return rear
         elif backend is None:
             return default
         else:

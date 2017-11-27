@@ -18,6 +18,8 @@ class Backend(object):
 
     An alternate interface to this constructor exists as the static method :meth:`cle.loader.Loader.load_object`
 
+    :cvar default:          Whether this backend is a default backend.  This includes it for consideration
+                            during automatic backend selection.
     :ivar binary:           The path to the file this object is loaded from
     :ivar is_main_bin:      Whether this binary is loaded as the main executable
     :ivar segments:         A listing of all the loaded segments in this file
@@ -41,6 +43,8 @@ class Backend(object):
     :ivar bool execstack:   Whether this executable has an executable stack
     :ivar str provides:     The name of the shared library dependancy that this object resolves
     """
+
+    default = True
 
     def __init__(self,
             binary,
@@ -281,14 +285,36 @@ class Backend(object):
         """
         return False
 
-ALL_BACKENDS = dict()
+ALL_BACKENDS = list()
 
 
-def register_backend(name, cls):
+def register_backend(name, cls, priority=-1):
+    """
+    Register a backend with CLE.
+
+    When a binary is loaded by Loader, the set of registered backends will be tried until one works.
+    Note that they will be tried _in_order_.  This order can be controlled by the priority parameter.
+    NOTE: Whether your backend is tried automatically or not is controlled by the Backend.default_backend parameter.  You
+    can opt out of automatically using your backend on loads by setting this to False.
+    (this allows for backends where autodetection is difficult to still be registered, or for use in a frontend)
+
+    :param name: The string name of this backend.
+    :param cls: The backend's class object.
+    :param priority: Optionally control where the backend sits in the list.
+    :return:
+    """
     if not hasattr(cls, 'is_compatible'):
         raise TypeError("Backend needs an is_compatible() method")
-    ALL_BACKENDS.update({name: cls})
+    # Python is weird.
+    if priority == -1:
+        priority = len(ALL_BACKENDS)
+    ALL_BACKENDS.insert(priority, (name, cls))
 
+def lookup_backend(name):
+    for rname, rear in ALL_BACKENDS:
+        if rname == name:
+            return rear
+    return None
 
 from .elf import ELF, ELFCore, MetaELF
 from .pe import PE
