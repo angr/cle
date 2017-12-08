@@ -50,6 +50,7 @@ class Backend(object):
             custom_entry_point=None,
             custom_arch=None,
             custom_base_addr=None,
+            has_memory=True,
             **kwargs):
         """
         :param binary:          The path to the binary to load
@@ -69,6 +70,7 @@ class Backend(object):
             l.warning("Unused kwargs for loading binary %s: %s", self.binary, ', '.join(kwargs.iterkeys()))
 
         self.is_main_bin = is_main_bin
+        self.has_memory = has_memory
         self.loader = loader
         self._entry = None
         self._segments = Regions() # List of segments
@@ -297,3 +299,4 @@ from .blob import Blob
 from .cgc import CGC, BackedCGC
 from .ihex import Hex
 from .macho import MachO
+from .soot import Soot
