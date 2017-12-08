@@ -310,25 +310,30 @@ class Loader(object):
         else:
             raise CLEError('Unsupported memory type %s' % type(obj.memory))
 
-    def find_symbol(self, name):
+    def find_symbol(self, thing):
         """
         Search for the symbol with the given name or address.
 
-        :param name:        Either the name or address of a symbol to look up
+        :param thing:        Either the name or address of a symbol to look up
 
         :returns:           A :class:`cle.backends.Symbol` object if found, None otherwise.
         """
-        if type(name) in (int, long):
-            so = self.find_object_containing(name)
+        if type(thing) is archinfo.arch_soot.SootAddressDescriptor:
+            # Soot address
+            return thing.method.fullname
+        elif type(thing) in (int, long):
+            # address
+            so = self.find_object_containing(thing)
             if so is not None:
-                addr = AT.from_mva(name, so).to_rva()
+                addr = AT.from_mva(thing, so).to_rva()
                 if addr in so._symbols_by_addr:
                     return so._symbols_by_addr[addr]
         else:
+            # name
             for so in self.all_objects:
                 if so is self._extern_object:
                     continue
-                sym = so.get_symbol(name)
+                sym = so.get_symbol(thing)
                 if sym is None:
                     continue
 
@@ -343,7 +348,7 @@ class Loader(object):
                     return sym
 
             if self._extern_object is not None:
-                sym = self.extern_object.get_symbol(name)
+                sym = self.extern_object.get_symbol(thing)
                 if sym is not None:
                     return sym
 
@@ -596,9 +601,10 @@ class Loader(object):
         assert obj.min_addr < obj.max_addr
         assert obj.mapped_base >= 0
 
-        l.info("Mapping %s at %#x", obj.binary, base_addr)
-        self.memory.add_backer(base_addr, obj.memory)
-        key_bisect_insort_left(self.all_objects, obj, keyfunc=lambda o: o.min_addr)
+        if obj.has_memory:
+            l.info("Mapping %s at %#x", obj.binary, base_addr)
+            self.memory.add_backer(base_addr, obj.memory)
+            key_bisect_insort_left(self.all_objects, obj, keyfunc=lambda o: o.min_addr)
         obj._is_mapped = True
 
     def _relocate_object(self, obj):
