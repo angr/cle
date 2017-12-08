@@ -8,7 +8,6 @@ import sys
 import cStringIO
 import archinfo
 
-from .symbol import SYMBOL_TYPE_SECT
 from .section import MachOSection
 from .symbol import MachOSymbol
 from .segment import MachOSegment
@@ -18,6 +17,9 @@ from ...errors import CLEInvalidBinaryError, CLECompatibilityError, CLEOperation
 
 import logging
 l = logging.getLogger('cle.backends.macho')
+
+__all__ = ('MachO', 'MachOSection', 'MachOSegment')
+
 
 
 class MachO(Backend):
@@ -51,6 +53,7 @@ class MachO(Backend):
         self.flags = None  # binary flags
         self.sizeofcmds = None  # total size of load commands
         self.imported_libraries = ["Self"]  # ordinal 0 = SELF_LIBRARY_ORDINAL
+        self.sections_by_ordinal = [None] # ordinal 0 = None == Self
         self.exports_by_name = {}  # note exports is currently a raw and unprocessed datastructure.
         # If we intend to use it we must first upgrade it to a class or somesuch
         self.entryoff = None
@@ -64,6 +67,9 @@ class MachO(Backend):
         self.binding_blob = None  # binding information
         self.lazy_binding_blob = None  # lazy binding information
         self.weak_binding_blob = None  # weak binidng information
+        self.symtab_offset = None # offset to the symtab
+        self.symtab_nsyms = None # number of symbols in the symtab
+        self.binding_done = False # if true binding was already done and do_bind will be a no-op
 
         # Begin parsing the file
         try:
@@ -144,7 +150,8 @@ class MachO(Backend):
 
         # File is read, begin populating internal fields
         self._resolve_entry()
-        self._resolve_symbols()
+        self._parse_exports()
+        self._parse_symbols(binary_file)
         self._parse_mod_funcs()
 
     @staticmethod
@@ -278,66 +285,14 @@ class MachO(Backend):
                 l.debug("Not a mach-o file")
                 raise CLECompatibilityError()
 
-    def _resolve_symbols(self):
-        """This method resolves all symbols and sets their missing attributes"""
-        # TODO: Should attempt to fill self.imports in accordance with angr's expectations
-        # note: no rebasing support
 
-        # trigger parsing of exports
-        self._parse_exports(self.export_blob)
-
-        # Set up search tables for searching
-        section_tab = [None]  # first section is NO_SECT
-        for seg in self.segments:
-            section_tab.extend(seg.sections)
-
-        # A new memory area is created to hold external (undefined) symbols
-        ext_symbol_start = 0xff00000000000000 if self.arch.bits == 64 else 0xff000000
-        ext_symbol_end = ext_symbol_start
-
-        # Update symbol properties
-        for sym in self.symbols:
-
-            sym._is_export = sym.name in self.exports_by_name
-
-            if sym.is_stab:  # stab symbols are debugging information - don't care!
-                l.debug("Symbol %r is debugging information, skipping", sym.name)
-                continue
-
-            if sym.name in self.exports_by_name:
-                l.debug("Symbol %r is an export", sym.name)
-                sym.is_export = True
-            else:
-                l.debug("Symbol %r is not an export", sym.name)
-                sym.is_export = False
-
-            if sym.is_common:
-                l.debug("Symbol %r is common, updating size", sym.name)
-                sym.size = sym.n_value
-
-            if sym.sym_type == SYMBOL_TYPE_SECT:
-                l.debug("Symbol %r is N_SECT, updating names and address", sym.name)
-                sec = section_tab[sym.n_sect]
-                if sec is not None:
-                    sym.segment_name = sec.segname
-                    sym.section_name = sec.sectname
-
-                sym.relative_addr = sym.n_value
-
-            elif sym.is_import():
-                l.debug("Symbol %r is imported!", sym.name)
-                sym.library_name = self.imported_libraries[sym.library_ordinal]
-
-            # if the symbol has no address we assign one from the special memory area
-            if sym.relative_addr is None:
-                sym.relative_addr = ext_symbol_end
-                ext_symbol_end += sym.size
-                l.debug("Assigning address %#x to symbol %r", sym.relative_addr, sym.name)
-
-        # Add special memory area for symbols:
-        self.memory.add_backer(ext_symbol_start, "\x00" * (ext_symbol_end - ext_symbol_start))
-
+    def do_binding(self):
         # Perform binding
+
+        if self.binding_done:
+            l.warning("Binding already done, reset self.binding_done to override if you know what you are doing")
+            return
+
         bh = BindingHelper(self)  # TODO: Make this configurable
         bh.do_normal_bind(self.binding_blob)
         bh.do_lazy_bind(self.lazy_binding_blob)
@@ -345,22 +300,14 @@ class MachO(Backend):
             l.info("Found weak binding blob. According to current state of knowledge, weak binding "
                    "is only sensible if multiple binaries are involved and is thus skipped.")
 
-        # Add to symbols_by_addr
-        # All (resolvable) symbols should be resolved by now
-        for sym in self.symbols:
-            if not sym.is_stab:
-                if sym.relative_addr is not None:
-                    self._symbols_by_addr[sym.relative_addr] = sym
-                else:
-                    # todo: this might be worth an error
-                    l.warn("Non-stab symbol %r @ %#x has no address.", sym.name, sym.symtab_offset)
+        self.binding_done=True
 
-    def _parse_exports(self, blob):
+    def _parse_exports(self):
         """
         Parses the exports trie
         """
         l.debug("Parsing exports")
-
+        blob = self.export_blob
         if blob is None:
             l.debug("Parsing exports done: No exports found")
             return
@@ -455,7 +402,7 @@ class MachO(Backend):
         try:
             arch_lookup = {
             # contains all supported architectures. Note that apple deviates from standard ABI, see Apple docs
-                0x100000c: "aarch",
+                0x100000c: "aarch64",
                 0xc: "arm",
                 0x7: "x86",
                 0x1000007: "x64",
@@ -557,12 +504,15 @@ class MachO(Backend):
         """
         (_, _, roff, rsize, boff, bsize, wboff, wbsize, lboff, lbsize, eoff, esize) = self._unpack("12I", f, offset, 48)
 
+        def blob_or_None(f,off,size): # helper
+            return self._read(f,off,size) if off != 0 and size != 0 else None
+
         # Extract data blobs
-        self.rebase_blob = self._read(f, roff, rsize)
-        self.binding_blob = self._read(f, boff, bsize)
-        self.weak_binding_blob = self._read(f, wboff, wbsize)
-        self.lazy_binding_blob = self._read(f, lboff, lbsize)
-        self.export_blob = self._read(f, eoff, esize)
+        self.rebase_blob = blob_or_None(f, roff, rsize)
+        self.binding_blob = blob_or_None(f, boff, bsize)
+        self.weak_binding_blob = blob_or_None(f, wboff, wbsize)
+        self.lazy_binding_blob = blob_or_None(f, lboff, lbsize)
+        self.export_blob = blob_or_None(f, eoff, esize)
 
     def _load_symtab(self, f, offset):
         """
@@ -577,6 +527,12 @@ class MachO(Backend):
         # load string table
         self.strtab = self._read(f, stroff, strsize)
 
+        # store symtab info
+        self.symtab_nsyms = nsyms
+        self.symtab_offset = symoff
+
+    def _parse_symbols(self,f):
+
         # parse the symbol entries and create (unresolved) MachOSymbols.
         if self.arch.bits == 64:
             packstr = "I2BHQ"
@@ -586,15 +542,16 @@ class MachO(Backend):
             structsize = 12
 
         self.symbols = []  # we cannot yet fill symbols_by_addr
-        for i in range(0, nsyms):
-            offset = (i * structsize) + symoff
+        for i in range(0, self.symtab_nsyms):
+            offset_in_symtab = (i * structsize)
+            offset = offset_in_symtab+ self.symtab_offset
             (n_strx, n_type, n_sect, n_desc, n_value) = self._unpack(packstr, f, offset, structsize)
             l.debug("Adding symbol # %d @ %#x: %s,%s,%s,%s,%s",
                     i, offset,
                     n_strx, n_type, n_sect, n_desc, n_value)
-            self.symbols.append(MachOSymbol(
-                    self, self.get_string(n_strx) if n_strx != 0 else "",
-                    None, offset, n_type, n_sect, n_desc, n_value))
+            sym = MachOSymbol(
+                    self, offset_in_symtab,n_strx, n_type, n_sect, n_desc, n_value)
+            self.symbols.append(sym)
 
     def get_string(self, start):
         """Loads a string from the string table"""
@@ -677,6 +634,9 @@ class MachO(Backend):
 
             # Store section
             seg.sections.append(sec)
+
+        # add to sections_by_ordinal
+        self.sections_by_ordinal.extend(seg.sections)
 
         if segname == "__PAGEZERO":
             # TODO: What we actually need at this point is some sort of smart on-demand string or memory

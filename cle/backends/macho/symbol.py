@@ -15,11 +15,6 @@ SYMBOL_TYPE_SECT = 0xe
 SYMBOL_TYPE_PBUD = 0xc
 SYMBOL_TYPE_INDIR = 0xa
 
-TYPE_LOOKUP = {
-        SYMBOL_TYPE_UNDEF: Symbol.TYPE_NONE,
-        SYMBOL_TYPE_SECT: Symbol.TYPE_SECTION
-}
-
 LIBRARY_ORDINAL_SELF = 0x0
 LIBRARY_ORDINAL_MAX = 0xfd
 LIBRARY_ORDINAL_OLD_MAX = 0xfe
@@ -30,50 +25,91 @@ LIBRARY_ORDINAL_EXECUTABLE = 0xff
 class MachOSymbol(Symbol):
     """
     Base class for Mach-O symbols. Made to be (somewhat) compatible with backends.Symbol.
-    Note that ELF-specific fields from backends.Symbol are not used and semantics of the remaining fields differs in
+    Note that ELF-specific fields from backends.Symbol are not used and semantics of the remaining fields differ in
     many cases. As a result most stock functionality from Angr and related libraries WILL NOT WORK PROPERLY on
     MachOSymbol.
 
     Much of the code below is based on heuristics as official documentation is sparse, consider yourself warned!
     """
 
-    def is_import(self):
-        return self.sym_type == SYMBOL_TYPE_UNDEF and self.library_ordinal != LIBRARY_ORDINAL_SELF
 
-    def is_export(self):
-        return self._is_export
+
+    def __init__(self, owner, symtab_offset,n_strx, n_type, n_sect, n_desc, n_value):
+        # Note 1: Setting size = owner.arch.bytes has been directly taken over from the PE backend,
+        # there is no meaningful definition of a symbol's size so I assume the size of an address counts here
+        # Note 2: relative_addr will be the address of a symbols __got or __nl_symbol_ptr entry, not the address of a stub
+        # pointing to the symobl.
+        # Stub addresses must be obtained through some sort of higher-level analysis
+        # Note 3: A symbols name may not be unique!
+        # Note 4: The symbol type of all symbols is Symbol.TYPE_OTHER because without docs I was unable to problerly map Mach-O symbol types to CLE's notion of a symbol type
+
+        # store the mach-o properties, all these are raw values straight from the binary
+        self.symtab_offset = symtab_offset # offset from the start of the symbol table
+        self.n_type = n_type # n_type field from the symbol table
+        self.n_sect = n_sect # n_sect field from the symbol table
+        self.n_desc = n_desc # n_desc  field from the symbol table
+        self.n_value = n_value  # n_value field from the symbol table.
+        self.n_strx = n_strx # index into the string table
+
+
+        # additional properties
+        self.bind_xrefs = []  # XREFs discovered during binding of the symbol
+        self.symbol_stubs = []  # starting addresses of stubs that resolve to this symbol - note that this must be obtained through an analysis of some sort
+
+        # now we may call super
+        # however we cannot access any properties yet that would touch superclass-initialized attributes
+        # so we have to repeat some work
+        super(MachOSymbol, self).__init__(owner,
+               owner.get_string(n_strx) if n_strx != 0 else "",
+                self.value,
+                owner.arch.bytes,
+                Symbol.TYPE_OTHER)
+
+        # set further fields
+        self.is_import = self.sym_type == SYMBOL_TYPE_UNDEF and self.is_external and self.library_ordinal != LIBRARY_ORDINAL_SELF
+        self.is_export = self.name in self.owner_obj.exports_by_name
+
+    @property
+    def library_name(self):
+        if self.is_import:
+            return self.owner_obj.imported_libraries[self.library_ordinal]
+        else:
+            return None
+
+    @property
+    def segment_name(self):
+        if self.sym_type == SYMBOL_TYPE_SECT:
+            return self.owner_obj.sections_by_ordinal[self.n_sect].segname
+        else:
+            return None
+
+    @property
+    def section_name(self):
+        if self.sym_type == SYMBOL_TYPE_SECT:
+            return self.owner_obj.sections_by_ordinal[self.n_sect].sectname
+        else:
+            return None
+
+    @property
+    def value(self):
+        if self.sym_type == SYMBOL_TYPE_INDIR:
+            return 0
+        else:
+            return self.n_value
+
+    @property
+    def referenced_symbol_index(self):
+        """For indirect symbols n_value contains an index into the string table indicating the referenced
+        symbol's name"""
+        if self.sym_type == SYMBOL_TYPE_INDIR:
+            return self.n_value
+        else:
+            return None
+
 
     def is_weak(self):
         # compare https://developer.apple.com/library/mac/documentation/DeveloperTools/Conceptual/MachOTopics/1-Articles/executing_files.html
         return self.is_weak_referenced
-
-    def __init__(self, owner, name, addr, symtab_offset, macho_type, section_number, description, value, library_name=None,
-                 segment_name=None, section_name=None, is_export=None):
-
-        # Note that setting size = owner.arch.bytes has been directly taken over from the PE backend,
-        # there is no meaningful definition of a symbol's size so I assume the size of an address counts here
-        # Note also that addr will be the address of a symbols __got or __nl_symbol_ptr entry, not the address of a stub
-        # pointing to the symobl.
-        # Stub addresses must be obtained through some sort of higher-level analysis
-        # note that a symbols name may not be unique!
-        super(MachOSymbol, self).__init__(owner,
-                name,
-                addr,
-                owner.arch.bytes,
-                TYPE_LOOKUP.get(macho_type, Symbol.TYPE_OTHER))
-
-        # store the mach-o properties
-        self.symtab_offset = symtab_offset
-        self.n_type = macho_type
-        self.n_sect = section_number
-        self.n_desc = description
-        self.n_value = value  # mach-o uses this as a multi-purpose field depending on type flags and whatnot
-        self.library_name = library_name  # if this is an import this field *may* contain a string specifying the library name
-        self.segment_name = segment_name  # if this entry has a section number the associated segment name is stored here
-        self.section_name = section_name  # if this entry has a section number the associated section name is stored here
-        self._is_export = is_export  # if the symbol turns out to be an export this should be set to true or false if not. None means "Unknown"
-        self.bind_xrefs = []  # XREFs discovered during binding of the symbol
-        self.symbol_stubs = []  # starting addresses of stubs that resolve to this symbol - note that this must be obtained through an analysis of some sort
 
     def is_function(self):
         # Incompatibility to CLE
