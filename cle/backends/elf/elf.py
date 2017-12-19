@@ -80,7 +80,7 @@ class ELF(MetaELF):
         self.resolved_imports = []
 
         self.relocs = []
-        self.jmprel = {}
+        self.jmprel = OrderedDict()
 
         self._entry = self.reader.header.e_entry
         self.is_relocatable = self.reader.header.e_type == 'ET_REL'
@@ -548,9 +548,17 @@ class ELF(MetaELF):
                         'sh_size': jmprelsz
                     }
                     readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.memory, self.reader)
-                    self.jmprel = OrderedDict((reloc.symbol.name, reloc) for reloc in self.__register_relocs(readelf_jmprelsec) if reloc.symbol.name != '')
+                    self.__register_relocs(readelf_jmprelsec, force_jmprel=True)
 
-    def __register_relocs(self, section):
+    def __register_relocs(self, section, force_jmprel=False):
+        if not force_jmprel:
+            got_sec = self.reader.get_section_by_name('.got')
+            if got_sec is not None:
+                got_min = got_sec.header.sh_addr
+                got_max = got_min + got_sec.header.sh_size
+        else:
+            got_min = got_max = 0
+
         if section.header['sh_offset'] in self.__parsed_reloc_tables:
             return
         self.__parsed_reloc_tables.add(section.header['sh_offset'])
@@ -611,6 +619,11 @@ class ELF(MetaELF):
                 if reloc is not None:
                     relocs.append(reloc)
                     self.relocs.append(reloc)
+
+        for reloc in relocs:
+            if reloc.symbol.name != '' and (force_jmprel or got_min <= reloc.linked_addr < got_max):
+                self.jmprel[reloc.symbol.name] = reloc
+
         return relocs
 
     def __register_tls(self, seg_readelf):

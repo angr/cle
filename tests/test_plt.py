@@ -10,6 +10,7 @@ TESTS_ARCHES = [os.path.join('i386', 'libc.so.6'),
                 os.path.join('i386', 'fauxware'),
                 os.path.join('x86_64', 'libc.so.6'),
                 os.path.join('x86_64', 'fauxware'),
+                os.path.join('x86_64', 'true'),
                 os.path.join('armel', 'libc.so.6'),
                 os.path.join('armel', 'fauxware'),
                 os.path.join('armel', 'helloworld'),
@@ -58,6 +59,10 @@ def check_plt_entries(filename):
                                                    '__gmon_start__': 0x102f8, 'abort': 0x10304
                                                    }
                                 )
+        return
+
+    if filename == os.path.join('x86_64', 'true'):
+        nose.tools.assert_equal(ld.main_object.plt, {u'__uflow': 0x1440, u'getenv': 0x1448L, u'free': 0x1450L, u'abort': 0x1458L, u'__errno_location': 0x1460L, u'strncmp': 0x1468L, u'_exit': 0x1470L, u'__fpending': 0x1478L, u'textdomain': 0x1480L, u'fclose': 0x1488L, u'bindtextdomain': 0x1490L, u'dcgettext': 0x1498L, u'__ctype_get_mb_cur_max': 0x14a0L, u'strlen': 0x14a8L, u'__stack_chk_fail': 0x14b0L, u'mbrtowc': 0x14b8L, u'strrchr': 0x14c0L, u'lseek': 0x14c8L, u'memset': 0x14d0L, u'fscanf': 0x14d8L, u'close': 0x14e0L, u'memcmp': 0x14e8L, u'fputs_unlocked': 0x14f0L, u'calloc': 0x14f8L, u'strcmp': 0x1500L, u'memcpy': 0x1508L, u'fileno': 0x1510L, u'malloc': 0x1518L, u'fflush': 0x1520L, u'nl_langinfo': 0x1528L, u'ungetc': 0x1530L, u'__freading': 0x1538L, u'realloc': 0x1540L, u'fdopen': 0x1548L, u'setlocale': 0x1550L, u'__printf_chk': 0x1558L, u'error': 0x1560L, u'open': 0x1568L, u'fseeko': 0x1570L, u'__cxa_atexit': 0x1578L, u'exit': 0x1580L, u'fwrite': 0x1588L, u'__fprintf_chk': 0x1590L, u'mbsinit': 0x1598L, u'iswprint': 0x15a0L, u'__cxa_finalize': 0x15a8L, u'__ctype_b_loc': 0x15b0L})
         return
 
     ld.main_object._plt.pop('__gmon_start__', None)

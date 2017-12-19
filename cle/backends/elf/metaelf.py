@@ -3,9 +3,11 @@ import elftools
 import os
 
 from .. import Backend
+from ..symbol import Symbol
 from ...address_translator import AT
 from ...utils import stream_or_path
 from elftools.elf.descriptions import describe_ei_osabi
+from collections import OrderedDict
 
 __all__ = ('MetaELF',)
 
@@ -32,7 +34,7 @@ class MetaELF(Backend):
 
     def _add_plt_stub(self, name, addr, sanity_check=True):
         # addr is an LVA
-        if addr == 0: return False
+        if addr <= 0: return False
         target_addr = self.jmprel[name].linked_addr
         try:
             if sanity_check and target_addr not in [c.value for c in self._block(addr).all_constants]:
@@ -51,22 +53,27 @@ class MetaELF(Backend):
         # we sanity-check all our attempts by requiring that the block lifted at the given address
         # references the GOT slot for the symbol.
 
+        plt_sec = None
+        if '.plt' in self.sections_map:
+            plt_sec = self.sections_map['.plt']
+        if '.plt.got' in self.sections_map:
+            plt_sec = self.sections_map['.plt.got']
+        if '.MIPS.stubs' in self.sections_map:
+            plt_sec = self.sections_map['.MIPS.stubs']
+
+        self.jmprel = OrderedDict(sorted(((k, v) for k, v in self.jmprel.iteritems()), key=lambda x: x[1].linked_addr))
+        func_jmprel = OrderedDict((k, v) for k, v in self.jmprel.iteritems() if v.symbol.type not in (Symbol.TYPE_OBJECT, Symbol.TYPE_SECTION, Symbol.TYPE_OTHER))
+
         # ATTEMPT 1: some arches will just leave the plt stub addr in the import symbol
         if self.arch.name in ('ARM', 'ARMEL', 'ARMHF', 'AARCH64', 'MIPS32', 'MIPS64'):
-            plt_sec = None
-            if '.plt' in self.sections_map:
-                plt_sec = self.sections_map['.plt']
-            if '.MIPS.stubs' in self.sections_map:
-                plt_sec = self.sections_map['.MIPS.stubs']
-
-            for name, reloc in self.jmprel.iteritems():
+            for name, reloc in func_jmprel.iteritems():
                 if plt_sec is None or plt_sec.contains_addr(reloc.symbol.linked_addr):
                     self._add_plt_stub(name, reloc.symbol.linked_addr, sanity_check=plt_sec is None)
 
         # ATTEMPT 2: on intel chips the data in the got slot pre-relocation points to a lazy-resolver
         # stub immediately after the plt stub
         if self.arch.name in ('X86', 'AMD64'):
-            for name, reloc in self.jmprel.iteritems():
+            for name, reloc in func_jmprel.iteritems():
                 try:
                     self._add_plt_stub(
                         name,
@@ -84,14 +91,14 @@ class MetaELF(Backend):
         if self.arch.name in ('PPC32',):
             resolver_stubs = sorted(
                 (self.memory.read_addr_at(reloc.relative_addr), name)
-                for name, reloc in self.jmprel.iteritems()
+                for name, reloc in func_jmprel.iteritems()
             )
             if resolver_stubs:
                 stubs_table = resolver_stubs[0][0] - 16 * len(resolver_stubs)
                 for i, (_, name) in enumerate(resolver_stubs):
                     self._add_plt_stub(name, stubs_table + i*16)
 
-        if len(self._plt) == len(self.jmprel):
+        if len(self._plt) == len(func_jmprel):
             # real quick, bail out before shit hits the fan
             return
 
@@ -108,7 +115,15 @@ class MetaELF(Backend):
         tick.bailout_timer = 5
 
         def scan_forward(addr, name, push=False):
-            gotslot = self.jmprel[name].linked_addr
+            names = [name] if type(name) in (str, unicode) else name
+            def block_is_good(blk):
+                for name in names:
+                    gotslot = func_jmprel[name].linked_addr
+                    if gotslot in [c.value for c in blk.all_constants]:
+                        block_is_good.name = name
+                        return True
+                return False
+            block_is_good.name = None
 
             instruction_alignment = self.arch.instruction_alignment
             if self.arch.name in ('ARMEL', 'ARMHF'):
@@ -138,20 +153,47 @@ class MetaELF(Backend):
                         addr += instruction_alignment
                         continue
 
-                    if gotslot in [c.value for c in bb.all_constants]:
+                    if block_is_good(bb):
                         break
                     if bb.jumpkind == 'Ijk_NoDecode':
                         addr += instruction_alignment
                     else:
                         addr += bb.size
 
-                while push and gotslot in [c.value for c in self._block(addr + instruction_alignment).all_constants]:
-                    addr += instruction_alignment
-                return self._add_plt_stub(name, addr)
+                # "push" means try to increase the address as far as we can without regard for semantics
+                # the alternative is to only try to lop off nop instructions
+                if push:
+                    assert block_is_good.name is not None
+                    old_name = block_is_good.name
+                    while block_is_good(self._block(addr + instruction_alignment)) and block_is_good.name == old_name:
+                        addr += instruction_alignment
+                    block_is_good.name = old_name
+                else:
+                    cont = True
+                    while cont:
+                        cont = False
+                        seen_imark = False
+                        for stmt in bb.statements:
+                            if stmt.tag == 'Ist_IMark':
+                                if seen_imark:
+                                    # good????
+                                    bb = self._block(stmt.addr)
+                                    if block_is_good(bb):
+                                        addr = stmt.addr
+                                        cont = True
+                                    break
+                                else:
+                                    seen_imark = True
+                            elif stmt.tag == 'Ist_Put' and stmt.offset == bb.offsIP:
+                                continue
+                            else:
+                                # there's some behavior, not good
+                                break
+                return self._add_plt_stub(block_is_good.name, addr)
             except (AssertionError, KeyError, pyvex.PyVEXError):
                 return False
 
-        if not self._plt and '__libc_start_main' in self.jmprel and self.entry != 0:
+        if not self._plt and '__libc_start_main' in func_jmprel and self.entry != 0:
             # try to scan forward through control flow to find __libc_start_main!
             try:
                 last_jk = None
@@ -170,16 +212,16 @@ class MetaELF(Backend):
             except (AssertionError, KeyError, pyvex.PyVEXError):
                 pass
 
-        # if self.jmprel.keys()[0] not in self._plt:
-        if not set(self.jmprel.keys()).intersection(self._plt.keys()):
+        # if func_jmprel.keys()[0] not in self._plt:
+        if not set(func_jmprel.keys()).intersection(self._plt.keys()):
             # LAST TRY: check if we have a .plt section
-            if '.plt' not in self.sections_map:
+            if plt_sec is None:
                 # WAHP WAHP
                 return
 
-            # try to find a block that references the first GOT slot
+            # try to find a block that references ANY GOT slot
             tick.bailout_timer = 5
-            scan_forward(self.sections_map['.plt'].vaddr, self.jmprel.keys()[0], push=True)
+            scan_forward(plt_sec.vaddr, func_jmprel.keys(), push=True)
 
         if not self._plt:
             # \(_^^)/
@@ -188,10 +230,8 @@ class MetaELF(Backend):
         # if we've gotten this far there is at least one plt slot address known, guaranteed.
         plt_hitlist = [
                 (name, AT.from_rva(self._plt[name], self).to_lva() if name in self._plt else None)
-                for name in self.jmprel
+                for name in func_jmprel
             ]
-        last_good_idx = None
-        stub_size = None
 
         name, addr = plt_hitlist[0]
         if addr is None:
@@ -203,23 +243,23 @@ class MetaELF(Backend):
                 # resolved :-)
                 plt_hitlist[0] = (name, AT.from_rva(self._plt[name], self).to_lva())
 
+        next_addr = None
         for i, (name, addr) in enumerate(plt_hitlist):
+            if addr is None:
+                if next_addr is None:
+                    continue
+                tick.bailout_timer = 5
+                scan_forward(next_addr, name)
+                if name in self._plt:
+                    addr = AT.from_rva(self._plt[name], self).to_lva()
+
             if addr is not None:
-                last_good_idx = i
-                if stub_size is None:
-                    b0 = self._block(addr)
-                    stub_size = b0.size
-                    if isinstance(b0.next, pyvex.expr.Const) and b0.next.con.value == addr + b0.size:
-                        b1 = self._block(addr + b0.size)
-                        stub_size += b1.size
-                continue
-
-            if last_good_idx is None:
-                continue
-
-            tick.bailout_timer = 5
-            guess_addr = plt_hitlist[last_good_idx][1] + (i - last_good_idx) * stub_size
-            scan_forward(guess_addr, name)
+                b0 = self._block(addr)
+                stub_size = b0.size
+                if isinstance(b0.next, pyvex.expr.Const) and b0.next.con.value == addr + b0.size:
+                    b1 = self._block(addr + b0.size)
+                    stub_size += b1.size
+                next_addr = addr + stub_size
 
 
     @property
