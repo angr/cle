@@ -551,13 +551,14 @@ class ELF(MetaELF):
                     self.__register_relocs(readelf_jmprelsec, force_jmprel=True)
 
     def __register_relocs(self, section, force_jmprel=False):
+
+        got_min = got_max = 0
+
         if not force_jmprel:
             got_sec = self.reader.get_section_by_name('.got')
             if got_sec is not None:
                 got_min = got_sec.header.sh_addr
                 got_max = got_min + got_sec.header.sh_size
-        else:
-            got_min = got_max = 0
 
         if section.header['sh_offset'] in self.__parsed_reloc_tables:
             return
