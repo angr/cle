@@ -9,6 +9,7 @@ from .relocation.generic import DllImport, IMAGE_REL_BASED_HIGHADJ, IMAGE_REL_BA
 from .relocation import get_relocation
 from .. import register_backend, Backend
 from ...address_translator import AT
+from ...patched_stream import PatchedStream
 
 
 l = logging.getLogger('cle.pe')
@@ -237,5 +238,36 @@ class PE(Backend):
             section = PESection(pe_section, remap_offset=self.linked_base)
             self.sections.append(section)
             self.sections_map[section.name] = section
+
+    def __getstate__(self):
+        if self.binary is None:
+            raise ValueError("Can't pickle an object loaded from a stream")
+
+        out = dict(self.__dict__)
+        out['_pe'] = None
+
+        if type(self.binary_stream) is PatchedStream:
+            out['binary_stream'].stream = None
+        else:
+            out['binary_stream'] = None
+
+        return out
+
+    def _setstate__(self, out):
+        self.__dict__.update(out)
+
+        if self.binary_stream is None:
+            self.binary_stream = open(self.binary, 'rb')
+        else:
+            self.binary_stream.stream = open(self.binary, 'rb')
+
+        if self.binary in self._pefile_cache: # these objects are not mutated, so they are reusable within a process
+            self._pe = self._pefile_cache[self.binary]
+        else:
+            self._pe = pefile.PE(self.binary)
+            if not self.is_main_bin:
+                # only cache shared libraries, the main binary will not be reused
+                self._pefile_cache[self.binary] = self._pe
+
 
 register_backend('pe', PE)
