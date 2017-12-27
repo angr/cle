@@ -10,7 +10,7 @@ from . import register_backend
 from ..errors import CLEError
 
 import logging
-l = logging.getLogger("cle.backends.soot")
+_l = logging.getLogger("cle.backends.soot")
 
 
 class Soot(Backend):
@@ -40,7 +40,7 @@ class Soot(Backend):
             main_method_descriptor = SootMethodDescriptor.from_method(next(self.get_method("main", main_class)))
             entry = SootAddressDescriptor(main_method_descriptor, 0, 0)
         except CLEError:
-            l.warning('Failed to identify the entry (the Main method) of this JAR.')
+            _l.warning('Failed to identify the entry (the Main method) of this JAR.')
             entry = None
         self._entry = entry
         self.os = 'javavm'
