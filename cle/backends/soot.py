@@ -3,7 +3,12 @@ import zipfile
 
 import archinfo
 from archinfo.arch_soot import SootMethodDescriptor, SootAddressDescriptor
-from pysoot.lifter import Lifter
+
+try:
+    import pysoot
+    from pysoot.lifter import Lifter
+except ImportError:
+    pysoot = None
 
 from . import Backend
 from . import register_backend
@@ -16,6 +21,10 @@ _l = logging.getLogger("cle.backends.soot")
 class Soot(Backend):
 
     def __init__(self, path, additional_jars=None, additional_jar_roots=None, main_class=None, *args, **kwargs):
+
+        if not pysoot:
+            raise ImportError('Cannot import PySoot. The Soot backend requires PySoot to function. '
+                              'Please install PySoot first.')
 
         if kwargs.get('has_memory', True):
             raise CLEError('The parameter "has_memory" must be False for Soot backend.')
@@ -176,5 +185,6 @@ class Soot(Backend):
             for method in cls.methods:
                 if method.name == "main":  # TODO: Check more attributes
                     yield method
+
 
 register_backend('soot', Soot)
