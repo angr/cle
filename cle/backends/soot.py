@@ -17,8 +17,8 @@ class Soot(Backend):
 
     def __init__(self, path, additional_jars=None, additional_jar_roots=None, main_class=None, *args, **kwargs):
 
-        if 'has_memory' in kwargs and kwargs['has_memory'] is not False:
-            raise CLEError('"has_memory" must be False for Soot backend.')
+        if kwargs.get('has_memory', True):
+            raise CLEError('The parameter "has_memory" must be False for Soot backend.')
 
         super(Soot, self).__init__(path, has_memory=False, *args, **kwargs)
 
