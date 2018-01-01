@@ -305,9 +305,13 @@ class Clemory(object):
 
     def read_bytes_c(self, addr):
         """
-        Read `n` bytes at address `addr` in cbacked memory, and returns a cffi buffer pointer.
+        Read `n` bytes at address `addr` in cbacked memory, and returns a tuple of a cffi buffer pointer and the
+        size of the continuous block bytes starting at `addr`.
 
         Note: We don't support reading across segments for performance concerns.
+
+        :return: A tuple of a cffi buffer pointer and the maximum size of bytes starting from `addr`.
+        :rtype: tuple
         """
 
         if self._needs_flattening:
