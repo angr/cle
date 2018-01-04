@@ -428,6 +428,16 @@ class Loader(object):
             l.warning("Dynamic load failed: %r", e)
             return None
 
+    def add_object(self, obj):
+        """
+        If you've constructed your own Backend-subclass object and want to add it directly to the loader, use this.
+        """
+        self._register_object(obj)
+        self._map_object(obj)
+        if isinstance(obj, (MetaELF, PE)) and obj.tls_used:
+            self.tls_object.register_object(obj)
+        self._relocate_object(obj)
+
     def get_loader_symbolic_constraints(self):
         """
         Do not use this method.
