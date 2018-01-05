@@ -20,7 +20,7 @@ _l = logging.getLogger("cle.backends.soot")
 
 class Soot(Backend):
 
-    def __init__(self, path, additional_jars=None, additional_jar_roots=None, main_class=None, *args, **kwargs):
+    def __init__(self, path, additional_jars=None, additional_jar_roots=None, main_class=None, **kwargs):
 
         if not pysoot:
             raise ImportError('Cannot import PySoot. The Soot backend requires PySoot to function. '
@@ -29,7 +29,7 @@ class Soot(Backend):
         if kwargs.get('has_memory', True):
             raise CLEError('The parameter "has_memory" must be False for Soot backend.')
 
-        super(Soot, self).__init__(path, has_memory=False, *args, **kwargs)
+        super(Soot, self).__init__(path, has_memory=False, **kwargs)
 
         if not main_class:
             # parse main_class from the manifest

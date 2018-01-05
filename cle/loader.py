@@ -5,6 +5,8 @@ import platform
 import logging
 from collections import OrderedDict
 
+import archinfo
+
 from .address_translator import AT
 from .utils import ALIGN_UP, key_bisect_insort_left, key_bisect_floor_key
 
@@ -307,6 +309,7 @@ class Loader(object):
         elif isinstance(obj.memory, Clemory):
             if AT.from_va(addr, obj).to_rva() in obj.memory:
                 return obj
+            return None
         else:
             raise CLEError('Unsupported memory type %s' % type(obj.memory))
 
@@ -769,21 +772,21 @@ class Loader(object):
         if not os.path.exists(dirname):
             dirname = cls._path_insensitive(dirname)
             if not dirname:
-                return
+                return None
         # at this point, the directory exists but not the file
         try:  # we are expecting dirname to be a directory, but it could be a file
             files = os.listdir(dirname)
         except OSError:
-            return
+            return None
         baselow = base.lower()
         try:
             basefinal = next(fl for fl in files if fl.lower() == baselow)
         except StopIteration:
-            return
+            return None
         if basefinal:
             return os.path.join(dirname, basefinal) + suffix
         else:
-            return
+            return None
 
     def _possible_idents(self, spec, lowercase=False):
         """
