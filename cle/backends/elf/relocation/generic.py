@@ -77,11 +77,15 @@ class GenericJumpslotReloc(ELFReloc):
 class GenericRelativeReloc(ELFReloc):
     @property
     def value(self):
+        if self.resolvedby is not None:
+            return self.resolvedby.rebased_addr
         return self.owner_obj.mapped_base + self.addend
 
     def resolve_symbol(self, solist, bypass_compatibility=False):
-        self.resolve(None)
-        return True
+        if self.symbol.type == Symbol.TYPE_NONE:
+            self.resolve(None)
+            return True
+        return super(GenericRelativeReloc, self).resolve_symbol(solist, bypass_compatibility=bypass_compatibility)
 
 class GenericAbsoluteReloc(ELFReloc):
     @property
