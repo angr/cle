@@ -123,7 +123,7 @@ class Symbol(object):
             if demangled:
                 return demangled[0]
 
-        return None
+        return self.name
 
     def resolve_forwarder(self):
         """
