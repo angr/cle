@@ -1,5 +1,6 @@
 from __future__ import print_function
 import subprocess
+import ctypes
 
 from ..address_translator import AT
 
@@ -49,11 +50,10 @@ class Symbol(object):
         self.resolvedby = None
         if (claripy and isinstance(self.relative_addr, claripy.ast.Base)) or self.relative_addr != 0:
             self.owner_obj._symbols_by_addr[self.relative_addr] = self
-            # would be nice if we could populate demangled_names here...
-
-            #demangled = self.demangled_name
-            #if demangled is not None:
-            #    self.owner_obj.demangled_names[self.name] = demangled
+            if "MachO" not in str(type(self.owner_obj)): # Type comparision without addind dependency. MachO has no demangled_names.
+                demangled = self.demangled_name
+                if demangled != self.name:
+                        self.owner_obj.demangled_names[self.name] = demangled
 
     def __repr__(self):
         if self.is_import:
@@ -105,23 +105,14 @@ class Symbol(object):
     @property
     def demangled_name(self):
         """
-        The name of this symbol, run through a C++ demangler
-
-        Warning: this calls out to the external program `c++filt` and will fail loudly if it's not installed
+        The name of this symbol, run through a C++ demangler if mangling is found.
         """
         # make sure it's mangled
         if self.name.startswith("_Z"):
             name = self.name
             if '@@' in self.name:
                 name = self.name.split("@@")[0]
-            args = ['c++filt']
-            args.append(name)
-            pipe = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-            stdout, _ = pipe.communicate()
-            demangled = stdout.split("\n")
-
-            if demangled:
-                return demangled[0]
+            return _demangle(name)
 
         return self.name
 
@@ -130,3 +121,47 @@ class Symbol(object):
         If this symbol is a forwarding export, return the symbol the forwarding refers to, or None if it cannot be found.
         """
         return self
+
+    libc = ctypes.CDLL(_find_any_lib('c'))
+    libc.free.argtypes = [ctypes.c_void_p]
+
+    libcxx = ctypes.CDLL(_find_any_lib('c++', 'stdc++'))
+    libcxx["__cxa_demangle"].restype = ctypes.c_char_p # Dict notation necessary here since ctypes would otherwise prepend the classname to the symbol. Why?
+
+    def _demangle(mangled_name):
+        """
+        Name demangling using __cxa_demangle
+        """
+        if not mangled_name.startswith(b'_Z'):
+            return mangled_name
+
+        mangled_name_p = ctypes.c_char_p(mangled_name)
+        status = ctypes.c_int()
+        retval = libcxx.__cxa_demangle(
+            mangled_name_p,
+            None,
+            None,
+            ctypes.pointer(status)
+        )
+        try:
+            demangled = retval.value
+        finally:
+            libc.free(retval)
+        if status.value == 0:
+            return demangled
+        elif status.value == -1:
+            raise Exception("Memory allocation failure while demangling symbol")
+        elif status.value == -2:
+            raise Exception("Invalid Name: {}".format(mangled_name))
+        elif status.value == -3:
+            raise Exception("One of the arguments to name demangling is invalid")
+        else:
+            raise Exception("Unknown status code: {}".format(status.value))
+
+
+    def _find_any_lib(*choices):
+        for choice in choices:
+            lib = ctypes.util.find_library(choice)
+            if lib is not None:
+                return lib
+        raise Exception("Could not find any of libraries: {}".format(choices))
