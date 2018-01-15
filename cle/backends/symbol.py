@@ -52,7 +52,7 @@ class Symbol(object):
             self.owner_obj._symbols_by_addr[self.relative_addr] = self
             if "MachO" not in str(type(self.owner_obj)): # Type comparison without adding dependency. MachO has no demangled_names.
                 if self.name != self.demangled_name: # populating demangled_names
-                        self.owner_obj.demangled_names[self.name] = demangled
+                        self.owner_obj.demangled_names[self.name] = self.demangled_name
 
     def __repr__(self):
         if self.is_import:

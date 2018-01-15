@@ -113,8 +113,6 @@ class ELF(MetaELF):
         self._ppc64_abiv1_entry_fix()
         self._load_plt()
 
-        self._populate_demangled_names()
-
         if patch_undo is not None:
             self.memory.write_bytes(AT.from_lva(self.min_addr + patch_undo[0], self).to_rva(), patch_undo[1])
 
@@ -329,30 +327,6 @@ class ELF(MetaELF):
             address += dest_section.remap_offset
 
         return RelocClass(self, symbol, address, addend)
-
-    def _populate_demangled_names(self):
-        """
-        TODO: remove this once a python implementation of a name demangler has
-        been implemented, then update self.demangled_names in Symbol
-        """
-
-        if not self._symbols_by_addr:
-            return
-
-        names = filter(lambda n: n.startswith("_Z"), (s.name for s in self._symbols_by_addr.itervalues()))
-        lookup_names = map(lambda n: n.split("@@")[0], names)
-        # this monstrosity taken from stackoverflow
-        # http://stackoverflow.com/questions/6526500/c-name-mangling-library-for-python
-        args = ['c++filt']
-        args.extend(lookup_names)
-        try:
-            pipe = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-            stdout, _ = pipe.communicate()
-            demangled = stdout.split("\n")[:-1]
-
-            self.demangled_names = dict(zip(names, demangled))
-        except OSError:
-            pass
 
     #
     # Private Methods... really. Calling these out of context
