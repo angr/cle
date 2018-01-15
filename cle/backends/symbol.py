@@ -122,11 +122,11 @@ class Symbol(object):
         return self
 
     def _find_any_lib(*choices):
-    for choice in choices:
-        lib = ctypes.util.find_library(choice)
-        if lib is not None:
-            return lib
-    raise Exception("Could not find any libraries for {}".format(choices))
+        for choice in choices:
+            lib = ctypes.util.find_library(choice)
+            if lib is not None:
+                return lib
+        raise Exception("Could not find any libraries for {}".format(choices))
 
     libc = ctypes.CDLL(_find_any_lib('c'))
     libc.free.argtypes = [ctypes.c_void_p]
