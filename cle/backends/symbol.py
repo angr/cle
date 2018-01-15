@@ -50,7 +50,7 @@ class Symbol(object):
         self.resolvedby = None
         if (claripy and isinstance(self.relative_addr, claripy.ast.Base)) or self.relative_addr != 0:
             self.owner_obj._symbols_by_addr[self.relative_addr] = self
-            if "MachO" not in str(type(self.owner_obj)): # Type comparision without addind dependency. MachO has no demangled_names.
+            if "MachO" not in str(type(self.owner_obj)): # Type comparison without adding dependency. MachO has no demangled_names.
                 demangled = self.demangled_name
                 if demangled != self.name:
                         self.owner_obj.demangled_names[self.name] = demangled
@@ -126,7 +126,7 @@ class Symbol(object):
     libc.free.argtypes = [ctypes.c_void_p]
 
     libcxx = ctypes.CDLL(_find_any_lib('c++', 'stdc++'))
-    libcxx["__cxa_demangle"].restype = ctypes.c_char_p # Dict notation necessary here since ctypes would otherwise prepend the classname to the symbol. Why?
+    libcxx["__cxa_demangle"].restype = ctypes.c_char_p # Dict notation is necessary here, since ctypes would otherwise prepend the classname to the symbol property. Why?
 
     def _demangle(mangled_name):
         """
