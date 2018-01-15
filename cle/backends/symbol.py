@@ -51,8 +51,7 @@ class Symbol(object):
         if (claripy and isinstance(self.relative_addr, claripy.ast.Base)) or self.relative_addr != 0:
             self.owner_obj._symbols_by_addr[self.relative_addr] = self
             if "MachO" not in str(type(self.owner_obj)): # Type comparison without adding dependency. MachO has no demangled_names.
-                demangled = self.demangled_name
-                if demangled != self.name:
+                if self.name != self.demangled_name: # populating demangled_names
                         self.owner_obj.demangled_names[self.name] = demangled
 
     def __repr__(self):
@@ -147,6 +146,7 @@ class Symbol(object):
             demangled = retval.value
         finally:
             libc.free(retval)
+
         if status.value == 0:
             return demangled
         elif status.value == -1:
@@ -164,4 +164,4 @@ class Symbol(object):
             lib = ctypes.util.find_library(choice)
             if lib is not None:
                 return lib
-        raise Exception("Could not find any of libraries: {}".format(choices))
+        raise Exception("Could not find any libraries for {}".format(choices))
