@@ -111,7 +111,7 @@ class Symbol(object):
             name = self.name
             if '@@' in self.name:
                 name = self.name.split("@@")[0]
-            return _demangle(name)
+            return demangle(name)
 
         return self.name
 
@@ -121,46 +121,46 @@ class Symbol(object):
         """
         return self
 
-    def _find_any_lib(*choices):
-        for choice in choices:
-            lib = ctypes.util.find_library(choice)
-            if lib is not None:
-                return lib
-        raise Exception("Could not find any libraries for {}".format(choices))
+def find_any_lib(*choices):
+    for choice in choices:
+        lib = ctypes.util.find_library(choice)
+        if lib is not None:
+            return lib
+    raise Exception("Could not find any libraries for {}".format(choices))
 
-    libc = ctypes.CDLL(_find_any_lib('c'))
-    libc.free.argtypes = [ctypes.c_void_p]
+libc = ctypes.CDLL(find_any_lib('c'))
+libc.free.argtypes = [ctypes.c_void_p]
 
-    libcxx = ctypes.CDLL(_find_any_lib('c++', 'stdc++'))
-    libcxx["__cxa_demangle"].restype = ctypes.c_char_p # Dict notation is necessary here, since ctypes would otherwise prepend the classname to the symbol property. Why?
+libcxx = ctypes.CDLL(find_any_lib('c++', 'stdc++'))
+libcxx["__cxa_demangle"].restype = ctypes.c_char_p # Dict notation is necessary here, since ctypes would otherwise prepend the classname to the symbol property. Why?
 
-    def _demangle(mangled_name):
-        """
-        Name demangling using __cxa_demangle
-        """
-        if not mangled_name.startswith(b'_Z'):
-            return mangled_name
+def demangle(mangled_name):
+    """
+    Name demangling using __cxa_demangle
+    """
+    if not mangled_name.startswith(b'_Z'):
+        return mangled_name
 
-        mangled_name_p = ctypes.c_char_p(mangled_name)
-        status = ctypes.c_int()
-        retval = libcxx.__cxa_demangle(
-            mangled_name_p,
-            None,
-            None,
-            ctypes.pointer(status)
-        )
-        try:
-            demangled = retval.value
-        finally:
-            libc.free(retval)
+    mangled_name_p = ctypes.c_char_p(mangled_name)
+    status = ctypes.c_int()
+    retval = libcxx.__cxa_demangle(
+        mangled_name_p,
+        None,
+        None,
+        ctypes.pointer(status)
+    )
+    try:
+        demangled = retval.value
+    finally:
+        libc.free(retval)
 
-        if status.value == 0:
-            return demangled
-        elif status.value == -1:
-            raise Exception("Memory allocation failure while demangling symbol")
-        elif status.value == -2:
-            raise Exception("Invalid Name: {}".format(mangled_name))
-        elif status.value == -3:
-            raise Exception("One of the arguments to name demangling is invalid")
-        else:
-            raise Exception("Unknown status code: {}".format(status.value))
+    if status.value == 0:
+        return demangled
+    elif status.value == -1:
+        raise Exception("Memory allocation failure while demangling symbol")
+    elif status.value == -2:
+        raise Exception("Invalid Name: {}".format(mangled_name))
+    elif status.value == -3:
+        raise Exception("One of the arguments to name demangling is invalid")
+    else:
+        raise Exception("Unknown status code: {}".format(status.value))
