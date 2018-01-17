@@ -612,8 +612,6 @@ class ELF(MetaELF):
             if reloc.symbol.name != '' and (force_jmprel or got_min <= reloc.linked_addr < got_max):
                 self.jmprel[reloc.symbol.name] = reloc
 
-        return relocs
-
     def __register_tls(self, seg_readelf):
         self.tls_used = True
         self.tls_block_size = seg_readelf.header.p_memsz
