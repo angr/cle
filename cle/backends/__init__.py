@@ -41,6 +41,7 @@ class Backend(object):
     :ivar bool execstack:   Whether this executable has an executable stack
     :ivar str provides:     The name of the shared library dependancy that this object resolves
     """
+    is_default = False
 
     def __init__(self,
             binary,
