@@ -10,6 +10,7 @@ class Blob(Backend):
     """
     Representation of a binary blob, i.e. an executable in an unknown file format.
     """
+    is_default = True # Tell CLE to automatically consider using the Blob backend
 
     def __init__(self, path, custom_offset=None, segments=None, **kwargs):
         """

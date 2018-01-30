@@ -39,6 +39,7 @@ class ELFCore(ELF):
     """
     Loader class for ELF core files.
     """
+    is_default = True # Tell CLE to automatically consider using the ELFCore backend
 
     def __init__(self, binary, **kwargs):
         super(ELFCore, self).__init__(binary, **kwargs)

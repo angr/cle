@@ -19,6 +19,7 @@ class PE(Backend):
     """
     Representation of a PE (i.e. Windows) binary.
     """
+    is_default = True # Tell CLE to automatically consider using the PE backend
 
     def __init__(self, *args, **kwargs):
         super(PE, self).__init__(*args, **kwargs)

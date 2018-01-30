@@ -33,6 +33,8 @@ class MachO(Backend):
     *   Rebasing cannot be done statically (i.e. self.mapped_base is ignored for now)
     *   ...
     """
+    is_default = True # Tell CLE to automatically consider using the MachO backend
+
     MH_MAGIC_64 = 0xfeedfacf
     MH_CIGAM_64 = 0xcffaedfe
     MH_MAGIC = 0xfeedface
