@@ -16,6 +16,8 @@ class IDABin(Backend):
     """
     Get information from binaries using IDA.
     """
+    is_default = True # Tell CLE to automatically consider using the IDABin backend
+
     def __init__(self, binary, *args, **kwargs):
         if idalink is None:
             raise CLEError("Install the idalink module to use the IDABin backend!")

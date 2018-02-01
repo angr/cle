@@ -16,6 +16,8 @@ class BackedCGC(CGC):
     This is a backend for CGC executables that allows user provide a memory backer and a register backer as the
     initial state of the running binary.
     """
+    is_default = True # Tell CLE to automatically consider using the BackedCGC backend
+
     def __init__(self, path, memory_backer=None, register_backer=None, writes_backer=None, permissions_map=None,
                  current_allocation_base=None, *args, **kwargs):
         """

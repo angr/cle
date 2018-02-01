@@ -845,7 +845,7 @@ class Loader(object):
 
         with stream_or_path(spec) as stream:
             for rear in ALL_BACKENDS.values():
-                if rear.is_compatible(stream):
+                if rear.is_default and rear.is_compatible(stream):
                     return rear
 
         return None

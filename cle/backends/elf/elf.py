@@ -28,6 +28,8 @@ class ELF(MetaELF):
     """
     The main loader class for statically loading ELF executables. Uses the pyreadelf library where useful.
     """
+    is_default = True # Tell CLE to automatically consider using the ELF backend
+
     def __init__(self, binary, addend=None, **kwargs):
         super(ELF, self).__init__(binary, **kwargs)
         patch_undo = None

@@ -19,6 +19,7 @@ _l = logging.getLogger("cle.backends.soot")
 
 
 class Soot(Backend):
+    is_default = True # Tell CLE to automatically consider using the Soot backend
 
     def __init__(self, path, additional_jars=None, additional_jar_roots=None, main_class=None, **kwargs):
 

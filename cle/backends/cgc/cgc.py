@@ -12,6 +12,8 @@ class CGC(ELF):
 
     See : https://github.com/CyberGrandChallenge/libcgcef/blob/master/cgc_executable_format.md
     """
+    is_default = True # Tell CLE to automatically consider using the CGC backend
+
     def __init__(self, binary, *args, **kwargs):
         if hasattr(binary, 'seek'):
             filename = None
