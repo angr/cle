@@ -27,7 +27,7 @@ class Soot(Backend):
             raise ImportError('Cannot import PySoot. The Soot backend requires PySoot to function. '
                               'Please install PySoot first.')
 
-        if kwargs.get('has_memory', True):
+        if kwargs.get('has_memory', False):
             raise CLEError('The parameter "has_memory" must be False for Soot backend.')
 
         super(Soot, self).__init__(path, has_memory=False, **kwargs)
