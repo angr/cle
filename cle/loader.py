@@ -313,6 +313,28 @@ class Loader(object):
         else:
             raise CLEError('Unsupported memory type %s' % type(obj.memory))
 
+    def find_section_containing(self, addr, skip_pseudo_regions=True):
+        """
+        Find the section object that the address belongs to.
+
+        :param int addr: The address to test
+        :param bool skip_pseudo_regions: Skip regions that CLE adds during loading.
+        :return: The section that the address belongs to, or None if the address does not belong to any section, or if
+                section information is not available.
+        :rtype: cle.Section
+        """
+
+        obj = self.find_object_containing(addr)
+
+        if obj is None:
+            return None
+
+        if skip_pseudo_regions and isinstance(obj, (ExternObject, KernelObject, TLSObject)):
+            # the address is from a special CLE section
+            return None
+
+        return obj.find_section_containing(addr)
+
     def find_symbol(self, thing):
         """
         Search for the symbol with the given name or address.
@@ -907,6 +929,6 @@ class Loader(object):
 from .errors import CLEError, CLEFileNotFoundError, CLECompatibilityError, CLEOperationError
 from .memory import Clemory
 from .backends import MetaELF, ELF, PE, ALL_BACKENDS, Backend
-from .backends.tls import PETLSObject, ELFTLSObject
+from .backends.tls import PETLSObject, ELFTLSObject, TLSObject
 from .backends.externs import ExternObject, KernelObject
 from .utils import stream_or_path
