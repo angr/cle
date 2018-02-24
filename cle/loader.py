@@ -377,14 +377,7 @@ class Loader(object):
             # the address is from a special CLE section
             return None
 
-        # TODO: Binary search
-        for section in obj.sections:
-            start = section.vaddr
-
-            if addr < start:
-                return section
-
-        return None
+        return obj.find_region_next_to(addr)
 
     def find_symbol(self, thing):
         """
