@@ -313,6 +313,72 @@ class Loader(object):
         else:
             raise CLEError('Unsupported memory type %s' % type(obj.memory))
 
+    def find_segment_containing(self, addr, skip_pseudo_objects=True):
+        """
+        Find the section object that the address belongs to.
+
+        :param int addr: The address to test
+        :param bool skip_pseudo_objects: Skip objects that CLE adds during loading.
+        :return: The section that the address belongs to, or None if the address does not belong to any section, or if
+                section information is not available.
+        :rtype: cle.Segment
+        """
+
+        obj = self.find_object_containing(addr)
+
+        if obj is None:
+            return None
+
+        if skip_pseudo_objects and isinstance(obj, (ExternObject, KernelObject, TLSObject)):
+            # the address is from a section allocated by angr.
+            return None
+
+        return obj.find_segment_containing(addr)
+
+    def find_section_containing(self, addr, skip_pseudo_objects=True):
+        """
+        Find the section object that the address belongs to.
+
+        :param int addr: The address to test.
+        :param bool skip_pseudo_objects: Skip objects that CLE adds during loading.
+        :return: The section that the address belongs to, or None if the address does not belong to any section, or if
+                section information is not available.
+        :rtype: cle.Section
+        """
+
+        obj = self.find_object_containing(addr)
+
+        if obj is None:
+            return None
+
+        if skip_pseudo_objects and isinstance(obj, (ExternObject, KernelObject, TLSObject)):
+            # the address is from a special CLE section
+            return None
+
+        return obj.find_section_containing(addr)
+
+    def find_section_next_to(self, addr, skip_pseudo_objects=True):
+        """
+        Find the next section after the given address.
+
+        :param int addr: The address to test.
+        :param bool skip_pseudo_objects: Skip objects that CLE adds during loading.
+        :return: The next section that goes after the given address, or None if there is no section after the address,
+                 or if section information is not available.
+        :rtype: cle.Section
+        """
+
+        obj = self.find_object_containing(addr)
+
+        if obj is None:
+            return None
+
+        if skip_pseudo_objects and isinstance(obj, (ExternObject, KernelObject, TLSObject)):
+            # the address is from a special CLE section
+            return None
+
+        return obj.sections.find_region_next_to(addr)
+
     def find_symbol(self, thing):
         """
         Search for the symbol with the given name or address.
@@ -907,6 +973,6 @@ class Loader(object):
 from .errors import CLEError, CLEFileNotFoundError, CLECompatibilityError, CLEOperationError
 from .memory import Clemory
 from .backends import MetaELF, ELF, PE, ALL_BACKENDS, Backend
-from .backends.tls import PETLSObject, ELFTLSObject
+from .backends.tls import PETLSObject, ELFTLSObject, TLSObject
 from .backends.externs import ExternObject, KernelObject
 from .utils import stream_or_path

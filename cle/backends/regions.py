@@ -103,6 +103,23 @@ class Regions(object):
             return region
         return None
 
+    def find_region_next_to(self, addr):
+        """
+        Find the next region after the given address.
+
+        :param int addr: The address to test.
+        :return:         The next region that goes after the given address, or None if there is no section after the
+                         address,
+        :rtype: Region or None
+        """
+
+        pos = key_bisect_find(self._sorted_list, addr,
+                              keyfunc=lambda r: r if type(r) in (int, long) else r.vaddr + r.memsize)
+        if pos >= len(self._sorted_list):
+            return None
+
+        return self._sorted_list[pos]
+
     @staticmethod
     def _is_region_mapped(region):
 
