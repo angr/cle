@@ -37,14 +37,14 @@ class R_ARM_CALL(ELFReloc):
     succeeds on R_ARM_JUMP24, it's a bad call that shouldn't have been generated
     by the linker, so we may as well as just treat it like R_ARM_CALL.
 
-    Class: Static
-    Type: ARM (R_ARM_CALL, R_ARM_JUMP24); Deprecated (R_ARM_PC24)
-    Code: 1 (R_ARM_PC24), 28 (R_ARM_CALL), 29 (R_ARM_JUMP24)
-    Operation: ((S + A) | T) - P
-        - S is the address of the symbol
-        - A is the addend
-        - P is the target location (place being relocated)
-        - T is 1 if the symbol is of type STT_FUNC and addresses a Thumb instruction
+    - Class: Static
+    - Type: ARM (R_ARM_CALL, R_ARM_JUMP24); Deprecated (R_ARM_PC24)
+    - Code: 1 (R_ARM_PC24), 28 (R_ARM_CALL), 29 (R_ARM_JUMP24)
+    - Operation: ((S + A) | T) - P
+      - S is the address of the symbol
+      - A is the addend
+      - P is the target location (place being relocated)
+      - T is 1 if the symbol is of type STT_FUNC and addresses a Thumb instruction
     """
 
     @property
@@ -75,14 +75,14 @@ class R_ARM_PREL31(ELFReloc):
     between this and R_ARM_CALL/R_ARM_PC24/R_ARM_JUMP24 is that it's a data
     relocation
 
-    Class: Static
-    Type: Data
-    Code: 42
-    Operation: ((S + A) | T) - P
-        - S is the address of the symbol
-        - A is the addend
-        - P is the target location (place being relocated)
-        - T is 1 if the symbol is of type STT_FUNC and addresses a Thumb instruction
+    - Class: Static
+    - Type: Data
+    - Code: 42
+    - Operation: ((S + A) | T) - P
+      - S is the address of the symbol
+      - A is the addend
+      - P is the target location (place being relocated)
+      - T is 1 if the symbol is of type STT_FUNC and addresses a Thumb instruction
     """
 
     @property
@@ -106,14 +106,14 @@ class R_ARM_REL32(ELFReloc):
     generic.GenericPCRelativeAddendReloc with the addition of a check
     for whether or not the target is Thumb.
 
-    Class: Static
-    Type: Data
-    Code: 3
-    Operation: ((S + A) | T) - P
-        - S is the address of the symbol
-        - A is the addend
-        - P is the target location (place being relocated)
-        - T is 1 if the symbol is of type STT_FUNC and addresses a Thumb instruction
+    - Class: Static
+    - Type: Data
+    - Code: 3
+    - Operation: ((S + A) | T) - P
+      - S is the address of the symbol
+      - A is the addend
+      - P is the target location (place being relocated)
+      - T is 1 if the symbol is of type STT_FUNC and addresses a Thumb instruction
     """
 
     @property
@@ -132,13 +132,13 @@ class R_ARM_ABS32(ELFReloc):
     generic.GenericAbsoluteAddendReloc with the addition of a check
     for whether or not the target is Thumb.
 
-    Class: Static
-    Type: Data
-    Code: 3
-    Operation: (S + A) | T
-        - S is the address of the symbol
-        - A is the addend
-        - T is 1 if the symbol is of type STT_FUNC and addresses a Thumb instruction
+    - Class: Static
+    - Type: Data
+    - Code: 3
+    - Operation: (S + A) | T
+      - S is the address of the symbol
+      - A is the addend
+      - T is 1 if the symbol is of type STT_FUNC and addresses a Thumb instruction
     """
 
     @property

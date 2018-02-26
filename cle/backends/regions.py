@@ -40,7 +40,7 @@ class Regions(object):
         Get the highest address of all regions.
 
         :return: The highest address of all regions, or None if there is no region available.
-        rtype:   int or None
+        :rtype:   int or None
         """
 
         if self._sorted_list:
