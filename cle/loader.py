@@ -125,6 +125,9 @@ class Loader(object):
 
         self.initial_load_objects = self._internal_load(main_binary, *force_load_libs)
 
+        # cache
+        self._last_object = None
+
     # Basic functions and properties
 
     def close(self):
@@ -296,6 +299,25 @@ class Loader(object):
         Return the object that contains the given address, or None if the address is unmapped.
         """
 
+        def _check_object_memory(obj_):
+            if type(obj_.memory) is str:
+                self._last_object = obj_
+                return obj_
+            elif isinstance(obj_.memory, Clemory):
+                if AT.from_va(addr, obj_).to_rva() in obj_.memory:
+                    self._last_object = obj_
+                    return obj_
+                return None
+            else:
+                raise CLEError('Unsupported memory type %s' % type(obj_.memory))
+
+
+        # check the cache first
+        if self._last_object is not None and \
+                self._last_object.min_addr <= addr < self._last_object.max_addr:
+            o = _check_object_memory(self._last_object)
+            if o: return o
+
         if addr >= self.max_addr or addr < self.min_addr:
             return None
 
@@ -304,14 +326,7 @@ class Loader(object):
             return None
         if not obj.min_addr <= addr < obj.max_addr:
             return None
-        if isinstance(obj.memory, str):
-            return obj
-        elif isinstance(obj.memory, Clemory):
-            if AT.from_va(addr, obj).to_rva() in obj.memory:
-                return obj
-            return None
-        else:
-            raise CLEError('Unsupported memory type %s' % type(obj.memory))
+        return _check_object_memory(obj)
 
     def find_segment_containing(self, addr, skip_pseudo_objects=True):
         """
