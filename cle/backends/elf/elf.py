@@ -391,13 +391,10 @@ class ELF(MetaELF):
 
         self.reader = elffile.ELFFile(self.binary_stream)
         if self._dynamic and 'DT_STRTAB' in self._dynamic:
-            fakestrtabheader = {
-                'sh_offset': AT.from_lva(self._dynamic['DT_STRTAB'], self).to_rva()
-            }
-            self.strtab = elffile.StringTableSection(fakestrtabheader, 'strtab_cle', self.memory)
+            self.strtab = next(x for x in self.reader.iter_segments() if x.header.p_type == 'PT_DYNAMIC')._get_stringtable()
             if 'DT_SYMTAB' in self._dynamic and 'DT_SYMENT' in self._dynamic:
                 fakesymtabheader = {
-                    'sh_offset': self._dynamic['DT_SYMTAB'],
+                    'sh_offset': AT.from_lva(self._dynamic['DT_SYMTAB'], self).to_rva(),
                     'sh_entsize': self._dynamic['DT_SYMENT'],
                     'sh_size': 0, # bogus size: no iteration allowed
                     'sh_flags': 0,
@@ -467,7 +464,7 @@ class ELF(MetaELF):
         if 'DT_STRTAB' in self._dynamic and 'DT_SYMTAB' in self._dynamic and 'DT_SYMENT' in self._dynamic:
                 # Construct our own symbol table to hack around pyreadelf assuming section headers are around
                 fakesymtabheader = {
-                    'sh_offset': self._dynamic['DT_SYMTAB'],
+                    'sh_offset': AT.from_lva(self._dynamic['DT_SYMTAB'], self).to_rva(),
                     'sh_entsize': self._dynamic['DT_SYMENT'],
                     'sh_size': 0, # bogus size: no iteration allowed
                     'sh_flags': 0,
@@ -515,7 +512,7 @@ class ELF(MetaELF):
 
                 # try to parse relocations out of a table of type DT_REL{,A}
                 if 'DT_' + self.rela_type in self._dynamic:
-                    reloffset = self._dynamic['DT_' + self.rela_type]
+                    reloffset = AT.from_lva(self._dynamic['DT_' + self.rela_type], self).to_rva()
                     if 'DT_' + self.rela_type + 'SZ' not in self._dynamic:
                         raise CLEInvalidBinaryError('Dynamic section contains DT_' + self.rela_type +
                                 ', but DT_' + self.rela_type + 'SZ is not present')
@@ -536,7 +533,7 @@ class ELF(MetaELF):
 
                 # try to parse relocations out of a table of type DT_JMPREL
                 if 'DT_JMPREL' in self._dynamic:
-                    jmpreloffset = self._dynamic['DT_JMPREL']
+                    jmpreloffset = AT.from_lva(self._dynamic['DT_JMPREL'], self).to_rva()
                     if 'DT_PLTRELSZ' not in self._dynamic:
                         raise CLEInvalidBinaryError('Dynamic section contains DT_JMPREL, but DT_PLTRELSZ is not present')
                     jmprelsz = self._dynamic['DT_PLTRELSZ']
