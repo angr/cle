@@ -397,17 +397,29 @@ class ELF(MetaELF):
             self.strtab = elffile.StringTableSection(fakestrtabheader, 'strtab_cle', self.memory)
             if 'DT_SYMTAB' in self._dynamic and 'DT_SYMENT' in self._dynamic:
                 fakesymtabheader = {
-                    'sh_offset': AT.from_lva(self._dynamic['DT_SYMTAB'], self).to_rva(),
+                    'sh_offset': self._dynamic['DT_SYMTAB'],
                     'sh_entsize': self._dynamic['DT_SYMENT'],
-                    'sh_size': 0
-                } # bogus size: no iteration allowed
-                self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.memory, self.reader, self.strtab)
+                    'sh_size': 0, # bogus size: no iteration allowed
+                    'sh_flags': 0,
+                    'sh_addralign': 0,
+                }
+                try:
+                    self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.binary_stream, self.reader, self.strtab)
+                except TypeError:
+                    self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.reader, self.strtab)
+
                 if 'DT_GNU_HASH' in self._dynamic:
-                    self.hashtable = GNUHashTable(self.dynsym, self.memory,
-                                                  AT.from_lva(self._dynamic['DT_GNU_HASH'], self).to_rva(), self.arch)
+                    self.hashtable = GNUHashTable(
+                            self.dynsym,
+                            self.memory,
+                            AT.from_lva(self._dynamic['DT_GNU_HASH'], self).to_rva(),
+                            self.arch)
                 elif 'DT_HASH' in self._dynamic:
-                    self.hashtable = ELFHashTable(self.dynsym, self.memory,
-                                                  AT.from_lva(self._dynamic['DT_HASH'], self).to_rva(), self.arch)
+                    self.hashtable = ELFHashTable(
+                            self.dynsym,
+                            self.memory,
+                            AT.from_lva(self._dynamic['DT_HASH'], self).to_rva(),
+                            self.arch)
 
     def __register_segments(self):
         self.linking = 'static'
@@ -444,33 +456,27 @@ class ELF(MetaELF):
             self._dynamic[tagstr] = tag.entry.d_val
             # For tags that may appear more than once, handle them here
             if tagstr == 'DT_NEEDED':
-                self.deps.append(tag.entry.d_val)
+                self.deps.append(tag.needed)
+            elif tagstr == 'DT_SONAME':
+                self.provides = tag.soname
 
-        # None of the following things make sense without a string table
-        if 'DT_STRTAB' in self._dynamic:
-            # To handle binaries without section headers, we need to hack around pyreadelf's assumptions
-            # make our own string table
-            fakestrtabheader = {
-                'sh_offset': AT.from_lva(self._dynamic['DT_STRTAB'], self).to_rva()
-            }
-            self.strtab = elffile.StringTableSection(fakestrtabheader, 'strtab_cle', self.memory)
+        self.strtab = seg_readelf._get_stringtable()
 
-            # get the list of strings that are the required shared libraries
-            self.deps = map(self.strtab.get_string, self.deps)
-
-            # get the string for the "shared object name" that this binary provides
-            if 'DT_SONAME' in self._dynamic:
-                self.provides = self.strtab.get_string(self._dynamic['DT_SONAME'])
-
-            # None of the following structures can be used without a symbol table
-            if 'DT_SYMTAB' in self._dynamic and 'DT_SYMENT' in self._dynamic:
+        # To extract symbols from binaries without section headers, we need to hack into pyelftools.
+        # None of the following things make sense without a string table or a symbol table
+        if 'DT_STRTAB' in self._dynamic and 'DT_SYMTAB' in self._dynamic and 'DT_SYMENT' in self._dynamic:
                 # Construct our own symbol table to hack around pyreadelf assuming section headers are around
                 fakesymtabheader = {
-                    'sh_offset': AT.from_lva(self._dynamic['DT_SYMTAB'], self).to_rva(),
+                    'sh_offset': self._dynamic['DT_SYMTAB'],
                     'sh_entsize': self._dynamic['DT_SYMENT'],
-                    'sh_size': 0
-                } # bogus size: no iteration allowed
-                self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.memory, self.reader, self.strtab)
+                    'sh_size': 0, # bogus size: no iteration allowed
+                    'sh_flags': 0,
+                    'sh_addralign': 0,
+                }
+                try:
+                    self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.binary_stream, self.reader, self.strtab)
+                except TypeError:
+                    self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.reader, self.strtab)
 
                 # set up the hash table, prefering the gnu hash section to the old hash section
                 # the hash table lets you get any symbol given its name
@@ -509,8 +515,7 @@ class ELF(MetaELF):
 
                 # try to parse relocations out of a table of type DT_REL{,A}
                 if 'DT_' + self.rela_type in self._dynamic:
-                    reloffset = self._dynamic['DT_' + self.rela_type] and \
-                                AT.from_lva(self._dynamic['DT_' + self.rela_type], self).to_rva()
+                    reloffset = self._dynamic['DT_' + self.rela_type]
                     if 'DT_' + self.rela_type + 'SZ' not in self._dynamic:
                         raise CLEInvalidBinaryError('Dynamic section contains DT_' + self.rela_type +
                                 ', but DT_' + self.rela_type + 'SZ is not present')
@@ -519,14 +524,19 @@ class ELF(MetaELF):
                         'sh_offset': reloffset,
                         'sh_type': 'SHT_' + self.rela_type,
                         'sh_entsize': relentsz,
-                        'sh_size': relsz
+                        'sh_size': relsz,
+                        'sh_flags': 0,
+                        'sh_addralign': 0,
                     }
-                    readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self.memory, self.reader)
+                    try:
+                        readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self.binary_stream, self.reader)
+                    except TypeError:
+                        readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self.reader)
                     self.__register_relocs(readelf_relocsec)
 
                 # try to parse relocations out of a table of type DT_JMPREL
                 if 'DT_JMPREL' in self._dynamic:
-                    jmpreloffset = self._dynamic['DT_JMPREL'] and AT.from_lva(self._dynamic['DT_JMPREL'], self).to_rva()
+                    jmpreloffset = self._dynamic['DT_JMPREL']
                     if 'DT_PLTRELSZ' not in self._dynamic:
                         raise CLEInvalidBinaryError('Dynamic section contains DT_JMPREL, but DT_PLTRELSZ is not present')
                     jmprelsz = self._dynamic['DT_PLTRELSZ']
@@ -534,9 +544,14 @@ class ELF(MetaELF):
                         'sh_offset': jmpreloffset,
                         'sh_type': 'SHT_' + self.rela_type,
                         'sh_entsize': relentsz,
-                        'sh_size': jmprelsz
+                        'sh_size': jmprelsz,
+                        'sh_flags': 0,
+                        'sh_addralign': 0,
                     }
-                    readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.memory, self.reader)
+                    try:
+                        readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.binary_stream, self.reader)
+                    except TypeError:
+                        readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.reader)
                     self.__register_relocs(readelf_jmprelsec, force_jmprel=True)
 
     def __register_relocs(self, section, force_jmprel=False):
