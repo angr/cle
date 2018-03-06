@@ -1,3 +1,4 @@
+import os
 import struct
 import subprocess
 import logging
@@ -454,6 +455,7 @@ class ELF(MetaELF):
         """
         Parse the dynamic section for dynamically linked objects.
         """
+        runpath, rpath = "", ""
         for tag in seg_readelf.iter_tags():
             # Create a dictionary, self._dynamic, mapping DT_* strings to their values
             tagstr = self.arch.translate_dynamic_tag(tag.entry.d_tag)
@@ -463,6 +465,12 @@ class ELF(MetaELF):
                 self.deps.append(tag.needed)
             elif tagstr == 'DT_SONAME':
                 self.provides = tag.soname
+            elif tagstr == 'DT_RUNPATH':
+                runpath = tag.runpath
+            elif tagstr == 'DT_RPATH':
+                rpath = tag.rpath
+       
+        self.extra_load_path = self.__parse_rpath(runpath, rpath)
 
         self.strtab = seg_readelf._get_stringtable()
 
@@ -561,6 +569,26 @@ class ELF(MetaELF):
                         readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.reader)
                         readelf_jmprelsec.stream = self.memory
                     self.__register_relocs(readelf_jmprelsec, force_jmprel=True)
+
+    def __parse_rpath(self, runpath, rpath):
+        """
+        Split RPATH/RUNPATH tags into a list of paths while expanding rpath tokens.
+        """
+        # DT_RUNPATH takes predence over DT_RPATH
+        if len(runpath) > 0:
+            runpath = runpath
+        else:
+            runpath = rpath
+
+        parts = []
+        for part in runpath.split(":"):
+            # does not handle $LIB/$PLATFORM substitutions yet
+            if self.binary is not None:
+                part = part.replace('$ORIGIN', os.path.dirname(self.binary))
+            elif '$ORIGIN' in part:
+                l.warning("DT_RUNPATH/DT_RPATH of the binary contains $ORIGIN tokens but no self.binary, some libraries might be not found")
+            parts.append(part)
+        return parts
 
     def __register_relocs(self, section, force_jmprel=False):
 

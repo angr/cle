@@ -787,6 +787,9 @@ class Loader(object):
             if self.main_object.binary is not None:
                 dirs.append(os.path.dirname(self.main_object.binary))
             if self._use_system_libs:
+                # Ideally this should be taken into account for each shared
+                # object, not just the main object.
+                dirs.extend(self.main_object.extra_load_path)
                 if sys.platform.startswith('linux'):
                     dirs.extend(self.main_object.arch.library_search_path())
                 elif sys.platform == 'win32':
