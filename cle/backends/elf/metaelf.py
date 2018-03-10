@@ -304,19 +304,19 @@ class MetaELF(Backend):
         with stream_or_path(path) as f:
             try:
                 e = elftools.elf.elffile.ELFFile(f)
-                # TODO: make this not depend on sections...
-                dyn = e.get_section_by_name('.dynamic')
-                if dyn is None:
-                    return None
+                for seg in e.iter_segments():
+                    if seg.header.p_type == 'PT_NULL':
+                        break
+                    elif seg.header.p_type == 'PT_DYNAMIC':
+                        for tag in seg.iter_tags():
+                            if tag.entry.d_tag == 'DT_SONAME':
+                                return tag.soname
+                        if type(path) in (bytes, unicode):
+                            return os.path.basename(path)
 
-                soname = [ x.soname for x in list(dyn.iter_tags()) if x.entry.d_tag == 'DT_SONAME']
-                if not soname:
-                    if type(path) in (str, unicode):
-                        return os.path.basename(path)
-                    return None
-                return soname[0]
             except elftools.common.exceptions.ELFError:
-                return None
+                pass
+            return None
 
     @staticmethod
     def get_text_offset(path):

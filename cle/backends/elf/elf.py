@@ -4,7 +4,6 @@ import logging
 import archinfo
 import elftools
 from elftools.elf import elffile, sections
-from elftools.common.exceptions import ELFError
 from collections import OrderedDict, defaultdict
 
 from .symbol import ELFSymbol, Symbol
@@ -32,24 +31,31 @@ class ELF(MetaELF):
 
     def __init__(self, binary, addend=None, **kwargs):
         super(ELF, self).__init__(binary, **kwargs)
-        patch_undo = None
+        patch_undo = []
         try:
             self.reader = elffile.ELFFile(self.binary_stream)
-        except ELFError:
+            list(self.reader.iter_sections())
+        except Exception: # pylint: disable=broad-except
             self.binary_stream.seek(4)
             ty = self.binary_stream.read(1)
             if ty not in ('\1', '\2'):
                 raise CLECompatibilityError
 
-            patch_data = (0x20, '\0\0\0\0') if ty == '\1' else (0x28, '\0\0\0\0\0\0\0\0')
-            self.binary_stream.seek(patch_data[0])
-            patch_undo = (patch_data[0], self.binary_stream.read(len(patch_data[1])))
-            self.binary_stream = PatchedStream(self.binary_stream, [patch_data])
+            if ty == '\1':
+                patch_data = [(0x20, '\0'*4), (0x2e, '\0'*6)]
+            else:
+                patch_data = [(0x28, '\0'*8), (0x3a, '\0'*6)]
+
+            for offset, patch in patch_data:
+                self.binary_stream.seek(offset)
+                patch_undo.append((offset, self.binary_stream.read(len(patch))))
+
+            self.binary_stream = PatchedStream(self.binary_stream, patch_data)
             l.error("PyReadELF couldn't load this file. Trying again without section headers...")
 
             try:
                 self.reader = elffile.ELFFile(self.binary_stream)
-            except ELFError:
+            except Exception: # pylint: disable=broad-except
                 raise CLECompatibilityError
 
         # Get an appropriate archinfo.Arch for this binary, unless the user specified one
@@ -117,8 +123,8 @@ class ELF(MetaELF):
 
         self._populate_demangled_names()
 
-        if patch_undo is not None:
-            self.memory.write_bytes(AT.from_lva(self.min_addr + patch_undo[0], self).to_rva(), patch_undo[1])
+        for offset, patch in patch_undo:
+            self.memory.write_bytes(AT.from_lva(self.min_addr + offset, self).to_rva(), patch)
 
 
     #
@@ -149,8 +155,8 @@ class ELF(MetaELF):
                 return archinfo.ArchARMEL('Iend_LE' if reader.little_endian else 'Iend_BE')
             elif reader.header.e_flags & 0x400:
                 return archinfo.ArchARMHF('Iend_LE' if reader.little_endian else 'Iend_BE')
-        else:
-            return archinfo.arch_from_id(arch_str, 'le' if reader.little_endian else 'be', reader.elfclass)
+
+        return archinfo.arch_from_id(arch_str, 'le' if reader.little_endian else 'be', reader.elfclass)
 
     @property
     def initializers(self):
