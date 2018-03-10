@@ -85,6 +85,7 @@ class Backend(object):
         self.jmprel = {}
         self.arch = None
         self.os = None  # Let other stuff override this
+        self.engine_preset = None
         self._symbol_cache = {}
 
         self.mapped_base_symbolic = 0
