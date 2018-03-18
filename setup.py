@@ -9,7 +9,7 @@ except ImportError:
 
 setup(
     name='cle',
-    description='CLE Loads Everything (at least, may binary formats!) and provides a Pythonic interface to analyze what they are and what they would look like in memory.',
+    description='CLE Loads Everything (at least, many binary formats!) and provides a pythonic interface to analyze what they are and what they would look like in memory.',
     version='7.8.2.21',
     packages=packages,
     install_requires=[
