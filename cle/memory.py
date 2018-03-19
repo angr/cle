@@ -46,6 +46,9 @@ class Clemory(object):
     def set_simulated_addresses(self,simulated_addr):
         self.simulated_addresses = simulated_addr
 
+    def is_concrete_target_set(self):
+        return self.concrete_target is not None
+
     def set_concrete_target(self, concrete_target):
         self.concrete_target = concrete_target
 
