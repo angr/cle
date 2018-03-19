@@ -5,155 +5,13 @@ import logging
 l = logging.getLogger("cle.memory")
 
 
-__all__ = ('Clemory','SimulatedClemory','ConcreteClemory')
-
-
-class Clemory(object):
-    """
-    An object representing a memory space. Uses "backers" and "updates" to separate the concepts of loaded and written
-    memory and make lookups more efficient.
-
-    Accesses can be made with [index] notation.
-    """
-    def __init__(self, arch, root=False):
-        self.simulated_clemory = SimulatedClemory(arch,root)
-        self.concrete_clemory = None
-        self.simulated_addresses = None
-
-
-    def set_concrete_target(self, concrete_target):
-        self.concrete_clemory = ConcreteClemory(concrete_target)
-
-    def set_simulated_addresses(self, simulated_addresses):
-        self.simulated_addresses = simulated_addresses
-
-
-    """
-        handle the case in which the read is overlapping between concreted and simulated 
-        NOT CORRECTLY handled now since we check only if the start address belongs to the simulated memory
-    """
-    def _is_address_in_simulated_memory(self,addr):
-        #index = bisect.bisect(self.sorted_start_addresses,addr)
-        #if index and addr in self.addresses_blacklist
-        for start_addr,end_addr in self.simulated_addresses:
-            if start_addr < addr < end_addr:
-                return True
-        return False
-
-    def add_backer(self, start, data):
-        return self.get_current_clemory(start).add_backer(start,data)
-
-
-    def update_backer(self, start, data):
-        return self.get_current_clemory(start).update_backer(start,data)
-
-
-
-    def remove_backer(self, start):
-        return self.get_current_clemory(start).remove_backer(start)
-
-    def get_current_clemory(self,addr=None):
-        """
-        Identify the correct Clemory object to use. If a concrete clemory object is defined and the address is not in the simulated_addresses
-        list the read will be performed in the concrete process otherwise it will be redirected to the ANGR memory
-        :param addr:
-        :return:
-        """
-        if self.concrete_clemory is  None:
-            return self.simulated_clemory
-
-        elif self._is_address_in_simulated_memory(addr):
-            return self.simulated_clemory
-
-        else:
-            return self.concrete_clemory
-
-
-    def __iter__(self):
-        self.get_current_clemory().__iter__()
-
-
-    def __getitem__(self, k):
-        return self.get_current_clemory(k).__getitem__(k)
-
-    def get_byte(self, k, orig=False):
-        return self.get_current_clemory(k).get_byte(k,orig)
-
-    def __setitem__(self, k, v):
-        return self.get_current_clemory(k).__setitem__(k, v)
-
-
-    def __contains__(self, k):
-        return self.get_current_clemory(k).__contains__(k)
-
-
-    def __getstate__(self):
-        return self.get_current_clemory().__getstate__()
-
-
-    def __setstate__(self, data):
-        return self.get_current_clemory().__getstate__(data)
-
-    def read_bytes(self, addr, n, orig=False):
-        return self.get_current_clemory(addr).read_bytes(addr,n,orig)
-
-
-    def write_bytes(self, addr, data):
-        return self.get_current_clemory(addr).write_bytes(addr,data)
-
-
-
-    def write_bytes_to_backer(self, addr, data):
-        return self.get_current_clemory(addr).write_bytes_to_backer(addr, data)
-
-    def read_addr_at(self, where, orig=False):
-        return self.get_current_clemory(where).read_addr_at(where,orig)
-
-
-
-    def write_addr_at(self, where, addr):
-        return self.get_current_clemory(where).write_addr_at(where,addr)
-
-
-
-    @property
-    def stride_repr(self):
-        if self.concrete_clemory is  None:
-            return self.simulated_clemory.cbackers
-        else:
-            return self.concrete_clemory.cbackers
-
-
-
-
-    def seek(self, value):
-        return self.get_current_clemory().seek(value)
-
-
-    def read(self, nbytes):
-        return self.get_current_clemory().read(nbytes)
-
-    def tell(self):
-        return self.get_current_clemory().tell()
-
-
-    @property
-    def cbackers(self):
-        if self.concrete_clemory is  None:
-            return self.simulated_clemory.cbackers
-        else:
-            return self.concrete_clemory.cbackers
-
-
-    def read_bytes_c(self, addr):
-        return self.get_current_clemory().read_bytes_c(addr)
-
+__all__ = ('Clemory',)
 
 
 
 # TODO: Further optimization is possible now that the list of backers is sorted
 
-class SimulatedClemory(object):
+class Clemory(object):
     """
     An object representing a memory space. Uses "backers" and "updates" to separate the concepts of loaded and written
     memory and make lookups more efficient.
@@ -170,8 +28,26 @@ class SimulatedClemory(object):
         self._cbackers = [ ] # tuple of (start, cdata<buffer>)
         self._needs_flattening_personal = True
 
+        self.concrete_target = None
+        self.simulated_addresses = []
 
+    """
+        handle the case in which the read is overlapping between concreted and simulated 
+        NOT CORRECTLY handled now since we check only if the start address belongs to the simulated memory
+    """
+    def _is_address_in_simulated_memory(self, addr):
+        # index = bisect.bisect(self.sorted_start_addresses,addr)
+        # if index and addr in self.addresses_blacklist
+        for start_addr, end_addr in self.simulated_addresses:
+            if start_addr < addr < end_addr:
+                return True
+        return False
 
+    def set_simulated_addresses(self,simulated_addr):
+        self.simulated_addresses = simulated_addr
+
+    def set_concrete_target(self, concrete_target):
+        self.concrete_target = concrete_target
 
     def add_backer(self, start, data):
         """
@@ -222,6 +98,13 @@ class SimulatedClemory(object):
         return self.get_byte(k)
 
     def get_byte(self, k, orig=False):
+
+        #concrete memory read
+        if self.concrete_target is not None and not self._is_address_in_simulated_memory(k):
+            l.debug("invoked get_byte %x" % (k))
+            return self.concrete_target.read_memory(k, 1)
+
+        #simulated memory read
         if not orig and k in self._updates:
             return self._updates[k]
         else:
@@ -264,6 +147,13 @@ class SimulatedClemory(object):
         Reading will stop at the beginning of the first unallocated region found, or when
         `n` bytes have been read.
         """
+
+        # concrete memory read
+        if self.concrete_target is not None and not self._is_address_in_simulated_memory(addr):
+            l.debug("invoked read_bytes %x %x" % (addr, n))
+            return list(self.concrete_target.read_memory(addr, n))
+
+        # simulated memory read
         b = []
         try:
             for i in range(addr, addr+n):
@@ -391,6 +281,10 @@ class SimulatedClemory(object):
         Up to `nbytes` bytes will be read, halting at the beginning of the first unmapped region
         encountered.
         """
+        if self.concrete_target is not None and not self._is_address_in_simulated_memory(self._pointer):
+            l.debug("invoked read %x" % (nbytes))
+            return self.concrete_target.read_memory(self._pointer, nbytes)
+
         if nbytes == 1:
             try:
                 out = self[self._pointer]
@@ -472,129 +366,6 @@ class SimulatedClemory(object):
                 return cbacker + (addr - start), start + len(cbacker) - addr
 
         raise KeyError(addr)
-
-
-
-
-class ConcreteClemory(object):
-
-    def __init__(self, concrete_target):
-        """
-        :param concrete_target:
-        :param addresses_blacklist:  list containing tuples (start_address, end_address) that won't be read in the concrete memory but in the ANGR one
-        """
-        self.concrete_target = concrete_target
-        self._pointer = 0
-
-
-
-
-    def __getitem__(self, k):
-        return self.get_byte(k)
-
-
-
-
-    def get_byte(self, addr):
-        """
-        get the byte value at address addr
-        :param addr: address to read
-        :return: value of the byte
-        :rtype: str
-        """
-        l.debug("invoked get_byte %x"%(addr))
-        return self.concrete_target.read_memory(addr,1)
-
-    def read_bytes(self, addr, nbytes):
-        """
-        read nbytes bytes at address addr
-        :param addr: address to read
-        :param nbytes: number of bytes to read
-        :return: list of characters (str) containing the memory at address addr
-        :rtype: list of str
-        """
-        l.debug("invoked read_bytes %x %x"%(addr,nbytes))
-        return list(self.concrete_target.read_memory(addr,nbytes))
-
-    def read_addr_at(self, where, orig=False):
-        """
-        Read addr stored in memory as a series of bytes starting at `where`.
-        """
-        l.debug("invoked read_addr_at %x"%(where))
-        raise NotImplementedError("to implement problem: 2 differente archs objects Avatar and Angr")
-
-    def seek(self, value):
-        """
-        The stream-like function that sets the "file's" current position. Use with :func:`read()`.
-        :param value:        The position to seek to.
-        """
-        l.debug("invoked seek_at %x"%(value))
-        self._pointer = value
-
-    def read(self, nbytes):
-        """
-        The stream-like function that reads up to a number of bytes starting from the current
-        position and updates the current position. Use with :func:`seek`.
-
-        Up to `nbytes` bytes will be read
-        """
-        l.debug("invoked read %x"%(nbytes))
-        return self.concrete_target.read_memory(self._pointer, nbytes)
-
-    def __setitem__(self, k, v):
-        raise NotImplementedError("Method not supported in the ConcreteClemory")
-
-    def __contains__(self, k):
-        raise NotImplementedError("Method not supported in the ConcreteClemory")
-
-    def __getstate__(self):
-        raise NotImplementedError("Method not supported in the ConcreteClemory")
-
-    def __setstate__(self, data):
-        raise NotImplementedError("Method not supported in the ConcreteClemory")
-
-    def __iter__(self):
-        raise NotImplementedError("Method not supported in the ConcreteClemory")
-
-    def read_bytes_c(self, addr):
-        raise NotImplementedError("Method not supported in the ConcreteClemory")
-
-    def stride_repr(self):
-        raise NotImplementedError("Method not supported in the ConcreteClemory")
-
-    def write_addr_at(self, where, addr):
-        raise NotImplementedError("Method not supported in the ConcreteClemory")
-
-    @property
-    def cbackers(self):
-        raise NotImplementedError("Method not supported in the ConcreteClemory")
-
-    @property
-    def stride_repr(self):
-        raise NotImplementedError("Method not supported in the ConcreteClemory")
-
-    def update_backer(self, start, data):
-        raise NotImplementedError("Method not supported in the ConcreteClemory")
-
-    def write_bytes(self, addr, data):
-        raise NotImplementedError("Method not supported in the ConcreteClemory")
-
-    def write_bytes_to_backer(self, addr, data):
-        raise NotImplementedError("Method not supported in the ConcreteClemory")
-
-    def add_backer(self, start, data):
-        raise NotImplementedError("Method not supported in the ConcreteClemory")
-
-    def update_backer(self, start, data):
-        raise NotImplementedError("Method not supported in the ConcreteClemory")
-
-    def remove_backer(self, start ):
-        raise NotImplementedError("Method not supported in the ConcreteClemory")
-
-
-
-
-
 
 
 
