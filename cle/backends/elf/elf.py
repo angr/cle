@@ -396,11 +396,17 @@ class ELF(MetaELF):
             self.binary_stream.stream = open(self.binary, 'rb')
 
         self.reader = elffile.ELFFile(self.binary_stream)
+
+        # there's a really weird nuance when doing these fake segments during deserialization.
+        # during construction, we can use addr_to_offset just fine because everything in the dynamic
+        # segment is an LVA and we haven't done rebasing so LVA=MVA, but during deserialization
+        # MVA!=LVA because we've rebased!
+
         if self._dynamic and 'DT_STRTAB' in self._dynamic:
             self.strtab = next(x for x in self.reader.iter_segments() if x.header.p_type == 'PT_DYNAMIC')._get_stringtable()
             if 'DT_SYMTAB' in self._dynamic and 'DT_SYMENT' in self._dynamic:
                 fakesymtabheader = {
-                    'sh_offset': self.addr_to_offset(self._dynamic['DT_SYMTAB']),
+                    'sh_offset': self.addr_to_offset(AT.from_lva(self._dynamic['DT_SYMTAB'], self).to_mva()),
                     'sh_entsize': self._dynamic['DT_SYMENT'],
                     'sh_size': 0, # bogus size: no iteration allowed
                     'sh_flags': 0,
@@ -415,13 +421,13 @@ class ELF(MetaELF):
                     self.hashtable = GNUHashTable(
                             self.dynsym,
                             self.memory,
-                            self.addr_to_offset(self._dynamic['DT_GNU_HASH']),
+                            self.addr_to_offset(AT.from_lva(self._dynamic['DT_GNU_HASH'], self).to_mva()),
                             self.arch)
                 elif 'DT_HASH' in self._dynamic:
                     self.hashtable = ELFHashTable(
                             self.dynsym,
                             self.memory,
-                            self.addr_to_offset(self._dynamic['DT_HASH']),
+                            self.addr_to_offset(AT.from_lva(self._dynamic['DT_HASH'], self).to_mva()),
                             self.arch)
 
     def __register_segments(self):
