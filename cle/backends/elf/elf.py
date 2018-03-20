@@ -400,7 +400,7 @@ class ELF(MetaELF):
             self.strtab = next(x for x in self.reader.iter_segments() if x.header.p_type == 'PT_DYNAMIC')._get_stringtable()
             if 'DT_SYMTAB' in self._dynamic and 'DT_SYMENT' in self._dynamic:
                 fakesymtabheader = {
-                    'sh_offset': AT.from_lva(self._dynamic['DT_SYMTAB'], self).to_rva(),
+                    'sh_offset': self.addr_to_offset(self._dynamic['DT_SYMTAB']),
                     'sh_entsize': self._dynamic['DT_SYMENT'],
                     'sh_size': 0, # bogus size: no iteration allowed
                     'sh_flags': 0,
@@ -415,13 +415,13 @@ class ELF(MetaELF):
                     self.hashtable = GNUHashTable(
                             self.dynsym,
                             self.memory,
-                            AT.from_lva(self._dynamic['DT_GNU_HASH'], self).to_rva(),
+                            self.addr_to_offset(self._dynamic['DT_GNU_HASH']),
                             self.arch)
                 elif 'DT_HASH' in self._dynamic:
                     self.hashtable = ELFHashTable(
                             self.dynsym,
                             self.memory,
-                            AT.from_lva(self._dynamic['DT_HASH'], self).to_rva(),
+                            self.addr_to_offset(self._dynamic['DT_HASH']),
                             self.arch)
 
     def __register_segments(self):
@@ -470,7 +470,7 @@ class ELF(MetaELF):
         if 'DT_STRTAB' in self._dynamic and 'DT_SYMTAB' in self._dynamic and 'DT_SYMENT' in self._dynamic:
                 # Construct our own symbol table to hack around pyreadelf assuming section headers are around
                 fakesymtabheader = {
-                    'sh_offset': AT.from_lva(self._dynamic['DT_SYMTAB'], self).to_rva(),
+                    'sh_offset': self.addr_to_offset(self._dynamic['DT_SYMTAB']),
                     'sh_entsize': self._dynamic['DT_SYMENT'],
                     'sh_size': 0, # bogus size: no iteration allowed
                     'sh_flags': 0,
@@ -485,10 +485,16 @@ class ELF(MetaELF):
                 # the hash table lets you get any symbol given its name
                 if 'DT_GNU_HASH' in self._dynamic:
                     self.hashtable = GNUHashTable(
-                        self.dynsym, self.memory, AT.from_lva(self._dynamic['DT_GNU_HASH'], self).to_rva(), self.arch)
+                        self.dynsym,
+                        self.memory,
+                        self.addr_to_offset(self._dynamic['DT_GNU_HASH']),
+                        self.arch)
                 elif 'DT_HASH' in self._dynamic:
                     self.hashtable = ELFHashTable(
-                        self.dynsym, self.memory, AT.from_lva(self._dynamic['DT_HASH'], self).to_rva(), self.arch)
+                        self.dynsym,
+                        self.memory,
+                        self.addr_to_offset(self._dynamic['DT_HASH']),
+                        self.arch)
                 else:
                     l.warning("No hash table available in %s", self.binary)
 
@@ -517,12 +523,13 @@ class ELF(MetaELF):
                         return
 
                 # try to parse relocations out of a table of type DT_REL{,A}
-                if 'DT_' + self.rela_type in self._dynamic:
-                    reloffset = AT.from_lva(self._dynamic['DT_' + self.rela_type], self).to_rva()
-                    if 'DT_' + self.rela_type + 'SZ' not in self._dynamic:
-                        raise CLEInvalidBinaryError('Dynamic section contains DT_' + self.rela_type +
-                                ', but DT_' + self.rela_type + 'SZ is not present')
-                    relsz = self._dynamic['DT_' + self.rela_type + 'SZ']
+                relname = 'DT_' + self.rela_type
+                relszname = relname + 'SZ'
+                if relname in self._dynamic:
+                    reloffset = self.addr_to_offset(self._dynamic[relname])
+                    if relszname not in self._dynamic:
+                        raise CLEInvalidBinaryError('Dynamic section contains %s, but not %s' % (relname, relszname))
+                    relsz = self._dynamic[relszname]
                     fakerelheader = {
                         'sh_offset': reloffset,
                         'sh_type': 'SHT_' + self.rela_type,
@@ -539,7 +546,7 @@ class ELF(MetaELF):
 
                 # try to parse relocations out of a table of type DT_JMPREL
                 if 'DT_JMPREL' in self._dynamic:
-                    jmpreloffset = AT.from_lva(self._dynamic['DT_JMPREL'], self).to_rva()
+                    jmpreloffset = self.addr_to_offset(self._dynamic['DT_JMPREL'])
                     if 'DT_PLTRELSZ' not in self._dynamic:
                         raise CLEInvalidBinaryError('Dynamic section contains DT_JMPREL, but DT_PLTRELSZ is not present')
                     jmprelsz = self._dynamic['DT_PLTRELSZ']
