@@ -88,7 +88,7 @@ class Blob(Backend):
         return None
 
     def contains_addr(self, addr):
-        return addr in self.memory
+        return addr >= self.mapped_base and (addr - self.mapped_base) in self.memory
 
     def in_which_segment(self, addr): #pylint: disable=unused-argument,no-self-use
         """
