@@ -407,9 +407,10 @@ class ELF(MetaELF):
                     'sh_addralign': 0,
                 }
                 try:
-                    self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.binary_stream, self.reader, self.strtab)
+                    self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.memory, self.reader, self.strtab)
                 except TypeError:
                     self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.reader, self.strtab)
+                    self.dynsym.stream = self.memory
 
                 if 'DT_GNU_HASH' in self._dynamic:
                     self.hashtable = GNUHashTable(
@@ -477,9 +478,10 @@ class ELF(MetaELF):
                     'sh_addralign': 0,
                 }
                 try:
-                    self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.binary_stream, self.reader, self.strtab)
+                    self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.memory, self.reader, self.strtab)
                 except TypeError:
                     self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.reader, self.strtab)
+                    self.dynsym.stream = self.memory
 
                 # set up the hash table, prefering the gnu hash section to the old hash section
                 # the hash table lets you get any symbol given its name
@@ -517,12 +519,13 @@ class ELF(MetaELF):
                         return
 
                 # try to parse relocations out of a table of type DT_REL{,A}
-                if 'DT_' + self.rela_type in self._dynamic:
-                    reloffset = AT.from_lva(self._dynamic['DT_' + self.rela_type], self).to_rva()
-                    if 'DT_' + self.rela_type + 'SZ' not in self._dynamic:
-                        raise CLEInvalidBinaryError('Dynamic section contains DT_' + self.rela_type +
-                                ', but DT_' + self.rela_type + 'SZ is not present')
-                    relsz = self._dynamic['DT_' + self.rela_type + 'SZ']
+                rela_tag = 'DT_' + self.rela_type
+                relsz_tag = rela_tag + 'SZ'
+                if rela_tag in self._dynamic:
+                    reloffset = AT.from_lva(self._dynamic[rela_tag], self).to_rva()
+                    if relsz_tag not in self._dynamic:
+                        raise CLEInvalidBinaryError('Dynamic section contains %s but not %s' % (rela_tag, relsz_tag))
+                    relsz = self._dynamic[relsz_tag]
                     fakerelheader = {
                         'sh_offset': reloffset,
                         'sh_type': 'SHT_' + self.rela_type,
@@ -532,16 +535,17 @@ class ELF(MetaELF):
                         'sh_addralign': 0,
                     }
                     try:
-                        readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self.binary_stream, self.reader)
+                        readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self.memory, self.reader)
                     except TypeError:
                         readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self.reader)
+                        readelf_relocsec.stream = self.memory
                     self.__register_relocs(readelf_relocsec)
 
                 # try to parse relocations out of a table of type DT_JMPREL
                 if 'DT_JMPREL' in self._dynamic:
                     jmpreloffset = AT.from_lva(self._dynamic['DT_JMPREL'], self).to_rva()
                     if 'DT_PLTRELSZ' not in self._dynamic:
-                        raise CLEInvalidBinaryError('Dynamic section contains DT_JMPREL, but DT_PLTRELSZ is not present')
+                        raise CLEInvalidBinaryError('Dynamic section contains DT_JMPREL but not DT_PLTRELSZ')
                     jmprelsz = self._dynamic['DT_PLTRELSZ']
                     fakejmprelheader = {
                         'sh_offset': jmpreloffset,
@@ -552,9 +556,10 @@ class ELF(MetaELF):
                         'sh_addralign': 0,
                     }
                     try:
-                        readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.binary_stream, self.reader)
+                        readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.memory, self.reader)
                     except TypeError:
                         readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.reader)
+                        readelf_jmprelsec.stream = self.memory
                     self.__register_relocs(readelf_jmprelsec, force_jmprel=True)
 
     def __register_relocs(self, section, force_jmprel=False):
