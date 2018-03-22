@@ -25,6 +25,8 @@ def test_blob_0():
     nose.tools.assert_equal(ld.main_object.mapped_base, BASE_ADDR)
     nose.tools.assert_equal(ld.main_object.min_addr, BASE_ADDR)
     nose.tools.assert_equal(ld.main_object.entry, ENTRYPOINT)
+    nose.tools.assert_true(ld.main_object.contains_addr(BASE_ADDR))
+    nose.tools.assert_false(ld.main_object.contains_addr(BASE_ADDR - 1))
 
 
 def test_blob_1():
