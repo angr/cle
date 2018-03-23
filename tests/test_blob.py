@@ -1,6 +1,7 @@
 
 import nose
 import os
+import pickle
 
 import cle
 
@@ -27,6 +28,10 @@ def test_blob_0():
     nose.tools.assert_equal(ld.main_object.entry, ENTRYPOINT)
     nose.tools.assert_true(ld.main_object.contains_addr(BASE_ADDR))
     nose.tools.assert_false(ld.main_object.contains_addr(BASE_ADDR - 1))
+
+    # ensure that pickling works
+    ld_pickled = pickle.loads(pickle.dumps(ld))
+    nose.tools.assert_equal(ld_pickled.main_object.mapped_base, BASE_ADDR)
 
 
 def test_blob_1():

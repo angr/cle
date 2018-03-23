@@ -1,5 +1,6 @@
 from . import Backend, register_backend
 from ..errors import CLEError
+from ..patched_stream import PatchedStream
 
 import logging
 l = logging.getLogger("cle.blob")
@@ -99,5 +100,29 @@ class Blob(Backend):
     @classmethod
     def check_compatibility(cls, spec, obj): # pylint: disable=unused-argument
         return True
+
+    def __getstate__(self):
+        if self.binary is None:
+            raise ValueError("Can't pickle an object loaded from a stream")
+
+        # Get a copy of our pickleable self
+        out = dict(self.__dict__)
+
+        # Trash the unpickleable
+        if type(self.binary_stream) is PatchedStream:
+            out['binary_stream'].stream = None
+        else:
+            out['binary_stream'] = None
+
+        return out
+
+    def __setstate__(self, data):
+        self.__dict__.update(data)
+
+        if self.binary_stream is None:
+            self.binary_stream = open(self.binary, 'rb')
+        else:
+            self.binary_stream.stream = open(self.binary, 'rb')
+
 
 register_backend("blob", Blob)
