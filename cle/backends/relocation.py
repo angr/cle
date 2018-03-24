@@ -30,6 +30,9 @@ class Relocation(object):
             self.owner_obj.imports[self.symbol.name] = self
 
     def resolve_symbol(self, solist, bypass_compatibility=False): # pylint: disable=unused-argument
+        if self.resolved:
+            return True
+
         if self.symbol.is_static:
             # A static symbol should only be resolved by itself.
             self.resolve(self.symbol)
