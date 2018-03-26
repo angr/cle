@@ -87,6 +87,8 @@ class Backend(object):
         self.os = None  # Let other stuff override this
         self.engine_preset = None
         self._symbol_cache = {}
+        # a list of directories to search for libraries specified by the object
+        self.extra_load_path = []
 
         self.mapped_base_symbolic = 0
         # These are set by cle, and should not be overriden manually
