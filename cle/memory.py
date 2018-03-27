@@ -2,6 +2,8 @@ import bisect
 import struct
 import cffi
 
+from .errors import CLEMemoryError
+
 __all__ = ('Clemory',)
 
 # TODO: Further optimization is possible now that the list of backers is sorted
@@ -190,7 +192,10 @@ class Clemory(object):
         Read addr stored in memory as a series of bytes starting at `where`.
         """
         by = ''.join(self.read_bytes(where, self._arch.bytes, orig=orig))
-        return struct.unpack(self._arch.struct_fmt(), by)[0]
+        try:
+            return struct.unpack(self._arch.struct_fmt(), by)[0]
+        except struct.error:
+            raise CLEMemoryError("Not enough bytes at %#x" % where)
 
     def write_addr_at(self, where, addr):
         """

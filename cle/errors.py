@@ -47,3 +47,9 @@ class CLECompatibilityError(CLEError):
     Error raised when loading an executable that is not currently supported by CLE.
     """
     pass
+
+class CLEMemoryError(CLEError):
+    """
+    Error raised when performing memory operations on unmapped addresses
+    """
+    pass
