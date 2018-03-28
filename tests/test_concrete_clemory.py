@@ -17,12 +17,13 @@ def setup_func():
 
 @nose.tools.with_setup(setup_func)
 def test_concrete_clemory_read_bytes():
-    clemory = cle.SimulatedClemory(None, root=True)
+    clemory = cle.Clemory(None, root=True)
     clemory.add_backer(0, "Go away!")
     cle_msg = clemory.read_bytes(0, 8)
 
     concrete_target = AvatarGDBConcreteTarget(archs.x86.X86_64, "127.0.0.1", 1234)
-    concrete_clemory = cle.ConcreteClemory(concrete_target)
+    concrete_clemory = cle.Clemory(None,root=True)
+    concrete_clemory.set_concrete_target(concrete_target)
     cle_msg_concrete = concrete_clemory.read_bytes(0x40090C, 8)
 
     nose.tools.assert_true(cle_msg == cle_msg_concrete and type(cle_msg) == type(cle_msg_concrete) and type(cle_msg[0] == cle_msg_concrete[0]) )
@@ -30,12 +31,13 @@ def test_concrete_clemory_read_bytes():
 
 @nose.tools.with_setup(setup_func)
 def test_concrete_clemory_get_byte():
-    clemory = cle.SimulatedClemory(None, root=True)
+    clemory = cle.Clemory(None, root=True)
     clemory.add_backer(0, "Go away!")
     cle_byte = clemory.get_byte(0)
 
     concrete_target = AvatarGDBConcreteTarget(archs.x86.X86_64, "127.0.0.1", 1234)
-    concrete_clemory = cle.ConcreteClemory(concrete_target)
+    concrete_clemory = cle.Clemory(None, root=True)
+    concrete_clemory.set_concrete_target(concrete_target)
     cle_byte_concrete = concrete_clemory.get_byte(0x40090C)
 
     nose.tools.assert_true(cle_byte == cle_byte_concrete and type(cle_byte_concrete) == type(cle_byte_concrete))
@@ -44,12 +46,13 @@ def test_concrete_clemory_get_byte():
 @nose.tools.with_setup(setup_func)
 def test_concrete_clemory_read():
     print("read ")
-    clemory = cle.SimulatedClemory(None, root=True)
+    clemory = cle.Clemory(None, root=True)
     clemory.add_backer(0, "Go away!")
     cle_read = clemory.read(8)
 
     concrete_target = AvatarGDBConcreteTarget(archs.x86.X86_64, "127.0.0.1", 1234)
-    concrete_clemory = cle.ConcreteClemory(concrete_target)
+    concrete_clemory = cle.Clemory(None, root=True)
+    concrete_clemory.set_concrete_target(concrete_target)
 
     concrete_clemory.seek(0x40090C)
     cle_read_concrete = concrete_clemory.read(8)
