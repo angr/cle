@@ -41,6 +41,9 @@ class Loader(object):
     The following parameters are optional.
 
     :param auto_load_libs:      Whether to automatically load shared libraries that loaded objects depend on.
+    :param concrete_target:     Whether to instantiate a concrete target for a concrete execution of the process.
+                                if this is the case we will need to instantiate a SimConcreteEngine that wraps the
+                                ConcreteTarget provided by the user.
     :param force_load_libs:     A list of libraries to load regardless of if they're required by a loaded object.
     :param skip_libs:           A list of libraries to never load, even if they're required by a loaded object.
     :param main_opts:           A dictionary of options to be used loading the main binary.
@@ -78,7 +81,7 @@ class Loader(object):
     More keys are defined on a per-backend basis.
     """
 
-    def __init__(self, main_binary, auto_load_libs=True,
+    def __init__(self, main_binary, auto_load_libs=True, concrete_target=None,
                  force_load_libs=(), skip_libs=(),
                  main_opts=None, lib_opts=None, custom_ld_path=(), use_system_libs=True,
                  ignore_import_version_numbers=True, case_insensitive=False, rebase_granularity=0x1000000,
@@ -91,6 +94,7 @@ class Loader(object):
             self._main_binary_path = os.path.realpath(str(main_binary))
             self._main_binary_stream = None
         self._auto_load_libs = auto_load_libs
+        self._concrete_target = concrete_target
         self._satisfied_deps = dict((x, False) for x in skip_libs)
         self._main_opts = {} if main_opts is None else main_opts
         self._lib_opts = {} if lib_opts is None else lib_opts
