@@ -29,22 +29,6 @@ class Clemory(object):
         self._needs_flattening_personal = True
 
         self.concrete_target = None
-        self.simulated_addresses = []
-
-    """
-        handle the case in which the read is overlapping between concreted and simulated 
-        NOT CORRECTLY handled now since we check only if the start address belongs to the simulated memory
-    """
-    def _is_address_in_simulated_memory(self, addr):
-        # index = bisect.bisect(self.sorted_start_addresses,addr)
-        # if index and addr in self.addresses_blacklist
-        for start_addr, end_addr in self.simulated_addresses:
-            if start_addr < addr < end_addr:
-                return True
-        return False
-
-    def set_simulated_addresses(self,simulated_addr):
-        self.simulated_addresses = simulated_addr
 
     def is_concrete_target_set(self):
         return self.concrete_target is not None
@@ -103,7 +87,7 @@ class Clemory(object):
     def get_byte(self, k, orig=False):
 
         #concrete memory read
-        if self.concrete_target is not None and not self._is_address_in_simulated_memory(k):
+        if self.concrete_target is not None:
             l.debug("invoked get_byte %x" % (k))
             return self.concrete_target.read_memory(k, 1)
 
@@ -152,7 +136,7 @@ class Clemory(object):
         """
 
         # concrete memory read
-        if self.concrete_target is not None and not self._is_address_in_simulated_memory(addr):
+        if self.concrete_target is not None:
             l.debug("invoked read_bytes %x %x" % (addr, n))
             return list(self.concrete_target.read_memory(addr, n))
 
@@ -287,7 +271,7 @@ class Clemory(object):
         Up to `nbytes` bytes will be read, halting at the beginning of the first unmapped region
         encountered.
         """
-        if self.concrete_target is not None and not self._is_address_in_simulated_memory(self._pointer):
+        if self.concrete_target is not None:
             l.debug("invoked read %x" % (nbytes))
             return self.concrete_target.read_memory(self._pointer, nbytes)
 
