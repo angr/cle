@@ -351,9 +351,14 @@ class Clemory(object):
         if self._needs_flattening:
             self._flatten_to_c()
 
-        for start, cbacker in self._cbackers:
-            if addr >= start and addr < start + len(cbacker):
-                return cbacker + (addr - start), start + len(cbacker) - addr
+        if self.concrete_target:
+            ffi = cffi.FFI()
+            bytes = self.concrete_target.read_memory(addr, 500)
+            return ffi.new("unsigned char [%d]" % len(bytes), str(bytes)), 500
+        else:
+            for start, cbacker in self._cbackers:
+                if addr >= start and addr < start + len(cbacker):
+                    return cbacker + (addr - start), start + len(cbacker) - addr
 
         raise KeyError(addr)
 
