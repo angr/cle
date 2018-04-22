@@ -107,8 +107,8 @@ class Loader(object):
         if sys.platform == 'win32': # TODO: a real check for case insensitive filesystems
             if self._main_binary_path: self._main_binary_path = self._main_binary_path.lower()
             force_load_libs = [x.lower() if type(x) in (str, unicode) else x for x in force_load_libs]
-            for x in self._satisfied_deps: self._satisfied_deps[x.lower()] = self._satisfied_deps[x]
-            for x in self._lib_opts: self._lib_opts[x.lower()] = self._lib_opts[x]
+            for x in list(self._satisfied_deps): self._satisfied_deps[x.lower()] = self._satisfied_deps[x]
+            for x in list(self._lib_opts): self._lib_opts[x.lower()] = self._lib_opts[x]
             self._custom_ld_path = [x.lower() for x in self._custom_ld_path]
 
         self.aslr = aslr
