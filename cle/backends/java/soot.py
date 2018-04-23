@@ -1,6 +1,4 @@
 
-import zipfile
-
 import archinfo
 from archinfo.arch_soot import SootMethodDescriptor, SootAddressDescriptor
 
@@ -10,18 +8,37 @@ try:
 except ImportError:
     pysoot = None
 
-from . import Backend
-from . import register_backend
-from ..errors import CLEError
+from .. import Backend
+from ...errors import CLEError
 
 import logging
 _l = logging.getLogger("cle.backends.soot")
 
 
 class Soot(Backend):
-    is_default = True # Tell CLE to automatically consider using the Soot backend
 
-    def __init__(self, path, additional_jars=None, additional_jar_roots=None, main_class=None, **kwargs):
+    """
+    The basis loader class for lifting Java code from Jar's and Apk's to Soot.
+    """
+
+    def __init__(self, path, main_class=None,
+                 additional_jars=None, additional_jar_roots=None,
+                 native_libs_ld_path=None, native_libs=None,
+                 **kwargs):
+ 
+        """
+        :param path:                    Path to the main jar or apk.
+
+        The following parameters are optional
+
+        :param main_class:              Name of class containing the main method, which should be used as entry point.
+
+        :param additional_jars:         Additional Jars.
+        :param additional_jar_roots:    Additional Jar roots.
+
+        :param native_libs:             Name(s) if libraries containing native code components (JNI)
+        :param native_libs_ld_path:     Path(s) where to find native libraries. Note: Requires use_system_libs=True
+        """
 
         if not pysoot:
             raise ImportError('Cannot import PySoot. The Soot backend requires PySoot to function. '
@@ -32,16 +49,10 @@ class Soot(Backend):
 
         super(Soot, self).__init__(path, has_memory=False, **kwargs)
 
-        if not main_class:
-            # parse main_class from the manifest
-            self.manifest = self.get_manifest()
-            main_class = self.manifest.get('Main-Class', None)
-
         # load the classes
         pysoot_lifter = Lifter(path,
                                additional_jars=additional_jars,
-                               additional_jar_roots=additional_jar_roots,
-                               # main_class=main_class,
+                               additional_jar_roots=additional_jar_roots
                                )
         self._classes = pysoot_lifter.classes
 
@@ -50,18 +61,28 @@ class Soot(Backend):
             main_method_descriptor = SootMethodDescriptor.from_method(next(self.get_method("main", main_class)))
             entry = SootAddressDescriptor(main_method_descriptor, 0, 0)
         except CLEError:
-            _l.warning('Failed to identify the entry (the Main method) of this JAR.')
+            _l.warning('Failed to identify the entry (the Main method).')
             entry = None
+
         self._entry = entry
         self.os = 'javavm'
         self.rebase_addr = None
         self.set_arch(archinfo.arch_from_id('soot'))
+
+        # automatically load nativ libraries (with CLE) by adding them as a dependency of this object
+        if native_libs:
+            self.deps += [native_libs] if type(native_libs) in (str, unicode) else native_libs
+            # if available, add additional load path(s)
+            if native_libs_ld_path:
+                path_list = [native_libs_ld_path] if type(native_libs_ld_path) in (str, unicode) else native_libs_ld_path
+                self.extra_load_path += path_list
 
     @property
     def max_addr(self):
         # FIXME: This is a hack to satisfy checks elsewhere that max_addr must be greater than min_addr
         return self.min_addr + 1
 
+<<<<<<< f6deb58b987a8d896c6e7929bdf712f696910858:cle/backends/soot.py
     @staticmethod
     def is_compatible(stream):
         identstring = stream.read(4)
@@ -78,6 +99,8 @@ class Soot(Backend):
                 return True
         return False
 
+=======
+>>>>>>> Added support for loading mixed-representation Jars, i.e. Jars that invoke during execution functions in native code libraries (via JNI):cle/backends/java/soot.py
     @property
     def entry(self):
         return self._entry
@@ -85,35 +108,6 @@ class Soot(Backend):
     @property
     def classes(self):
         return self._classes
-
-    def get_manifest(self):
-        """
-        Load the MANIFEST.MF file
-
-        :return: A dict of meta info
-        :rtype:  dict
-        """
-
-        z = zipfile.ZipFile(self.binary)
-
-        for f in z.filelist:
-            if f.filename == 'META-INF/MANIFEST.MF':
-                break
-
-        manifest = z.open('META-INF/MANIFEST.MF', "r")
-
-        data = { }
-
-        for l in manifest.readlines():
-            if ':' in l:
-                key, value = l.split(':')
-                key = key.strip()
-                value = value.strip()
-                data[key] = value
-
-        manifest.close()
-
-        return data
 
     def get_class(self, cls_name):
         """
@@ -186,6 +180,3 @@ class Soot(Backend):
             for method in cls.methods:
                 if method.name == "main":  # TODO: Check more attributes
                     yield method
-
-
-register_backend('soot', Soot)

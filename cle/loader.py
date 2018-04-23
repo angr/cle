@@ -243,6 +243,10 @@ class Loader:
         """
         return self.requested_names - set(self._satisfied_deps)
 
+    @property
+    def auto_load_libs(self):
+        return self._auto_load_libs
+
     def describe_addr(self, addr):
         """
         Returns a textual description of what's in memory at the provided address
@@ -825,6 +829,11 @@ class Loader:
                 backend_cls = self._static_backend(path)
                 if backend_cls is None:
                     continue
+                # If arch of main object is Soot ...
+                if isinstance(self.main_object.arch, archinfo.arch_soot.ArchSoot):
+                    # ... skip compatibility check, since it always evaluates to false
+                    # with native libraries (which are the only valid dependencies)
+                    return path
                 if not backend_cls.check_compatibility(path, self.main_object):
                     continue
 
@@ -842,9 +851,18 @@ class Loader:
         dirs.extend(self._custom_ld_path)                   # if we say dirs = blah, we modify the original
 
         if self.main_object is not None:
+            # add path of main binary
             if self.main_object.binary is not None:
                 dirs.append(os.path.dirname(self.main_object.binary))
-            if self._use_system_libs:
+            # if arch of main_object is Soot ...
+            is_arch_soot = isinstance(self.main_object.arch, archinfo.arch_soot.ArchSoot)
+            if is_arch_soot:
+                # ... extend with load path of native libraries
+                dirs.extend(self.main_object.extra_load_path)
+                if self._use_system_libs:
+                    l.warning("Path of system libraries needs to be added manually using custom_ld_path.")
+            # add path of system libraries
+            if self._use_system_libs and not is_arch_soot:
                 # Ideally this should be taken into account for each shared
                 # object, not just the main object.
                 dirs.extend(self.main_object.extra_load_path)
