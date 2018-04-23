@@ -256,6 +256,10 @@ class Loader:
     def auto_load_libs(self):
         return self._auto_load_libs
 
+    @property
+    def auto_load_libs(self):
+        return self._auto_load_libs
+
     def describe_addr(self, addr):
         """
         Returns a textual description of what's in memory at the provided address
