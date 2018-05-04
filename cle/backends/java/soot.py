@@ -64,18 +64,22 @@ class Soot(Backend):
             _l.warning('Failed to identify the entry (the Main method).')
             entry = None
 
-        self._entry = entry
+        self._entry = entry    
         self.os = 'javavm'
         self.rebase_addr = None
         self.set_arch(archinfo.arch_from_id('soot'))
 
-        # automatically load nativ libraries (with CLE) by adding them as a dependency of this object
         if native_libs:
+            # automatically load nativ libraries (with CLE) by adding them as a dependency of this object
             self.deps += [native_libs] if type(native_libs) in (str, unicode) else native_libs
             # if available, add additional load path(s)
             if native_libs_ld_path:
                 path_list = [native_libs_ld_path] if type(native_libs_ld_path) in (str, unicode) else native_libs_ld_path
                 self.extra_load_path += path_list
+            # JNI support enables to switche between the Java SimOS and the one used by native libs
+            self.jni_support = True
+        else:
+            self.jni_support = False
 
     @property
     def max_addr(self):
