@@ -6,6 +6,7 @@ import logging
 from collections import OrderedDict
 
 import archinfo
+from archinfo.arch_soot import ArchSoot
 
 from .address_translator import AT
 from .utils import ALIGN_UP, key_bisect_insort_left, key_bisect_floor_key
@@ -830,7 +831,7 @@ class Loader:
                 if backend_cls is None:
                     continue
                 # If arch of main object is Soot ...
-                if isinstance(self.main_object.arch, archinfo.arch_soot.ArchSoot):
+                if isinstance(self.main_object.arch, ArchSoot):
                     # ... skip compatibility check, since it always evaluates to false
                     # with native libraries (which are the only valid dependencies)
                     return path
@@ -855,7 +856,7 @@ class Loader:
             if self.main_object.binary is not None:
                 dirs.append(os.path.dirname(self.main_object.binary))
             # if arch of main_object is Soot ...
-            is_arch_soot = isinstance(self.main_object.arch, archinfo.arch_soot.ArchSoot)
+            is_arch_soot = isinstance(self.main_object.arch, ArchSoot)
             if is_arch_soot:
                 # ... extend with load path of native libraries
                 dirs.extend(self.main_object.extra_load_path)
