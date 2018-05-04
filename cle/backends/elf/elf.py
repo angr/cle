@@ -183,6 +183,10 @@ class ELF(MetaELF):
         out.extend(map(lambda x: AT.from_lva(x, self).to_mva(), self._fini_arr))
         return out
 
+    @property
+    def symbols_by_name(self):
+        return self._symbols_by_name.copy()
+
     def get_symbol(self, symid, symbol_table=None): # pylint: disable=arguments-differ
         """
         Gets a Symbol object for the specified symbol.
