@@ -59,8 +59,7 @@ class Jar(Soot):
                 return True
         return False
 
-    @staticmethod
-    def get_manifest(binary_path):
+    def get_manifest(self, binary_path=None):
         """
         Load the MANIFEST.MF file
 
@@ -68,7 +67,8 @@ class Jar(Soot):
         :rtype:  dict
         """
 
-        z = zipfile.ZipFile(binary_path)
+        path = binary_path if binary_path else self.binary
+        z = zipfile.ZipFile(path)
 
         for f in z.filelist:
             if f.filename == 'META-INF/MANIFEST.MF':
