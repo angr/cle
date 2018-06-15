@@ -58,7 +58,7 @@ class Soot(Backend):
 
         # find entry method
         try:
-            main_method_descriptor = SootMethodDescriptor.from_method(next(self.get_method("main", main_class)))
+            main_method_descriptor = SootMethodDescriptor.from_method(self.get_method("main", main_class))
             entry = SootAddressDescriptor(main_method_descriptor, 0, 0)
         except CLEError:
             _l.warning('Failed to identify the entry (the Main method).')
@@ -108,7 +108,7 @@ class Soot(Backend):
         except KeyError:
             raise CLEError('Class "%s" does not exist.' % cls_name)
 
-    def get_method(self, thing, cls_name=None):
+    def get_method(self, thing, class_name=None, attrs=[], params=(), ret=None, exceptions=(), none_if_missing=False):
         """
         Get a Soot method object.
 
@@ -118,39 +118,72 @@ class Soot(Backend):
         :rtype:                 iterator
         """
 
+        # Step 1: Parse input
         if isinstance(thing, SootMethodDescriptor):
-            cls_name = thing.class_name
-            method_name = thing.name
-            method_params = thing.params
+            method_description = {
+                'class_name' : thing.class_name,
+                'name'       : thing.name,
+                'params'     : thing.params,
+                'attrs'      : thing.attrs,
+                'ret'        : thing.ret,
+                'exceptions' : thing.exceptions
+            }
+
         elif isinstance(thing, (str, unicode)):
-            # parse the method name
             method_name = thing
-            if cls_name is None:
-                # parse the class name from method_name
+
+            # if class_name is not set, parse it from the method name
+            if class_name is None:
                 last_dot = method_name.rfind('.')
                 if last_dot >= 0:
-                    cls_name = method_name[ : last_dot ]
+                    class_name = method_name[ : last_dot ]
                     method_name = method_name[last_dot + 1 : ]
                 else:
                     raise CLEError('Unknown class name for the method.')
-            method_params = None
+
+            method_description = {
+                'class_name' : class_name,
+                'name'       : method_name,
+                'params'     : params,
+                'attrs'      : attrs,
+                'ret'        : ret,
+                'exceptions' : exceptions
+            }
+
         else:
             raise TypeError('Unsupported type "%s" for the first argument.' % type(thing))
 
+        # Step 2: Load class containing the method
         try:
-            cls = self.get_class(cls_name)
+            cls = self.get_class(method_description['class_name'])
         except CLEError:
             raise
+        
+        # Step 3: Get all methods matching the description
+        methods = [ soot_method for soot_method in cls.methods 
+                    if self._description_matches_soot_method(soot_method, **method_description) ]
 
-        has_method = False
-        for method in cls.methods:
-            if method.name == method_name:
-                if method_params is None or method_params == method.params:
-                    has_method = True
-                    yield method
+        if len(methods) == 0:
+            if none_if_missing:
+                return None
+            else:
+                raise CLEError('Method with description %s does not exist in class %s.' % (method_description, class_name))
 
-        if not has_method:
-            raise CLEError('Method "%s" in class "%s" does not exist.' % (method_name, cls_name))
+        if len(methods) > 1:
+            # Warn if we found several matching methods
+            _l.warning('Method with description %s is ambiguous in class %s.' % (method_description, class_name))
+
+        return methods[0]
+
+    def _description_matches_soot_method(self, soot_method, name=None, class_name=None, 
+                                         attrs=[], params=(), ret=None, exceptions=()):
+        if name       and soot_method.name != name:              return False
+        if class_name and soot_method.class_name != class_name:  return False
+        if attrs      and soot_method.attrs != attrs:            return False
+        if params     and soot_method.params != params:          return False
+        if ret        and soot_method.ret != ret:                return False
+        if exceptions and soot_method.exceptions != exceptions:  return False
+        return True
 
     @property
     def main_methods(self):
