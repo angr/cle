@@ -108,7 +108,7 @@ class Soot(Backend):
         except KeyError:
             raise CLEError('Class "%s" does not exist.' % cls_name)
 
-    def get_method(self, thing, class_name=None, attrs=[], params=(), ret=None, exceptions=(), none_if_missing=False):
+    def get_method(self, thing, class_name=None, params=(), ret=None, none_if_missing=False):
         """
         Get a Soot method object.
 
@@ -124,9 +124,7 @@ class Soot(Backend):
                 'class_name' : thing.class_name,
                 'name'       : thing.name,
                 'params'     : thing.params,
-                'attrs'      : thing.attrs,
                 'ret'        : thing.ret,
-                'exceptions' : thing.exceptions
             }
 
         elif isinstance(thing, (str, unicode)):
@@ -145,9 +143,7 @@ class Soot(Backend):
                 'class_name' : class_name,
                 'name'       : method_name,
                 'params'     : params,
-                'attrs'      : attrs,
                 'ret'        : ret,
-                'exceptions' : exceptions
             }
 
         else:
@@ -176,13 +172,11 @@ class Soot(Backend):
         return methods[0]
 
     def _description_matches_soot_method(self, soot_method, name=None, class_name=None, 
-                                         attrs=[], params=(), ret=None, exceptions=()):
+                                         params=(), ret=None):
         if name       and soot_method.name != name:              return False
         if class_name and soot_method.class_name != class_name:  return False
-        if attrs      and soot_method.attrs != attrs:            return False
         if params     and soot_method.params != params:          return False
         if ret        and soot_method.ret != ret:                return False
-        if exceptions and soot_method.exceptions != exceptions:  return False
         return True
 
     @property
