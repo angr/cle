@@ -2,10 +2,11 @@ import bisect
 import struct
 import cffi
 import logging
-l = logging.getLogger("cle.memory")
+
 from .errors import CLEMemoryError
 
 __all__ = ('Clemory',)
+l = logging.getLogger("cle.memory")
 
 
 
