@@ -300,17 +300,16 @@ class Loader(object):
         """
 
         def _check_object_memory(obj_):
-            if type(obj_.memory) is str:
-                self._last_object = obj_
-                return obj_
-            elif isinstance(obj_.memory, Clemory):
+            if isinstance(obj_.memory, Clemory):
                 if AT.from_va(addr, obj_).to_rva() in obj_.memory:
                     self._last_object = obj_
                     return obj_
                 return None
+            elif type(obj_.memory) is str:
+                self._last_object = obj_
+                return obj_
             else:
                 raise CLEError('Unsupported memory type %s' % type(obj_.memory))
-
 
         # check the cache first
         if self._last_object is not None and \
