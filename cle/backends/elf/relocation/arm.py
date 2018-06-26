@@ -153,6 +153,7 @@ class R_ARM_ABS32(ELFReloc):
 class R_ARM_MOVW_ABS_NC(ELFReloc):
     """
     Relocate R_ARM_MOVW_ABS_NC symbols.
+
     - Class: Static
     - Type: Instruction
     - Code: 43
@@ -187,6 +188,7 @@ class R_ARM_MOVW_ABS_NC(ELFReloc):
 class R_ARM_MOVT_ABS(ELFReloc):
     """
     Relocate R_ARM_MOVT_ABS symbols.
+
     - Class: Static
     - Type: Instruction
     - Code: 44
