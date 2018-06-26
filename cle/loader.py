@@ -294,9 +294,15 @@ class Loader(object):
 
         return None
 
-    def find_object_containing(self, addr):
+    def find_object_containing(self, addr, membership_check=True):
         """
         Return the object that contains the given address, or None if the address is unmapped.
+
+        :param int addr:    The address that should be contained in the object.
+        :param bool membership_check:   Whether a membership check should be performed or not (True by default). This
+                                        option can be set to False if you are certain that the target object does not
+                                        have "holes".
+        :return:            The object or None.
         """
 
         def _check_object_memory(obj_):
@@ -315,6 +321,7 @@ class Loader(object):
         # check the cache first
         if self._last_object is not None and \
                 self._last_object.min_addr <= addr < self._last_object.max_addr:
+            if not membership_check: return self._last_object
             o = _check_object_memory(self._last_object)
             if o: return o
 
@@ -326,6 +333,8 @@ class Loader(object):
             return None
         if not obj.min_addr <= addr < obj.max_addr:
             return None
+        if not membership_check:
+            return obj
         return _check_object_memory(obj)
 
     def find_segment_containing(self, addr, skip_pseudo_objects=True):
@@ -339,7 +348,7 @@ class Loader(object):
         :rtype: cle.Segment
         """
 
-        obj = self.find_object_containing(addr)
+        obj = self.find_object_containing(addr, membership_check=False)
 
         if obj is None:
             return None
@@ -361,7 +370,7 @@ class Loader(object):
         :rtype: cle.Section
         """
 
-        obj = self.find_object_containing(addr)
+        obj = self.find_object_containing(addr, membership_check=False)
 
         if obj is None:
             return None
@@ -383,7 +392,7 @@ class Loader(object):
         :rtype: cle.Section
         """
 
-        obj = self.find_object_containing(addr)
+        obj = self.find_object_containing(addr, membership_check=False)
 
         if obj is None:
             return None
@@ -407,7 +416,7 @@ class Loader(object):
             return thing.method.fullname
         elif type(thing) in (int, long):
             # address
-            so = self.find_object_containing(thing)
+            so = self.find_object_containing(thing, membership_check=False)
             if so is not None:
                 addr = AT.from_mva(thing, so).to_rva()
                 if addr in so._symbols_by_addr:
