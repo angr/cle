@@ -331,23 +331,30 @@ class Clemory(object):
             if min_addr is None:
                 min_addr = start
 
-            if isinstance(backer, (bytes, unicode)):
-                backer_length = len(backer)
-            elif isinstance(backer, Clemory):
-                backer_length = backer.max_addr - backer.min_addr
-            else:
-                raise TypeError("Unsupported backer type %s." % type(backer))
-
-            if start + backer_length > max_addr:
-                max_addr = start + backer_length
-
             if next_start is not None:
                 # Check the predicted start equals to the real one
                 if next_start != start:
                     is_consecutive = False
 
-            # Update the predicted starting address
-            next_start = start + backer_length
+            if isinstance(backer, (bytes, unicode)):
+                backer_length = len(backer)
+                # Update max_addr
+                if start + backer_length > max_addr:
+                    max_addr = start + backer_length
+                # Update the predicted starting address
+                next_start = start + backer_length
+
+            elif isinstance(backer, Clemory):
+                if backer.max_addr is not None and backer.min_addr is not None:
+                    # Update max_addr
+                    if start + backer.max_addr > max_addr:
+                        max_addr = start + backer.max_addr
+                    if backer.min_addr > 0:
+                        is_consecutive = False
+                    # Update the predicted starting address
+                    next_start = start + backer.max_addr
+            else:
+                raise TypeError("Unsupported backer type %s." % type(backer))
 
         self.consecutive = is_consecutive
         self.min_addr = min_addr
