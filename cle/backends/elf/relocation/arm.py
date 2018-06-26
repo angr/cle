@@ -150,6 +150,72 @@ class R_ARM_ABS32(ELFReloc):
         l.debug("%s relocated as R_ARM_ABS32 to: 0x%x", self.symbol.name, result)
         return result
 
+class R_ARM_MOVW_ABS_NC(ELFReloc):
+    """
+    Relocate R_ARM_MOVW_ABS_NC symbols.
+    - Class: Static
+    - Type: Instruction
+    - Code: 43
+    - Operation: (S + A) | T
+      - S is the address of the symbol
+      - A is the addend
+      - T is 1 if the symbol is of type STT_FUNC and addresses a Thumb instruction
+    """
+
+    @property
+    def value(self):
+        inst = self.addend  # The instruction
+        S = self.resolvedby.rebased_addr  # The symbol's "value", where it points to
+        T = _isThumbFunc(self.symbol, S)
+        # initial addend is formed by interpreting the 16-bit literal field
+        # of the instruction as a signed value
+        A = ((inst & 0xf0000) >> 4) | (inst & 0xfff)
+        if (A & 0x8000):
+            # two's complement
+            A = -((A ^ 0xffff) + 1)
+        X = ((S + A) | T)
+        MaskX = X & 0xffff
+        # inst modification:
+        part1 = MaskX >> 12
+        part2 = MaskX & 0xFFF
+        inst &= 0xfff0f000  # clears inst[11, 0] and inst[19, 16]
+        inst |= ((part1 << 16) & 0xf0000)  # inst[19, 16] = part1
+        inst |= (part2 & 0xfff)  # inst[11, 0] = part2
+        l.debug("%s relocated as R_ARM_MOVW_ABS_NC to: 0x%x", self.symbol.name, inst)
+        return inst
+
+class R_ARM_MOVT_ABS(ELFReloc):
+    """
+    Relocate R_ARM_MOVT_ABS symbols.
+    - Class: Static
+    - Type: Instruction
+    - Code: 44
+    - Operation: S + A
+      - S is the address of the symbol
+      - A is the addend
+    """
+
+    @property
+    def value(self):
+        inst = self.addend  # The instruction
+        S = self.resolvedby.rebased_addr  # The symbol's "value", where it points to
+        # initial addend is formed by interpreting the 16-bit literal field
+        # of the instruction as a signed value
+        A = ((inst & 0xf0000) >> 4) | (inst & 0xfff)
+        if (A & 0x8000):
+            # two's complement
+            A = -((A ^ 0xffff) + 1)
+        X = (S + A)
+        MaskX = X & 0xffff0000
+        # inst modification:
+        part1 = (X >> 16) >> 12
+        part2 = (X >> 16) & 0xFFF
+        inst &= 0xfff0f000  # clears inst[11, 0] and inst[19, 16]
+        inst |= ((part1 << 16) & 0xf0000)  # inst[19, 16] = part1
+        inst |= (part2 & 0xfff)  # inst[11, 0] = part2
+        l.debug("%s relocated as R_ARM_MOVT_ABS to: 0x%x", self.symbol.name, inst)
+        return inst
+
 class R_ARM_COPY(generic.GenericCopyReloc):
     pass
 
