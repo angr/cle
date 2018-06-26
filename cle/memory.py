@@ -8,7 +8,12 @@ __all__ = ('Clemory',)
 
 # TODO: Further optimization is possible now that the list of backers is sorted
 
+
 class Clemory(object):
+
+    __slots__ = ('_arch', '_backers', '_updates', '_pointer', '_root', '_cbackers', '_needs_flattening_personal',
+                 'consecutive', 'min_addr', 'max_addr', )
+
     """
     An object representing a memory space. Uses "backers" and "updates" to separate the concepts of loaded and written
     memory and make lookups more efficient.
@@ -22,8 +27,11 @@ class Clemory(object):
         self._pointer = 0
         self._root = root
 
-        self._cbackers = [ ] # tuple of (start, cdata<buffer>)
+        self._cbackers = [ ]  # tuple of (start, cdata<buffer>)
         self._needs_flattening_personal = True
+        self.consecutive = None
+        self.min_addr = None
+        self.max_addr = None
 
     def add_backer(self, start, data):
         """
@@ -39,6 +47,7 @@ class Clemory(object):
         if isinstance(data, Clemory) and data._root:
             raise ValueError("Cannot add a root clemory as a backer!")
         bisect.insort(self._backers, (start, data))
+        self._update_min_max()
         self._needs_flattening_personal = True
 
     def update_backer(self, start, data):
@@ -52,6 +61,8 @@ class Clemory(object):
         else:
             raise ValueError("Can't find backer to update")
 
+        self._update_min_max()
+
     def remove_backer(self, start):
         for i, (oldstart, _) in enumerate(self._backers):
             if oldstart == start:
@@ -60,6 +71,8 @@ class Clemory(object):
                 break
         else:
             raise ValueError("Can't find backer to remove")
+
+        self._update_min_max()
 
     def __iter__(self):
         for start, string in self._backers:
@@ -95,19 +108,50 @@ class Clemory(object):
         self._needs_flattening_personal = True
 
     def __contains__(self, k):
+
+        # Fast path
+        if self.consecutive:
+            return self.min_addr <= k < self.max_addr
+        else:
+            # Check if this is an empty Clemory instance
+            if not self._backers:
+                return None
+            # Check if it is out of the memory range
+            if k < self.min_addr or k >= self.max_addr:
+                return False
+
         try:
-            self.__getitem__(k)
+            self.get_byte(k)
             return True
         except KeyError:
             return False
 
     def __getstate__(self):
+        s = {
+            '_arch': self._arch,
+            '_backers': self._backers,
+            '_updates': self._updates,
+            '_pointer': self._pointer,
+            '_root': self._root,
+            'consecutive': self.consecutive,
+            'min_addr': self.min_addr,
+            'max_addr': self.max_addr,
+        }
+
+        return s
+
+    def __setstate__(self, s):
+        self._arch = s['_arch']
+        self._backers = s['_backers']
+        self._updates = s['_updates']
+        self._pointer = s['_pointer']
+        self._root = s['_root']
+        self.consecutive = s['consecutive']
+        self.min_addr = s['min_addr']
+        self.max_addr = s['max_addr']
+
         self._cbackers = [ ]
         self._needs_flattening_personal = True
-        return self.__dict__
-
-    def __setstate__(self, data):
-        self.__dict__.update(data)
 
     def read_bytes(self, addr, n, orig=False):
         """
@@ -272,6 +316,50 @@ class Clemory(object):
 
         return self._cbackers
 
+    def _update_min_max(self):
+        """
+        Update the three properties of Clemory: consecutive, min_addr, and max_addr.
+
+        :return:    None
+        """
+
+        is_consecutive = True
+        next_start = None
+        min_addr, max_addr = None, None
+
+        for start, backer in self._backers:
+            if min_addr is None:
+                min_addr = start
+
+            if next_start is not None:
+                # Check the predicted start equals to the real one
+                if next_start != start:
+                    is_consecutive = False
+
+            if isinstance(backer, (bytes, unicode)):
+                backer_length = len(backer)
+                # Update max_addr
+                if start + backer_length > max_addr:
+                    max_addr = start + backer_length
+                # Update the predicted starting address
+                next_start = start + backer_length
+
+            elif isinstance(backer, Clemory):
+                if backer.max_addr is not None and backer.min_addr is not None:
+                    # Update max_addr
+                    if start + backer.max_addr > max_addr:
+                        max_addr = start + backer.max_addr
+                    if backer.min_addr > 0:
+                        is_consecutive = False
+                    # Update the predicted starting address
+                    next_start = start + backer.max_addr
+            else:
+                raise TypeError("Unsupported backer type %s." % type(backer))
+
+        self.consecutive = is_consecutive
+        self.min_addr = min_addr
+        self.max_addr = max_addr
+
     def _flatten_to_c(self):
         """
         Flattens memory backers to C-backed strings.
@@ -306,7 +394,6 @@ class Clemory(object):
 
         self._needs_flattening_personal = False
         return out
-
 
     def read_bytes_c(self, addr):
         """

@@ -35,6 +35,7 @@ def test_cclemory():
     out = c.memcmp(ffi.new("unsigned char []", "ABCDEFGH"), byte_str, 8)
     nose.tools.assert_equal(out, 0)
 
+
 def test_clemory():
     # directly write bytes to backers
     clemory = cle.Clemory(None, root=True)
@@ -58,6 +59,54 @@ def test_clemory():
     clemory.write_bytes_to_backer(0, "B" * 10)
     nose.tools.assert_equal(len(clemory._backers), 3)
     nose.tools.assert_equal("".join(clemory.read_bytes(0, 25)), "B" * 10 + "A" * 15)
+
+
+def performance_clemory_contains():
+
+    # With the consecutive optimization:
+    #   5.72 sec
+    # Without the consecutive optimization:
+    #   13.11 sec
+
+    import timeit
+    t = timeit.timeit("0x400002 in clemory",
+                      setup="import cle; clemory = cle.Clemory(None, root=True); clemory.add_backer(0x400000, 'A' * 200000)",
+                      number=20000000
+                      )
+    print(t)
+
+
+def test_clemory_contains():
+
+    clemory = cle.Clemory(None, root=True)
+    nose.tools.assert_equal(clemory.min_addr, None)
+    nose.tools.assert_equal(clemory.max_addr, None)
+    nose.tools.assert_equal(clemory.consecutive, None)
+
+    # Add one backer
+    clemory.add_backer(0, "A" * 10)
+    nose.tools.assert_equal(clemory.min_addr, 0)
+    nose.tools.assert_equal(clemory.max_addr, 10)
+    nose.tools.assert_equal(clemory.consecutive, True)
+
+    # Add another backer
+    clemory.add_backer(10, "B" * 20)
+    nose.tools.assert_equal(clemory.min_addr, 0)
+    nose.tools.assert_equal(clemory.max_addr, 30)
+    nose.tools.assert_equal(clemory.consecutive, True)
+
+    # Add one more
+    clemory.add_backer(40, "A" * 30)
+    nose.tools.assert_equal(clemory.min_addr, 0)
+    nose.tools.assert_equal(clemory.max_addr, 70)
+    nose.tools.assert_equal(clemory.consecutive, False)
+
+    # Add another one to make it consecutive
+    clemory.add_backer(30, "C" * 10)
+    nose.tools.assert_equal(clemory.min_addr, 0)
+    nose.tools.assert_equal(clemory.max_addr, 70)
+    nose.tools.assert_equal(clemory.consecutive, True)
+
 
 def main():
     g = globals()
