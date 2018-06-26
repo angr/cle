@@ -208,8 +208,8 @@ class R_ARM_MOVT_ABS(ELFReloc):
         X = (S + A)
         MaskX = X & 0xffff0000
         # inst modification:
-        part1 = (X >> 16) >> 12
-        part2 = (X >> 16) & 0xFFF
+        part1 = (MaskX >> 16) >> 12
+        part2 = (MaskX >> 16) & 0xFFF
         inst &= 0xfff0f000  # clears inst[11, 0] and inst[19, 16]
         inst |= ((part1 << 16) & 0xf0000)  # inst[19, 16] = part1
         inst |= (part2 & 0xfff)  # inst[11, 0] = part2
