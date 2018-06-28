@@ -232,7 +232,7 @@ class R_ARM_THM_CALL(ELFReloc):
       - A is the addend
       - P is the target location (place being relocated)
       - T is 1 if the symbol is of type STT_FUNC and addresses a Thumb instruction
-        - This bit is entirely irrelevant because
+        - This bit is entirely irrelevant because the 1-bit of the address gets shifted off in the encoding
     - Encoding: See http://hermes.wings.cs.wisc.edu/files/Thumb-2SupplementReferenceManual.pdf
       - Page 71 (3-31) has the chart
       - It appears that it mistakenly references the I1 and I2 bits as J1 and J2 in the chart
@@ -295,6 +295,8 @@ class R_ARM_THM_CALL(ELFReloc):
         #  the thumb flag, T, and PC, P.
 
         x = (((S + A) | T) - P) & 0xffffffff                          # Also mask to 32 bits
+
+        # Ensure jump is in range
 
         if x & 0xff800000 != 0 and x & 0xff800000 != 0xff800000:
             l.error("Jump target out of range for reloc R_ARM_THM_CALL (+- 2^23). "
