@@ -1,6 +1,8 @@
 import logging
 from . import generic
 from .elfreloc import ELFReloc
+from ....errors import CLEOperationError
+
 
 l = logging.getLogger('cle.backends.elf.relocations.arm')
 arch = 'ARM'
@@ -217,6 +219,120 @@ class R_ARM_MOVT_ABS(ELFReloc):
         inst |= (part2 & 0xfff)  # inst[11, 0] = part2
         l.debug("%s relocated as R_ARM_MOVT_ABS to: 0x%x", self.symbol.name, inst)
         return inst
+
+class R_ARM_THM_CALL(ELFReloc):
+    """
+    Relocate R_ARM_THM_CALL symbols via instruction modification.
+
+    - Class: Static
+    - Type: ARM (R_ARM_THM_CALL)
+    - Code: 10
+    - Operation: ((S + A) | T) - P
+      - S is the address of the symbol
+      - A is the addend
+      - P is the target location (place being relocated)
+      - T is 1 if the symbol is of type STT_FUNC and addresses a Thumb instruction
+        - This bit is entirely irrelevant because
+    - Encoding: See http://hermes.wings.cs.wisc.edu/files/Thumb-2SupplementReferenceManual.pdf
+      - Page 71 (3-31) has the chart
+      - It appears that it mistakenly references the I1 and I2 bits as J1 and J2 in the chart
+          (see the notes at the bottom of the page -- the ranges don't make sense)
+      - However, the J1/J2 bits are XORed with !S bit in this case
+          (see vex implementation:
+           https://github.com/angr/vex/blob/6d1252c7ce8fe8376318b8f8bb8034058454c841/priv/guest_arm_toIR.c#L19219 )
+      - Implementation appears correct with the bits placed into offset[23:22]
+    """
+
+    def resolve_symbol(self, solist, bypass_compatibility=False, thumb=False):
+        return super(R_ARM_THM_CALL, self).resolve_symbol(solist,
+                                                          bypass_compatibility=bypass_compatibility,
+                                                          thumb=True)
+
+    @property
+    def value(self):
+        P = self.rebased_addr                           # Location of this instruction
+        S = self.resolvedby.rebased_addr                # The symbol's "value", where it points to
+        T = _isThumbFunc(self.symbol, S)
+        A = 0
+
+        # Deconstruct the instruction:
+        #  Because this 4-byte instruction is treated as two 2-byte instructions,
+        #  the bytes are in the order `b3 b4 b1 b2`, where b4 is the most significant.
+
+        raw  = map(ord, self.owner_obj.memory.read_bytes(self.relative_addr, 4, orig=True))
+        hi   = (raw[1] << 8) | raw[0]
+        lo   = (raw[3] << 8) | raw[2]
+        inst = (hi << 16) | lo
+
+        def gen_mask(n_bits, first_bit):
+            """
+            Builds a mask that captures n_bits, where the first bit captured is first_bit
+            """
+            return ((1 << n_bits) - 1) << first_bit
+
+        if self.is_rela:
+            A = self.addend
+        else:
+            # Build A (the initial addend)
+
+            A |=  (inst & gen_mask(11,  0)) <<  1                     # A[11:1]  = inst[10:0] (inclusive)
+            A |= ((inst & gen_mask(10, 16)) >> 16) << 12              # A[21:12] = inst[25:16]
+
+            sign_bit = bool(inst & gen_mask(1, 26)) & 1               # sign_bit = inst[26]
+
+            J1 = (bool(inst & gen_mask(1, 13)) & 1) ^ (not sign_bit)  # J1 = inst[13] ^ !sign
+            J2 = (bool(inst & gen_mask(1, 11)) & 1) ^ (not sign_bit)  # J2 = inst[11] ^ !sign
+
+            A |= J1 << 23                                             # A[23] = J1
+            A |= J2 << 22                                             # A[22] = J2
+
+            A &= 0x7fffff
+
+            if sign_bit:
+                A |= 0xff800000
+
+        # Compute X, the new offset, from the symbol addr, S, the addend, A,
+        #  the thumb flag, T, and PC, P.
+
+        x = (((S + A) | T) - P) & 0xffffffff                          # Also mask to 32 bits
+
+        if x & 0xff800000 != 0 and x & 0xff800000 != 0xff800000:
+            l.error("Jump target out of range for reloc R_ARM_THM_CALL (+- 2^23). "
+                    "This may be due to simprocedures being allocated outside the jump range."
+                    "If you believe this is the case, set 'rebase_granularity'=0x1000 in the "
+                    "load options.")
+            raise CLEOperationError("R_ARM_THM_CALL relocation out of bounds")
+
+        # Rebuild the instruction, first clearing out any previously set offset bits
+
+        #                 offset     1 2  offset
+        #          11110S [21:12]  11J?J  [11:1]     (if ? is 1, BL; if ? is 0, BLX)
+        inst &= ~0b00000111111111110010111111111111
+        #         |       |       |       |       |
+        #        32      24      16       8       0
+
+        sign_bit =  bool(x & gen_mask(1, 24)) & 1
+        J1       = (bool(x & gen_mask(1, 23)) & 1) ^ (not sign_bit)
+        J2       = (bool(x & gen_mask(1, 22)) & 1) ^ (not sign_bit)
+
+        inst |= sign_bit << 26
+        inst |= J1       << 13
+        inst |= J2       << 11
+
+        inst |=  (x & gen_mask(11,  1)) >> 1
+        inst |= ((x & gen_mask(10, 12)) >> 12) << 16
+
+        # Put it back into <little endian short> <little endian short> format
+
+        raw = ((inst & 0x00ff0000) >> 16, (inst & 0xff000000) >> 24,
+               (inst & 0x00ff), (inst & 0xff00) >> 8)
+
+        # The relocation handler expects a little-endian result, so flip it around.
+
+        result = (raw[3] << 24) | (raw[2] << 16) | (raw[1] << 8) | raw[0]
+
+        l.debug("%s relocated as R_ARM_THM_CALL with new instruction: %#x", self.symbol.name, result)
+        return result
 
 class R_ARM_COPY(generic.GenericCopyReloc):
     pass
