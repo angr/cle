@@ -299,11 +299,10 @@ class R_ARM_THM_CALL(ELFReloc):
         # Ensure jump is in range
 
         if x & 0xff800000 != 0 and x & 0xff800000 != 0xff800000:
-            l.error("Jump target out of range for reloc R_ARM_THM_CALL (+- 2^23). "
-                    "This may be due to simprocedures being allocated outside the jump range."
-                    "If you believe this is the case, set 'rebase_granularity'=0x1000 in the "
-                    "load options.")
-            raise CLEOperationError("R_ARM_THM_CALL relocation out of bounds")
+            raise CLEOperationError("Jump target out of range for reloc R_ARM_THM_CALL (+- 2^23). "
+                                    "This may be due to SimProcedures being allocated outside the jump range. "
+                                    "If you believe this is the case, set 'rebase_granularity'=0x1000 in the "
+                                    "load options.")
 
         # Rebuild the instruction, first clearing out any previously set offset bits
 
