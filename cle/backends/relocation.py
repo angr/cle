@@ -33,7 +33,7 @@ class Relocation(object):
         if self.resolved:
             return True
 
-        if self.symbol.is_static:
+        if self.symbol.is_static or self.symbol.binding == 'STB_LOCAL':
             # A static symbol should only be resolved by itself.
             self.resolve(self.symbol)
             return True
