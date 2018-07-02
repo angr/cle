@@ -21,13 +21,13 @@ class ExternObject(Backend):
         self.segments.append(ExternSegment('externs', 0, 0, self.map_size))
 
 
-    def make_extern(self, name, alignment=8):
+    def make_extern(self, name, alignment=8, thumb=False):
         try:
             return self._symbol_cache[name]
         except KeyError:
             pass
 
-        addr = self.allocate(1, alignment=alignment)
+        addr = self.allocate(1, alignment=alignment, thumb=thumb)
 
         if hasattr(self.loader.main_object, 'is_ppc64_abiv1') and self.loader.main_object.is_ppc64_abiv1:
             func_symbol = Symbol(self, name + '#func', AT.from_mva(addr, self).to_rva(), 1, Symbol.TYPE_FUNCTION)
@@ -49,8 +49,8 @@ class ExternObject(Backend):
     def get_pseudo_addr(self, name):
         return self.make_extern(name).rebased_addr
 
-    def allocate(self, size=1, alignment=8):
-        addr = ALIGN_UP(self.next_addr, alignment)
+    def allocate(self, size=1, alignment=8, thumb=False):
+        addr = ALIGN_UP(self.next_addr, alignment) | thumb
         self.next_addr = addr + size
         if self.next_addr > self.map_size:
             raise CLEOperationError("Ran out of room in the extern object...! Report this as a bug.")
