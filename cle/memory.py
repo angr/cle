@@ -410,7 +410,8 @@ class Clemory(object):
             self._flatten_to_c()
 
         for start, cbacker in self._cbackers:
-            if addr >= start and addr < start + len(cbacker):
-                return cbacker + (addr - start), start + len(cbacker) - addr
+            cbacker_len = len(cbacker)
+            if start <= addr < start + cbacker_len:
+                return cbacker + (addr - start), start + cbacker_len - addr
 
         raise KeyError(addr)
