@@ -199,13 +199,13 @@ class MetaELF(Backend):
                 last_jk = None
                 addr = self.entry
                 bb = self._block(addr)
-                target = bb._get_defaultexit_target()
+                target = bb.default_exit_target
                 while target is not None:
                     tick()
                     last_jk = bb.jumpkind
                     addr = target
                     bb = self._block(addr)
-                    target = bb._get_defaultexit_target()
+                    target = bb.default_exit_target
 
                 if last_jk == 'Ijk_Call':
                     self._add_plt_stub('__libc_start_main', addr)
