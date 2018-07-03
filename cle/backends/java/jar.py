@@ -1,11 +1,12 @@
+import logging
 import zipfile
 
 from .. import register_backend
-
 from .soot import Soot
 
-import logging
+
 l = logging.getLogger("cle.backends.jar")
+
 
 class Jar(Soot):
 
@@ -13,11 +14,10 @@ class Jar(Soot):
     Backend for lifting Jar's to Soot.
     """
 
-    is_default = True # let CLE automatically use this backend
+    is_default = True  # let CLE automatically use this backend
 
-    def __init__(self, path, main_class=None, loader=None,
-                 native_libs=None, native_libs_ld_path=None, **options):
-
+    def __init__(self, path, main_class=None, loader=None, native_libs=None,
+                 native_libs_ld_path=None, **options):
         """
         :param main_class:              If no main class is specified, we try to parse it from the manifest.
 
@@ -66,7 +66,6 @@ class Jar(Soot):
         :return: A dict of meta info
         :rtype:  dict
         """
-
         path = binary_path if binary_path else self.binary
         z = zipfile.ZipFile(path)
 
@@ -76,7 +75,7 @@ class Jar(Soot):
 
         manifest = z.open('META-INF/MANIFEST.MF', "r")
 
-        data = { }
+        data = {}
         for l in manifest.readlines():
             if ':' in l:
                 key, value = l.split(':')
@@ -87,5 +86,6 @@ class Jar(Soot):
         manifest.close()
 
         return data
+
 
 register_backend('jar', Jar)
