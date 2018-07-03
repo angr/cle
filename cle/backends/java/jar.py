@@ -4,7 +4,7 @@ from zipfile import ZipFile
 from .. import register_backend
 from .soot import Soot
 
-l = logging.getLogger("cle.backends.jar")
+l = logging.getLogger(name=__name__)
 
 
 class Jar(Soot):
@@ -79,6 +79,7 @@ class Jar(Soot):
                     key, value = line.split(':')
                     data[key.strip()] = value.strip()
             return data
+
 
 
 register_backend('jar', Jar)
