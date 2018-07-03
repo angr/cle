@@ -1,6 +1,11 @@
 
+import logging
+
 import archinfo
-from archinfo.arch_soot import SootMethodDescriptor, SootAddressDescriptor
+from archinfo.arch_soot import SootAddressDescriptor, SootMethodDescriptor
+
+from .. import Backend
+from ...errors import CLEError
 
 try:
     import pysoot
@@ -8,10 +13,7 @@ try:
 except ImportError:
     pysoot = None
 
-from .. import Backend
-from ...errors import CLEError
 
-import logging
 _l = logging.getLogger("cle.backends.soot")
 
 
@@ -25,17 +27,14 @@ class Soot(Backend):
                  additional_jars=None, additional_jar_roots=None,
                  native_libs_ld_path=None, native_libs=None,
                  **kwargs):
- 
         """
         :param path:                    Path to the main jar or apk.
 
         The following parameters are optional
 
         :param main_class:              Name of class containing the main method, which should be used as entry point.
-
         :param additional_jars:         Additional Jars.
         :param additional_jar_roots:    Additional Jar roots.
-
         :param native_libs:             Name(s) if libraries containing native code components (JNI)
         :param native_libs_ld_path:     Path(s) where to find native libraries. Note: Requires use_system_libs=True
         """
@@ -58,13 +57,14 @@ class Soot(Backend):
 
         # find entry method
         try:
-            main_method_descriptor = SootMethodDescriptor.from_soot_method(self.get_soot_method("main", main_class))
+            main_method = self.get_soot_method("main", main_class)
+            main_method_descriptor = SootMethodDescriptor.from_soot_method(main_method)
             entry = SootAddressDescriptor(main_method_descriptor, 0, 0)
         except CLEError:
             _l.warning('Failed to identify the entry (the Main method).')
             entry = None
 
-        self._entry = entry    
+        self._entry = entry
         self.os = 'javavm'
         self.rebase_addr = None
         self.set_arch(archinfo.arch_from_id('soot'))
@@ -123,9 +123,9 @@ class Soot(Backend):
         # Step 1: Parse input
         if isinstance(thing, SootMethodDescriptor):
             method_description = {
-                'class_name' : thing.class_name,
-                'name'       : thing.name,
-                'params'     : thing.params,
+                'class_name': thing.class_name,
+                'name': thing.name,
+                'params': thing.params,
             }
 
         elif isinstance(thing, (str, unicode)):
@@ -135,19 +135,20 @@ class Soot(Backend):
             if class_name is None:
                 last_dot = method_name.rfind('.')
                 if last_dot >= 0:
-                    class_name = method_name[ : last_dot ]
-                    method_name = method_name[last_dot + 1 : ]
+                    class_name = method_name[:last_dot]
+                    method_name = method_name[last_dot + 1:]
                 else:
                     raise CLEError('Unknown class name for the method.')
 
             method_description = {
-                'class_name' : class_name,
-                'name'       : method_name,
-                'params'     : params,
+                'class_name': class_name,
+                'name': method_name,
+                'params': params,
             }
 
         else:
-            raise TypeError('Unsupported type "%s" for the first argument.' % type(thing))
+            raise TypeError('Unsupported type "%s" for the first argument.'
+                            ''% type(thing))
 
         # Step 2: Load class containing the method
         try:
@@ -157,20 +158,22 @@ class Soot(Backend):
                 return None
             else:
                 raise
-        
+
         # Step 3: Get all methods matching the description
-        methods = [ soot_method for soot_method in cls.methods 
-                    if self._description_matches_soot_method(soot_method, **method_description) ]
+        methods = [soot_method for soot_method in cls.methods
+                   if self._description_matches_soot_method(soot_method, **method_description)]
 
         if len(methods) == 0:
             if none_if_missing:
                 return None
             else:
-                raise CLEError('Method with description %s does not exist in class %s.' % (method_description, class_name))
+                raise CLEError('Method with description %s does not exist in class %s.'
+                               '' % (method_description, class_name))
 
         if len(methods) > 1:
             # Warn if we found several matching methods
-            _l.warning('Method with description %s is ambiguous in class %s.' % (method_description, class_name))
+            _l.warning('Method with description %s is ambiguous in class %s.',
+                       method_description, class_name)
 
         return methods[0]
 
@@ -188,7 +191,6 @@ class Soot(Backend):
         :return: All main methods in each class.
         :rtype:  iterator
         """
-
         for cls in self.classes.values():
             for method in cls.methods:
                 if method.name == "main":  # TODO: Check more attributes
