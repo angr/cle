@@ -28,7 +28,7 @@ class ELF(MetaELF):
     """
     The main loader class for statically loading ELF executables. Uses the pyreadelf library where useful.
     """
-    is_default = True # Tell CLE to automatically consider using the ELF backend
+    is_default = True  # Tell CLE to automatically consider using the ELF backend
 
     def __init__(self, binary, addend=None, **kwargs):
         super(ELF, self).__init__(binary, **kwargs)
@@ -126,6 +126,7 @@ class ELF(MetaELF):
 
         for offset, patch in patch_undo:
             self.memory.write_bytes(AT.from_lva(self.min_addr + offset, self).to_rva(), patch)
+
 
 
     #
@@ -451,6 +452,7 @@ class ELF(MetaELF):
         for seg in type_to_seg_mapping['PT_GNU_STACK']:
             self.execstack = bool(seg.header.p_flags & 1)
 
+
     def __register_dyn(self, seg_readelf):
         """
         Parse the dynamic section for dynamically linked objects.
@@ -634,6 +636,7 @@ class ELF(MetaELF):
                 extra_sym = readelf_reloc.entry.r_info >> 24 & 0xFF
                 if extra_sym != 0:
                     l.error('r_info_extra_sym is nonzero??? PLEASE SEND HELP')
+
                 symbol = self.get_symbol(readelf_reloc.entry.r_info_sym, symtab)
 
                 if type_1 != 0:

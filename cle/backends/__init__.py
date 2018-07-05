@@ -185,6 +185,7 @@ class Backend(object):
         """
         if self._is_mapped:
             raise CLEOperationError("Image already rebased from %#x to %#x" % (self.linked_base, self.mapped_base))
+
         if self.sections:
             self.sections._rebase(self.image_base_delta)
         if self.segments and self.sections is not self.segments:
