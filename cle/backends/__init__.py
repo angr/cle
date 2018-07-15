@@ -304,3 +304,4 @@ from .cgc import CGC, BackedCGC
 from .ihex import Hex
 from .macho import MachO
 from .soot import Soot
+from .binja import BinjaBin
