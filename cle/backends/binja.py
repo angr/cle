@@ -107,7 +107,8 @@ class BinjaBin(Backend):
         self.linking = "static" if len(self.raw_imports) == 0 else "dynamic"
         # We'll look for this attribute to see if we need to do SimProcedures for any imports in this binary
         # This is an ugly hack, but will have to use this for now until Binary Ninja exposes dependencies
-        self.guess_simprocs = "nix" if self.bv.get_section_by_name(".plt") else "win"
+        self.guess_simprocs = True
+        self.guess_simprocs_hint = "nix" if self.bv.get_section_by_name(".plt") else "win"
         l.warning("This backend is based on idabin.py.\n\
                    You may encounter unexpected behavior if:\n\
                    \tyour target depends on library data symbol imports, or\n\
