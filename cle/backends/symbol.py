@@ -98,6 +98,7 @@ class Symbol(object):
     is_common = False
     is_import = False
     is_export = False
+    is_local = False
     is_weak = False
     is_extern = False
     is_forward = False
