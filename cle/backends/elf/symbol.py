@@ -40,6 +40,7 @@ class ELFSymbol(Symbol):
         self.is_static = self.type == Symbol.TYPE_SECTION or sec_ndx == 'SHN_ABS'
         self.is_common = sec_ndx == 'SHN_COMMON'
         self.is_weak = self.binding == 'STB_WEAK'
+        self.is_local = self.binding == 'STB_LOCAL'
 
         # these do not appear to be 100% correct, but they work so far...
         # e.g. the "stdout" import symbol will be marked as an export symbol by this
