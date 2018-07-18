@@ -30,16 +30,25 @@ class ELFTLSObject(TLSObject):
         self.max_data = max_data
         self.max_modules = max_modules
         self.modules = []
+        self._max_addr = 0
 
         if self.arch.elf_tls.variant == 1:
+            # variant 1: memory is laid out like so:
+            # [header][module data][dtv]
+            #         ^ thread pointer
             self.tcb_offset = TLS_TOTAL_HEAD_SIZE - self.arch.elf_tls.tcbhead_size
             self.tp_offset = TLS_TOTAL_HEAD_SIZE    # CRITICAL DIFFERENCE FROM THE DOC - variant 1 seems to expect the thread pointer points to the end of the TCB
             self.dtv_offset = TLS_TOTAL_HEAD_SIZE + self.max_data + 2*self.arch.bytes
+            self._max_addr = self.dtv_offset + 2*self.arch.bytes*max_modules
             self.memory.add_backer(0, '\0'*TLS_TOTAL_HEAD_SIZE)
         else:
+            # variant 2: memory is laid out like so:
+            # [module data][header][dtv]
+            #              ^ thread pointer
             self.tcb_offset = roundup(self.max_data, TLS_HEAD_ALIGN)
             self.tp_offset = roundup(self.max_data, TLS_HEAD_ALIGN)
             self.dtv_offset = self.tp_offset + TLS_TOTAL_HEAD_SIZE + 2*self.arch.bytes
+            self._max_addr = self.dtv_offset + 2*self.arch.bytes*max_modules
             self.memory.add_backer(self.tp_offset, '\0'*TLS_TOTAL_HEAD_SIZE)
 
         self.memory.add_backer(self.dtv_offset - 2*self.arch.bytes, '\0'*(2*self.arch.bytes*max_modules + 2*self.arch.bytes))
@@ -99,6 +108,7 @@ class ELFTLSObject(TLSObject):
 
     def map_object(self, obj):
         # Grab the init images from the tdata section
+        # tls_block_offset is negative for variant 2
         obj.memory.seek(obj.tls_tdata_start)
         data = obj.memory.read(obj.tls_tdata_size).ljust(obj.tls_block_size, '\0')
         self.memory.add_backer(self.tp_offset + obj.tls_block_offset, data)
@@ -119,7 +129,7 @@ class ELFTLSObject(TLSObject):
 
     @property
     def max_addr(self):
-        return self.mapped_base + TLS_TOTAL_HEAD_SIZE + self.max_data + 2*self.arch.bytes + 2*self.arch.bytes*self.max_modules
+        return self.mapped_base + self._max_addr
 
     def get_addr(self, module_id, offset):
         """
