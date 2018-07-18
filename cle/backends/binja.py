@@ -12,22 +12,28 @@ l = logging.getLogger("cle.binja")
 try:
     import binaryninja as bn
 except ImportError:
+    bn = None
     l.error("Unable to import binaryninja module")
+    BINJA_NOT_INSTALLED_STR = "Binary Ninja does not appear to be installed. Please ensure Binary Ninja \
+                               and its Python API are properly installed before using this backend."
 
 
 class BinjaSymbol(Symbol):
     BINJA_FUNC_SYM_TYPES = [bn.SymbolType.ImportedFunctionSymbol,
                             bn.SymbolType.FunctionSymbol,
-                            bn.SymbolType.ImportAddressSymbol]
+                            bn.SymbolType.ImportAddressSymbol] if bn else []
 
     BINJA_DATA_SYM_TYPES = [bn.SymbolType.ImportedDataSymbol,
-                            bn.SymbolType.DataSymbol]
+                            bn.SymbolType.DataSymbol] if bn else []
 
     BINJA_IMPORT_TYPES = [bn.SymbolType.ImportedFunctionSymbol,
                           bn.SymbolType.ImportAddressSymbol,
-                          bn.SymbolType.ImportedDataSymbol]
+                          bn.SymbolType.ImportedDataSymbol] if bn else []
 
     def __init__(self, owner, sym):
+        if not bn:
+            raise CLEError(BINJA_NOT_INSTALLED_STR)
+
         if sym.type in self.BINJA_FUNC_SYM_TYPES:
             symtype = Symbol.TYPE_FUNCTION
         elif sym.type in self.BINJA_DATA_SYM_TYPES:
@@ -75,6 +81,8 @@ class BinjaBin(Backend):
 
     def __init__(self, binary, *args, **kwargs):
         super(BinjaBin, self).__init__(binary, *args, **kwargs)
+        if not bn:
+            raise CLEError(BINJA_NOT_INSTALLED_STR)
         # get_view_of_file can take a bndb or binary - wait for autoanalysis to complete
         self.bv = bn.BinaryViewType.get_view_of_file(binary, False)
         l.info("Analyzing {}, this may take some time...".format(binary))
@@ -153,6 +161,8 @@ class BinjaBin(Backend):
 
     @staticmethod
     def is_compatible(stream):
+        if not bn:
+            return False
         magic = stream.read(100)
         stream.seek(0)
         # bndb files are SQlite 3
