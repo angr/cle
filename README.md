@@ -26,7 +26,7 @@ the OS's loader.
 '0x61c1c0'
 >>> import pyvex
 >>> some_text_data = ''.join(ld.memory.read_bytes(ld.main_object.entry, 0x100))
->>> irsb = pyvex.IRSB(some_text_data, ld.main_object.entry, ld.main_object.arch)
+>>> irsb = pyvex.lift(some_text_data, ld.main_object.entry, ld.main_object.arch)
 >>> irsb.pp()
 IRSB {
    t0:Ity_I32 t1:Ity_I32 t2:Ity_I32 t3:Ity_I64 t4:Ity_I64 t5:Ity_I64 t6:Ity_I32 t7:Ity_I64 t8:Ity_I32 t9:Ity_I64 t10:Ity_I64 t11:Ity_I64 t12:Ity_I64 t13:Ity_I64 t14:Ity_I64
@@ -115,4 +115,4 @@ unspecified, the loader will pick a reasonable default.
 
 - If no binary is found with the correct architecture, the loader raises an
   exception if `except_missing_libs` option is True. Otherwise it simply
-  leaves the dependencies unresolevd.
+  leaves the dependencies unresolved.

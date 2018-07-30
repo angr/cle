@@ -29,12 +29,12 @@ class Relocation(object):
         if self.symbol is not None and self.symbol.is_import:
             self.owner_obj.imports[self.symbol.name] = self
 
-    def resolve_symbol(self, solist, bypass_compatibility=False): # pylint: disable=unused-argument
+    def resolve_symbol(self, solist, bypass_compatibility=False, thumb=False): # pylint: disable=unused-argument
         if self.resolved:
             return True
 
-        if self.symbol.is_static:
-            # A static symbol should only be resolved by itself.
+        if self.symbol.is_static or self.symbol.is_local:
+            # A static or local symbol should only be resolved by itself.
             self.resolve(self.symbol)
             return True
 
@@ -63,7 +63,7 @@ class Relocation(object):
         if self.symbol.is_weak:
             return False
 
-        new_symbol = self.owner_obj.loader.extern_object.make_extern(self.symbol.name)
+        new_symbol = self.owner_obj.loader.extern_object.make_extern(self.symbol.name, thumb=thumb)
         self.resolve(new_symbol)
         return True
 
