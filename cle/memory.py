@@ -16,7 +16,7 @@ l = logging.getLogger("cle.memory")
 class Clemory(object):
 
     __slots__ = ('_arch', '_backers', '_updates', '_pointer', '_root', '_cbackers', '_needs_flattening_personal',
-                 'consecutive', 'min_addr', 'max_addr', )
+                 'consecutive', 'min_addr', 'max_addr', 'concrete_target' )
 
     """
     An object representing a memory space. Uses "backers" and "updates" to separate the concepts of loaded and written
