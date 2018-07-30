@@ -1,9 +1,9 @@
-import os
+
 import logging
 
 from . import Backend, register_backend, Symbol
 from .relocation import Relocation
-from ..errors import CLEError, CLEFileNotFoundError
+from ..errors import CLEError
 from ..address_translator import AT
 import archinfo
 
@@ -40,7 +40,7 @@ class BinjaSymbol(Symbol):
             symtype = Symbol.TYPE_OBJECT
         else:
             symtype = Symbol.TYPE_OTHER
-        
+
         super(BinjaSymbol, self).__init__(owner,
                                           sym.raw_name,
                                           AT.from_rva(sym.address, owner).to_rva(),
@@ -52,9 +52,8 @@ class BinjaSymbol(Symbol):
 
         # TODO: set is_weak appropriately
 
+
 class BinjaReloc(Relocation):
-    def __init__(self, owner, symbol, relative_addr):
-        super(BinjaReloc, self).__init__(owner, symbol, relative_addr)
 
     @property
     def value(self):
@@ -85,7 +84,7 @@ class BinjaBin(Backend):
             raise CLEError(BINJA_NOT_INSTALLED_STR)
         # get_view_of_file can take a bndb or binary - wait for autoanalysis to complete
         self.bv = bn.BinaryViewType.get_view_of_file(binary, False)
-        l.info("Analyzing {}, this may take some time...".format(binary))
+        l.info("Analyzing %s, this may take some time...", binary)
         self.bv.update_analysis_and_wait()
         l.info("Analysis complete")
         # Note may want to add option to kick off linear sweep
@@ -93,10 +92,10 @@ class BinjaBin(Backend):
         try:
             self.set_arch(self.BINJA_ARCH_MAP[self.bv.arch.name])
         except KeyError:
-            l.error("{} architecture not supported".format(self.bv.arch.name))
+            l.error("Architecture %s is not supported.", self.bv.arch.name)
 
         for seg in self.bv.segments:
-            l.info("Adding memory for segment at {}".format(hex(seg.start)))
+            l.info("Adding memory for segment at %x.", seg.start)
             br = bn.BinaryReader(self.bv)
             br.seek(seg.start)
             data = br.read(seg.length)
@@ -176,7 +175,7 @@ class BinjaBin(Backend):
         Return the segment name at address `addr`.
         """
         # WARNING: if there are overlapping sections, we choose the first name.
-        # The only scenario I've seen here is a NOBITS section that "overlaps" with another one, but 
+        # The only scenario I've seen here is a NOBITS section that "overlaps" with another one, but
         # I'm not sure if that's a heurstic that should be applied here.
         # https://stackoverflow.com/questions/25501044/gcc-ld-overlapping-sections-tbss-init-array-in-statically-linked-elf-bin#25771838
         seg = self.bv.get_sections_at(addr)[0].name
