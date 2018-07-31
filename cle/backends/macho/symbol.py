@@ -32,9 +32,7 @@ class MachOSymbol(Symbol):
     Much of the code below is based on heuristics as official documentation is sparse, consider yourself warned!
     """
 
-
-
-    def __init__(self, owner, symtab_offset,n_strx, n_type, n_sect, n_desc, n_value):
+    def __init__(self, owner, symtab_offset, n_strx, n_type, n_sect, n_desc, n_value):
         # Note 1: Setting size = owner.arch.bytes has been directly taken over from the PE backend,
         # there is no meaningful definition of a symbol's size so I assume the size of an address counts here
         # Note 2: relative_addr will be the address of a symbols __got or __nl_symbol_ptr entry, not the address of a stub
@@ -60,7 +58,7 @@ class MachOSymbol(Symbol):
         # however we cannot access any properties yet that would touch superclass-initialized attributes
         # so we have to repeat some work
         super(MachOSymbol, self).__init__(owner,
-               owner.get_string(n_strx) if n_strx != 0 else "",
+               owner.get_string(n_strx).decode() if n_strx != 0 else "",
                 self.value,
                 owner.arch.bytes,
                 Symbol.TYPE_OTHER)

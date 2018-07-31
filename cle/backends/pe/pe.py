@@ -43,7 +43,7 @@ class PE(Backend):
         self._entry = AT.from_rva(self._pe.OPTIONAL_HEADER.AddressOfEntryPoint, self).to_lva()
 
         if hasattr(self._pe, 'DIRECTORY_ENTRY_IMPORT'):
-            self.deps = [entry.dll.lower() for entry in self._pe.DIRECTORY_ENTRY_IMPORT]
+            self.deps = [entry.dll.decode().lower() for entry in self._pe.DIRECTORY_ENTRY_IMPORT]
         else:
             self.deps = []
 
@@ -83,9 +83,9 @@ class PE(Backend):
     def is_compatible(stream):
         identstring = stream.read(0x1000)
         stream.seek(0)
-        if identstring.startswith('MZ') and len(identstring) > 0x40:
+        if identstring.startswith(b'MZ') and len(identstring) > 0x40:
             peptr = struct.unpack('I', identstring[0x3c:0x40])[0]
-            if peptr < len(identstring) and identstring[peptr:peptr + 4] == 'PE\0\0':
+            if peptr < len(identstring) and identstring[peptr:peptr + 4] == b'PE\0\0':
                 return True
         return False
 
@@ -122,7 +122,7 @@ class PE(Backend):
         if hasattr(self._pe, 'DIRECTORY_ENTRY_IMPORT'):
             for entry in self._pe.DIRECTORY_ENTRY_IMPORT:
                 for imp in entry.imports:
-                    imp_name = imp.name
+                    imp_name = imp.name.decode()
                     if imp_name is None: # must be an import by ordinal
                         imp_name = "ordinal.%d.%s" % (imp.ordinal, entry.dll.lower())
 
@@ -138,8 +138,9 @@ class PE(Backend):
         if hasattr(self._pe, 'DIRECTORY_ENTRY_EXPORT'):
             symbols = self._pe.DIRECTORY_ENTRY_EXPORT.symbols
             for exp in symbols:
-                symb = WinSymbol(self, exp.name, exp.address, False, True, exp.ordinal, exp.forwarder)
-                self._exports[exp.name] = symb
+                name = exp.name.decode()
+                symb = WinSymbol(self, name, exp.address, False, True, exp.ordinal, exp.forwarder)
+                self._exports[name] = symb
                 self._ordinal_exports[exp.ordinal] = symb
 
 

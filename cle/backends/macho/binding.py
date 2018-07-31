@@ -29,23 +29,27 @@ BIND_OPCODE_DO_BIND_ADD_ADDR_ULEB = 0xA0
 BIND_OPCODE_DO_BIND_ADD_ADDR_IMM_SCALED = 0xB0
 BIND_OPCODE_DO_BIND_ULEB_TIMES_SKIPPING_ULEB = 0xC0
 
+if bytes is not str:
+    chh = lambda x: x
+else:
+    chh = ord
+
 
 def read_uleb(blob, offset):
     """Reads a number encoded as uleb128"""
     result = 0
     shift = 0
     index = offset
-    end = len(blob)
-    done = False
-    while not done and index < end:
-        b = struct.unpack("B", blob[index])[0]
+
+    while index < len(blob):
+        b = chh(blob[index])
         result |= ((b & 0x7f) << shift)
         shift += 7
         index += 1
         if b & 0x80 == 0:
-            done = True
+            break
 
-    return (result, index - offset)
+    return result, index - offset
 
 
 def read_sleb(blob, offset):
@@ -53,21 +57,19 @@ def read_sleb(blob, offset):
     result = 0
     shift = 0
     index = offset
-    end = len(blob)
-    done = False
-    while not done and index < end:
-        b = struct.unpack("B", blob[index])[0]
+
+    while index < len(blob):
+        b = chh(blob[index])
         result |= ((b & 0x7f) << shift)
         shift += 7
         index += 1
         if b & 0x80 == 0:
-            done = True
+            if b & 0x40:
+                # two's complement
+                result -= (1 << shift)
+            break
 
-    if b & 0x40:
-        # two's complement
-        result -= (1 << shift)
-
-    return (result, index - offset)
+    return result, index - offset
 
 
 class BindingState(object):

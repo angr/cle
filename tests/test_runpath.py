@@ -10,6 +10,7 @@ TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)),
 
 def test_runpath():
     tempdir = tempfile.mkdtemp()
+    loader = None
     try:
         runpath_file = os.path.join(TEST_BASE, 'tests', 'x86_64', 'runpath')
         relocated_file = os.path.join(tempdir, 'runpath')
@@ -28,4 +29,9 @@ def test_runpath():
         nose.tools.assert_in(loader.all_objects[1].binary, expected_libs)
         nose.tools.assert_in(loader.all_objects[2].binary, expected_libs)
     finally:
+        if loader is not None:
+            loader.close()
         shutil.rmtree(tempdir)
+
+if __name__ == '__main__':
+    test_runpath()

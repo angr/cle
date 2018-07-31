@@ -11,6 +11,10 @@ from collections import OrderedDict
 
 __all__ = ('MetaELF',)
 
+if str is not bytes:
+    unicode = str
+
+
 class MetaELF(Backend):
     """
     A base class that implements functions used by all backends that can load an ELF.
@@ -29,7 +33,8 @@ class MetaELF(Backend):
         thumb = self.arch.name.startswith("ARM") and addr % 2 == 1
         realaddr = addr
         if thumb: realaddr -= 1
-        dat = ''.join(self.memory.read_bytes(AT.from_lva(realaddr, self).to_rva(), 40))
+        self.memory.seek(AT.from_lva(realaddr, self).to_rva())
+        dat = self.memory.read(40)
         return pyvex.IRSB(dat, addr, self.arch, bytes_offset=1 if thumb else 0, opt_level=1)
 
     def _add_plt_stub(self, name, addr, sanity_check=True):
@@ -61,19 +66,19 @@ class MetaELF(Backend):
         if '.MIPS.stubs' in self.sections_map:
             plt_sec = self.sections_map['.MIPS.stubs']
 
-        self.jmprel = OrderedDict(sorted(((k, v) for k, v in self.jmprel.iteritems()), key=lambda x: x[1].linked_addr))
-        func_jmprel = OrderedDict((k, v) for k, v in self.jmprel.iteritems() if v.symbol.type not in (Symbol.TYPE_OBJECT, Symbol.TYPE_SECTION, Symbol.TYPE_OTHER))
+        self.jmprel = OrderedDict(sorted(self.jmprel.items(), key=lambda x: x[1].linked_addr))
+        func_jmprel = OrderedDict((k, v) for k, v in self.jmprel.items() if v.symbol.type not in (Symbol.TYPE_OBJECT, Symbol.TYPE_SECTION, Symbol.TYPE_OTHER))
 
         # ATTEMPT 1: some arches will just leave the plt stub addr in the import symbol
         if self.arch.name in ('ARM', 'ARMEL', 'ARMHF', 'AARCH64', 'MIPS32', 'MIPS64'):
-            for name, reloc in func_jmprel.iteritems():
+            for name, reloc in func_jmprel.items():
                 if plt_sec is None or plt_sec.contains_addr(reloc.symbol.linked_addr):
                     self._add_plt_stub(name, reloc.symbol.linked_addr, sanity_check=plt_sec is None)
 
         # ATTEMPT 2: on intel chips the data in the got slot pre-relocation points to a lazy-resolver
         # stub immediately after the plt stub
         if self.arch.name in ('X86', 'AMD64'):
-            for name, reloc in func_jmprel.iteritems():
+            for name, reloc in func_jmprel.items():
                 try:
                     self._add_plt_stub(
                         name,
@@ -83,7 +88,7 @@ class MetaELF(Backend):
                     pass
 
             # do another sanity check
-            if len(set(self._plt.itervalues())) != len(self._plt):
+            if len(set(self._plt.values())) != len(self._plt):
                 self._plt = {}
 
         # ATTEMPT 3: one ppc scheme I've seen is that there are 16-byte stubs packed together
@@ -91,7 +96,7 @@ class MetaELF(Backend):
         if self.arch.name in ('PPC32',):
             resolver_stubs = sorted(
                 (self.memory.read_addr_at(reloc.relative_addr), name)
-                for name, reloc in func_jmprel.iteritems()
+                for name, reloc in func_jmprel.items()
             )
             if resolver_stubs:
                 stubs_table = resolver_stubs[0][0] - 16 * len(resolver_stubs)
@@ -115,7 +120,7 @@ class MetaELF(Backend):
         tick.bailout_timer = 5
 
         def scan_forward(addr, name, push=False):
-            names = [name] if type(name) in (str, unicode) else name
+            names = [name] if type(name) not in (list, tuple) else name
             def block_is_good(blk):
                 for name in names:
                     gotslot = func_jmprel[name].linked_addr
@@ -221,7 +226,7 @@ class MetaELF(Backend):
 
             # try to find a block that references ANY GOT slot
             tick.bailout_timer = 5
-            scan_forward(plt_sec.vaddr, func_jmprel.keys(), push=True)
+            scan_forward(plt_sec.vaddr, list(func_jmprel.keys()), push=True)
 
         if not self._plt:
             # \(_^^)/
@@ -261,20 +266,19 @@ class MetaELF(Backend):
                     stub_size += b1.size
                 next_addr = addr + stub_size
 
-
     @property
     def plt(self):
         """
         Maps names to addresses.
         """
-        return {k: AT.from_rva(v, self).to_mva() for (k, v) in self._plt.iteritems()}
+        return {k: AT.from_rva(self._plt[k], self).to_mva() for k in self._plt}
 
     @property
     def reverse_plt(self):
         """
         Maps addresses to names.
         """
-        return {AT.from_rva(v, self).to_mva(): k for (k, v) in self._plt.iteritems()}
+        return {AT.from_rva(self._plt[k], self).to_mva(): k for k in self._plt}
 
     @property
     def is_ppc64_abiv1(self):

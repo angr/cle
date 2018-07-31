@@ -255,7 +255,7 @@ class R_ARM_THM_CALL(ELFReloc):
         #  Because this 4-byte instruction is treated as two 2-byte instructions,
         #  the bytes are in the order `b3 b4 b1 b2`, where b4 is the most significant.
 
-        raw  = map(ord, self.owner_obj.memory.read_bytes(self.relative_addr, 4, orig=True))
+        raw  = list(map(ord, self.owner_obj.memory.read_bytes(self.relative_addr, 4, orig=True)))
         hi   = (raw[1] << 8) | raw[0]
         lo   = (raw[3] << 8) | raw[2]
         inst = (hi << 16) | lo

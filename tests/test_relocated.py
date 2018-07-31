@@ -8,7 +8,7 @@ def test_relocated():
     ld = cle.Loader(filename, custom_ld_path=[shared])
     nose.tools.assert_equal(ld.main_object.mapped_base, 0x8048000)
     nose.tools.assert_sequence_equal(
-        map(lambda x: x.mapped_base, ld.all_elf_objects),
+        [x.mapped_base for x in ld.all_elf_objects],
         [0x8048000, 0x9000000, 0xA000000]
     )
 
@@ -74,4 +74,5 @@ def test_local_symbol_reloc():
 
 if __name__ == '__main__':
     test_relocated()
+    test_first_fit()
     test_local_symbol_reloc()

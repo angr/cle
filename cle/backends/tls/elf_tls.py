@@ -40,7 +40,7 @@ class ELFTLSObject(TLSObject):
             self.tp_offset = TLS_TOTAL_HEAD_SIZE    # CRITICAL DIFFERENCE FROM THE DOC - variant 1 seems to expect the thread pointer points to the end of the TCB
             self.dtv_offset = TLS_TOTAL_HEAD_SIZE + self.max_data + 2*self.arch.bytes
             self._max_addr = self.dtv_offset + 2*self.arch.bytes*max_modules
-            self.memory.add_backer(0, '\0'*TLS_TOTAL_HEAD_SIZE)
+            self.memory.add_backer(0, b'\0'*TLS_TOTAL_HEAD_SIZE)
         else:
             # variant 2: memory is laid out like so:
             # [module data][header][dtv]
@@ -49,9 +49,9 @@ class ELFTLSObject(TLSObject):
             self.tp_offset = roundup(self.max_data, TLS_HEAD_ALIGN)
             self.dtv_offset = self.tp_offset + TLS_TOTAL_HEAD_SIZE + 2*self.arch.bytes
             self._max_addr = self.dtv_offset + 2*self.arch.bytes*max_modules
-            self.memory.add_backer(self.tp_offset, '\0'*TLS_TOTAL_HEAD_SIZE)
+            self.memory.add_backer(self.tp_offset, b'\0'*TLS_TOTAL_HEAD_SIZE)
 
-        self.memory.add_backer(self.dtv_offset - 2*self.arch.bytes, '\0'*(2*self.arch.bytes*max_modules + 2*self.arch.bytes))
+        self.memory.add_backer(self.dtv_offset - 2*self.arch.bytes, b'\0'*(2*self.arch.bytes*max_modules + 2*self.arch.bytes))
 
         # Set the appropriate pointers in the tcbhead
         for off in self.arch.elf_tls.head_offsets:
@@ -110,7 +110,7 @@ class ELFTLSObject(TLSObject):
         # Grab the init images from the tdata section
         # tls_block_offset is negative for variant 2
         obj.memory.seek(obj.tls_tdata_start)
-        data = obj.memory.read(obj.tls_tdata_size).ljust(obj.tls_block_size, '\0')
+        data = obj.memory.read(obj.tls_tdata_size).ljust(obj.tls_block_size, b'\0')
         self.memory.add_backer(self.tp_offset + obj.tls_block_offset, data)
 
     @property

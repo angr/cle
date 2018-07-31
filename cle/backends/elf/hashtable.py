@@ -67,10 +67,12 @@ class GNUHashTable(object):
         fmtsz = 'I' if self.c == 32 else 'Q'
 
         stream.seek(offset)
-        self.nbuckets, self.symndx, self.maskwords, self.shift2 = \
-                struct.unpack(fmt + 'IIII', stream.read(16))
+        data = stream.read(16)
+        if len(data) != 16:
+            import ipdb; ipdb.set_trace()
+        self.nbuckets, self.symndx, self.maskwords, self.shift2 = struct.unpack(fmt + 'IIII', data)
 
-        self.bloom = struct.unpack(fmt + fmtsz*self.maskwords, stream.read(self.c*self.maskwords/8))
+        self.bloom = struct.unpack(fmt + fmtsz*self.maskwords, stream.read(self.c*self.maskwords//8))
         self.buckets = struct.unpack(fmt + 'I'*self.nbuckets, stream.read(4*self.nbuckets))
         self.hash_ptr = stream.tell()
         self.stream = stream
@@ -78,7 +80,7 @@ class GNUHashTable(object):
     def _matches_bloom(self, H1):
         C = self.c
         H2 = H1 >> self.shift2
-        N = ((H1 / C) & (self.maskwords - 1))
+        N = ((H1 // C) & (self.maskwords - 1))
         BITMASK = (1 << (H1 % C)) | (1 << (H2 % C))
         return (self.bloom[N] & BITMASK) == BITMASK
 
@@ -98,7 +100,8 @@ class GNUHashTable(object):
             sym = self.symtab.get_symbol(n)
             if sym.name == k:
                 return sym
-            if struct.unpack('I', ''.join(self.stream.read_bytes(self.hash_ptr + 4*(n-self.symndx), 4)))[0] & 1 == 1:
+            self.stream.seek(self.hash_ptr + 4*(n-self.symndx))
+            if struct.unpack('I', self.stream.read(4))[0] & 1 == 1:
                 break
             n += 1
         return None

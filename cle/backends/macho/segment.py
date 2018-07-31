@@ -23,7 +23,7 @@ class MachOSegment(Region):
     def __init__(self, offset, vaddr, size, vsize, segname, nsect, sections, flags, initprot, maxprot):
         super(MachOSegment, self).__init__(offset, vaddr, size, vsize)
 
-        self.segname = segname
+        self.segname = segname.decode()
         self.nsect = nsect
         self.sections = sections
         self.flags = flags

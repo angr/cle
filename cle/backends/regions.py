@@ -1,9 +1,7 @@
-
 from ..utils import key_bisect_find, key_bisect_insort_left
 
-#
-# Container
-#
+if str is not bytes:
+    long = int
 
 
 class Regions(object):
@@ -71,7 +69,8 @@ class Regions(object):
         :param delta: Delta offset between an old and a new image bases
         :type delta: int
         """
-        map(lambda x: x._rebase(delta), self._list)
+        for x in self._list:
+            x._rebase(delta)
 
     def append(self, region):
         """
