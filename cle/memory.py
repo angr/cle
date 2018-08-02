@@ -10,6 +10,15 @@ l = logging.getLogger("cle.memory")
 
 
 
+if str is not bytes:
+    xrange = range
+    unicode = str
+
+    join = bytes
+else:
+    def join(bl):
+        return ''.join(bl)
+
 # TODO: Further optimization is possible now that the list of backers is sorted
 
 
@@ -261,7 +270,7 @@ class Clemory(object):
         """
         Read addr stored in memory as a series of bytes starting at `where`.
         """
-        by = ''.join(self.read_bytes(where, self._arch.bytes, orig=orig))
+        by = join(self.read_bytes(where, self._arch.bytes, orig=orig))
         try:
             return struct.unpack(self._arch.struct_fmt(), by)[0]
         except struct.error:
@@ -281,10 +290,11 @@ class Clemory(object):
             if isinstance(data, bytes):
                 out.append((start, bytearray(data)))
             elif isinstance(data, unicode):
-                out.append((start, map(ord, data)))
+                out.append((start, [ord(c) for c in data]))
             else:
-                out += map(lambda (substart, subdata), start=start: (substart+start, subdata), data._stride_repr)
-        for key, val in self._updates.iteritems():
+                out += [(substart + start, subdata) for substart, subdata in data._stride_repr]
+        for key in self._updates:
+            val = self._updates[key]
             for start, data in out:
                 if start <= key < start + len(data):
                     data[key - start] = val
@@ -298,7 +308,12 @@ class Clemory(object):
         """
         Returns a representation of memory in a list of (start, end, data) where data is a string.
         """
-        return map(lambda (start, bytearr): (start, start+len(bytearr), str(bytearr) if type(bytearr) is bytearray else bytearr), self._stride_repr)
+        return [
+            (
+                start,
+                start + len(bytearr),
+                bytes(bytearr) if type(bytearr) is bytearray else bytearr
+            ) for start, bytearr in self._stride_repr]
 
     def seek(self, value):
         """
@@ -324,13 +339,13 @@ class Clemory(object):
             try:
                 out = self[self._pointer]
                 self._pointer += 1
-                return out
+                return join([out])
             except KeyError:
-                return ''
+                return b''
         else:
             out = self.read_bytes(self._pointer, nbytes)
             self._pointer += len(out)
-            return ''.join(out)
+            return join(out)
 
     def tell(self):
         return self._pointer
@@ -369,7 +384,7 @@ class Clemory(object):
             if isinstance(backer, (bytes, unicode)):
                 backer_length = len(backer)
                 # Update max_addr
-                if start + backer_length > max_addr:
+                if max_addr is None or start + backer_length > max_addr:
                     max_addr = start + backer_length
                 # Update the predicted starting address
                 next_start = start + backer_length
@@ -377,7 +392,7 @@ class Clemory(object):
             elif isinstance(backer, Clemory):
                 if backer.max_addr is not None and backer.min_addr is not None:
                     # Update max_addr
-                    if start + backer.max_addr > max_addr:
+                    if max_addr is None or start + backer.max_addr > max_addr:
                         max_addr = start + backer.max_addr
                     if backer.min_addr > 0:
                         is_consecutive = False
@@ -404,9 +419,9 @@ class Clemory(object):
         # this way instead of calling self.__getitem__() is actually faster
         strides = self._stride_repr
 
-        self._cbackers = [ ]
+        self._cbackers = []
         for start, data in strides:
-            cbacker = ffi.new("unsigned char [%d]" % len(data), str(data))
+            cbacker = ffi.new("unsigned char [%d]" % len(data), bytes(data))
             self._cbackers.append((start, cbacker))
 
     @property

@@ -1,6 +1,13 @@
 from ..symbol import Symbol
 from ...address_translator import AT
 
+if bytes is not str:
+    long = int
+
+def maybedecode(string):
+    return string if type(string) is str else string.decode()
+
+
 class ELFSymbol(Symbol):
     """
     Represents a symbol for the ELF format.
@@ -29,7 +36,7 @@ class ELFSymbol(Symbol):
             value += owner.sections[sec_ndx].remap_offset
 
         super(ELFSymbol, self).__init__(owner,
-                                        symb.name,
+                                        maybedecode(symb.name),
                                         AT.from_lva(value, owner).to_rva(),
                                         symb.entry.st_size,
                                         symtype)

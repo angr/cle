@@ -2,6 +2,7 @@ import struct
 import logging
 from .pereloc import PEReloc
 from ....address_translator import AT
+from ....memory import join
 
 l = logging.getLogger('cle.backends.pe.relocation.generic')
 
@@ -26,7 +27,7 @@ class IMAGE_REL_BASED_HIGHADJ(PEReloc):
         calculation because we simply use to_mva() to get our rebased address. In this
         case, however, we have to adjust the un-rebased address first.
         """
-        org_bytes = ''.join(self.owner_obj.memory.read_bytes(self.relative_addr, 2))
+        org_bytes = join(self.owner_obj.memory.read_bytes(self.relative_addr, 2))
         org_value = struct.unpack('<I', org_bytes)[0]
         adjusted_value = (org_value << 16) + self.next_rva
         adjusted_value = (AT.from_lva(adjusted_value, self.owner_obj) & 0xffff0000) >> 16
@@ -36,7 +37,7 @@ class IMAGE_REL_BASED_HIGHADJ(PEReloc):
 class IMAGE_REL_BASED_HIGHLOW(PEReloc):
     @property
     def value(self):
-        org_bytes = ''.join(self.owner_obj.memory.read_bytes(self.relative_addr, 4))
+        org_bytes = join(self.owner_obj.memory.read_bytes(self.relative_addr, 4))
         org_value = struct.unpack('<I', org_bytes)[0]
         rebased_value = AT.from_lva(org_value, self.owner_obj).to_mva()
         rebased_bytes = struct.pack('<I', rebased_value)
@@ -45,7 +46,7 @@ class IMAGE_REL_BASED_HIGHLOW(PEReloc):
 class IMAGE_REL_BASED_DIR64(PEReloc):
     @property
     def value(self):
-        org_bytes = ''.join(self.owner_obj.memory.read_bytes(self.relative_addr, 8))
+        org_bytes = join(self.owner_obj.memory.read_bytes(self.relative_addr, 8))
         org_value = struct.unpack('<Q', org_bytes)[0]
         rebased_value = AT.from_lva(org_value, self.owner_obj).to_mva()
         rebased_bytes = struct.pack('<Q', rebased_value)
@@ -54,7 +55,7 @@ class IMAGE_REL_BASED_DIR64(PEReloc):
 class IMAGE_REL_BASED_HIGH(PEReloc):
     @property
     def value(self):
-        org_bytes = ''.join(self.owner_obj.memory.read_bytes(self.relative_addr, 2))
+        org_bytes = join(self.owner_obj.memory.read_bytes(self.relative_addr, 2))
         org_value = struct.unpack('<H', org_bytes)[0]
         rebased_value = AT.from_lva(org_value, self.owner_obj).to_mva()
         adjusted_value = (rebased_value >> 16) & 0xffff
@@ -64,7 +65,7 @@ class IMAGE_REL_BASED_HIGH(PEReloc):
 class IMAGE_REL_BASED_LOW(PEReloc):
     @property
     def value(self):
-        org_bytes = ''.join(self.owner_obj.memory.read_bytes(self.relative_addr, 2))
+        org_bytes = join(self.owner_obj.memory.read_bytes(self.relative_addr, 2))
         org_value = struct.unpack('<H', org_bytes)[0]
         rebased_value = AT.from_lva(org_value, self.owner_obj).to_mva()
         adjusted_value = rebased_value & 0x0000FFFF

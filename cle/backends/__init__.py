@@ -89,6 +89,9 @@ class Backend(object):
         self._symbol_cache = {}
         # a list of directories to search for libraries specified by the object
         self.extra_load_path = []
+        # attributes to enable SimProcedure guessing
+        self.guess_simprocs = False
+        self.guess_simprocs_hint = None
 
         self.mapped_base_symbolic = 0
         # These are set by cle, and should not be overriden manually
@@ -305,3 +308,4 @@ from .cgc import CGC, BackedCGC
 from .ihex import Hex
 from .macho import MachO
 from .soot import Soot
+from .binja import BinjaBin

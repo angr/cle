@@ -66,7 +66,7 @@ class Soot(Backend):
     def is_compatible(stream):
         identstring = stream.read(4)
         stream.seek(0)
-        if identstring.startswith('\x50\x4b\x03\x04') and Soot.is_jar(stream):
+        if identstring.startswith(b'\x50\x4b\x03\x04') and Soot.is_jar(stream):
             return True
         return False
 

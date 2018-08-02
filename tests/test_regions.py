@@ -1,4 +1,3 @@
-
 import os
 
 import nose
@@ -84,11 +83,11 @@ def run_sections(arch, filename, sections):
             nose.tools.assert_equal(
                 ld.main_object.sections.find_region_containing(section.vaddr + section.memsize - 1).name, section.name)
 
-    for i in xrange(len(mapped_sections) - 1):
+    for i in range(len(mapped_sections) - 1):
         sec_a, sec_b = mapped_sections[i], mapped_sections[i + 1]
         if sec_a.vaddr + sec_a.memsize < sec_b.vaddr:
             # there is a gap between sec_a and sec_b
-            for j in xrange(min(sec_b.vaddr - (sec_a.vaddr + sec_a.memsize), 20)):
+            for j in range(min(sec_b.vaddr - (sec_a.vaddr + sec_a.memsize), 20)):
                 a = sec_a.vaddr + sec_a.memsize + j
                 nose.tools.assert_is_none(ld.main_object.find_section_containing(a))
                 nose.tools.assert_is_none(ld.main_object.sections.find_region_containing(a))
@@ -125,11 +124,11 @@ def run_segments(arch, filename, segments):
             nose.tools.assert_equal(
                 ld.main_object.segments.find_region_containing(segment.vaddr + segment.memsize - 1).vaddr, segment.vaddr)
 
-    for i in xrange(len(mapped_segments) - 1):
+    for i in range(len(mapped_segments) - 1):
         seg_a, seg_b = mapped_segments[i], mapped_segments[i + 1]
         if seg_a.vaddr + seg_a.memsize < seg_b.vaddr:
             # there is a gap between seg_a and seg_b
-            for j in xrange(min(seg_b.vaddr - (seg_a.vaddr + seg_a.memsize), 20)):
+            for j in range(min(seg_b.vaddr - (seg_a.vaddr + seg_a.memsize), 20)):
                 a = seg_a.vaddr + seg_a.memsize + j
                 nose.tools.assert_is_none(ld.main_object.find_segment_containing(a))
                 nose.tools.assert_is_none(ld.main_object.segments.find_region_containing(a))
@@ -139,7 +138,7 @@ def run_segments(arch, filename, segments):
 
 def test_all():
 
-    for (arch, filename), data in groundtruth.iteritems():
+    for (arch, filename), data in groundtruth.items():
         yield run_sections, arch, filename, data['sections']
         yield run_segments, arch, filename, data['segments']
 

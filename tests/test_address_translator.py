@@ -47,4 +47,4 @@ def test_invalid_va_raw():
 
 
 if __name__ == '__main__':
-    map(lambda x: x(), filter(lambda o: callable(o) and o.__module__ == '__main__' and o.__name__.startswith("test"), globals().itervalues()))
+    list(map(lambda x: x(), filter(lambda o: callable(o) and o.__module__ == '__main__' and o.__name__.startswith("test"), globals().values())))

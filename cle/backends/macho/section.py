@@ -28,8 +28,8 @@ class MachOSection(Region):
     def __init__(self, offset, vaddr, size, vsize, segname, sectname, align, reloff, nreloc, flags, r1, r2):
         super(MachOSection, self).__init__(offset, vaddr, size, vsize)
 
-        self.segname = segname
-        self.sectname = sectname
+        self.segname = segname.decode()
+        self.sectname = sectname.decode()
         self.align = align
         self.reloff = reloff
         self.nreloc = nreloc

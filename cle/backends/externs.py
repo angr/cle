@@ -14,7 +14,7 @@ class ExternObject(Backend):
         self.next_addr = 0
         self.map_size = map_size
         self.set_arch(loader.main_object.arch)
-        self.memory.add_backer(0, '\0'*map_size)
+        self.memory.add_backer(0, b'\0'*map_size)
         self.provides = 'extern-address space'
         self.pic = True
 
@@ -65,7 +65,7 @@ class KernelObject(Backend):
         super(KernelObject, self).__init__('cle##kernel', loader=loader)
         self.map_size = map_size
         self.set_arch(loader.main_object.arch)
-        self.memory.add_backer(0, '\0'*map_size)
+        self.memory.add_backer(0, b'\0'*map_size)
         self.provides = 'kernel space'
         self.pic = True
 

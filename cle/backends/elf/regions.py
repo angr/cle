@@ -1,5 +1,8 @@
 from ..region import Segment, Section
 
+def maybedecode(string):
+    return string if type(string) is str else string.decode()
+
 
 class ELFSegment(Segment):
     """
@@ -33,7 +36,7 @@ class ELFSection(Section):
 
     def __init__(self, readelf_sec, remap_offset=0):
         super(ELFSection, self).__init__(
-            readelf_sec.name,
+            maybedecode(readelf_sec.name),
             readelf_sec.header.sh_offset,
             readelf_sec.header.sh_addr + remap_offset,
             readelf_sec.header.sh_size

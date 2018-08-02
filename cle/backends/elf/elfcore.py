@@ -44,7 +44,7 @@ class ELFCore(ELF):
     def __init__(self, binary, **kwargs):
         super(ELFCore, self).__init__(binary, **kwargs)
 
-        self.notes = [ ]
+        self.notes = []
 
         # siginfo
         self.si_signo = None
@@ -81,14 +81,14 @@ class ELFCore(ELF):
         stream.seek(0)
         identstring = stream.read(0x1000)
         stream.seek(0)
-        if identstring.startswith('\x7fELF'):
+        if identstring.startswith(b'\x7fELF'):
             if elftools.elf.elffile.ELFFile(stream).header['e_type'] == 'ET_CORE':
                 return True
             return False
         return False
 
     def initial_register_values(self):
-        return self.registers.iteritems()
+        return self.registers.items()
 
     def __extract_note_info(self):
         """
@@ -111,8 +111,8 @@ class ELFCore(ELF):
         note_pos = 0
         while note_pos < len(blob):
             name_sz, desc_sz, n_type = struct.unpack("<3I", blob[note_pos:note_pos+12])
-            name_sz_rounded = (((name_sz + (4 - 1)) / 4) * 4)
-            desc_sz_rounded = (((desc_sz + (4 - 1)) / 4) * 4)
+            name_sz_rounded = (((name_sz + (4 - 1)) // 4) * 4)
+            desc_sz_rounded = (((desc_sz + (4 - 1)) // 4) * 4)
             # description size + the rounded name size + header size
             n_size = desc_sz_rounded + name_sz_rounded + 12
 
@@ -147,7 +147,7 @@ class ELFCore(ELF):
         # this field is a short, but it's padded to an int
         self.pr_cursig = struct.unpack("<I", prstatus.desc[12:16])[0]
 
-        arch_bytes = self.arch.bits / 8
+        arch_bytes = self.arch.bits // 8
         if arch_bytes == 4:
             fmt = "I"
         elif arch_bytes == 8:
@@ -182,16 +182,16 @@ class ELFCore(ELF):
         # parse out general purpose registers
         if self.arch.name == 'AMD64':
             # register names as they appear in dump
-            rnames = ['r15', 'r14', 'r13', 'r12', 'rbp', 'rbx', 'r11', 'r10', 'r9', 'r8', 'rax', 'rcx', \
-                    'rdx', 'rsi', 'rdi', 'xxx', 'rip', 'cs', 'eflags', 'rsp', 'ss', 'xxx', 'xxx', 'ds', 'es', \
+            rnames = ['r15', 'r14', 'r13', 'r12', 'rbp', 'rbx', 'r11', 'r10', 'r9', 'r8', 'rax', 'rcx',
+                    'rdx', 'rsi', 'rdi', 'xxx', 'rip', 'cs', 'eflags', 'rsp', 'ss', 'xxx', 'xxx', 'ds', 'es',
                     'fs', 'gs']
             nreg = 27
         elif self.arch.name == 'X86':
-            rnames = ['ebx', 'ecx', 'edx', 'esi', 'edi', 'ebp', 'eax', 'ds', 'es', 'fs', 'gs', 'xxx', 'eip', \
+            rnames = ['ebx', 'ecx', 'edx', 'esi', 'edi', 'ebp', 'eax', 'ds', 'es', 'fs', 'gs', 'xxx', 'eip',
                     'cs', 'eflags', 'esp', 'ss']
             nreg = 17
         elif self.arch.name == 'ARMHF' or self.arch.name == 'ARMEL':
-            rnames = ['r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9', 'r10', 'r11', 'r12', 'r13', \
+            rnames = ['r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9', 'r10', 'r11', 'r12', 'r13',
                     'r14', 'r15', 'xxx', 'xxx']
             nreg = 18
         elif self.arch.name == 'AARCH64':
@@ -200,17 +200,17 @@ class ELFCore(ELF):
             rnames.append('xxx')
             nreg = 34
         elif self.arch.name == 'MIPS32':
-            rnames = ['xxx', 'xxx', 'xxx', 'xxx', 'xxx', 'xxx', \
-                    'zero', 'at', 'v0', 'v1', 'a0', 'a1', 'a2', 'a3', \
-                    't0', 't1', 't2', 't3', 't4', 't5', 't6', 't7', \
-                    's0', 's1', 's2', 's3', 's4', 's5', 's6', 's7', \
-                    't8', 't9', 'k0', 'k1', 'gp', 'sp', 's8', 'ra', \
+            rnames = ['xxx', 'xxx', 'xxx', 'xxx', 'xxx', 'xxx',
+                    'zero', 'at', 'v0', 'v1', 'a0', 'a1', 'a2', 'a3',
+                    't0', 't1', 't2', 't3', 't4', 't5', 't6', 't7',
+                    's0', 's1', 's2', 's3', 's4', 's5', 's6', 's7',
+                    't8', 't9', 'k0', 'k1', 'gp', 'sp', 's8', 'ra',
                     'lo', 'hi', 'pc', 'bad', 'sr', 'status', 'cuase']
             nreg = 45
         else:
             raise CLECompatibilityError("Architecture '%s' unsupported by ELFCore" % self.arch.name)
 
-        regvals = [ ]
+        regvals = []
         for idx in range(pos, pos+nreg*arch_bytes, arch_bytes):
             regvals.append(struct.unpack("<" + fmt, prstatus.desc[idx:idx+arch_bytes])[0])
         self.registers = dict(zip(rnames, regvals))

@@ -62,7 +62,7 @@ class PETLSObject(TLSObject):
         self.next_module_id = 0
         self.data_start = self.arch.bytes*max_modules
 
-        self.memory.add_backer(0, '\0'*self.data_start)
+        self.memory.add_backer(0, b'\0'*self.data_start)
 
     def register_object(self, obj):
         if not obj.tls_used:
@@ -91,7 +91,7 @@ class PETLSObject(TLSObject):
     def map_object(self, obj):
         # Add the data image
         obj.memory.seek(AT.from_lva(obj.tls_data_start, obj).to_rva())
-        image = obj.memory.read(obj.tls_data_size) + '\0'*obj.tls_size_of_zero_fill
+        image = obj.memory.read(obj.tls_data_size) + b'\0'*obj.tls_size_of_zero_fill
         self.memory.add_backer(AT.from_mva(obj.tls_data_pointer, self).to_rva(), image)
 
     def get_tls_data_addr(self, tls_idx):

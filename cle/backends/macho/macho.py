@@ -5,7 +5,7 @@
 from os import SEEK_CUR, SEEK_SET
 import struct
 import sys
-import cStringIO
+from io import BytesIO
 import archinfo
 
 from .section import MachOSection
@@ -19,7 +19,6 @@ import logging
 l = logging.getLogger('cle.backends.macho')
 
 __all__ = ('MachO', 'MachOSection', 'MachOSegment')
-
 
 
 class MachO(Backend):
@@ -316,10 +315,10 @@ class MachO(Backend):
 
         # Note some of these fields are currently not used, keep them in to make used variables explicit
         index = 0
-        sym_str = ""
+        sym_str = b''
         # index,str
-        nodes_to_do = [(0, "")]
-        blob_f = cStringIO.StringIO(blob)  # easier to handle seeking here
+        nodes_to_do = [(0, b'')]
+        blob_f = BytesIO(blob)  # easier to handle seeking here
 
         # constants
         #FLAGS_KIND_MASK = 0x03
@@ -352,13 +351,13 @@ class MachO(Backend):
                         tmp = read_uleb(blob, blob_f.tell())
                         blob_f.seek(tmp[1], SEEK_CUR)
                         lib_ordinal = tmp[0]
-                        lib_sym_name = ""
+                        lib_sym_name = b''
                         char = blob_f.read(1)
-                        while char != '\x00':
+                        while char != b'\0':
                             lib_sym_name += char
                             char = blob_f.read(1)
                         l.info("Found REEXPORT export %r: %d,%r", sym_str, lib_ordinal, lib_sym_name)
-                        self.exports_by_name[sym_str] = (flags, lib_ordinal, lib_sym_name)
+                        self.exports_by_name[sym_str.decode()] = (flags, lib_ordinal, lib_sym_name.decode())
                     elif flags & FLAGS_STUB_AND_RESOLVER:
                         # STUB_AND_RESOLVER: uleb: stub offset, uleb: resovler offset
                         l.warn("EXPORT: STUB_AND_RESOLVER found")
@@ -369,20 +368,20 @@ class MachO(Backend):
                         blob_f.seek(tmp[1], SEEK_CUR)
                         resolver_offset = tmp[0]
                         l.info("Found STUB_AND_RESOLVER export %r: %#x,%#x'", sym_str, stub_offset, resolver_offset)
-                        self.exports_by_name[sym_str] = (flags, stub_offset, resolver_offset)
+                        self.exports_by_name[sym_str.decode()] = (flags, stub_offset, resolver_offset)
                     else:
                         # normal: offset from mach header
                         tmp = read_uleb(blob, blob_f.tell())
                         blob_f.seek(tmp[1], SEEK_CUR)
                         symbol_offset = tmp[0] + self.segments[1].vaddr
                         l.info("Found normal export %r: %#x", sym_str, symbol_offset)
-                        self.exports_by_name[sym_str] = (flags, symbol_offset)
+                        self.exports_by_name[sym_str.decode()] = (flags, symbol_offset)
 
                 child_count = struct.unpack("B", blob_f.read(1))[0]
                 for i in range(0, child_count):
                     child_str = sym_str
                     char = blob_f.read(1)
-                    while char != '\x00':
+                    while char != b'\0':
                         child_str += char
                         char = blob_f.read(1)
                     tmp = read_uleb(blob, blob_f.tell())
@@ -454,7 +453,7 @@ class MachO(Backend):
         while i < end:
             uleb = read_uleb(blob, i)
 
-            if blob[i] == "\x00":
+            if blob[i] == 0:
                 break  # list is 0 terminated
 
             address += uleb[0]
@@ -562,7 +561,7 @@ class MachO(Backend):
             raise ValueError()
 
         while end < len(self.strtab):
-            if self.strtab[end] == chr(0):
+            if self.strtab[end] == 0:
                 return self.strtab[start:end]
             end += 1
         return self.strtab[start:]
@@ -570,9 +569,9 @@ class MachO(Backend):
     def parse_lc_str(self, f, start, limit=None):
         """Parses a lc_str data structure"""
         tmp = self._unpack("c", f, start, 1)[0]
-        s = ""
+        s = b''
         ctr = 0
-        while tmp != chr(0) and (limit is None or ctr < limit):
+        while tmp != b'\0' and (limit is None or ctr < limit):
             s += tmp
             ctr += 1
             tmp = self._unpack("c", f, start + ctr, 1)[0]
@@ -598,7 +597,7 @@ class MachO(Backend):
                 "2I16s4Q4I", f, offset, segment_s_size)
 
         # Cleanup segname
-        segname = segname.replace("\x00", "")
+        segname = segname.replace(b'\0', b'')
         l.debug("Processing segment %r", segname)
 
         # create segment
@@ -626,8 +625,8 @@ class MachO(Backend):
                 self._unpack(section_s_packstr, f, (i * section_s_size) + section_start, section_s_size)
 
             # Clean segname and sectname
-            section_sectname = section_sectname.replace("\x00", "")
-            section_segname = section_segname.replace("\x00", "")
+            section_sectname = section_sectname.replace(b'\0', b'')
+            section_segname = section_segname.replace(b'\0', b'')
 
             # Create section
             sec = MachOSection(section_foff, section_vaddr, section_vsize, section_vsize, section_segname,
@@ -649,7 +648,7 @@ class MachO(Backend):
             # Append segment data to memory
             blob = self._read(f, seg.offset, seg.filesize)
             if seg.filesize < seg.memsize:
-                blob += "\x00" * (seg.memsize - seg.filesize)  # padding
+                blob += b'\0' * (seg.memsize - seg.filesize)  # padding
 
             self.memory.add_backer(seg.vaddr, blob)
 

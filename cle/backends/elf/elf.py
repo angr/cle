@@ -23,6 +23,15 @@ l = logging.getLogger('cle.elf')
 
 __all__ = ('ELFSymbol', 'ELF')
 
+if bytes is not str:
+    long = int
+    unicode = str
+
+def maybedecode(string):
+    # so... it turns out that pyelftools is garbage and will transparently give you either strings or bytestrings
+    # based on pretty much nothing whatsoever
+    return string if type(string) is str else string.decode()
+
 
 class ELF(MetaELF):
     """
@@ -39,13 +48,13 @@ class ELF(MetaELF):
         except Exception: # pylint: disable=broad-except
             self.binary_stream.seek(4)
             ty = self.binary_stream.read(1)
-            if ty not in ('\1', '\2'):
+            if ty not in (b'\1', b'\2'):
                 raise CLECompatibilityError
 
-            if ty == '\1':
-                patch_data = [(0x20, '\0'*4), (0x2e, '\0'*6)]
+            if ty == b'\1':
+                patch_data = [(0x20, b'\0'*4), (0x2e, b'\0'*6)]
             else:
-                patch_data = [(0x28, '\0'*8), (0x3a, '\0'*6)]
+                patch_data = [(0x28, b'\0'*8), (0x3a, b'\0'*6)]
 
             for offset, patch in patch_data:
                 self.binary_stream.seek(offset)
@@ -143,7 +152,7 @@ class ELF(MetaELF):
         stream.seek(0)
         identstring = stream.read(0x1000)
         stream.seek(0)
-        if identstring.startswith('\x7fELF'):
+        if identstring.startswith(b'\x7fELF'):
             if elftools.elf.elffile.ELFFile(stream).header['e_type'] == 'ET_CORE':
                 return False
             return True
@@ -206,7 +215,7 @@ class ELF(MetaELF):
             self._symbol_cache[cache_key] = symbol
             self._cache_symbol_name(symbol)
             return symbol
-        elif isinstance(symid, (str,unicode)):
+        elif isinstance(symid, (str, unicode)):
             if not symid:
                 l.warn("Trying to resolve a symbol by its empty name")
                 return None
@@ -263,21 +272,21 @@ class ELF(MetaELF):
             arr_start = AT.from_lva(self._dynamic['DT_PREINIT_ARRAY'], self).to_rva()
             arr_end = arr_start + self._dynamic['DT_PREINIT_ARRAYSZ']
             arr_entsize = self.arch.bytes
-            self._preinit_arr = map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize))
+            self._preinit_arr = list(map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize)))
         if 'DT_INIT' in self._dynamic:
             self._init_func = AT.from_lva(self._dynamic['DT_INIT'], self).to_rva()
         if 'DT_INIT_ARRAY' in self._dynamic and 'DT_INIT_ARRAYSZ' in self._dynamic:
             arr_start = AT.from_lva(self._dynamic['DT_INIT_ARRAY'], self).to_rva()
             arr_end = arr_start + self._dynamic['DT_INIT_ARRAYSZ']
             arr_entsize = self.arch.bytes
-            self._init_arr = map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize))
+            self._init_arr = list(map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize)))
         if 'DT_FINI' in self._dynamic:
             self._fini_func = AT.from_lva(self._dynamic['DT_FINI'], self).to_rva()
         if 'DT_FINI_ARRAY' in self._dynamic and 'DT_FINI_ARRAYSZ' in self._dynamic:
             arr_start = AT.from_lva(self._dynamic['DT_FINI_ARRAY'], self).to_rva()
             arr_end = arr_start + self._dynamic['DT_FINI_ARRAYSZ']
             arr_entsize = self.arch.bytes
-            self._fini_arr = map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize))
+            self._fini_arr = list(map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize)))
         self._inits_extracted = True
 
     def _load_segment(self, seg):
@@ -320,11 +329,11 @@ class ELF(MetaELF):
             zeropage = (zero + self.loader.page_size - 1) & ~(self.loader.page_size - 1)
 
             if zeropage > zero:
-                data = data[:zero - mapstart].ljust(zeropage - mapstart, '\0')
+                data = data[:zero - mapstart].ljust(zeropage - mapstart, b'\0')
 
             zeroend = ALIGN_UP(allocend, self.loader.page_size) # mmap maps to the next page boundary
             if zeroend > zeropage:
-                data = data.ljust(zeroend - mapstart, '\0')
+                data = data.ljust(zeroend - mapstart, b'\0')
 
         self.memory.add_backer(AT.from_lva(mapstart, self).to_rva(), data)
 
@@ -349,7 +358,7 @@ class ELF(MetaELF):
         if not self._symbols_by_addr:
             return
 
-        names = filter(lambda n: n.startswith("_Z"), (s.name for s in self._symbols_by_addr.itervalues()))
+        names = filter(lambda n: n.startswith("_Z"), (s.name for s in self._symbols_by_addr.values()))
         lookup_names = map(lambda n: n.split("@@")[0], names)
         # this monstrosity taken from stackoverflow
         # http://stackoverflow.com/questions/6526500/c-name-mangling-library-for-python
@@ -358,7 +367,7 @@ class ELF(MetaELF):
         try:
             pipe = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
             stdout, _ = pipe.communicate()
-            demangled = stdout.split("\n")[:-1]
+            demangled = stdout.decode().split("\n")[:-1]
 
             self.demangled_names = dict(zip(names, demangled))
         except OSError:
@@ -464,13 +473,13 @@ class ELF(MetaELF):
             self._dynamic[tagstr] = tag.entry.d_val
             # For tags that may appear more than once, handle them here
             if tagstr == 'DT_NEEDED':
-                self.deps.append(tag.needed)
+                self.deps.append(maybedecode(tag.needed))
             elif tagstr == 'DT_SONAME':
-                self.provides = tag.soname
+                self.provides = maybedecode(tag.soname)
             elif tagstr == 'DT_RUNPATH':
-                runpath = tag.runpath
+                runpath = maybedecode(tag.runpath)
             elif tagstr == 'DT_RPATH':
-                rpath = tag.rpath
+                rpath = maybedecode(tag.rpath)
        
         self.extra_load_path = self.__parse_rpath(runpath, rpath)
 
@@ -708,7 +717,7 @@ class ELF(MetaELF):
             if section.occupies_memory:      # alloc flag - stick in memory maybe!
                 if AT.from_lva(section.vaddr, self).to_rva() not in self.memory:        # only allocate if not already allocated (i.e. by program header)
                     if section.type == 'SHT_NOBITS':
-                        self.memory.add_backer(AT.from_lva(section.vaddr, self).to_rva(), '\0'*sec_readelf.header['sh_size'])
+                        self.memory.add_backer(AT.from_lva(section.vaddr, self).to_rva(), b'\0'*sec_readelf.header['sh_size'])
                     else: #elif section.type == 'SHT_PROGBITS':
                         self.memory.add_backer(AT.from_lva(section.vaddr, self).to_rva(), sec_readelf.data())
 

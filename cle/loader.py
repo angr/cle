@@ -15,6 +15,11 @@ try:
 except ImportError:
     claripy = None
 
+if str is not bytes:
+    xrange = range
+    unicode = str
+    long = int
+
 __all__ = ('Loader',)
 
 l = logging.getLogger("cle.loader")

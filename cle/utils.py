@@ -55,7 +55,7 @@ def get_mmaped_data(stream, offset, length, page_size):
     read_length = ALIGN_UP(length, page_size)
     stream.seek(offset)
     data = stream.read(read_length)
-    return data.ljust(read_length, '\0')
+    return data.ljust(read_length, b'\0')
 
 @contextlib.contextmanager
 def stream_or_path(obj, perms='rb'):
