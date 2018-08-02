@@ -18,6 +18,7 @@ except ImportError:
 if str is not bytes:
     xrange = range
     unicode = str
+    long = int
 
 __all__ = ('Loader',)
 

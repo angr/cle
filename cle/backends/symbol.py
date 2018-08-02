@@ -119,7 +119,7 @@ class Symbol(object):
             args.append(name)
             pipe = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
             stdout, _ = pipe.communicate()
-            demangled = stdout.split("\n")
+            demangled = stdout.decode().split("\n")
 
             if demangled:
                 return demangled[0]

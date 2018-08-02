@@ -366,7 +366,7 @@ class ELF(MetaELF):
         try:
             pipe = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
             stdout, _ = pipe.communicate()
-            demangled = stdout.split("\n")[:-1]
+            demangled = stdout.decode().split("\n")[:-1]
 
             self.demangled_names = dict(zip(names, demangled))
         except OSError:
