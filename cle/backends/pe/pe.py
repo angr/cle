@@ -122,12 +122,13 @@ class PE(Backend):
         if hasattr(self._pe, 'DIRECTORY_ENTRY_IMPORT'):
             for entry in self._pe.DIRECTORY_ENTRY_IMPORT:
                 for imp in entry.imports:
-                    imp_name = imp.name.decode()
-                    if imp_name is None: # must be an import by ordinal
+                    if imp.name is None: # must be an import by ordinal
                         imp_name = "ordinal.%d.%s" % (imp.ordinal, entry.dll.lower())
+                    else:
+                        imp_name = imp.name.decode()
 
                     symb = WinSymbol(owner=self, name=imp_name, addr=0, is_import=True, is_export=False, ordinal_number=imp.ordinal, forwarder=None)
-                    reloc = self._make_reloc(addr=AT.from_lva(imp.address, self).to_rva(), reloc_type=None, symbol=symb, resolvewith=entry.dll)
+                    reloc = self._make_reloc(addr=AT.from_lva(imp.address, self).to_rva(), reloc_type=None, symbol=symb, resolvewith=entry.dll.decode())
 
                     if reloc is not None:
                         self.imports[imp_name] = reloc
@@ -139,13 +140,13 @@ class PE(Backend):
             symbols = self._pe.DIRECTORY_ENTRY_EXPORT.symbols
             for exp in symbols:
                 name = exp.name.decode()
-                symb = WinSymbol(self, name, exp.address, False, True, exp.ordinal, exp.forwarder)
+                forwarder = exp.forwarder.decode() if exp.forwarder is not None else None
+                symb = WinSymbol(self, name, exp.address, False, True, exp.ordinal, forwarder)
                 self._exports[name] = symb
                 self._ordinal_exports[exp.ordinal] = symb
 
-
-                if exp.forwarder is not None:
-                    forwardlib = exp.forwarder.split('.', 1)[0].lower() + '.dll'
+                if forwarder is not None:
+                    forwardlib = forwarder.split('.', 1)[0].lower() + '.dll'
                     if forwardlib not in self.deps:
                         self.deps.append(forwardlib)
 
@@ -179,9 +180,7 @@ class PE(Backend):
         return self.relocs
 
     def _make_reloc(self, addr, reloc_type, symbol=None, next_rva=None, resolvewith=None):
-
         # Handle special cases first
-
         if reloc_type == 0:         # 0 simply means "ignore this relocation"
             reloc = IMAGE_REL_BASED_ABSOLUTE(owner=self, symbol=symbol, addr=addr, resolvewith=resolvewith)
             return reloc
@@ -200,7 +199,7 @@ class PE(Backend):
 
         cls = RelocClass(owner=self, symbol=symbol, addr=addr)
         if cls is None:
-            l.warn('Failed to retrieve relocation for %s of type %s', symbol.name, reloc_type)
+            l.warning('Failed to retrieve relocation for %s of type %s', symbol.name, reloc_type)
 
         return cls
 

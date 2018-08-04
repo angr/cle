@@ -10,7 +10,7 @@ class PEReloc(Relocation):
 
         self.resolvewith = resolvewith
         if self.resolvewith is not None:
-            self.resolvewith = str(self.resolvewith).lower()
+            self.resolvewith = self.resolvewith.lower()
 
     def resolve_symbol(self, solist, bypass_compatibility=False):
         if not bypass_compatibility:
