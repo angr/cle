@@ -21,13 +21,13 @@ class ExternObject(Backend):
         self.segments.append(ExternSegment('externs', 0, 0, self.map_size))
 
 
-    def make_extern(self, name, alignment=8, thumb=False):
+    def make_extern(self, name, size=1, alignment=8, thumb=False):
         try:
             return self._symbol_cache[name]
         except KeyError:
             pass
 
-        addr = self.allocate(1, alignment=alignment, thumb=thumb)
+        addr = self.allocate(size, alignment=alignment, thumb=thumb)
 
         if hasattr(self.loader.main_object, 'is_ppc64_abiv1') and self.loader.main_object.is_ppc64_abiv1:
             func_symbol = Symbol(self, name + '#func', AT.from_mva(addr, self).to_rva(), 1, Symbol.TYPE_FUNCTION)
