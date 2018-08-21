@@ -1,5 +1,6 @@
 import os
 import logging
+import binascii
 
 from . import Backend, register_backend
 from ..errors import CLEError, CLEFileNotFoundError
@@ -79,7 +80,7 @@ class IDABin(Backend):
             except IOError:
                 raise CLEFileNotFoundError("File %s does not exist :(. Please check that the"
                                            " path is correct" % path)
-        bn = os.urandom(5).encode('hex')
+        bn = binascii.hexlify(os.urandom(5))
         if suffix is not None:
             bn += suffix
         dest = os.path.join('/tmp/cle', bn)
