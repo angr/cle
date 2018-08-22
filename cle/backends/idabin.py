@@ -40,7 +40,7 @@ class IDABin(Backend):
             self.ida = idalink(self.ida_path, ida_prog=ida_prog,
                                        processor_type=processor_type).link
         except idalink.IDALinkError as e:
-            raise CLEError("IDALink returned error: %s" % e.message)
+            raise CLEError("IDALink returned error: %s" % e)
 
         self.BADADDR = self.ida.idc.BADADDR
         l.info('Loading memory from ida, this will take a minute...')

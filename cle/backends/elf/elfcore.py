@@ -124,7 +124,7 @@ class ELFCore(ELF):
             note_pos += n_size
 
         # prstatus
-        prstatus = filter(lambda x: x.n_type == 'NT_PRSTATUS', self.notes)
+        prstatus = [x for x in self.notes if x.n_type == 'NT_PRSTATUS']
         if len(prstatus) > 1:
             raise CLEError("Multiple occurences of NT_PRSTATUS notes in core file")
         prstatus = prstatus[0]
@@ -147,7 +147,7 @@ class ELFCore(ELF):
         # this field is a short, but it's padded to an int
         self.pr_cursig = struct.unpack("<I", prstatus.desc[12:16])[0]
 
-        arch_bytes = self.arch.bits // 8
+        arch_bytes = self.arch.bytes
         if arch_bytes == 4:
             fmt = "I"
         elif arch_bytes == 8:
