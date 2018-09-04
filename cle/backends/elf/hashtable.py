@@ -26,6 +26,8 @@ class ELFHashTable(object):
 
         :param k:   The string to look up.
         """
+        if self.nbuckets == 0:
+            return None
         hval = self.elf_hash(k) % self.nbuckets
         symndx = self.buckets[hval]
         while symndx != 0:
