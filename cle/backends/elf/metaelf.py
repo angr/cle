@@ -239,7 +239,7 @@ class MetaELF(Backend):
             ]
 
         name, addr = plt_hitlist[0]
-        if addr is None:
+        if addr is None and plt_sec is not None:
             # try to resolve the very first entry
             tick.bailout_timer = 5
             guessed_addr = plt_sec.vaddr
