@@ -145,7 +145,10 @@ class ELF(MetaELF):
     @classmethod
     def check_compatibility(cls, spec, obj):
         with stream_or_path(spec) as stream:
-            return cls.extract_arch(elffile.ELFFile(stream)) == obj.arch
+            try:
+                return cls.extract_arch(elffile.ELFFile(stream)) == obj.arch
+            except archinfo.ArchNotFound:
+                return False
 
     @staticmethod
     def is_compatible(stream):
