@@ -8,8 +8,7 @@ __all__ = ('Clemory',)
 
 class Clemory:
 
-    __slots__ = ('_arch', '_backers', '_pointer', '_root', '_cbackers', 'consecutive', 'min_addr',
-            'max_addr', )
+    __slots__ = ('_arch', '_backers', '_pointer', '_root', 'consecutive', 'min_addr', 'max_addr')
 
     """
     An object representing a memory space.
