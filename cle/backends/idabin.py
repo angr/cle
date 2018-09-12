@@ -288,14 +288,14 @@ class IDABin(Backend):
         # Try IDA's _ptr
         plt_addr = self.get_symbol_addr(sym + "_ptr")
         if plt_addr:
-            self.memory.write_addr_at(plt_addr, new_val)
+            self.memory.pack_word(plt_addr, new_val)
             return
 
         # Try the __imp_name
         plt_addr = self.get_symbol_addr("__imp_" + sym)
         if plt_addr:
             for addr in self.ida.idautils.DataRefsTo(plt_addr):
-                self.memory.write_addr_at(addr, new_val)
+                self.memory.pack_word(addr, new_val)
             return
 
         # Try the normal name
@@ -306,7 +306,7 @@ class IDABin(Backend):
             if len(addrlist) == 0:
                 addrlist = list(self.ida.idautils.CodeRefsTo(plt_addr))
             for addr in addrlist:
-                self.memory.write_addr_at(addr, new_val)
+                self.memory.pack_word(addr, new_val)
             return
 
         # If none of them has an address, that's a problem
@@ -321,7 +321,7 @@ class IDABin(Backend):
             return
 
         addr = self.imports[name]
-        self.memory.write_addr_at(addr, newaddr)
+        self.memory.pack_word(addr, newaddr)
 
     def is_thumb(self, addr):
         """

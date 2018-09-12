@@ -236,7 +236,7 @@ class BinjaBin(Backend):
             return
 
         addr = self.imports[name]
-        self.memory.write_addr_at(addr, newaddr)
+        self.memory.pack_word(addr, newaddr)
 
     def close(self):
         """

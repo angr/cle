@@ -109,8 +109,7 @@ class ELFTLSObject(TLSObject):
     def map_object(self, obj):
         # Grab the init images from the tdata section
         # tls_block_offset is negative for variant 2
-        obj.memory.seek(obj.tls_tdata_start)
-        data = obj.memory.read(obj.tls_tdata_size).ljust(obj.tls_block_size, b'\0')
+        data = obj.memory.load(obj.tls_tdata_start, obj.tls_tdata_size).ljust(obj.tls_block_size, b'\0')
         self.memory.add_backer(self.tp_offset + obj.tls_block_offset, data)
 
     @property

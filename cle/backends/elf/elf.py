@@ -123,7 +123,7 @@ class ELF(MetaELF):
         try:
             self.mapped_base = self.linked_base = min(seg_addrs)
         except ValueError:
-            l.warn('no segments identified in PT_LOAD')
+            l.warning('no segments identified in PT_LOAD')
 
         self.__register_segments()
         self.__register_sections()
@@ -135,7 +135,7 @@ class ELF(MetaELF):
         self._populate_demangled_names()
 
         for offset, patch in patch_undo:
-            self.memory.write_bytes(AT.from_lva(self.min_addr + offset, self).to_rva(), patch)
+            self.memory.store(AT.from_lva(self.min_addr + offset, self).to_rva(), patch)
 
 
     #
@@ -220,7 +220,7 @@ class ELF(MetaELF):
             return symbol
         elif isinstance(symid, (str, unicode)):
             if not symid:
-                l.warn("Trying to resolve a symbol by its empty name")
+                l.warning("Trying to resolve a symbol by its empty name")
                 return None
             cached = self._symbols_by_name.get(symid, None)
             if cached:
@@ -275,21 +275,21 @@ class ELF(MetaELF):
             arr_start = AT.from_lva(self._dynamic['DT_PREINIT_ARRAY'], self).to_rva()
             arr_end = arr_start + self._dynamic['DT_PREINIT_ARRAYSZ']
             arr_entsize = self.arch.bytes
-            self._preinit_arr = list(map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize)))
+            self._preinit_arr = list(map(self.memory.unpack_word, range(arr_start, arr_end, arr_entsize)))
         if 'DT_INIT' in self._dynamic:
             self._init_func = AT.from_lva(self._dynamic['DT_INIT'], self).to_rva()
         if 'DT_INIT_ARRAY' in self._dynamic and 'DT_INIT_ARRAYSZ' in self._dynamic:
             arr_start = AT.from_lva(self._dynamic['DT_INIT_ARRAY'], self).to_rva()
             arr_end = arr_start + self._dynamic['DT_INIT_ARRAYSZ']
             arr_entsize = self.arch.bytes
-            self._init_arr = list(map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize)))
+            self._init_arr = list(map(self.memory.unpack_word, range(arr_start, arr_end, arr_entsize)))
         if 'DT_FINI' in self._dynamic:
             self._fini_func = AT.from_lva(self._dynamic['DT_FINI'], self).to_rva()
         if 'DT_FINI_ARRAY' in self._dynamic and 'DT_FINI_ARRAYSZ' in self._dynamic:
             arr_start = AT.from_lva(self._dynamic['DT_FINI_ARRAY'], self).to_rva()
             arr_end = arr_start + self._dynamic['DT_FINI_ARRAYSZ']
             arr_entsize = self.arch.bytes
-            self._fini_arr = list(map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize)))
+            self._fini_arr = list(map(self.memory.unpack_word, range(arr_start, arr_end, arr_entsize)))
         self._inits_extracted = True
 
     def _load_segment(self, seg):
@@ -624,7 +624,7 @@ class ELF(MetaELF):
             try:
                 dest_sec = self.sections[dest_sec_idx]
             except IndexError:
-                l.warn('the relocation section %s refers to unknown section index: %d', section.name, dest_sec_idx)
+                l.warning('the relocation section %s refers to unknown section index: %d', section.name, dest_sec_idx)
             else:
                 if not dest_sec.occupies_memory:
                     # The target section is not loaded into memory, so just continue
@@ -682,7 +682,7 @@ class ELF(MetaELF):
         self.tls_used = True
         self.tls_block_size = seg_readelf.header.p_memsz
         self.tls_tdata_size = seg_readelf.header.p_filesz
-        self.tls_tdata_start = seg_readelf.header.p_vaddr
+        self.tls_tdata_start = AT.from_lva(seg_readelf.header.p_vaddr, self).to_rva()
 
     def __register_sections(self):
         new_addr = 0

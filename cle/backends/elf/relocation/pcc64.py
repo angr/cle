@@ -16,14 +16,14 @@ class R_PPC64_JMP_SLOT(ELFReloc):
             # R_PPC64_JMP_SLOT
             # http://osxr.org/glibc/source/sysdeps/powerpc/powerpc64/dl-machine.h?v=glibc-2.15#0405
             # copy an entire function descriptor struct
-            addr = self.resolvedby.owner_obj.memory.read_addr_at(self.resolvedby.relative_addr)
-            toc = self.resolvedby.owner_obj.memory.read_addr_at(self.resolvedby.relative_addr + 8)
-            aux = self.resolvedby.owner_obj.memory.read_addr_at(self.resolvedby.relative_addr + 16)
-            self.owner_obj.memory.write_addr_at(self.relative_addr, addr)
-            self.owner_obj.memory.write_addr_at(self.relative_addr + 8, toc)
-            self.owner_obj.memory.write_addr_at(self.relative_addr + 16, aux)
+            addr = self.resolvedby.owner_obj.memory.unpack_word(self.resolvedby.relative_addr)
+            toc = self.resolvedby.owner_obj.memory.unpack_word(self.resolvedby.relative_addr + 8)
+            aux = self.resolvedby.owner_obj.memory.unpack_word(self.resolvedby.relative_addr + 16)
+            self.owner_obj.memory.pack_word(self.relative_addr, addr)
+            self.owner_obj.memory.pack_word(self.relative_addr + 8, toc)
+            self.owner_obj.memory.pack_word(self.relative_addr + 16, aux)
         else:
-            self.owner_obj.memory.write_addr_at(self.relative_addr, self.resolvedby.rebased_addr)
+            self.owner_obj.memory.pack_word(self.relative_addr, self.resolvedby.rebased_addr)
         return True
 
 class R_PPC64_RELATIVE(generic.GenericRelativeReloc):

@@ -238,6 +238,9 @@ class R_ARM_THM_CALL(ELFReloc):
       - However, the J1/J2 bits are XORed with !S bit in this case (see vex implementation: https://github.com/angr/vex/blob/6d1252c7ce8fe8376318b8f8bb8034058454c841/priv/guest_arm_toIR.c#L19219 )
       - Implementation appears correct with the bits placed into offset[23:22]
     """
+    def __init__(self, *args, **kwargs):
+        super(R_ARM_THM_CALL, self).__init__(*args, **kwargs)
+        self._insn_bytes = None
 
     def resolve_symbol(self, solist, bypass_compatibility=False, thumb=False):
         return super(R_ARM_THM_CALL, self).resolve_symbol(solist,
@@ -255,9 +258,11 @@ class R_ARM_THM_CALL(ELFReloc):
         #  Because this 4-byte instruction is treated as two 2-byte instructions,
         #  the bytes are in the order `b3 b4 b1 b2`, where b4 is the most significant.
 
-        raw  = list(map(ord, self.owner_obj.memory.read_bytes(self.relative_addr, 4, orig=True)))
-        hi   = (raw[1] << 8) | raw[0]
-        lo   = (raw[3] << 8) | raw[2]
+        if self._insn_bytes is None:
+            self._insn_bytes = self.owner_obj.memory.load(self.relative_addr, 4)
+
+        hi   = (self._insn_bytes[1] << 8) | self._insn_bytes[0]
+        lo   = (self._insn_bytes[3] << 8) | self._insn_bytes[2]
         inst = (hi << 16) | lo
 
         def gen_mask(n_bits, first_bit):

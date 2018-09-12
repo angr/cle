@@ -113,4 +113,4 @@ class Relocation(object):
         if not self.resolve_symbol(solist, bypass_compatibility):
             return False
 
-        self.owner_obj.memory.write_addr_at(self.dest_addr, self.value)
+        self.owner_obj.memory.pack_word(self.dest_addr, self.value)

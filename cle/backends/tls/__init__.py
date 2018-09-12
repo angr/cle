@@ -34,7 +34,7 @@ class InternalTLSRelocation(object):
         self.symbol = None
 
     def relocate(self):
-        self.owner_obj.memory.write_addr_at(self.offset, self.val + self.owner_obj.mapped_base)
+        self.owner_obj.memory.pack_word(self.offset, self.val + self.owner_obj.mapped_base)
 
 from .elf_tls import ELFTLSObject
 from .pe_tls import PETLSObject

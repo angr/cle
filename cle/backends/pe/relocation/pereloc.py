@@ -36,7 +36,7 @@ class PEReloc(Relocation):
             if self.value is None:
                 l.debug('Unresolved relocation with no symbol.')
                 return
-            self.owner_obj.memory.write_bytes(self.relative_addr, self.value)
+            self.owner_obj.memory.store(self.relative_addr, self.value)
         else:
             return super(PEReloc, self).relocate(solist, bypass_compatibility)
 

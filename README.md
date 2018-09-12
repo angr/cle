@@ -25,7 +25,7 @@ the OS's loader.
 >>> hex(libc_main_reloc.addr)       # Address of GOT entry for libc_start_main
 '0x61c1c0'
 >>> import pyvex
->>> some_text_data = ''.join(ld.memory.read_bytes(ld.main_object.entry, 0x100))
+>>> some_text_data = ld.memory.load(ld.main_object.entry, 0x100)
 >>> irsb = pyvex.lift(some_text_data, ld.main_object.entry, ld.main_object.arch)
 >>> irsb.pp()
 IRSB {

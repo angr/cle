@@ -25,7 +25,7 @@ class CGC(ELF):
             stream = PatchedStream(open(binary, 'rb'), [(0, ELF_HEADER)])
         kwargs['filename'] = filename
         super(CGC, self).__init__(stream, *args, **kwargs)
-        self.memory.write_bytes(0, CGC_HEADER) # repair CGC header
+        self.memory.store(0, CGC_HEADER) # repair CGC header
         self.os = 'cgc'
         self.execstack = True  # the stack is always executable in CGC
 

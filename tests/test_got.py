@@ -13,7 +13,7 @@ def test_ppc():
     ld = cle.Loader(libc, auto_load_libs=True, main_opts={'custom_base_addr': 0})
     # This tests the relocation of _rtld_global_ro in ppc libc6.
     # This relocation is of type 20, and relocates a non-local symbol
-    relocated = ld.memory.read_addr_at(0x18ace4)
+    relocated = ld.memory.unpack_word(0x18ace4)
     nose.tools.assert_equal(relocated % 0x1000, 0xf666e320 % 0x1000)
 
 def test_mipsel():
@@ -30,7 +30,7 @@ def test_mipsel():
     # 2) Check GOT slot containts the right address
     # Cle: 4494036
     # got = ld.find_symbol_got_entry('__uClibc_main')
-    # addr = ld.memory.read_addr_at(got)
+    # addr = ld.memory.unpack_word(got)
     # nose.tools.assert_equal(addr, sproc_addr)
     # TODO: Get the right version of uClibc and devise a test that doesn't use angr
 

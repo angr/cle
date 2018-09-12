@@ -1,43 +1,27 @@
 import bisect
 import struct
-import cffi
-
-from .errors import CLEMemoryError
 
 __all__ = ('Clemory',)
-
-if str is not bytes:
-    xrange = range
-    unicode = str
-
-    join = bytes
-else:
-    def join(bl):
-        return ''.join(bl)
 
 # TODO: Further optimization is possible now that the list of backers is sorted
 
 
-class Clemory(object):
+class Clemory:
 
-    __slots__ = ('_arch', '_backers', '_updates', '_pointer', '_root', '_cbackers', '_needs_flattening_personal',
-                 'consecutive', 'min_addr', 'max_addr', )
+    __slots__ = ('_arch', '_backers', '_pointer', '_root', '_cbackers', 'consecutive', 'min_addr',
+            'max_addr', )
 
     """
-    An object representing a memory space. Uses "backers" and "updates" to separate the concepts of loaded and written
-    memory and make lookups more efficient.
+    An object representing a memory space.
 
     Accesses can be made with [index] notation.
     """
     def __init__(self, arch, root=False):
         self._arch = arch
         self._backers = []  # tuple of (start, str)
-        self._updates = {}
         self._pointer = 0
         self._root = root
 
-        self._cbackers = [ ]  # tuple of (start, cdata<buffer>)
-        self._needs_flattening_personal = True
         self.consecutive = None
         self.min_addr = None
         self.max_addr = None
@@ -47,25 +31,27 @@ class Clemory(object):
         Adds a backer to the memory.
 
         :param start:   The address where the backer should be loaded.
-        :param data:    The backer itself. Can be either a string or another :class:`Clemory`.
+        :param data:    The backer itself. Can be either a bytestring or another :class:`Clemory`.
         """
-        if not isinstance(data, (bytes, unicode, Clemory)):
+        if not isinstance(data, (bytes, list, Clemory)):
             raise TypeError("Data must be a string or a Clemory")
         if start in self:
             raise ValueError("Address %#x is already backed!" % start)
         if isinstance(data, Clemory) and data._root:
             raise ValueError("Cannot add a root clemory as a backer!")
+        if type(data) is bytes:
+            data = bytearray(data)
         bisect.insort(self._backers, (start, data))
         self._update_min_max()
-        self._needs_flattening_personal = True
 
     def update_backer(self, start, data):
-        if not isinstance(data, (bytes, unicode, Clemory)):
+        if not isinstance(data, (bytes, list, Clemory)):
             raise TypeError("Data must be a string or a Clemory")
+        if type(data) is bytes:
+            data = bytearray(data)
         for i, (oldstart, _) in enumerate(self._backers):
             if oldstart == start:
                 self._backers[i] = (start, data)
-                self._needs_flattening_personal = True
                 break
         else:
             raise ValueError("Can't find backer to update")
@@ -76,7 +62,6 @@ class Clemory(object):
         for i, (oldstart, _) in enumerate(self._backers):
             if oldstart == start:
                 self._backers.pop(i)
-                self._needs_flattening_personal = True
                 break
         else:
             raise ValueError("Can't find backer to remove")
@@ -85,61 +70,64 @@ class Clemory(object):
 
     def __iter__(self):
         for start, string in self._backers:
-            if isinstance(string, (bytes, unicode)):
-                for x in xrange(len(string)):
+            if isinstance(string, (bytes, list)):
+                for x in range(len(string)):
                     yield start + x
             else:
                 for x in string:
                     yield start + x
 
     def __getitem__(self, k):
-        return self.get_byte(k)
-
-    def get_byte(self, k, orig=False):
-        if not orig and k in self._updates:
-            return self._updates[k]
-        else:
-            for start, data in self._backers:
-                if isinstance(data, (bytes, unicode)):
-                    if 0 <= k - start < len(data):
-                        return data[k - start]
-                elif isinstance(data, Clemory):
+        for start, data in self._backers:
+            if type(data) in (bytearray, list):
+                if 0 <= k - start < len(data):
+                    return data[k - start]
+            elif isinstance(data, Clemory):
+                if data.min_addr <= k - start < data.max_addr:
                     try:
-                        return data.get_byte(k - start, orig=orig)
+                        return data[k - start]
                     except KeyError:
                         pass
-            raise KeyError(k)
+        raise KeyError(k)
 
     def __setitem__(self, k, v):
-        if k not in self:
-            raise IndexError(k)
-        self._updates[k] = v
-        self._needs_flattening_personal = True
+        for start, data in self._backers:
+            if type(data) in (bytearray, list):
+                if 0 <= k - start < len(data):
+                    data[k - start] = v
+                    return
+            elif isinstance(data, Clemory):
+                if data.min_addr <= k - start < data.max_addr:
+                    try:
+                        data[k - start] = v
+                        return
+                    except KeyError:
+                        pass
+        raise KeyError(k)
 
     def __contains__(self, k):
-
         # Fast path
         if self.consecutive:
             return self.min_addr <= k < self.max_addr
         else:
             # Check if this is an empty Clemory instance
             if not self._backers:
-                return None
+                return False
             # Check if it is out of the memory range
             if k < self.min_addr or k >= self.max_addr:
                 return False
 
         try:
-            self.get_byte(k)
-            return True
+            self.__getitem__(k)
         except KeyError:
             return False
+        else:
+            return True
 
     def __getstate__(self):
         s = {
             '_arch': self._arch,
             '_backers': self._backers,
-            '_updates': self._updates,
             '_pointer': self._pointer,
             '_root': self._root,
             'consecutive': self.consecutive,
@@ -152,150 +140,146 @@ class Clemory(object):
     def __setstate__(self, s):
         self._arch = s['_arch']
         self._backers = s['_backers']
-        self._updates = s['_updates']
         self._pointer = s['_pointer']
         self._root = s['_root']
         self.consecutive = s['consecutive']
         self.min_addr = s['min_addr']
         self.max_addr = s['max_addr']
 
-        self._cbackers = [ ]
-        self._needs_flattening_personal = True
-
-    def read_bytes(self, addr, n, orig=False):
+    def backers(self, addr=0):
         """
-        Read up to `n` bytes at address `addr` in memory and return an array of bytes.
+        Iterate through each backer for this clemory and all its children, yielding tuples of
+        ``(start_addr, backer)`` where each backer is a bytearray.
+
+        :param addr:    An optional starting address - all backers before and not including this
+                        address will be skipped.
+        """
+        started = addr <= 0
+        for start, backer in self._backers:
+            if not started:
+                end = start + backer.max_addr if type(backer) is Clemory else start + len(backer)
+                if addr >= end:
+                    continue
+                started = True
+            if type(backer) is Clemory:
+                for s, b in backer.backers(addr - start):
+                    yield s + start, b
+            else:
+                yield start, backer
+
+    def load(self, addr, n):
+        """
+        Read up to `n` bytes at address `addr` in memory and return a bytes object.
 
         Reading will stop at the beginning of the first unallocated region found, or when
         `n` bytes have been read.
         """
-        b = []
-        try:
-            for i in range(addr, addr+n):
-                b.append(self.get_byte(i, orig=orig))
-        except KeyError:
-            pass
-        return b
 
-    def write_bytes(self, addr, data):
+        views = []
+
+        for start, backer in self.backers(addr):
+            if start > addr:
+                break
+            offset = addr - start
+            size = len(backer) - offset
+            views.append(memoryview(backer)[offset:offset + n])
+
+            addr += size
+            n -= size
+
+            if n <= 0:
+                break
+
+        if not views:
+            raise KeyError(n)
+        return b''.join(views)
+
+    def store(self, addr, data):
         """
         Write bytes from `data` at address `addr`.
+
+        Note: If the store runs off the end of a backer and into unbacked space, this function
+        will update the backer but also raise ``KeyError``.
         """
-        for i, c in enumerate(data):
-            self[addr+i] = c
+        for start, backer in self.backers(addr):
+            if start > addr:
+                raise KeyError(addr)
+            offset = addr - start
+            size = len(backer) - offset
+            backer[offset:offset + len(data)] = data if len(data) <= size else data[:size]
 
-    def write_bytes_to_backer(self, addr, data):
+            addr += size
+            data = data[size:]
+
+            if not data:
+                break
+
+        if data:
+            raise KeyError(addr)
+
+    def unpack(self, addr, fmt):
         """
-        Write bytes from `data` at address `addr` to backer instead of self._updates. This is only needed when writing a
-        huge amount of data.
+        Use the ``struct`` module to unpack the data at address `addr` with the format `fmt`.
         """
 
-        pos = addr
-        to_insert = [ ]
-        i = 0
-
-        while i < len(self._backers) and data:
-            start, backer_data = self._backers[i] # self._backers is always sorted
-            size = len(backer_data)
-            stop = start + size
-            if pos >= start:
-                if pos < stop:
-                    if pos + len(data) > stop:
-                        new_backer_data = backer_data[ : pos - start] + data[ : stop - pos]
-                        self._backers[i] = (start, new_backer_data)
-
-                        # slicing data
-                        data = data[ stop - pos : ]
-                        pos = stop
-                    else:
-                        new_backer_data = backer_data[ : pos - start] + data + backer_data[pos - start + len(data) : ]
-                        self._backers[i] = (start, new_backer_data)
-                        # We are done
-                        break
-                i += 1
-            else:
-                # Look forward and see if we should insert a new backer
-                if i < len(self._backers) - 1:
-                    if pos + len(data) <= start:
-                        to_insert.append((pos, data[ : start - pos]))
-
-                        data = data[start - pos : ]
-                        pos = start
-
-                    else:
-                        # we reach the end of our data to insert
-                        to_insert.append((pos, data))
-
-                        break
-                else:
-                    # seems we reach the end of the list...
-                    to_insert.append((pos, data))
-
-                    break
-
-        # Insert the blocks that are needed to insert into self._backers
-        for seg_start, seg_data in to_insert:
-            bisect.insort(self._backers, (seg_start, seg_data))
-
-        # Set the flattening_needed flag
-        self._needs_flattening_personal = True
-
-    def read_addr_at(self, where, orig=False):
-        """
-        Read addr stored in memory as a series of bytes starting at `where`.
-        """
-        by = join(self.read_bytes(where, self._arch.bytes, orig=orig))
         try:
-            return struct.unpack(self._arch.struct_fmt(), by)[0]
+            start, backer = next(self.backers(addr))
+        except StopIteration:
+            raise KeyError(addr)
+
+        if start > addr:
+            raise KeyError(addr)
+
+        try:
+            return struct.unpack_from(fmt, backer, addr - start)
         except struct.error:
-            raise CLEMemoryError("Not enough bytes at %#x" % where)
+            raise KeyError(addr)
 
-    def write_addr_at(self, where, addr):
+    def unpack_word(self, addr, size=None, signed=False, endness=None):
         """
-        Writes `addr` into a series of bytes in memory at `where`.
-        """
-        by = struct.pack(self._arch.struct_fmt(), addr % (2**self._arch.bits))
-        self.write_bytes(where, by)
+        Use the ``struct`` module to unpack a single integer from the address `addr`.
 
-    @property
-    def _stride_repr(self):
-        out = []
-        for start, data in self._backers:
-            if isinstance(data, bytes):
-                out.append((start, bytearray(data)))
-            elif isinstance(data, unicode):
-                out.append((start, [ord(c) for c in data]))
-            else:
-                out += [(substart + start, subdata) for substart, subdata in data._stride_repr]
-        for key in self._updates:
-            val = self._updates[key]
-            for start, data in out:
-                if start <= key < start + len(data):
-                    data[key - start] = val
-                    break
-            else:
-                raise ValueError('There was an update to a Clemory not on top of any backer')
-        return out
+        You may override any of the attributes of the word being extracted:
 
-    @property
-    def stride_repr(self):
+        :param int size:    The size in bits to pack/unpack. Defaults to wordsize (e.g. 4 bytes on
+        a 32 bit architecture)
+        :param bool signed: Whether the data should be extracted signed/unsigned. Default unsigned
+        :param str archinfo.Endness: The endian to use in packing/unpacking. Defaults to memory endness
         """
-        Returns a representation of memory in a list of (start, end, data) where data is a string.
-        """
-        return [
-            (
-                start,
-                start + len(bytearr),
-                bytes(bytearr) if type(bytearr) is bytearray else bytearr
-            ) for start, bytearr in self._stride_repr]
+        return self.unpack(addr, self._arch.struct_fmt(size=size, signed=signed, endness=endness))[0]
 
-    def seek(self, value):
+    def pack(self, addr, fmt, *data):
         """
-        The stream-like function that sets the "file's" current position. Use with :func:`read()`.
+        Use the ``struct`` module to pack `data` into memory at address `addr` with the format `fmt`.
+        """
 
-        :param value:        The position to seek to.
+        try:
+            start, backer = next(self.backers(addr))
+        except StopIteration:
+            raise KeyError(addr)
+
+        if start > addr:
+            raise KeyError(addr)
+
+        try:
+            return struct.pack_into(fmt, backer, addr - start, *data)
+        except struct.error:
+            raise KeyError(addr)
+
+    def pack_word(self, addr, data, size=None, signed=False, endness=None):
         """
-        self._pointer = value
+        Use the ``struct`` module to pack a single integer `data` into memory at the address `addr.
+
+        You may override any of the attributes of the word being packed:
+
+        :param int size:    The size in bits to pack/unpack. Defaults to wordsize (e.g. 4 bytes on
+        a 32 bit architecture)
+        :param bool signed: Whether the data should be extracted signed/unsigned. Default unsigned
+        :param str archinfo.Endness: The endian to use in packing/unpacking. Defaults to memory endness
+        """
+        if not signed and data < 0:
+            data += 1 << (size * 8 if size is not None else self._arch.bits)
+        return self.pack(addr, self._arch.struct_fmt(size=size, signed=signed, endness=endness), data)
 
     def read(self, nbytes):
         """
@@ -305,31 +289,24 @@ class Clemory(object):
         Up to `nbytes` bytes will be read, halting at the beginning of the first unmapped region
         encountered.
         """
-        if nbytes == 1:
-            try:
-                out = self[self._pointer]
-                self._pointer += 1
-                return join([out])
-            except KeyError:
-                return b''
+        try:
+            out = self.load(self._pointer, nbytes)
+        except KeyError:
+            return b''
         else:
-            out = self.read_bytes(self._pointer, nbytes)
             self._pointer += len(out)
-            return join(out)
+            return out
+
+    def seek(self, value):
+        """
+        The stream-like function that sets the "file's" current position. Use with :func:`read()`.
+
+        :param value:        The position to seek to.
+        """
+        self._pointer = value
 
     def tell(self):
         return self._pointer
-
-    @property
-    def cbackers(self):
-        """
-        This function directly returns a list of already-flattened cbackers. It's designed for performance purpose.
-        GirlScout uses it. Use this property at your own risk!
-        """
-        if self._needs_flattening:
-            self._flatten_to_c()
-
-        return self._cbackers
 
     def _update_min_max(self):
         """
@@ -351,7 +328,7 @@ class Clemory(object):
                 if next_start != start:
                     is_consecutive = False
 
-            if isinstance(backer, (bytes, unicode)):
+            if isinstance(backer, (bytearray, list)):
                 backer_length = len(backer)
                 # Update max_addr
                 if max_addr is None or start + backer_length > max_addr:
@@ -374,59 +351,3 @@ class Clemory(object):
         self.consecutive = is_consecutive
         self.min_addr = min_addr
         self.max_addr = max_addr
-
-    def _flatten_to_c(self):
-        """
-        Flattens memory backers to C-backed strings.
-        """
-
-        if not self._root:
-            raise ValueError("Pulling C data out of a non-root Clemory is disallowed!")
-
-        ffi = cffi.FFI()
-
-        # Considering the fact that there are much less bytes in self._updates than amount of bytes in backer,
-        # this way instead of calling self.__getitem__() is actually faster
-        strides = self._stride_repr
-
-        self._cbackers = []
-        for start, data in strides:
-            cbacker = ffi.new("unsigned char [%d]" % len(data), bytes(data))
-            self._cbackers.append((start, cbacker))
-
-    @property
-    def _needs_flattening(self):
-        """
-        WARNING:
-        ONLY use this property if you're going to flatten it immediately after seeing a True result
-        This is what is expected
-        debuggers beware
-        """
-        out = self._needs_flattening_personal
-        for backer in self._backers:
-            if isinstance(backer[1], Clemory):
-                out |= backer[1]._needs_flattening
-
-        self._needs_flattening_personal = False
-        return out
-
-    def read_bytes_c(self, addr):
-        """
-        Read `n` bytes at address `addr` in cbacked memory, and returns a tuple of a cffi buffer pointer and the
-        size of the continuous block bytes starting at `addr`.
-
-        Note: We don't support reading across segments for performance concerns.
-
-        :return: A tuple of a cffi buffer pointer and the maximum size of bytes starting from `addr`.
-        :rtype: tuple
-        """
-
-        if self._needs_flattening:
-            self._flatten_to_c()
-
-        for start, cbacker in self._cbackers:
-            cbacker_len = len(cbacker)
-            if start <= addr < start + cbacker_len:
-                return cbacker + (addr - start), start + cbacker_len - addr
-
-        raise KeyError(addr)

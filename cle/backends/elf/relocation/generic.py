@@ -21,14 +21,14 @@ class GenericTLSOffsetReloc(ELFReloc):
     def relocate(self, solist, bypass_compatibility=False):
         hell_offset = self.owner_obj.arch.elf_tls.tp_offset
         if self.symbol.type == Symbol.TYPE_NONE:
-            self.owner_obj.memory.write_addr_at(
+            self.owner_obj.memory.pack_word(
                 self.relative_addr,
                 self.owner_obj.tls_block_offset + self.addend + self.symbol.relative_addr - hell_offset)
             self.resolve(None)
         else:
             if not self.resolve_symbol(solist, bypass_compatibility):
                 return False
-            self.owner_obj.memory.write_addr_at(
+            self.owner_obj.memory.pack_word(
                 self.relative_addr,
                 self.resolvedby.owner_obj.tls_block_offset + self.addend + self.symbol.relative_addr - hell_offset)
         return True
@@ -36,12 +36,12 @@ class GenericTLSOffsetReloc(ELFReloc):
 class GenericTLSModIdReloc(ELFReloc):
     def relocate(self, solist, bypass_compatibility=False):
         if self.symbol.type == Symbol.TYPE_NONE:
-            self.owner_obj.memory.write_addr_at(self.relative_addr, self.owner_obj.tls_module_id)
+            self.owner_obj.memory.pack_word(self.relative_addr, self.owner_obj.tls_module_id)
             self.resolve(None)
         else:
             if not self.resolve_symbol(solist):
                 return False
-            self.owner_obj.memory.write_addr_at(self.relative_addr, self.resolvedby.owner_obj.tls_module_id)
+            self.owner_obj.memory.pack_word(self.relative_addr, self.resolvedby.owner_obj.tls_module_id)
         return True
 
 class GenericIRelativeReloc(ELFReloc):
@@ -95,7 +95,7 @@ class GenericAbsoluteReloc(ELFReloc):
 class GenericCopyReloc(ELFReloc):
     @property
     def value(self):
-        return self.resolvedby.owner_obj.memory.read_addr_at(self.resolvedby.relative_addr)
+        return self.resolvedby.owner_obj.memory.unpack_word(self.resolvedby.relative_addr)
 
 class MipsGlobalReloc(GenericAbsoluteReloc):
     pass
@@ -109,9 +109,9 @@ class MipsLocalReloc(ELFReloc):
         if delta == 0:
             self.resolve(None)
             return True
-        val = self.owner_obj.memory.read_addr_at(self.relative_addr)
+        val = self.owner_obj.memory.unpack_word(self.relative_addr)
         newval = val + delta
-        self.owner_obj.memory.write_addr_at(self.relative_addr, newval)
+        self.owner_obj.memory.pack_word(self.relative_addr, newval)
         self.resolve(None)
         return True
 
@@ -142,4 +142,4 @@ class RelocTruncate32Mixin(object):
                                     " relevant addresses fit in the 32-bit address space." % self.__class__.__name__)
 
         by = struct.pack(self.owner_obj.arch.struct_fmt(32), val % (2**32))
-        self.owner_obj.memory.write_bytes(self.dest_addr, by)
+        self.owner_obj.memory.store(self.dest_addr, by)

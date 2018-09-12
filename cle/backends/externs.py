@@ -36,7 +36,7 @@ class ExternObject(Backend):
             self._symbol_cache[name + '#func'] = func_symbol
 
             toc = self.allocate(0x18, alignment=8)
-            self.memory.write_addr_at(AT.from_mva(toc, self).to_rva(), addr)
+            self.memory.pack_word(AT.from_mva(toc, self).to_rva(), addr)
             addr = toc
 
         new_symbol = Symbol(self, name, AT.from_mva(addr, self).to_rva(), 1, Symbol.TYPE_FUNCTION)

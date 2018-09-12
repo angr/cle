@@ -186,7 +186,7 @@ class MachO(Backend):
         # factoring out common code
         def parse_mod_funcs_internal(s, target):
             for i in range(s.vaddr, s.vaddr + s.memsize, size):
-                addr = self._unpack_with_byteorder(fmt, "".join(self.memory.read_bytes(i, size)))[0]
+                addr = self._unpack_with_byteorder(fmt, "".join(self.memory.load(i, size)))[0]
                 l.debug("Addr: %#x", addr)
                 target.append(addr)
 

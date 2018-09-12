@@ -35,7 +35,7 @@ def deprecated(replacement):
         return inner
     return outer
 
-class Loader(object):
+class Loader:
     """
     The loader loads all the objects and exports an abstraction of the memory of the process. What you see here is an
     address space with loaded and rebased binaries.
@@ -508,7 +508,7 @@ class Loader(object):
             for resolver, dest in obj.irelatives:
                 val = resolver_func(resolver)
                 if val is not None:
-                    obj.memory.write_addr_at(dest, val)
+                    obj.memory.pack_word(dest, val)
 
         return None
 
