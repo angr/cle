@@ -811,7 +811,8 @@ class Loader(object):
                 # ... extend with load path of native libraries
                 dirs.extend(self.main_object.extra_load_path)
                 if self._use_system_libs:
-                    l.warning("Path of system libraries needs to be added manually using custom_ld_path.")
+                    l.debug("Path to system libraries (usually added as dependencies of JNI libs) needs "
+                            "to be specified manually, by using the custom_ld_path option.")
             # add path of system libraries
             if self._use_system_libs and not is_arch_soot:
                 # Ideally this should be taken into account for each shared
