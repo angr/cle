@@ -245,7 +245,7 @@ class Clemory:
         You may override any of the attributes of the word being extracted:
 
         :param int size:    The size in bits to pack/unpack. Defaults to wordsize (e.g. 4 bytes on
-        a 32 bit architecture)
+                            a 32 bit architecture)
         :param bool signed: Whether the data should be extracted signed/unsigned. Default unsigned
         :param str archinfo.Endness: The endian to use in packing/unpacking. Defaults to memory endness
         """
@@ -273,12 +273,12 @@ class Clemory:
 
     def pack_word(self, addr, data, size=None, signed=False, endness=None):
         """
-        Use the ``struct`` module to pack a single integer `data` into memory at the address `addr.
+        Use the ``struct`` module to pack a single integer `data` into memory at the address `addr`.
 
         You may override any of the attributes of the word being packed:
 
         :param int size:    The size in bits to pack/unpack. Defaults to wordsize (e.g. 4 bytes on
-        a 32 bit architecture)
+                            a 32 bit architecture)
         :param bool signed: Whether the data should be extracted signed/unsigned. Default unsigned
         :param str archinfo.Endness: The endian to use in packing/unpacking. Defaults to memory endness
         """
