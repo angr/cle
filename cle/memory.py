@@ -32,6 +32,8 @@ class Clemory:
         :param start:   The address where the backer should be loaded.
         :param data:    The backer itself. Can be either a bytestring or another :class:`Clemory`.
         """
+        if not data:
+            raise ValueError("Backer is empty!")
         if not isinstance(data, (bytes, list, Clemory)):
             raise TypeError("Data must be a string or a Clemory")
         if start in self:
@@ -231,7 +233,9 @@ class Clemory:
 
         try:
             return struct.unpack_from(fmt, backer, addr - start)
-        except struct.error:
+        except struct.error as e:
+            if len(backer) - (addr - start) >= struct.calcsize(fmt):
+                raise e
             raise KeyError(addr)
 
     def unpack_word(self, addr, size=None, signed=False, endness=None):
@@ -262,7 +266,9 @@ class Clemory:
 
         try:
             return struct.pack_into(fmt, backer, addr - start, *data)
-        except struct.error:
+        except struct.error as e:
+            if len(backer) - (addr - start) >= struct.calcsize(fmt):
+                raise e
             raise KeyError(addr)
 
     def pack_word(self, addr, data, size=None, signed=False, endness=None):
@@ -276,8 +282,8 @@ class Clemory:
         :param bool signed: Whether the data should be extracted signed/unsigned. Default unsigned
         :param str archinfo.Endness: The endian to use in packing/unpacking. Defaults to memory endness
         """
-        if not signed and data < 0:
-            data += 1 << (size * 8 if size is not None else self._arch.bits)
+        if not signed:
+            data &= (1 << (size * 8 if size is not None else self._arch.bits)) - 1
         return self.pack(addr, self._arch.struct_fmt(size=size, signed=signed, endness=endness), data)
 
     def read(self, nbytes):
