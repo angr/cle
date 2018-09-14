@@ -83,15 +83,6 @@ class Relocation(object):
     def linked_addr(self):
         return AT.from_rva(self.relative_addr, self.owner_obj).to_lva()
 
-    warned_addr = False
-
-    @property
-    def addr(self):
-        if not Relocation.warned_addr:
-            print("\x1b[31;1mDeprecation warning: Relocation.addr is ambiguous, please use relative_addr, linked_addr, or rebased_addr\x1b[0m")
-            Relocation.warned_addr = True
-        return self.linked_addr
-
     @property
     def dest_addr(self):
         return self.relative_addr
