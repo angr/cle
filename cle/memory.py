@@ -249,7 +249,7 @@ class Clemory:
         :param bool signed: Whether the data should be extracted signed/unsigned. Default unsigned
         :param str archinfo.Endness: The endian to use in packing/unpacking. Defaults to memory endness
         """
-        return self.unpack(addr, self._arch.struct_fmt(size=size*8, signed=signed, endness=endness))[0]
+        return self.unpack(addr, self._arch.struct_fmt(size=size, signed=signed, endness=endness))[0]
 
     def pack(self, addr, fmt, *data):
         """
@@ -284,7 +284,7 @@ class Clemory:
         """
         if not signed:
             data &= (1 << (size if size is not None else self._arch.bits)) - 1
-        return self.pack(addr, self._arch.struct_fmt(size=size*8, signed=signed, endness=endness), data)
+        return self.pack(addr, self._arch.struct_fmt(size=size, signed=signed, endness=endness), data)
 
     def read(self, nbytes):
         """

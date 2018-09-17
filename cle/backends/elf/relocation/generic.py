@@ -141,5 +141,4 @@ class RelocTruncate32Mixin(object):
             raise CLEOperationError("relocation truncated to fit: %s; consider making"
                                     " relevant addresses fit in the 32-bit address space." % self.__class__.__name__)
 
-        by = struct.pack(self.owner_obj.arch.struct_fmt(32), val % (2**32))
-        self.owner_obj.memory.store(self.dest_addr, by)
+        self.owner_obj.memory.pack_word(self.dest_addr, val, size=4, signed=False)
