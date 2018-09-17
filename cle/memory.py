@@ -244,12 +244,12 @@ class Clemory:
 
         You may override any of the attributes of the word being extracted:
 
-        :param int size:    The size in bits to pack/unpack. Defaults to wordsize (e.g. 4 bytes on
+        :param int size:    The size in bytes to pack/unpack. Defaults to wordsize (e.g. 4 bytes on
                             a 32 bit architecture)
         :param bool signed: Whether the data should be extracted signed/unsigned. Default unsigned
         :param str archinfo.Endness: The endian to use in packing/unpacking. Defaults to memory endness
         """
-        return self.unpack(addr, self._arch.struct_fmt(size=size, signed=signed, endness=endness))[0]
+        return self.unpack(addr, self._arch.struct_fmt(size=size*8, signed=signed, endness=endness))[0]
 
     def pack(self, addr, fmt, *data):
         """
@@ -277,14 +277,14 @@ class Clemory:
 
         You may override any of the attributes of the word being packed:
 
-        :param int size:    The size in bits to pack/unpack. Defaults to wordsize (e.g. 4 bytes on
+        :param int size:    The size in bytes to pack/unpack. Defaults to wordsize (e.g. 4 bytes on
                             a 32 bit architecture)
         :param bool signed: Whether the data should be extracted signed/unsigned. Default unsigned
         :param str archinfo.Endness: The endian to use in packing/unpacking. Defaults to memory endness
         """
         if not signed:
-            data &= (1 << (size * 8 if size is not None else self._arch.bits)) - 1
-        return self.pack(addr, self._arch.struct_fmt(size=size, signed=signed, endness=endness), data)
+            data &= (1 << (size if size is not None else self._arch.bits)) - 1
+        return self.pack(addr, self._arch.struct_fmt(size=size*8, signed=signed, endness=endness), data)
 
     def read(self, nbytes):
         """
