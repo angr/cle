@@ -691,6 +691,10 @@ class Loader:
             obj.mapped_base = base_addr
             obj.rebase()
         else:
+            if obj._custom_base_addr is not None:
+                l.warning("%s: custom_base_addr was specified but the object is not PIC. "
+                    "specify force_rebase=True to override" % \
+                            os.path.basename(obj.binary) if obj.binary is not None else obj.binary_stream)
             base_addr = obj.linked_base
             if not self._is_range_free(obj.linked_base, obj_size):
                 raise CLEError("Position-DEPENDENT object %s cannot be loaded at %#x"% (obj.binary, base_addr))
