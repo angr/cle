@@ -21,9 +21,9 @@ class Clemory:
         self._pointer = 0
         self._root = root
 
-        self.consecutive = None
-        self.min_addr = None
-        self.max_addr = None
+        self.consecutive = True
+        self.min_addr = 0
+        self.max_addr = 0
 
     def add_backer(self, start, data):
         """
