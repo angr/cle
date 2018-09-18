@@ -9,7 +9,7 @@ except ImportError:
     claripy = None
 
 
-class Symbol(object):
+class Symbol:
     """
     Representation of a symbol from a binary file. Smart enough to rebase itself.
 

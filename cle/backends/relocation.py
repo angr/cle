@@ -1,10 +1,12 @@
 from __future__ import print_function
 import logging
+
 from ..address_translator import AT
 
 l = logging.getLogger('cle.backends.relocation')
 
-class Relocation(object):
+
+class Relocation:
     """
     A representation of a relocation in a binary file. Smart enough to
     relocate itself.
@@ -18,7 +20,6 @@ class Relocation(object):
     :ivar resolved:     Whether the application of this relocation was succesful
     """
     def __init__(self, owner, symbol, relative_addr):
-        super(Relocation, self).__init__()
         self.owner_obj = owner
         self.arch = owner.arch
         self.symbol = symbol
@@ -105,3 +106,4 @@ class Relocation(object):
             return False
 
         self.owner_obj.memory.pack_word(self.dest_addr, self.value)
+        return True
