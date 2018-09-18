@@ -66,9 +66,9 @@ class Loader:
     When reference is made to a dictionary of options, it requires a dictionary with zero or more of the following keys:
 
     - backend :             "elf", "pe", "mach-o", "ida", "blob" : which loader backend to use
-    - arch :         The archinfo.Arch object to use for the binary
-    - base_addr :    The address to rebase the object at
-    - entry_point :  The entry point to use for the object
+    - arch :                The archinfo.Arch object to use for the binary
+    - base_addr :           The address to rebase the object at
+    - entry_point :         The entry point to use for the object
 
     More keys are defined on a per-backend basis.
     """
