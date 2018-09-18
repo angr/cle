@@ -639,7 +639,7 @@ class MachO(Backend):
         # add to sections_by_ordinal
         self.sections_by_ordinal.extend(seg.sections)
 
-        if segname == "__PAGEZERO":
+        if segname == b"__PAGEZERO":
             # TODO: What we actually need at this point is some sort of smart on-demand string or memory
             # This should not cause trouble because accesses to __PAGEZERO are SUPPOSED to crash (segment has access set to no access)
             # This optimization is here as otherwise several GB worth of zeroes would clutter our memory
