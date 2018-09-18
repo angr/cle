@@ -500,8 +500,6 @@ class Loader:
                 if val is not None:
                     obj.memory.pack_word(dest, val)
 
-        return None
-
     def dynamic_load(self, spec):
         """
         Load a file into the address space. Note that the sematics of ``auto_load_libs`` and ``except_missing_libs``
