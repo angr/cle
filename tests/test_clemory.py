@@ -85,9 +85,9 @@ def performance_clemory_contains():
 
 def test_clemory_contains():
     clemory = cle.Clemory(None, root=True)
-    nose.tools.assert_equal(clemory.min_addr, None)
-    nose.tools.assert_equal(clemory.max_addr, None)
-    nose.tools.assert_equal(clemory.consecutive, None)
+    nose.tools.assert_equal(clemory.min_addr, 0)
+    nose.tools.assert_equal(clemory.max_addr, 0)
+    nose.tools.assert_equal(clemory.consecutive, True)
 
     # Add one backer
     clemory.add_backer(0, b"A" * 10)
