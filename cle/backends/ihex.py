@@ -34,8 +34,8 @@ class Hex(Blob):
     """
     is_default = True # Tell CLE to automatically consider using the Hex backend
 
-    def __init__(self, path, custom_arch=None, custom_entry_point=0, **kwargs):
-        super(Hex, self).__init__(path, custom_arch=custom_arch, custom_entry_point=custom_entry_point, **kwargs)
+    def __init__(self, path, arch=None, entry_point=0, **kwargs):
+        super(Hex, self).__init__(path, arch=arch, entry_point=entry_point, **kwargs)
         self._entry = None
 
     @staticmethod
@@ -134,7 +134,7 @@ class Hex(Blob):
             l.warning("No base address was found in this HEX object file. It is assumed to be 0")
         if not got_entry:
             l.warning("No entry point was found in this HEX object file, and it is assumed to be 0. "
-                      "Specify one with `custom_entry_point` to override.")
+                      "Specify one with `entry_point` to override.")
         # HEX specifies a ton of tiny little memory regions.  We now smash them together to make things faster.
         new_regions = Hex.coalesce_regions(regions)
         for addr, data in new_regions:

@@ -48,9 +48,9 @@ class Backend(object):
             loader=None,
             is_main_bin=False,
             filename=None,
-            custom_entry_point=None,
-            custom_arch=None,
-            custom_base_addr=None,
+            entry_point=None,
+            arch=None,
+            base_addr=None,
             force_rebase=False,
             has_memory=True,
             **kwargs):
@@ -104,8 +104,8 @@ class Backend(object):
         self.execstack = False
 
         # Custom options
-        self._custom_entry_point = custom_entry_point
-        self._custom_base_addr = custom_base_addr
+        self._custom_entry_point = entry_point
+        self._custom_base_addr = base_addr
         self.provides = os.path.basename(self.binary) if self.binary is not None else None
 
         self.memory = None
@@ -115,16 +115,16 @@ class Backend(object):
         # cached max_addr
         self._max_addr = None
 
-        if custom_arch is None:
+        if arch is None:
             self.arch = None
-        elif isinstance(custom_arch, str):
-            self.set_arch(archinfo.arch_from_id(custom_arch))
-        elif isinstance(custom_arch, archinfo.Arch):
-            self.set_arch(custom_arch)
-        elif isinstance(custom_arch, type) and issubclass(custom_arch, archinfo.Arch):
-            self.set_arch(custom_arch())
+        elif isinstance(arch, str):
+            self.set_arch(archinfo.arch_from_id(arch))
+        elif isinstance(arch, archinfo.Arch):
+            self.set_arch(arch)
+        elif isinstance(arch, type) and issubclass(arch, archinfo.Arch):
+            self.set_arch(arch())
         else:
-            raise CLEError("Bad parameter: custom_arch=%s" % custom_arch)
+            raise CLEError("Bad parameter: arch=%s" % arch)
 
     def close(self):
         if self.binary_stream is not None:

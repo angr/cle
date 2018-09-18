@@ -104,7 +104,7 @@ unspecified, the loader will pick a reasonable default.
 - The loader determines which shared objects are needed when loading
   binaries, and searches for them in the following order:
     - in the current working directory
-    - in folders specified in the `custom_ld_path` option
+    - in folders specified in the `ld_path` option
     - in the same folder as the main binary
     - in the system (in the corresponding library path for the architecture
       of the binary, e.g., /usr/arm-linux-gnueabi/lib for ARM, note that

@@ -41,7 +41,7 @@ class Loader:
     :param main_opts:           A dictionary of options to be used loading the main binary.
     :param lib_opts:            A dictionary mapping library names to the dictionaries of options to be used when
                                 loading them.
-    :param custom_ld_path:      A list of paths in which we can search for shared libraries.
+    :param ld_path:      A list of paths in which we can search for shared libraries.
     :param use_system_libs:     Whether or not to search the system load path for requested libraries. Default True.
     :param ignore_import_version_numbers:
                                 Whether libraries with different version numbers in the filename will be considered
@@ -66,16 +66,16 @@ class Loader:
     When reference is made to a dictionary of options, it requires a dictionary with zero or more of the following keys:
 
     - backend :             "elf", "pe", "mach-o", "ida", "blob" : which loader backend to use
-    - custom_arch :         The archinfo.Arch object to use for the binary
-    - custom_base_addr :    The address to rebase the object at
-    - custom_entry_point :  The entry point to use for the object
+    - arch :         The archinfo.Arch object to use for the binary
+    - base_addr :    The address to rebase the object at
+    - entry_point :  The entry point to use for the object
 
     More keys are defined on a per-backend basis.
     """
 
     def __init__(self, main_binary, auto_load_libs=True,
                  force_load_libs=(), skip_libs=(),
-                 main_opts=None, lib_opts=None, custom_ld_path=(), use_system_libs=True,
+                 main_opts=None, lib_opts=None, ld_path=(), use_system_libs=True,
                  ignore_import_version_numbers=True, case_insensitive=False, rebase_granularity=0x1000000,
                  except_missing_libs=False, aslr=False,
                  page_size=0x1, extern_size=0x8000):
@@ -89,7 +89,7 @@ class Loader:
         self._satisfied_deps = dict((x, False) for x in skip_libs)
         self._main_opts = {} if main_opts is None else main_opts
         self._lib_opts = {} if lib_opts is None else lib_opts
-        self._custom_ld_path = [custom_ld_path] if type(custom_ld_path) in (str, unicode) else custom_ld_path
+        self._custom_ld_path = [ld_path] if type(ld_path) in (str, unicode) else ld_path
         self._use_system_libs = use_system_libs
         self._ignore_import_version_numbers = ignore_import_version_numbers
         self._case_insensitive = case_insensitive
@@ -692,7 +692,7 @@ class Loader:
             obj.rebase()
         else:
             if obj._custom_base_addr is not None:
-                l.warning("%s: custom_base_addr was specified but the object is not PIC. "
+                l.warning("%s: base_addr was specified but the object is not PIC. "
                     "specify force_rebase=True to override" % \
                             os.path.basename(obj.binary) if obj.binary is not None else obj.binary_stream)
             base_addr = obj.linked_base

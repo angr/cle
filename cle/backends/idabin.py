@@ -28,7 +28,7 @@ class IDABin(Backend):
         if self.binary is None:
             raise CLEError("You can't use a file stream with the ida backend, for what I hope are obvious reasons")
         if self.arch is None:
-            raise CLEError("You must specify a custom_arch in order to use the IDABin backend")
+            raise CLEError("You must specify a arch in order to use the IDABin backend")
 
         ida_prog = "idal64" # We don't really need 32 bit idal, do we ?
         processor_type = self.arch.ida_processor

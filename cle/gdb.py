@@ -85,7 +85,7 @@ def _parse_gdb_map(gdb_map, gdb_fix):
                 addr = addr - MetaELF.get_text_offset(found)
 
         l.info("gdb_plugin: mapped %s to %#x", lib, addr)
-        opts["custom_base_addr"] = addr
+        opts["base_addr"] = addr
 
     return {'force_load_libs': force_load_libs, 'main_opts': main_opts, 'lib_opts': lib_opts}
 
