@@ -62,7 +62,7 @@ class PE(Backend):
         self.tls_data_pointer = None
 
         self.supports_nx = self._pe.OPTIONAL_HEADER.DllCharacteristics & 0x100 != 0
-        self.pic = self._pe.OPTIONAL_HEADER.DllCharacteristics & 0x40 != 0
+        self.pic = self.pic or self._pe.OPTIONAL_HEADER.DllCharacteristics & 0x40 != 0
 
         self._exports = {}
         self._ordinal_exports = {}
