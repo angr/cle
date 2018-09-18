@@ -51,6 +51,7 @@ class Backend(object):
             custom_entry_point=None,
             custom_arch=None,
             custom_base_addr=None,
+            force_rebase=False,
             has_memory=True,
             **kwargs):
         """
@@ -99,7 +100,7 @@ class Backend(object):
 
         self.deps = []           # Needed shared objects (libraries dependencies)
         self.linking = None # Dynamic or static linking
-        self.pic = False
+        self.pic = force_rebase
         self.execstack = False
 
         # Custom options

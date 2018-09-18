@@ -103,7 +103,7 @@ class ELF(MetaELF):
 
         self._entry = self.reader.header.e_entry
         self.is_relocatable = self.reader.header.e_type == 'ET_REL'
-        self.pic = self.reader.header.e_type in ('ET_REL', 'ET_DYN')
+        self.pic = self.pic or self.reader.header.e_type in ('ET_REL', 'ET_DYN')
 
         self.tls_used = False
         self.tls_module_id = None
