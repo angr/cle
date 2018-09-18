@@ -691,9 +691,9 @@ class Loader:
             obj.mapped_base = base_addr
             obj.rebase()
         else:
-            if obj._custom_base_addr is not None:
+            if obj._custom_base_addr is not None and not isinstance(obj, Blob):
                 l.warning("%s: base_addr was specified but the object is not PIC. "
-                    "specify force_rebase=True to override" % \
+                    "specify force_rebase=True to override",
                             os.path.basename(obj.binary) if obj.binary is not None else obj.binary_stream)
             base_addr = obj.linked_base
             if not self._is_range_free(obj.linked_base, obj_size):
@@ -955,7 +955,7 @@ class Loader:
 
 from .errors import CLEError, CLEFileNotFoundError, CLECompatibilityError, CLEOperationError
 from .memory import Clemory
-from .backends import MetaELF, ELF, PE, ALL_BACKENDS, Backend
+from .backends import MetaELF, ELF, PE, Blob, ALL_BACKENDS, Backend
 from .backends.tls import PETLSObject, ELFTLSObject, TLSObject
 from .backends.externs import ExternObject, KernelObject
 from .utils import stream_or_path
