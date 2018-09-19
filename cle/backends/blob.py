@@ -22,6 +22,9 @@ class Blob(Backend):
 
         You can't specify both ``offset`` and ``segments``.
         """
+        if 'custom_offset' in kwargs:
+            offset = kwargs.pop('custom_offset')
+            l.critical('Deprecation warning: the custom_offset parameter has been renamed to offset')
         super(Blob, self).__init__(path, **kwargs)
 
         if self.arch is None:

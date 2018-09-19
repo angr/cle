@@ -12,7 +12,7 @@ from ..errors import CLEOperationError, CLEError
 l = logging.getLogger('cle.backends')
 
 
-class Backend(object):
+class Backend:
     """
     Main base class for CLE binary objects.
 
@@ -67,6 +67,17 @@ class Backend(object):
                 self.binary_stream = open(binary, 'rb')
             except IOError:
                 self.binary_stream = None
+
+        for k in list(kwargs.keys()):
+            if k == 'custom_entry_point':
+                entry_point = kwargs.pop(k)
+            elif k == 'custom_arch':
+                arch = kwargs.pop(k)
+            elif k == 'custom_base_addr':
+                base_addr = kwargs.pop(k)
+            else:
+                continue
+            l.critical("Deprecation warning: the %s parameter has been renamed to %s", k, k[7:])
 
         if kwargs != {}:
             l.warning("Unused kwargs for loading binary %s: %s", self.binary, ', '.join(kwargs.keys()))
@@ -232,6 +243,7 @@ class Backend(object):
             for s in self.sections:
                 if s.contains_offset(offset):
                     return s.offset_to_addr(offset)
+        return None
 
     @property
     def min_addr(self):
