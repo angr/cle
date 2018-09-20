@@ -20,7 +20,7 @@ class GenericTLSDoffsetReloc(ELFReloc):
 
 
 class GenericTLSOffsetReloc(ELFReloc):
-    def relocate(self, solist, bypass_compatibility=False, thumb=False):  #pylint: disable=unused-argument
+    def relocate(self, solist, bypass_compatibility=False):  #pylint: disable=unused-argument
         hell_offset = self.owner_obj.arch.elf_tls.tp_offset
         if self.symbol.type == Symbol.TYPE_NONE:
             self.owner_obj.memory.pack_word(
@@ -37,7 +37,7 @@ class GenericTLSOffsetReloc(ELFReloc):
 
 
 class GenericTLSModIdReloc(ELFReloc):
-    def relocate(self, solist, bypass_compatibility=False, thumb=False):  #pylint: disable=unused-argument
+    def relocate(self, solist, bypass_compatibility=False):  #pylint: disable=unused-argument
         if self.symbol.type == Symbol.TYPE_NONE:
             self.owner_obj.memory.pack_word(self.relative_addr, self.owner_obj.tls_module_id)
             self.resolve(None)
@@ -49,7 +49,7 @@ class GenericTLSModIdReloc(ELFReloc):
 
 
 class GenericIRelativeReloc(ELFReloc):
-    def relocate(self, solist, bypass_compatibility=False, thumb=False):  #pylint: disable=unused-argument
+    def relocate(self, solist, bypass_compatibility=False):  #pylint: disable=unused-argument
         if self.symbol.type == Symbol.TYPE_NONE:
             self.owner_obj.irelatives.append((AT.from_lva(self.addend, self.owner_obj).to_mva(), self.relative_addr))
             self.resolve(None)
@@ -94,7 +94,9 @@ class GenericRelativeReloc(ELFReloc):
         if self.symbol.type == Symbol.TYPE_NONE:
             self.resolve(None)
             return True
-        return super(GenericRelativeReloc, self).resolve_symbol(solist, bypass_compatibility=bypass_compatibility)
+        return super(GenericRelativeReloc, self).resolve_symbol(solist, bypass_compatibility=bypass_compatibility,
+                                                                thumb=thumb
+                                                                )
 
 
 class GenericAbsoluteReloc(ELFReloc):
@@ -114,7 +116,7 @@ class MipsGlobalReloc(GenericAbsoluteReloc):
 
 
 class MipsLocalReloc(ELFReloc):
-    def relocate(self, solist, bypass_compatibility=False, thumb=False): # pylint: disable=unused-argument
+    def relocate(self, solist, bypass_compatibility=False): # pylint: disable=unused-argument
         if self.owner_obj.mapped_base == 0:
             self.resolve(None)
             return True                     # don't touch local relocations on the main bin
@@ -129,7 +131,7 @@ class MipsLocalReloc(ELFReloc):
         return True
 
 
-class RelocTruncate32Mixin(object):
+class RelocTruncate32Mixin:
     """
     A mix-in class for relocations that cover a 32-bit field regardless of the architecture's address word length.
     """
@@ -140,7 +142,7 @@ class RelocTruncate32Mixin(object):
     # If True, 32-bit truncated value must equal to its original when sign-extended
     check_sign_extend = False
 
-    def relocate(self, solist, bypass_compatibility=False, thumb=False): # pylint: disable=unused-argument
+    def relocate(self, solist, bypass_compatibility=False): # pylint: disable=unused-argument
         if not self.resolve_symbol(solist):
             return False
 
@@ -156,3 +158,5 @@ class RelocTruncate32Mixin(object):
                                     " relevant addresses fit in the 32-bit address space." % self.__class__.__name__)
 
         self.owner_obj.memory.pack_word(self.dest_addr, val, size=4, signed=False)
+
+        return True
