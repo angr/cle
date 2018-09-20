@@ -34,7 +34,6 @@ class Symbol:
         """
         Not documenting this since if you try calling it, you're wrong.
         """
-        super(Symbol, self).__init__()
         self.owner_obj = owner
         self.name = name
         self.relative_addr = relative_addr
