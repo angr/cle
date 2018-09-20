@@ -64,7 +64,6 @@ class MachO(Backend):
         self.mod_init_func_pointers = []  # may be TUMB interworking
         self.mod_term_func_pointers = []  # may be THUMB interworking
         self.export_blob = None  # exports trie
-        self.symbols = []  # array of symbols
         self.binding_blob = None  # binding information
         self.lazy_binding_blob = None  # lazy binding information
         self.weak_binding_blob = None  # weak binidng information
@@ -542,7 +541,6 @@ class MachO(Backend):
             packstr = "I2BhI"
             structsize = 12
 
-        self.symbols = []  # we cannot yet fill symbols_by_addr
         for i in range(0, self.symtab_nsyms):
             offset_in_symtab = (i * structsize)
             offset = offset_in_symtab+ self.symtab_offset
@@ -552,7 +550,7 @@ class MachO(Backend):
                     n_strx, n_type, n_sect, n_desc, n_value)
             sym = MachOSymbol(
                     self, offset_in_symtab,n_strx, n_type, n_sect, n_desc, n_value)
-            self.symbols.append(sym)
+            self.symbols.add(sym)
 
     def get_string(self, start):
         """Loads a string from the string table"""

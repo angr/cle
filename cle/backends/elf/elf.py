@@ -65,8 +65,8 @@ class ELF(MetaELF):
 
             try:
                 self.reader = elffile.ELFFile(self.binary_stream)
-            except Exception: # pylint: disable=broad-except
-                raise CLECompatibilityError
+            except Exception as e: # pylint: disable=broad-except
+                raise CLECompatibilityError from e
 
         # Get an appropriate archinfo.Arch for this binary, unless the user specified one
         if self.arch is None:
@@ -93,7 +93,7 @@ class ELF(MetaELF):
 
         self._symbol_cache = {}
         self._symbols_by_name = {}
-        self.all_symbols = []
+        self._desperate_for_symbols = False
         self.demangled_names = {}
         self.imports = {}
         self.resolved_imports = []
@@ -127,6 +127,10 @@ class ELF(MetaELF):
 
         self.__register_segments()
         self.__register_sections()
+
+        if not self.symbols:
+            self._desperate_for_symbols = True
+            self.symbols.update(self._symbol_cache.values())
 
         # call the methods defined by MetaELF
         self._ppc64_abiv1_entry_fix()
@@ -263,6 +267,11 @@ class ELF(MetaELF):
     def _cache_symbol_name(self, symbol):
         name = symbol.name
         if name:
+            if self._desperate_for_symbols:
+                idx = self.symbols.bisect_key_left(symbol.relative_addr)
+                if idx >= len(self.symbols) or self.symbols[idx].name != name:
+                    self.symbols.add(symbol)
+
             if name in self._symbols_by_name:
                 old_symbol = self._symbols_by_name[name]
                 if not old_symbol.is_weak and symbol.is_weak:
@@ -358,15 +367,14 @@ class ELF(MetaELF):
         been implemented, then update self.demangled_names in Symbol
         """
 
-        if not self._symbols_by_addr:
+        if not self.symbols:
             return
 
-        names = filter(lambda n: n.startswith("_Z"), (s.name for s in self._symbols_by_addr.values()))
-        lookup_names = map(lambda n: n.split("@@")[0], names)
+        names = [s.name for s in self.symbols if s.name.startswith("_Z")]
         # this monstrosity taken from stackoverflow
         # http://stackoverflow.com/questions/6526500/c-name-mangling-library-for-python
         args = ['c++filt']
-        args.extend(lookup_names)
+        args.extend(n.split('@@')[0] for n in names)
         try:
             pipe = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
             stdout, _ = pipe.communicate()
@@ -724,7 +732,7 @@ class ELF(MetaELF):
 
     def __register_section_symbols(self, sec_re):
         for sym_re in sec_re.iter_symbols():
-            self.all_symbols.append(self.get_symbol(sym_re))
+            self.symbols.add(self.get_symbol(sym_re))
 
     def __relocate_mips(self):
         if 'DT_MIPS_BASE_ADDRESS' not in self._dynamic:

@@ -128,6 +128,7 @@ class PE(Backend):
                         imp_name = imp.name.decode()
 
                     symb = WinSymbol(owner=self, name=imp_name, addr=0, is_import=True, is_export=False, ordinal_number=imp.ordinal, forwarder=None)
+                    self.symbols.add(symb)
                     reloc = self._make_reloc(addr=AT.from_lva(imp.address, self).to_rva(), reloc_type=None, symbol=symb, resolvewith=entry.dll.decode())
 
                     if reloc is not None:
@@ -142,6 +143,7 @@ class PE(Backend):
                 name = exp.name.decode() if exp.name is not None else None
                 forwarder = exp.forwarder.decode() if exp.forwarder is not None else None
                 symb = WinSymbol(self, name, exp.address, False, True, exp.ordinal, forwarder)
+                self.symbols.add(symb)
                 self._exports[name] = symb
                 self._ordinal_exports[exp.ordinal] = symb
 

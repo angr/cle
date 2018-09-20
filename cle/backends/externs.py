@@ -34,6 +34,7 @@ class ExternObject(Backend):
             func_symbol.is_export = True
             func_symbol.is_extern = True
             self._symbol_cache[name + '#func'] = func_symbol
+            self.symbols.add(func_symbol)
 
             toc = self.allocate(0x18, alignment=8)
             self.memory.pack_word(AT.from_mva(toc, self).to_rva(), addr)
@@ -44,6 +45,7 @@ class ExternObject(Backend):
         new_symbol.is_extern = True
 
         self._symbol_cache[name] = new_symbol
+        self.symbols.add(new_symbol)
         return new_symbol
 
     def get_pseudo_addr(self, name):

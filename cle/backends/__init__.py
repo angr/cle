@@ -1,5 +1,6 @@
 import os
 import logging
+import sortedcontainers
 
 import archinfo
 from .region import Region, Segment, Section
@@ -40,6 +41,7 @@ class Backend:
     :ivar bool pic:         Whether this object is position-independent
     :ivar bool execstack:   Whether this executable has an executable stack
     :ivar str provides:     The name of the shared library dependancy that this object resolves
+    :ivar list symbols:     A list of symbols provided by this object, sorted by address
     """
     is_default = False
 
@@ -89,7 +91,7 @@ class Backend:
         self._segments = Regions() # List of segments
         self._sections = Regions() # List of sections
         self.sections_map = {}  # Mapping from section name to section
-        self._symbols_by_addr = {}
+        self.symbols = sortedcontainers.SortedKeyList(key=lambda x: x.relative_addr)
         self.imports = {}
         self.resolved_imports = []
         self.relocs = []
@@ -192,7 +194,8 @@ class Backend:
 
     @property
     def symbols_by_addr(self):
-        return {AT.from_rva(x, self).to_mva(): self._symbols_by_addr[x] for x in self._symbols_by_addr}
+        l.critical("Deprecation warning: symbols_by_addr is deprecated - use loader.find_symbol() for lookup and .symbols for enumeration")
+        return {s.rebased_addr: s for s in self.symbols}
 
     def rebase(self):
         """

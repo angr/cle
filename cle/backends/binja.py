@@ -128,13 +128,15 @@ class BinjaBin(Backend):
         if not self.raw_imports:
             l.warning("No imports found - if this is a dynamically-linked binary, something probably went wrong.")
 
-        for name, addr in self.raw_imports.iteritems():
+        for name, addr in self.raw_imports.items():
             BinjaReloc(self, self._symbol_cache[name], addr)
 
     def _init_symbol_cache(self):
         # Note that we could also access name, short_name, or full_name attributes
         for sym in self.bv.get_symbols():
-            self._symbol_cache[sym.raw_name] = BinjaSymbol(self, sym)
+            cle_sym = BinjaSymbol(self, sym)
+            self._symbol_cache[sym.raw_name] = cle_sym
+            self.symbols.add(cle_sym)
 
     def _find_got(self):
         """

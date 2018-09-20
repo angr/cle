@@ -3,11 +3,6 @@ import subprocess
 
 from ..address_translator import AT
 
-try:
-    import claripy
-except ImportError:
-    claripy = None
-
 
 class Symbol:
     """
@@ -47,13 +42,11 @@ class Symbol:
         self.type = sym_type
         self.resolved = False
         self.resolvedby = None
-        if (claripy and isinstance(self.relative_addr, claripy.ast.Base)) or self.relative_addr != 0:
-            self.owner_obj._symbols_by_addr[self.relative_addr] = self
-            # would be nice if we could populate demangled_names here...
 
-            #demangled = self.demangled_name
-            #if demangled is not None:
-            #    self.owner_obj.demangled_names[self.name] = demangled
+        # would be nice if we could populate demangled_names here...
+        #demangled = self.demangled_name
+        #if demangled is not None:
+        #    self.owner_obj.demangled_names[self.name] = demangled
 
     def __repr__(self):
         if self.is_import:
