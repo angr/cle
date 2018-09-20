@@ -393,21 +393,20 @@ class ELF(MetaELF):
         if self.binary is None:
             raise ValueError("Can't pickle an object loaded from a stream")
 
-        # Get a copy of our pickleable self
-        out = dict(self.__dict__)
+        state = dict(self.__dict__)
 
         # Trash the unpickleable
         if type(self.binary_stream) is PatchedStream:
-            out['binary_stream'].stream = None
+            state['binary_stream'].stream = None
         else:
-            out['binary_stream'] = None
+            state['binary_stream'] = None
 
-        out['reader'] = None
-        out['strtab'] = None
-        out['dynsym'] = None
-        out['hashtable'] = None
+        state['reader'] = None
+        state['strtab'] = None
+        state['dynsym'] = None
+        state['hashtable'] = None
 
-        return out
+        return state
 
     def __setstate__(self, data):
         self.__dict__.update(data)

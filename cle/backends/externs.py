@@ -3,10 +3,12 @@ from ..utils import ALIGN_UP
 from ..errors import CLEOperationError
 from ..address_translator import AT
 
+
 class ExternSegment(Segment):
     is_readable = True
     is_writable = True
     is_executable = True
+
 
 class ExternObject(Backend):
     def __init__(self, loader, map_size=0x8000):
@@ -61,6 +63,7 @@ class ExternObject(Backend):
     @property
     def max_addr(self):
         return AT.from_rva(self.map_size, self).to_mva()
+
 
 class KernelObject(Backend):
     def __init__(self, loader, map_size=0x8000):

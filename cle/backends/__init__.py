@@ -44,7 +44,6 @@ class Backend:
     :ivar list symbols:     A list of symbols provided by this object, sorted by address
     """
     is_default = False
-    _unpickleables = {'symbols'}
 
     def __init__(self,
             binary,
@@ -92,7 +91,7 @@ class Backend:
         self._segments = Regions() # List of segments
         self._sections = Regions() # List of sections
         self.sections_map = {}  # Mapping from section name to section
-        self.symbols = sortedcontainers.SortedKeyList(key=lambda x: x.relative_addr)
+        self.symbols = sortedcontainers.SortedKeyList(key=self._get_symbol_relative_addr)
         self.imports = {}
         self.resolved_imports = []
         self.relocs = []
@@ -139,29 +138,6 @@ class Backend:
             self.set_arch(arch())
         else:
             raise CLEError("Bad parameter: arch=%s" % arch)
-
-    def __setstate__(self, state):
-        for k in self.__dict__:
-            if k in state and k not in self._unpickleables:
-                setattr(self, k, state[k])
-
-        symbols = state.get("symbols", None)
-        if symbols is None:
-            self.symbols = sortedcontainers.SortedKeyList(key=lambda x: x.relative_addr)
-        else:
-            self.symbols = sortedcontainers.SortedKeyList(symbols, key=lambda x: x.relative_addr)
-
-    def __getstate__(self):
-        state = { }
-
-        for k in self.__dict__:
-            if k not in self._unpickleables:
-                state[k] = getattr(self, k)
-
-        # Deal with the unpickleables
-        state["symbols"] = list(self.symbols)
-
-        return state
 
     def close(self):
         if self.binary_stream is not None:
@@ -329,6 +305,10 @@ class Backend:
         Performs a minimal static load of ``spec`` and returns whether it's compatible with other_obj
         """
         return False
+
+    @staticmethod
+    def _get_symbol_relative_addr(symbol):
+        return symbol.relative_addr
 
 ALL_BACKENDS = dict()
 

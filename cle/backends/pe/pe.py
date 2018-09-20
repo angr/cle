@@ -246,18 +246,19 @@ class PE(Backend):
         if self.binary is None:
             raise ValueError("Can't pickle an object loaded from a stream")
 
-        out = dict(self.__dict__)
-        out['_pe'] = None
+        state = dict(self.__dict__)
+
+        state['_pe'] = None
 
         if type(self.binary_stream) is PatchedStream:
-            out['binary_stream'].stream = None
+            state['binary_stream'].stream = None
         else:
-            out['binary_stream'] = None
+            state['binary_stream'] = None
 
-        return out
+        return state
 
-    def _setstate__(self, out):
-        self.__dict__.update(out)
+    def __setstate__(self, state):
+        self.__dict__.update(state)
 
         if self.binary_stream is None:
             self.binary_stream = open(self.binary, 'rb')

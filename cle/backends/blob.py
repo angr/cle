@@ -108,14 +108,8 @@ class Blob(Backend):
         if self.binary is None:
             raise ValueError("Can't pickle an object loaded from a stream")
 
-        state = super(Blob, self).__getstate__()
-
-        unpickleables = {'binary_stream'}
-
         # Get a copy of our pickleable self
-        for k in self.__dict__:
-            if k not in state and k not in unpickleables:
-                state[k] = getattr(self, k)
+        state = dict(self.__dict__)
 
         # Trash the unpickleable
         if type(self.binary_stream) is PatchedStream:
@@ -127,10 +121,7 @@ class Blob(Backend):
 
     def __setstate__(self, data):
 
-        # Update self.__dict__ first
         self.__dict__.update(data)
-        # Ask the parent to update the __dict__ again so it can post-process unpickleable stuff
-        super(Blob, self).__setstate__(data)
 
         if self.binary_stream is None:
             self.binary_stream = open(self.binary, 'rb')
