@@ -44,6 +44,7 @@ class Backend:
     :ivar list symbols:     A list of symbols provided by this object, sorted by address
     """
     is_default = False
+    _unpickleables = {'symbols'}
 
     def __init__(self,
             binary,
@@ -138,6 +139,29 @@ class Backend:
             self.set_arch(arch())
         else:
             raise CLEError("Bad parameter: arch=%s" % arch)
+
+    def __setstate__(self, state):
+        for k in self.__dict__:
+            if k in state and k not in self._unpickleables:
+                setattr(self, k, state[k])
+
+        symbols = state.get("symbols", None)
+        if symbols is None:
+            self.symbols = sortedcontainers.SortedKeyList(key=lambda x: x.relative_addr)
+        else:
+            self.symbols = sortedcontainers.SortedKeyList(symbols, key=lambda x: x.relative_addr)
+
+    def __getstate__(self):
+        state = { }
+
+        for k in self.__dict__:
+            if k not in self._unpickleables:
+                state[k] = getattr(self, k)
+
+        # Deal with the unpickleables
+        state["symbols"] = list(self.symbols)
+
+        return state
 
     def close(self):
         if self.binary_stream is not None:
