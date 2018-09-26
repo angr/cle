@@ -27,11 +27,11 @@ class WinSymbol(Symbol):
                 l.warning("Infinite forwarding loop for %s", self)
                 return None
             seen.add(sym.forwarder)
-            owner, name = sym.forwarder.split('.', 1)
-            owner_obj = self.owner_obj.loader.find_object(owner)
-            if owner_obj is None:
+            owner_name, name = sym.forwarder.split('.', 1)
+            owner = self.owner.loader.find_object(owner_name)
+            if owner is None:
                 return None
-            sym = owner_obj.get_symbol(name)
+            sym = owner.get_symbol(name)
 
         self.resolvedby = sym
         return sym

@@ -259,7 +259,7 @@ class R_ARM_THM_CALL(ELFReloc):
         #  the bytes are in the order `b3 b4 b1 b2`, where b4 is the most significant.
 
         if self._insn_bytes is None:
-            self._insn_bytes = self.owner_obj.memory.load(self.relative_addr, 4)
+            self._insn_bytes = self.owner.memory.load(self.relative_addr, 4)
 
         hi   = (self._insn_bytes[1] << 8) | self._insn_bytes[0]
         lo   = (self._insn_bytes[3] << 8) | self._insn_bytes[2]

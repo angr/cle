@@ -500,7 +500,7 @@ class Loader:
                 continue
             if sym.is_import and exclude_imports:
                 continue
-            if sym.owner_obj is self._extern_object and exclude_externs:
+            if sym.owner is self._extern_object and exclude_externs:
                 continue
             if sym.is_forward and exclude_forwards:
                 continue

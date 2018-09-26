@@ -21,44 +21,44 @@ class GenericTLSDoffsetReloc(ELFReloc):
 
 class GenericTLSOffsetReloc(ELFReloc):
     def relocate(self, solist, bypass_compatibility=False):  #pylint: disable=unused-argument
-        hell_offset = self.owner_obj.arch.elf_tls.tp_offset
+        hell_offset = self.owner.arch.elf_tls.tp_offset
         if self.symbol.type == Symbol.TYPE_NONE:
-            self.owner_obj.memory.pack_word(
+            self.owner.memory.pack_word(
                 self.relative_addr,
-                self.owner_obj.tls_block_offset + self.addend + self.symbol.relative_addr - hell_offset)
+                self.owner.tls_block_offset + self.addend + self.symbol.relative_addr - hell_offset)
             self.resolve(None)
         else:
             if not self.resolve_symbol(solist, bypass_compatibility):
                 return False
-            self.owner_obj.memory.pack_word(
+            self.owner.memory.pack_word(
                 self.relative_addr,
-                self.resolvedby.owner_obj.tls_block_offset + self.addend + self.symbol.relative_addr - hell_offset)
+                self.resolvedby.owner.tls_block_offset + self.addend + self.symbol.relative_addr - hell_offset)
         return True
 
 
 class GenericTLSModIdReloc(ELFReloc):
     def relocate(self, solist, bypass_compatibility=False):  #pylint: disable=unused-argument
         if self.symbol.type == Symbol.TYPE_NONE:
-            self.owner_obj.memory.pack_word(self.relative_addr, self.owner_obj.tls_module_id)
+            self.owner.memory.pack_word(self.relative_addr, self.owner.tls_module_id)
             self.resolve(None)
         else:
             if not self.resolve_symbol(solist):
                 return False
-            self.owner_obj.memory.pack_word(self.relative_addr, self.resolvedby.owner_obj.tls_module_id)
+            self.owner.memory.pack_word(self.relative_addr, self.resolvedby.owner.tls_module_id)
         return True
 
 
 class GenericIRelativeReloc(ELFReloc):
     def relocate(self, solist, bypass_compatibility=False):  #pylint: disable=unused-argument
         if self.symbol.type == Symbol.TYPE_NONE:
-            self.owner_obj.irelatives.append((AT.from_lva(self.addend, self.owner_obj).to_mva(), self.relative_addr))
+            self.owner.irelatives.append((AT.from_lva(self.addend, self.owner).to_mva(), self.relative_addr))
             self.resolve(None)
             return True
 
         if not self.resolve_symbol(solist, bypass_compatibility):
             return False
 
-        self.owner_obj.irelatives.append((self.resolvedby.mapped_base, self.relative_addr))
+        self.owner.irelatives.append((self.resolvedby.mapped_base, self.relative_addr))
         return True
 
 
@@ -88,7 +88,7 @@ class GenericRelativeReloc(ELFReloc):
     def value(self):
         if self.resolvedby is not None:
             return self.resolvedby.rebased_addr
-        return self.owner_obj.mapped_base + self.addend
+        return self.owner.mapped_base + self.addend
 
     def resolve_symbol(self, solist, bypass_compatibility=False, thumb=False):  #pylint: disable=unused-argument
         if self.symbol.type == Symbol.TYPE_NONE:
@@ -108,7 +108,7 @@ class GenericAbsoluteReloc(ELFReloc):
 class GenericCopyReloc(ELFReloc):
     @property
     def value(self):
-        return self.resolvedby.owner_obj.memory.unpack_word(self.resolvedby.relative_addr)
+        return self.resolvedby.owner.memory.unpack_word(self.resolvedby.relative_addr)
 
 
 class MipsGlobalReloc(GenericAbsoluteReloc):
@@ -117,16 +117,16 @@ class MipsGlobalReloc(GenericAbsoluteReloc):
 
 class MipsLocalReloc(ELFReloc):
     def relocate(self, solist, bypass_compatibility=False): # pylint: disable=unused-argument
-        if self.owner_obj.mapped_base == 0:
+        if self.owner.mapped_base == 0:
             self.resolve(None)
             return True                     # don't touch local relocations on the main bin
-        delta = self.owner_obj.mapped_base - self.owner_obj._dynamic['DT_MIPS_BASE_ADDRESS']
+        delta = self.owner.mapped_base - self.owner._dynamic['DT_MIPS_BASE_ADDRESS']
         if delta == 0:
             self.resolve(None)
             return True
-        val = self.owner_obj.memory.unpack_word(self.relative_addr)
+        val = self.owner.memory.unpack_word(self.relative_addr)
         newval = val + delta
-        self.owner_obj.memory.pack_word(self.relative_addr, newval)
+        self.owner.memory.pack_word(self.relative_addr, newval)
         self.resolve(None)
         return True
 
@@ -146,7 +146,7 @@ class RelocTruncate32Mixin:
         if not self.resolve_symbol(solist):
             return False
 
-        arch_bits = self.owner_obj.arch.bits
+        arch_bits = self.owner.arch.bits
         assert arch_bits >= 32            # 16-bit makes no sense here
 
         val = self.value % (2**arch_bits)   # we must truncate it to native range first
@@ -157,6 +157,6 @@ class RelocTruncate32Mixin:
             raise CLEOperationError("relocation truncated to fit: %s; consider making"
                                     " relevant addresses fit in the 32-bit address space." % self.__class__.__name__)
 
-        self.owner_obj.memory.pack_word(self.dest_addr, val, size=4, signed=False)
+        self.owner.memory.pack_word(self.dest_addr, val, size=4, signed=False)
 
         return True

@@ -27,14 +27,14 @@ class TLSObject(Backend):
             reloc.relocate()
 
 class InternalTLSRelocation(object):
-    def __init__(self, val, offset, owner_obj):
+    def __init__(self, val, offset, owner):
         self.val = val
         self.offset = offset
-        self.owner_obj = owner_obj
+        self.owner = owner
         self.symbol = None
 
     def relocate(self):
-        self.owner_obj.memory.pack_word(self.offset, self.val + self.owner_obj.mapped_base)
+        self.owner.memory.pack_word(self.offset, self.val + self.owner.mapped_base)
 
 from .elf_tls import ELFTLSObject
 from .pe_tls import PETLSObject

@@ -13,12 +13,12 @@ class ELFReloc(Relocation):
             self._addend = addend
         else:
             self.is_rela = False
-            self._addend = self.owner_obj.memory.unpack_word(self.relative_addr)
+            self._addend = self.owner.memory.unpack_word(self.relative_addr)
 
     @property
     def addend(self):
         if self._addend is None:
-            self._addend = self.owner_obj.memory.unpack_word(self.relative_addr)
+            self._addend = self.owner.memory.unpack_word(self.relative_addr)
         return self._addend
 
     @property
