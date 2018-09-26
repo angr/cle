@@ -93,6 +93,7 @@ class ELF(MetaELF):
 
         self._symbol_cache = {}
         self._symbols_by_name = {}
+        self.all_symbols = []
         self.demangled_names = {}
         self.imports = {}
         self.resolved_imports = []
@@ -145,7 +146,10 @@ class ELF(MetaELF):
     @classmethod
     def check_compatibility(cls, spec, obj):
         with stream_or_path(spec) as stream:
-            return cls.extract_arch(elffile.ELFFile(stream)) == obj.arch
+            try:
+                return cls.extract_arch(elffile.ELFFile(stream)) == obj.arch
+            except archinfo.ArchNotFound:
+                return False
 
     @staticmethod
     def is_compatible(stream):
@@ -480,7 +484,7 @@ class ELF(MetaELF):
                 runpath = maybedecode(tag.runpath)
             elif tagstr == 'DT_RPATH':
                 rpath = maybedecode(tag.rpath)
-       
+
         self.extra_load_path = self.__parse_rpath(runpath, rpath)
 
         self.strtab = seg_readelf._get_stringtable()
@@ -723,7 +727,7 @@ class ELF(MetaELF):
 
     def __register_section_symbols(self, sec_re):
         for sym_re in sec_re.iter_symbols():
-            self.get_symbol(sym_re)
+            self.all_symbols.append(self.get_symbol(sym_re))
 
     def __relocate_mips(self):
         if 'DT_MIPS_BASE_ADDRESS' not in self._dynamic:

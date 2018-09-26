@@ -68,7 +68,7 @@ class Backend(object):
                 self.binary_stream = None
 
         if kwargs != {}:
-            l.warning("Unused kwargs for loading binary %s: %s", self.binary, ', '.join(kwargs.iterkeys()))
+            l.warning("Unused kwargs for loading binary %s: %s", self.binary, ', '.join(kwargs.keys()))
 
         self.is_main_bin = is_main_bin
         self.has_memory = has_memory

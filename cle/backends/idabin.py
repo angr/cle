@@ -1,5 +1,6 @@
 import os
 import logging
+import binascii
 
 from . import Backend, register_backend
 from ..errors import CLEError, CLEFileNotFoundError
@@ -39,7 +40,7 @@ class IDABin(Backend):
             self.ida = idalink(self.ida_path, ida_prog=ida_prog,
                                        processor_type=processor_type).link
         except idalink.IDALinkError as e:
-            raise CLEError("IDALink returned error: %s" % e.message)
+            raise CLEError("IDALink returned error: %s" % e)
 
         self.BADADDR = self.ida.idc.BADADDR
         l.info('Loading memory from ida, this will take a minute...')
@@ -79,7 +80,7 @@ class IDABin(Backend):
             except IOError:
                 raise CLEFileNotFoundError("File %s does not exist :(. Please check that the"
                                            " path is correct" % path)
-        bn = os.urandom(5).encode('hex')
+        bn = binascii.hexlify(os.urandom(5))
         if suffix is not None:
             bn += suffix
         dest = os.path.join('/tmp/cle', bn)

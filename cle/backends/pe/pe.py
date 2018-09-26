@@ -139,7 +139,7 @@ class PE(Backend):
         if hasattr(self._pe, 'DIRECTORY_ENTRY_EXPORT'):
             symbols = self._pe.DIRECTORY_ENTRY_EXPORT.symbols
             for exp in symbols:
-                name = exp.name.decode()
+                name = exp.name.decode() if exp.name is not None else None
                 forwarder = exp.forwarder.decode() if exp.forwarder is not None else None
                 symb = WinSymbol(self, name, exp.address, False, True, exp.ordinal, forwarder)
                 self._exports[name] = symb
