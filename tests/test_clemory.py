@@ -10,7 +10,6 @@ def test_cclemory():
     clemory.add_backer(0, b"\x90" * 1000)
     clemory.add_backer(2000, b"A" * 1000)
     clemory.add_backer(3000, b"ABCDEFGH")
-    clemory._flatten_to_c()
 
     ffi = cffi.FFI()
     ffi.cdef("""
@@ -19,19 +18,17 @@ def test_cclemory():
     c = ffi.verify("""
         #include <string.h>
     """)
-    # pylint: disable=no-member
-    byte_str = clemory.read_bytes_c(0)[0]
-    out = c.memcmp(ffi.new("unsigned char []", b"\x90" * 10), byte_str, 10)
+    bytes_c = [ffi.from_buffer(backer) for _, backer in clemory.backers()]
+    assert len(bytes_c) == 3
+    out = c.memcmp(ffi.new("unsigned char []", b"\x90" * 10), bytes_c[0], 10)
     nose.tools.assert_equal(out, 0)
 
-    byte_str = clemory.read_bytes_c(2000)[0]
-    out = c.memcmp(ffi.new("unsigned char []", b"B" * 1000), byte_str, 1000)
+    out = c.memcmp(ffi.new("unsigned char []", b"B" * 1000), bytes_c[1], 1000)
     nose.tools.assert_not_equal(out, 0)
-    out = c.memcmp(ffi.new("unsigned char []", b"A" * 1000), byte_str, 1000)
+    out = c.memcmp(ffi.new("unsigned char []", b"A" * 1000), bytes_c[1], 1000)
     nose.tools.assert_equal(out, 0)
 
-    byte_str = clemory.read_bytes_c(3000)[0]
-    out = c.memcmp(ffi.new("unsigned char []", b"ABCDEFGH"), byte_str, 8)
+    out = c.memcmp(ffi.new("unsigned char []", b"ABCDEFGH"), bytes_c[2], 8)
     nose.tools.assert_equal(out, 0)
 
 
@@ -43,21 +40,32 @@ def test_clemory():
     clemory.add_backer(50, b"A" * 20)
     nose.tools.assert_equal(len(clemory._backers), 3)
 
-    clemory.write_bytes_to_backer(10, b"B" * 70)
+    clemory.store(10, b"B" * 30)
 
-    nose.tools.assert_equal(len(clemory._backers), 4)
-    nose.tools.assert_equal(cle.memory.join(clemory.read_bytes(0, 80)), b"A" * 10 + b"B" * 70)
+    nose.tools.assert_equal(len(clemory._backers), 3)
+    nose.tools.assert_equal(clemory.load(0, 40), b"A" * 10 + b"B" * 30)
 
 
     clemory = cle.Clemory(None, root=True)
     clemory.add_backer(10, b"A" * 20)
     clemory.add_backer(50, b"A" * 20)
     nose.tools.assert_equal(len(clemory._backers), 2)
-    clemory.write_bytes_to_backer(0, b"") # Should not except out
+    try:
+        clemory.store(0, b"")
+    except KeyError:
+        assert True
+    else:
+        assert False
     nose.tools.assert_equal(len(clemory._backers), 2)
-    clemory.write_bytes_to_backer(0, b"B" * 10)
-    nose.tools.assert_equal(len(clemory._backers), 3)
-    nose.tools.assert_equal(cle.memory.join(clemory.read_bytes(0, 25)), b"B" * 10 + b"A" * 15)
+    try:
+        clemory.load(0, 25)
+    except KeyError:
+        assert True
+    else:
+        assert False
+    clemory.seek(0)
+    nose.tools.assert_equal(clemory.read(25), b'')
+    nose.tools.assert_equal(clemory.load(10, 25), b"A"*20)
 
 
 def performance_clemory_contains():
@@ -77,9 +85,9 @@ def performance_clemory_contains():
 
 def test_clemory_contains():
     clemory = cle.Clemory(None, root=True)
-    nose.tools.assert_equal(clemory.min_addr, None)
-    nose.tools.assert_equal(clemory.max_addr, None)
-    nose.tools.assert_equal(clemory.consecutive, None)
+    nose.tools.assert_equal(clemory.min_addr, 0)
+    nose.tools.assert_equal(clemory.max_addr, 0)
+    nose.tools.assert_equal(clemory.consecutive, True)
 
     # Add one backer
     clemory.add_backer(0, b"A" * 10)

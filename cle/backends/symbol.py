@@ -1,23 +1,21 @@
 from __future__ import print_function
 import subprocess
+import logging
 
 from ..address_translator import AT
 
-try:
-    import claripy
-except ImportError:
-    claripy = None
+l = logging.getLogger('cle.backends.symbol')
 
 
-class Symbol(object):
+class Symbol:
     """
     Representation of a symbol from a binary file. Smart enough to rebase itself.
 
     There should never be more than one Symbol instance representing a single symbol. To make sure of this, only use
     the :meth:`cle.backends.Backend.get_symbol()` to create new symbols.
 
-    :ivar owner_obj:        The object that contains this symbol
-    :vartype owner_obj:     cle.backends.Backend
+    :ivar owner:        The object that contains this symbol
+    :vartype owner:     cle.backends.Backend
     :ivar str name:         The name of this symbol
     :ivar int addr:         The un-based address of this symbol, an RVA
     :iver int size:         The size of this symbol
@@ -39,52 +37,40 @@ class Symbol(object):
         """
         Not documenting this since if you try calling it, you're wrong.
         """
-        super(Symbol, self).__init__()
-        self.owner_obj = owner
+        self.owner = owner
         self.name = name
         self.relative_addr = relative_addr
         self.size = size
         self.type = sym_type
         self.resolved = False
         self.resolvedby = None
-        if (claripy and isinstance(self.relative_addr, claripy.ast.Base)) or self.relative_addr != 0:
-            self.owner_obj._symbols_by_addr[self.relative_addr] = self
-            # would be nice if we could populate demangled_names here...
 
-            #demangled = self.demangled_name
-            #if demangled is not None:
-            #    self.owner_obj.demangled_names[self.name] = demangled
+        # would be nice if we could populate demangled_names here...
+        #demangled = self.demangled_name
+        #if demangled is not None:
+        #    self.owner.demangled_names[self.name] = demangled
 
     def __repr__(self):
         if self.is_import:
-            return '<Symbol "%s" in %s (import)>' % (self.name, self.owner_obj.provides)
+            return '<Symbol "%s" in %s (import)>' % (self.name, self.owner.provides)
         else:
-            return '<Symbol "%s" in %s at %#x>' % (self.name, self.owner_obj.provides, self.rebased_addr)
+            return '<Symbol "%s" in %s at %#x>' % (self.name, self.owner.provides, self.rebased_addr)
 
     def resolve(self, obj):
         self.resolved = True
         self.resolvedby = obj
-        self.owner_obj.resolved_imports.append(self)
+        self.owner.resolved_imports.append(self)
 
     @property
     def rebased_addr(self):
         """
         The address of this symbol in the global memory space
         """
-        return AT.from_rva(self.relative_addr, self.owner_obj).to_mva()
+        return AT.from_rva(self.relative_addr, self.owner).to_mva()
 
     @property
     def linked_addr(self):
-        return AT.from_rva(self.relative_addr, self.owner_obj).to_lva()
-
-    warned_addr = False
-
-    @property
-    def addr(self):
-        if not Symbol.warned_addr:
-            print("\x1b[31;1mDeprecation warning: Symbol.addr is ambiguous, please use relative_addr, linked_addr, or rebased_addr\x1b[0m")
-            Symbol.warned_addr = True
-        return self.linked_addr
+        return AT.from_rva(self.relative_addr, self.owner).to_lva()
 
     @property
     def is_function(self):
@@ -131,3 +117,14 @@ class Symbol(object):
         If this symbol is a forwarding export, return the symbol the forwarding refers to, or None if it cannot be found.
         """
         return self
+
+    # compatibility layer
+
+    _complained_owner = False
+
+    @property
+    def owner_obj(self):
+        if not Symbol._complained_owner:
+            Symbol._complained_owner = True
+            l.critical("Deprecation warning: use symbol.owner instead of symbol.owner_obj")
+        return self.owner

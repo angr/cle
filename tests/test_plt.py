@@ -27,7 +27,7 @@ TESTS_ARCHES = [os.path.join('i386', 'libc.so.6'),
 
 def check_plt_entries(filename):
     real_filename = os.path.join(TESTS_BASE, 'tests', filename)
-    ld = cle.Loader(real_filename, auto_load_libs=False, main_opts={'custom_base_addr': 0})
+    ld = cle.Loader(real_filename, auto_load_libs=False, main_opts={'base_addr': 0})
 
     if filename == os.path.join('ppc', 'libc.so.6'):
         # objdump can't find PLT stubs for this...
