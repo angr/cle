@@ -1,6 +1,6 @@
-pyelftools>=0.24
-pefile
-cffi
-idalink
-archinfo>=7.8.8.1
-pyvex>=7.8.8.1
+pyelftools==0.25
+pefile==2016.3.28
+cffi==1.7.0
+idalink==1.10
+archinfo==7.8.9.26
+pyvex==7.8.9.26
