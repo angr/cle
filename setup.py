@@ -15,8 +15,8 @@ setup(
     packages=packages,
     install_requires=[
         'pyelftools==0.25',
-        'cffi==1.70',
-        'idalink==1.10',
+        'cffi==1.7.0',
+        'idalink==0.10',
         'archinfo==7.8.9.26',
         'pyvex==7.8.9.26',
         'pefile==2016.3.28',
