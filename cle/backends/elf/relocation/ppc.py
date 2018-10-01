@@ -15,7 +15,7 @@ class R_PPC_GLOB_DAT(generic.GenericJumpslotReloc):
 
 class R_PPC_JMP_SLOT(generic.GenericJumpslotReloc):
     def relocate(self, solist, bypass_compatibility=False):
-        if 'DT_PPC_GOT' not in self.owner_obj._dynamic and 'DT_LOPROC' not in self.owner_obj._dynamic:
+        if 'DT_PPC_GOT' not in self.owner._dynamic and 'DT_LOPROC' not in self.owner._dynamic:
             l.error("This binary is relocated incorrectly. See https://github.com/angr/cle/issues/142 for details.")
         return super(R_PPC_JMP_SLOT, self).relocate(solist, bypass_compatibility=bypass_compatibility)
 

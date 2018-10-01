@@ -15,27 +15,12 @@ try:
 except ImportError:
     claripy = None
 
-if str is not bytes:
-    xrange = range
-    unicode = str
-    long = int
-
 __all__ = ('Loader',)
 
 l = logging.getLogger("cle.loader")
 
-already_complained = set()
-def deprecated(replacement):
-    def outer(func):
-        def inner(*args, **kwargs):
-            if func not in already_complained:
-                print("\x1b[31;1mDeprecation warning: Use %s instead of %s\x1b[0m" % (replacement, func.func_name))
-                already_complained.add(func)
-            return func(*args, **kwargs)
-        return inner
-    return outer
 
-class Loader(object):
+class Loader:
     """
     The loader loads all the objects and exports an abstraction of the memory of the process. What you see here is an
     address space with loaded and rebased binaries.
@@ -51,7 +36,7 @@ class Loader(object):
     :param main_opts:           A dictionary of options to be used loading the main binary.
     :param lib_opts:            A dictionary mapping library names to the dictionaries of options to be used when
                                 loading them.
-    :param custom_ld_path:      A list of paths in which we can search for shared libraries.
+    :param ld_path:      A list of paths in which we can search for shared libraries.
     :param use_system_libs:     Whether or not to search the system load path for requested libraries. Default True.
     :param ignore_import_version_numbers:
                                 Whether libraries with different version numbers in the filename will be considered
@@ -76,16 +61,16 @@ class Loader(object):
     When reference is made to a dictionary of options, it requires a dictionary with zero or more of the following keys:
 
     - backend :             "elf", "pe", "mach-o", "ida", "blob" : which loader backend to use
-    - custom_arch :         The archinfo.Arch object to use for the binary
-    - custom_base_addr :    The address to rebase the object at
-    - custom_entry_point :  The entry point to use for the object
+    - arch :                The archinfo.Arch object to use for the binary
+    - base_addr :           The address to rebase the object at
+    - entry_point :         The entry point to use for the object
 
     More keys are defined on a per-backend basis.
     """
 
     def __init__(self, main_binary, auto_load_libs=True,
                  force_load_libs=(), skip_libs=(),
-                 main_opts=None, lib_opts=None, custom_ld_path=(), use_system_libs=True,
+                 main_opts=None, lib_opts=None, ld_path=(), use_system_libs=True,
                  ignore_import_version_numbers=True, case_insensitive=False, rebase_granularity=0x1000000,
                  except_missing_libs=False, aslr=False,
                  page_size=0x1, extern_size=0x8000):
@@ -99,7 +84,7 @@ class Loader(object):
         self._satisfied_deps = dict((x, False) for x in skip_libs)
         self._main_opts = {} if main_opts is None else main_opts
         self._lib_opts = {} if lib_opts is None else lib_opts
-        self._custom_ld_path = [custom_ld_path] if type(custom_ld_path) in (str, unicode) else custom_ld_path
+        self._custom_ld_path = [ld_path] if type(ld_path) is str else ld_path
         self._use_system_libs = use_system_libs
         self._ignore_import_version_numbers = ignore_import_version_numbers
         self._case_insensitive = case_insensitive
@@ -111,7 +96,7 @@ class Loader(object):
         # case insensitivity setup
         if sys.platform == 'win32': # TODO: a real check for case insensitive filesystems
             if self._main_binary_path: self._main_binary_path = self._main_binary_path.lower()
-            force_load_libs = [x.lower() if type(x) in (str, unicode) else x for x in force_load_libs]
+            force_load_libs = [x.lower() if type(x) is str else x for x in force_load_libs]
             for x in list(self._satisfied_deps): self._satisfied_deps[x.lower()] = self._satisfied_deps[x]
             for x in list(self._lib_opts): self._lib_opts[x.lower()] = self._lib_opts[x]
             self._custom_ld_path = [x.lower() for x in self._custom_ld_path]
@@ -261,22 +246,42 @@ class Loader(object):
         o = self.find_object_containing(addr)
 
         if o is None:
-            return None
+            return 'not part of a loaded object'
 
-        off = AT.from_va(addr, o).to_rva()
-        nameof = 'main binary' if o is self.main_object else o.provides
+        options = []
+
+        rva = AT.from_va(addr, o).to_rva()
+
+        idx = o.symbols.bisect_key_right(rva) - 1
+        while idx >= 0:
+            sym = o.symbols[idx]
+            if not sym.name or sym.is_import:
+                idx -= 1
+                continue
+            options.append((sym.relative_addr, '%s+' % sym.name))
+            break
 
         if isinstance(o, ELF):
-            if addr in o._plt.values():
-                for k,v in o._plt.iteritems():
-                    if v == addr:
-                        return "PLT stub of %s in %s (offset %#x)" % (k, nameof, off)
+            try:
+                plt_addr, plt_name = max((a, n) for n, a in o._plt.items() if a <= rva)
+            except ValueError:
+                pass
+            else:
+                options.append((plt_addr, 'PLT.%s+' % plt_name))
 
-        if off in o._symbols_by_addr:
-            name = o._symbols_by_addr[off].name
-            return "%s (offset %#x) in %s" % (name, off, nameof)
+        options.append((0, 'offset '))
 
-        return "Offset %#x in %s" % (off, nameof)
+        if o.provides:
+            objname = o.provides
+        elif o.binary:
+            objname = os.path.basename(o.binary)
+        elif self.main_object is o:
+            objname = 'main binary'
+        else:
+            objname = 'object loaded from stream'
+
+        best_offset, best_prefix = max(options, key=lambda v: v[0])
+        return '%s%#x in %s (%#x)' % (best_prefix, rva - best_offset, objname, AT.from_va(addr, o).to_lva())
 
     # Search functions
 
@@ -407,24 +412,35 @@ class Loader(object):
 
         return obj.sections.find_region_next_to(addr)
 
-    def find_symbol(self, thing):
+    def find_symbol(self, thing, fuzzy=False):
         """
         Search for the symbol with the given name or address.
 
-        :param thing:        Either the name or address of a symbol to look up
+        :param thing:       Either the name or address of a symbol to look up
+        :param fuzzy:       Set to True to return the first symbol before or at the given address
 
         :returns:           A :class:`cle.backends.Symbol` object if found, None otherwise.
         """
         if type(thing) is archinfo.arch_soot.SootAddressDescriptor:
             # Soot address
             return thing.method.fullname
-        elif type(thing) in (int, long):
+        elif type(thing) is int:
             # address
-            so = self.find_object_containing(thing, membership_check=False)
-            if so is not None:
-                addr = AT.from_mva(thing, so).to_rva()
-                if addr in so._symbols_by_addr:
-                    return so._symbols_by_addr[addr]
+            if fuzzy:
+                so = self.find_object_containing(thing)
+                if so is None:
+                    return None
+                objs = [so]
+            else:
+                objs = self.all_objects
+
+            for so in objs:
+                idx = so.symbols.bisect_key_right(AT.from_mva(thing, so).to_rva()) - 1
+                while idx >= 0 and (fuzzy or so.symbols[idx].rebased_addr == thing):
+                    if so.symbols[idx].is_import:
+                        idx -= 1
+                        continue
+                    return so.symbols[idx]
         else:
             # name
             for so in self.all_objects:
@@ -451,6 +467,24 @@ class Loader(object):
 
         return None
 
+    @property
+    def symbols(self):
+        peeks = []
+        for so in self.all_objects:
+            if so.symbols:
+                i = iter(so.symbols)
+                n = next(i)
+                peeks.append((n, i))
+        while peeks:
+            element = min(peeks, key=lambda x: x[0]) # if we don't do this it might crash on comparing iterators
+            n, i = element
+            idx = peeks.index(element)
+            yield n
+            try:
+                peeks[idx] = next(i), i
+            except StopIteration:
+                peeks.pop(idx)
+
     def find_all_symbols(self, name, exclude_imports=True, exclude_externs=False, exclude_forwards=True):
         """
         Iterate over all symbols present in the set of loaded binaries that have the given name
@@ -466,7 +500,7 @@ class Loader(object):
                 continue
             if sym.is_import and exclude_imports:
                 continue
-            if sym.owner_obj is self._extern_object and exclude_externs:
+            if sym.owner is self._extern_object and exclude_externs:
                 continue
             if sym.is_forward and exclude_forwards:
                 continue
@@ -508,9 +542,7 @@ class Loader(object):
             for resolver, dest in obj.irelatives:
                 val = resolver_func(resolver)
                 if val is not None:
-                    obj.memory.write_addr_at(dest, val)
-
-        return None
+                    obj.memory.pack_word(dest, val)
 
     def dynamic_load(self, spec):
         """
@@ -651,7 +683,7 @@ class Loader(object):
             return spec
         elif hasattr(spec, 'read') and hasattr(spec, 'seek'):
             full_spec = spec
-        elif type(spec) in (bytes, unicode):
+        elif type(spec) in (bytes, str):
             full_spec = self._search_load_path(spec) # this is allowed to cheat and do partial static loading
             l.debug("... using full path %s", full_spec)
         else:
@@ -701,6 +733,10 @@ class Loader(object):
             obj.mapped_base = base_addr
             obj.rebase()
         else:
+            if obj._custom_base_addr is not None and not isinstance(obj, Blob):
+                l.warning("%s: base_addr was specified but the object is not PIC. "
+                    "specify force_rebase=True to override",
+                            os.path.basename(obj.binary) if obj.binary is not None else obj.binary_stream)
             base_addr = obj.linked_base
             if not self._is_range_free(obj.linked_base, obj_size):
                 raise CLEError("Position-DEPENDENT object %s cannot be loaded at %#x"% (obj.binary, base_addr))
@@ -908,7 +944,7 @@ class Loader(object):
                     yield soname
                     if self._ignore_import_version_numbers:
                         yield soname.rstrip('.0123456789')
-        elif type(spec) in (bytes, unicode):
+        elif type(spec) in (bytes, str):
             yield spec
             yield os.path.basename(spec)
             yield os.path.basename(spec).split('.')[0]
@@ -959,51 +995,9 @@ class Loader(object):
             raise CLEError('Invalid backend: %s' % backend)
 
 
-    # deprecated stuff
-
-    @deprecated('initializers (property, not function)')
-    def get_initializers(self):
-        return self.initializers
-
-    @deprecated('finalizers (property, not function)')
-    def get_finalizers(self):
-        return self.finalizers
-
-    @deprecated('find_object_containing')
-    def addr_belongs_to_object(self, addr):
-        return self.find_object_containing(addr)
-
-    @deprecated('describe_addr')
-    def whats_at(self, addr):
-        return self.describe_addr(addr)
-
-    @deprecated('find_symbol().name')
-    def find_symbol_name(self, addr):
-        sym = self.find_symbol(addr)
-        if sym is not None:
-            return sym.name
-        return None
-
-    @deprecated('find_object_containing().provides')
-    def find_module_name(self, addr):
-        obj = self.find_object_containing(addr)
-        if obj is not None:
-            return obj.provides
-        return None
-
-    @deprecated('find_relevant_relocations')
-    def find_symbol_got_entry(self, symbol):
-        return next(self.find_relevant_relocations(symbol))
-
-    @property
-    @deprecated('main_object')
-    def main_bin(self):
-        return self.main_object
-
-
 from .errors import CLEError, CLEFileNotFoundError, CLECompatibilityError, CLEOperationError
 from .memory import Clemory
-from .backends import MetaELF, ELF, PE, ALL_BACKENDS, Backend
+from .backends import MetaELF, ELF, PE, Blob, ALL_BACKENDS, Backend
 from .backends.tls import PETLSObject, ELFTLSObject, TLSObject
 from .backends.externs import ExternObject, KernelObject
 from .utils import stream_or_path

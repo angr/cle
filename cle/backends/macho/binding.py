@@ -370,7 +370,7 @@ def default_binding_handler(state, binary):
     value = symbol.linked_addr + state.addend
     if state.binding_type == 1:  # POINTER
         l.info("Updating address %#x with symobl %r @ %#x", location, state.sym_name, value)
-        binary.memory.write_bytes(
+        binary.memory.store(
             AT.from_lva(location, binary).to_rva(),
             struct.pack(binary.struct_byteorder + ("Q" if binary.arch.bits == 64 else "I"), value))
         symbol.bind_xrefs.append(location)
@@ -378,7 +378,7 @@ def default_binding_handler(state, binary):
         location_32 = location % (2 ** 32)
         value_32 = value % (2 ** 32)
         l.info("Updating address %#x with symobl %r @ %#x", state.sym_name, location_32, value_32)
-        binary.memory.write_bytes(
+        binary.memory.store(
             AT.from_lva(location_32, binary).to_rva(),
             struct.pack(binary.struct_byteorder + "I", value_32))
         symbol.bind_xrefs.append(location_32)
@@ -386,7 +386,7 @@ def default_binding_handler(state, binary):
         location_32 = location % (2 ** 32)
         value_32 = (value - (location + 4)) % (2 ** 32)
         l.info("Updating address %#x with symobl %r @ %#x", state.sym_name, location_32, value_32)
-        binary.memory.write_bytes(
+        binary.memory.store(
             AT.from_lva(location_32, binary).to_rva(),
             struct.pack(binary.struct_byteorder + "I", value_32))
         symbol.bind_xrefs.append(location_32)

@@ -1,25 +1,26 @@
 from __future__ import print_function
 import logging
+
 from ..address_translator import AT
 
 l = logging.getLogger('cle.backends.relocation')
 
-class Relocation(object):
+
+class Relocation:
     """
     A representation of a relocation in a binary file. Smart enough to
     relocate itself.
 
-    :ivar owner_obj:    The binary this relocation was originaly found in, as a cle object
+    :ivar owner:    The binary this relocation was originaly found in, as a cle object
     :ivar symbol:       The Symbol object this relocation refers to
-    :ivar relative_addr:    The address in owner_obj this relocation would like to write to
+    :ivar relative_addr:    The address in owner this relocation would like to write to
     :ivar rebased_addr: The address in the global memory space this relocation would like to write to
     :ivar resolvedby:   If the symbol this relocation refers to is an import symbol and that import has been resolved,
                         this attribute holds the symbol from a different binary that was used to resolve the import.
     :ivar resolved:     Whether the application of this relocation was succesful
     """
     def __init__(self, owner, symbol, relative_addr):
-        super(Relocation, self).__init__()
-        self.owner_obj = owner
+        self.owner = owner
         self.arch = owner.arch
         self.symbol = symbol
         self.relative_addr = relative_addr
@@ -27,7 +28,7 @@ class Relocation(object):
         self.resolved = False
         self.resolvewith = None
         if self.symbol is not None and self.symbol.is_import:
-            self.owner_obj.imports[self.symbol.name] = self
+            self.owner.imports[self.symbol.name] = self
 
     def resolve_symbol(self, solist, bypass_compatibility=False, thumb=False): # pylint: disable=unused-argument
         if self.resolved:
@@ -49,7 +50,7 @@ class Relocation(object):
                     weak_result = symbol
             # TODO: Was this check obsolted by the addition of is_static?
             # I think right now symbol.is_import = !symbol.is_export
-            elif symbol is not None and not symbol.is_import and so is self.owner_obj:
+            elif symbol is not None and not symbol.is_import and so is self.owner:
                 if not symbol.is_weak:
                     self.resolve(symbol)
                     return True
@@ -63,7 +64,7 @@ class Relocation(object):
         if self.symbol.is_weak:
             return False
 
-        new_symbol = self.owner_obj.loader.extern_object.make_extern(self.symbol.name, thumb=thumb)
+        new_symbol = self.owner.loader.extern_object.make_extern(self.symbol.name, thumb=thumb)
         self.resolve(new_symbol)
         return True
 
@@ -72,25 +73,16 @@ class Relocation(object):
         self.resolved = True
         if self.symbol is not None:
             if obj is not None:
-                l.debug('%s from %s resolved by %s from %s at %#x', self.symbol.name, self.owner_obj.provides, obj.name, obj.owner_obj.provides, obj.rebased_addr)
+                l.debug('%s from %s resolved by %s from %s at %#x', self.symbol.name, self.owner.provides, obj.name, obj.owner.provides, obj.rebased_addr)
             self.symbol.resolve(obj)
 
     @property
     def rebased_addr(self):
-        return AT.from_rva(self.relative_addr, self.owner_obj).to_mva()
+        return AT.from_rva(self.relative_addr, self.owner).to_mva()
 
     @property
     def linked_addr(self):
-        return AT.from_rva(self.relative_addr, self.owner_obj).to_lva()
-
-    warned_addr = False
-
-    @property
-    def addr(self):
-        if not Relocation.warned_addr:
-            print("\x1b[31;1mDeprecation warning: Relocation.addr is ambiguous, please use relative_addr, linked_addr, or rebased_addr\x1b[0m")
-            Relocation.warned_addr = True
-        return self.linked_addr
+        return AT.from_rva(self.relative_addr, self.owner).to_lva()
 
     @property
     def dest_addr(self):
@@ -113,4 +105,16 @@ class Relocation(object):
         if not self.resolve_symbol(solist, bypass_compatibility):
             return False
 
-        self.owner_obj.memory.write_addr_at(self.dest_addr, self.value)
+        self.owner.memory.pack_word(self.dest_addr, self.value)
+        return True
+
+    # compatibility layer
+
+    _complained_owner = False
+
+    @property
+    def owner_obj(self):
+        if not Relocation._complained_owner:
+            Relocation._complained_owner = True
+            l.critical("Deprecation warning: use relocation.owner instead of relocation.owner_obj")
+        return self.owner

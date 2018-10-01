@@ -60,7 +60,7 @@ class ELFSection(Section):
 
     @property
     def occupies_memory(self):
-        return self.flags & self.SHF_ALLOC != 0
+        return self.flags & self.SHF_ALLOC != 0 and self.memsize > 0
 
     @property
     def is_executable(self):

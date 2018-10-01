@@ -62,7 +62,7 @@ class PE(Backend):
         self.tls_data_pointer = None
 
         self.supports_nx = self._pe.OPTIONAL_HEADER.DllCharacteristics & 0x100 != 0
-        self.pic = self._pe.OPTIONAL_HEADER.DllCharacteristics & 0x40 != 0
+        self.pic = self.pic or self._pe.OPTIONAL_HEADER.DllCharacteristics & 0x40 != 0
 
         self._exports = {}
         self._ordinal_exports = {}
@@ -128,6 +128,7 @@ class PE(Backend):
                         imp_name = imp.name.decode()
 
                     symb = WinSymbol(owner=self, name=imp_name, addr=0, is_import=True, is_export=False, ordinal_number=imp.ordinal, forwarder=None)
+                    self.symbols.add(symb)
                     reloc = self._make_reloc(addr=AT.from_lva(imp.address, self).to_rva(), reloc_type=None, symbol=symb, resolvewith=entry.dll.decode())
 
                     if reloc is not None:
@@ -142,6 +143,7 @@ class PE(Backend):
                 name = exp.name.decode() if exp.name is not None else None
                 forwarder = exp.forwarder.decode() if exp.forwarder is not None else None
                 symb = WinSymbol(self, name, exp.address, False, True, exp.ordinal, forwarder)
+                self.symbols.add(symb)
                 self._exports[name] = symb
                 self._ordinal_exports[exp.ordinal] = symb
 
@@ -244,18 +246,19 @@ class PE(Backend):
         if self.binary is None:
             raise ValueError("Can't pickle an object loaded from a stream")
 
-        out = dict(self.__dict__)
-        out['_pe'] = None
+        state = dict(self.__dict__)
+
+        state['_pe'] = None
 
         if type(self.binary_stream) is PatchedStream:
-            out['binary_stream'].stream = None
+            state['binary_stream'].stream = None
         else:
-            out['binary_stream'] = None
+            state['binary_stream'] = None
 
-        return out
+        return state
 
-    def _setstate__(self, out):
-        self.__dict__.update(out)
+    def __setstate__(self, state):
+        self.__dict__.update(state)
 
         if self.binary_stream is None:
             self.binary_stream = open(self.binary, 'rb')

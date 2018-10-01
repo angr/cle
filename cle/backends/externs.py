@@ -3,10 +3,12 @@ from ..utils import ALIGN_UP
 from ..errors import CLEOperationError
 from ..address_translator import AT
 
+
 class ExternSegment(Segment):
     is_readable = True
     is_writable = True
     is_executable = True
+
 
 class ExternObject(Backend):
     def __init__(self, loader, map_size=0x8000):
@@ -34,9 +36,10 @@ class ExternObject(Backend):
             func_symbol.is_export = True
             func_symbol.is_extern = True
             self._symbol_cache[name + '#func'] = func_symbol
+            self.symbols.add(func_symbol)
 
             toc = self.allocate(0x18, alignment=8)
-            self.memory.write_addr_at(AT.from_mva(toc, self).to_rva(), addr)
+            self.memory.pack_word(AT.from_mva(toc, self).to_rva(), addr)
             addr = toc
 
         new_symbol = Symbol(self, name, AT.from_mva(addr, self).to_rva(), 1, Symbol.TYPE_FUNCTION)
@@ -44,6 +47,7 @@ class ExternObject(Backend):
         new_symbol.is_extern = True
 
         self._symbol_cache[name] = new_symbol
+        self.symbols.add(new_symbol)
         return new_symbol
 
     def get_pseudo_addr(self, name):
@@ -59,6 +63,7 @@ class ExternObject(Backend):
     @property
     def max_addr(self):
         return AT.from_rva(self.map_size, self).to_mva()
+
 
 class KernelObject(Backend):
     def __init__(self, loader, map_size=0x8000):

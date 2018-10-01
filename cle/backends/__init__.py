@@ -1,5 +1,6 @@
 import os
 import logging
+import sortedcontainers
 
 import archinfo
 from .region import Region, Segment, Section
@@ -12,7 +13,7 @@ from ..errors import CLEOperationError, CLEError
 l = logging.getLogger('cle.backends')
 
 
-class Backend(object):
+class Backend:
     """
     Main base class for CLE binary objects.
 
@@ -40,6 +41,7 @@ class Backend(object):
     :ivar bool pic:         Whether this object is position-independent
     :ivar bool execstack:   Whether this executable has an executable stack
     :ivar str provides:     The name of the shared library dependancy that this object resolves
+    :ivar list symbols:     A list of symbols provided by this object, sorted by address
     """
     is_default = False
 
@@ -48,9 +50,10 @@ class Backend(object):
             loader=None,
             is_main_bin=False,
             filename=None,
-            custom_entry_point=None,
-            custom_arch=None,
-            custom_base_addr=None,
+            entry_point=None,
+            arch=None,
+            base_addr=None,
+            force_rebase=False,
             has_memory=True,
             **kwargs):
         """
@@ -67,6 +70,17 @@ class Backend(object):
             except IOError:
                 self.binary_stream = None
 
+        for k in list(kwargs.keys()):
+            if k == 'custom_entry_point':
+                entry_point = kwargs.pop(k)
+            elif k == 'custom_arch':
+                arch = kwargs.pop(k)
+            elif k == 'custom_base_addr':
+                base_addr = kwargs.pop(k)
+            else:
+                continue
+            l.critical("Deprecation warning: the %s parameter has been renamed to %s", k, k[7:])
+
         if kwargs != {}:
             l.warning("Unused kwargs for loading binary %s: %s", self.binary, ', '.join(kwargs.keys()))
 
@@ -77,7 +91,7 @@ class Backend(object):
         self._segments = Regions() # List of segments
         self._sections = Regions() # List of sections
         self.sections_map = {}  # Mapping from section name to section
-        self._symbols_by_addr = {}
+        self.symbols = sortedcontainers.SortedKeyList(key=self._get_symbol_relative_addr)
         self.imports = {}
         self.resolved_imports = []
         self.relocs = []
@@ -99,12 +113,12 @@ class Backend(object):
 
         self.deps = []           # Needed shared objects (libraries dependencies)
         self.linking = None # Dynamic or static linking
-        self.pic = False
+        self.pic = force_rebase
         self.execstack = False
 
         # Custom options
-        self._custom_entry_point = custom_entry_point
-        self._custom_base_addr = custom_base_addr
+        self._custom_entry_point = entry_point
+        self._custom_base_addr = base_addr
         self.provides = os.path.basename(self.binary) if self.binary is not None else None
 
         self.memory = None
@@ -114,16 +128,16 @@ class Backend(object):
         # cached max_addr
         self._max_addr = None
 
-        if custom_arch is None:
+        if arch is None:
             self.arch = None
-        elif isinstance(custom_arch, str):
-            self.set_arch(archinfo.arch_from_id(custom_arch))
-        elif isinstance(custom_arch, archinfo.Arch):
-            self.set_arch(custom_arch)
-        elif isinstance(custom_arch, type) and issubclass(custom_arch, archinfo.Arch):
-            self.set_arch(custom_arch())
+        elif isinstance(arch, str):
+            self.set_arch(archinfo.arch_from_id(arch))
+        elif isinstance(arch, archinfo.Arch):
+            self.set_arch(arch)
+        elif isinstance(arch, type) and issubclass(arch, archinfo.Arch):
+            self.set_arch(arch())
         else:
-            raise CLEError("Bad parameter: custom_arch=%s" % custom_arch)
+            raise CLEError("Bad parameter: arch=%s" % arch)
 
     def close(self):
         if self.binary_stream is not None:
@@ -180,7 +194,8 @@ class Backend(object):
 
     @property
     def symbols_by_addr(self):
-        return {AT.from_rva(x, self).to_mva(): self._symbols_by_addr[x] for x in self._symbols_by_addr}
+        l.critical("Deprecation warning: symbols_by_addr is deprecated - use loader.find_symbol() for lookup and .symbols for enumeration")
+        return {s.rebased_addr: s for s in self.symbols}
 
     def rebase(self):
         """
@@ -231,6 +246,7 @@ class Backend(object):
             for s in self.sections:
                 if s.contains_offset(offset):
                     return s.offset_to_addr(offset)
+        return None
 
     @property
     def min_addr(self):
@@ -289,6 +305,10 @@ class Backend(object):
         Performs a minimal static load of ``spec`` and returns whether it's compatible with other_obj
         """
         return False
+
+    @staticmethod
+    def _get_symbol_relative_addr(symbol):
+        return symbol.relative_addr
 
 ALL_BACKENDS = dict()
 

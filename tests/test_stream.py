@@ -18,12 +18,12 @@ def test_stream():
 
     nose.tools.assert_equal(path_ld.main_object.entry, stream_ld.main_object.entry)
     nose.tools.assert_equal([x for x in path_ld.shared_objects.keys() if x != 'fauxware'], list(stream_ld.shared_objects.keys()))
-    nose.tools.assert_equal(path_ld.memory.read_addr_at(path_ld.main_object.entry),
-                            stream_ld.memory.read_addr_at(stream_ld.main_object.entry))
-    strcmp_string = path_ld.describe_addr(path_ld.memory.read_addr_at(0x804a000))
+    nose.tools.assert_equal(path_ld.memory.unpack_word(path_ld.main_object.entry),
+                            stream_ld.memory.unpack_word(stream_ld.main_object.entry))
+    strcmp_string = path_ld.describe_addr(path_ld.memory.unpack_word(0x804a000))
     nose.tools.assert_in('libc.so.6', strcmp_string)
     nose.tools.assert_in('strcmp', strcmp_string)
-    nose.tools.assert_equal(strcmp_string, stream_ld.describe_addr(stream_ld.memory.read_addr_at(0x804a000)))
+    nose.tools.assert_equal(strcmp_string, stream_ld.describe_addr(stream_ld.memory.unpack_word(0x804a000)))
 
 if __name__ == '__main__':
     test_stream()

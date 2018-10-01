@@ -21,8 +21,8 @@ def test_overlap():
     nose.tools.assert_equal(ld.main_object.linked_base, 0x8048000)
     nose.tools.assert_equal(ld.main_object.min_addr, 0x8048000)
 
-    obj1 = MockBackend(0x8047000, 0x2000, custom_arch=ld.main_object.arch)
-    obj2 = MockBackend(0x8047000, 0x1000, custom_arch=ld.main_object.arch)
+    obj1 = MockBackend(0x8047000, 0x2000, arch=ld.main_object.arch)
+    obj2 = MockBackend(0x8047000, 0x1000, arch=ld.main_object.arch)
 
     ld._register_object(obj1)
     ld._register_object(obj2)
