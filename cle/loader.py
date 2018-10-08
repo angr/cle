@@ -75,7 +75,7 @@ class Loader:
                  force_load_libs=(), skip_libs=(),
                  main_opts=None, lib_opts=None, ld_path=(), use_system_libs=True,
                  ignore_import_version_numbers=True, case_insensitive=False, rebase_granularity=0x1000000,
-                 except_missing_libs=False, aslr=False,
+                 except_missing_libs=False, aslr=False, perform_relocations=True,
                  page_size=0x1, extern_size=0x8000):
         if hasattr(main_binary, 'seek') and hasattr(main_binary, 'read'):
             self._main_binary_path = None
@@ -100,6 +100,7 @@ class Loader:
         self._except_missing_libs = except_missing_libs
         self._extern_size = extern_size
         self._relocated_objects = set()
+        self._perform_relocations = perform_relocations
 
         # case insensitivity setup
         if sys.platform == 'win32': # TODO: a real check for case insensitive filesystems
@@ -661,8 +662,9 @@ class Loader:
         for obj in objects:
             if isinstance(obj, (MetaELF, PE)) and obj.tls_used:
                 self.tls_object.register_object(obj)
-        for obj in objects:
-            self._relocate_object(obj)
+        if self._perform_relocations:
+            for obj in objects:
+                self._relocate_object(obj)
         for obj in objects:
             if isinstance(obj, (MetaELF, PE)) and obj.tls_used:
                 self.tls_object.map_object(obj)
