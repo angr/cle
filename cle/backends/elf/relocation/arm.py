@@ -369,3 +369,14 @@ class R_ARM_JUMP24(R_ARM_CALL):
 
 class R_ARM_PC24(R_ARM_CALL):
     pass
+
+# EDG says: Implementing these the easy way.
+# Inaccuracies may exist.  This is ARM, after all.
+class R_ARM_THM_JUMP24(R_ARM_THM_CALL):
+    pass
+
+class R_ARM_THM_JUMP19(R_ARM_THM_CALL):
+    pass
+
+class R_ARM_THM_JUMP6(R_ARM_THM_CALL):
+    pass
