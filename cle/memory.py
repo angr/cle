@@ -52,6 +52,8 @@ class Clemory:
         """
         if not data:
             raise ValueError("Backer is empty!")
+            pass
+
         if not isinstance(data, (bytes, list, Clemory)):
             raise TypeError("Data must be a string or a Clemory")
         if start in self:

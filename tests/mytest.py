@@ -52,19 +52,19 @@ new_concrete_state.memory.store(symbolic_buffer_address,arg0)
 
 # symbolic exploration
 simgr = p.factory.simgr(new_concrete_state)
-print "[2]Symbolically executing malware to find dropping of second stage [ address:  " + hex(DROP_STAGE2_V1) + " ]"
+print("[2]Symbolically executing malware to find dropping of second stage [ address:  " + hex(DROP_STAGE2_V1) + " ]")
 exploration = simgr.explore(find=[DROP_STAGE2_V1], avoid=[DROP_STAGE2_V2,VENV_DETECTED, FAKE_CC ])
 new_symbolic_state = exploration.stashes['found'][0]
 
 
-malware_configuration = hex(new_symbolic_state.se.eval(arg0,cast_to=int))
+malware_configuration = hex(new_symbolic_state.solver.eval(arg0, cast_to=int))
 #print(malware_configuration)
 
-print "[3]Executing malware concretely with solution found until the end " + hex(MALWARE_EXECUTION_END)
-execute_concretly(new_symbolic_state,[MALWARE_EXECUTION_END, FAKE_CC],[(symbolic_buffer_address,arg0)])
+print("[3]Executing malware concretely with solution found until the end " + hex(MALWARE_EXECUTION_END))
+execute_concretly(new_symbolic_state,[MALWARE_EXECUTION_END, FAKE_CC], [(symbolic_buffer_address,arg0)])
 
 
-print "[4]Malware execution ends, the configuration to reach your BB is: " + malware_configuration
+print("[4]Malware execution ends, the configuration to reach your BB is: " + malware_configuration)
 
 #assert(malware_configuration == hex(0xa000000f9ffffff000000000000000000000000000000000000000000000000))
 
