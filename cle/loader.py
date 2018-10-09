@@ -477,7 +477,7 @@ class Loader:
                 n = next(i)
                 peeks.append((n, i))
         while peeks:
-            element = min(peeks, key=lambda x: x[0]) # if we don't do this it might crash on comparing iterators
+            element = min(peeks, key=lambda x: x[0].rebased_addr) # if we don't do this it might crash on comparing iterators
             n, i = element
             idx = peeks.index(element)
             yield n
