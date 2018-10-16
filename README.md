@@ -79,10 +79,6 @@ There are several backends that can be used to load a single file:
     - ELF, as its name says, loads ELF binaries. ELF files loaded this way are
       statically parsed using PyElfTools.
 
-    - IdaBin relies on IDA (through IdaLink) to get information from the
-      binaries. At the moment, it works in a bare-bones fashion, but is
-      mostly unsupported.
-
     - PE is a backend to load Microsoft's Portable Executable format,
       effectively Windows binaries. It uses the (optional) `pefile` module.
 
