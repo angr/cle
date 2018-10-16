@@ -23,7 +23,7 @@ class ExternObject(Backend):
         self.segments.append(ExternSegment('externs', 0, 0, self.map_size))
 
 
-    def make_extern(self, name, size=1, alignment=8, thumb=False):
+    def make_extern(self, name, size=1, alignment=8, thumb=False, sym_type=Symbol.TYPE_FUNCTION):
         try:
             return self._symbol_cache[name]
         except KeyError:
@@ -31,8 +31,8 @@ class ExternObject(Backend):
 
         addr = self.allocate(size, alignment=alignment, thumb=thumb)
 
-        if hasattr(self.loader.main_object, 'is_ppc64_abiv1') and self.loader.main_object.is_ppc64_abiv1:
-            func_symbol = Symbol(self, name + '#func', AT.from_mva(addr, self).to_rva(), 1, Symbol.TYPE_FUNCTION)
+        if hasattr(self.loader.main_object, 'is_ppc64_abiv1') and self.loader.main_object.is_ppc64_abiv1 and sym_type == Symbol.TYPE_FUNCTION:
+            func_symbol = Symbol(self, name + '#func', AT.from_mva(addr, self).to_rva(), 1, sym_type)
             func_symbol.is_export = True
             func_symbol.is_extern = True
             self._symbol_cache[name + '#func'] = func_symbol
@@ -41,8 +41,9 @@ class ExternObject(Backend):
             toc = self.allocate(0x18, alignment=8)
             self.memory.pack_word(AT.from_mva(toc, self).to_rva(), addr)
             addr = toc
+            sym_type = Symbol.TYPE_OBJECT
 
-        new_symbol = Symbol(self, name, AT.from_mva(addr, self).to_rva(), 1, Symbol.TYPE_FUNCTION)
+        new_symbol = Symbol(self, name, AT.from_mva(addr, self).to_rva(), 1, sym_type)
         new_symbol.is_export = True
         new_symbol.is_extern = True
 
