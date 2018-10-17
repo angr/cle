@@ -23,6 +23,6 @@ setup(
         'archinfo==8.18.10.5',
         'pyvex==8.18.10.5',
         'pefile',
-        'sortedcontainers',
+        'sortedcontainers>=2.0',
     ]
 )
