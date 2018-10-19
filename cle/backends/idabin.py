@@ -8,7 +8,7 @@ from ..errors import CLEError, CLEFileNotFoundError
 l = logging.getLogger("cle.idabin")
 
 try:
-    idalink = __import__('idalink').idalink
+    idalink = __import__('idalink').IDALink
 except ImportError:
     idalink = None
 
