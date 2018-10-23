@@ -82,16 +82,16 @@ class PETLSObject(TLSObject):
             raise CLEError("Too much TLS data to handle... file this as a bug")
 
         # The PE TLS header says to write its index into a given address
-        obj.memory.write_addr_at(AT.from_lva(obj.tls_index_address, obj).to_rva(), obj.tls_module_id)
+        obj.memory.pack_word(AT.from_lva(obj.tls_index_address, obj).to_rva(), obj.tls_module_id)
 
         # Write the address of the data start into the array
-        self.memory.write_addr_at(obj.tls_module_id*self.arch.bytes, AT.from_rva(data_start, self).to_mva())
+        self.memory.pack_word(obj.tls_module_id*self.arch.bytes, AT.from_rva(data_start, self).to_mva())
         self.relocs.append(InternalTLSRelocation(data_start, obj.tls_module_id*self.arch.bytes, self))
 
     def map_object(self, obj):
         # Add the data image
-        obj.memory.seek(AT.from_lva(obj.tls_data_start, obj).to_rva())
-        image = obj.memory.read(obj.tls_data_size) + b'\0'*obj.tls_size_of_zero_fill
+        image = obj.memory.load(AT.from_lva(obj.tls_data_start, obj).to_rva(),
+                obj.tls_data_size) + b'\0'*obj.tls_size_of_zero_fill
         self.memory.add_backer(AT.from_mva(obj.tls_data_pointer, self).to_rva(), image)
 
     def get_tls_data_addr(self, tls_idx):
@@ -107,7 +107,7 @@ class PETLSObject(TLSObject):
             program and module.
         """
         if 0 <= tls_idx < self.next_module_id:
-            return self.memory.read_addr_at(tls_idx * self.arch.bytes)
+            return self.memory.unpack_word(tls_idx * self.arch.bytes)
         else:
             raise IndexError('TLS index out of range')
 

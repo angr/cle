@@ -22,7 +22,7 @@ class PEReloc(Relocation):
 
         newsym = self.resolvedby.resolve_forwarder()
         if newsym is None:
-            new_symbol = self.owner_obj.loader.extern_object.make_extern(self.symbol.name)
+            new_symbol = self.owner.loader.extern_object.make_extern(self.symbol.name)
             self.resolvedby.resolvedby = new_symbol
             self.resolve(new_symbol)
             return True
@@ -36,7 +36,7 @@ class PEReloc(Relocation):
             if self.value is None:
                 l.debug('Unresolved relocation with no symbol.')
                 return
-            self.owner_obj.memory.write_bytes(self.relative_addr, self.value)
+            self.owner.memory.store(self.relative_addr, self.value)
         else:
             return super(PEReloc, self).relocate(solist, bypass_compatibility)
 

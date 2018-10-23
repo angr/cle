@@ -65,26 +65,26 @@ class MachOSymbol(Symbol):
 
         # set further fields
         self.is_import = self.sym_type == SYMBOL_TYPE_UNDEF and self.is_external and self.library_ordinal != LIBRARY_ORDINAL_SELF
-        self.is_export = self.name in self.owner_obj.exports_by_name
+        self.is_export = self.name in self.owner.exports_by_name
 
     @property
     def library_name(self):
         if self.is_import:
-            return self.owner_obj.imported_libraries[self.library_ordinal]
+            return self.owner.imported_libraries[self.library_ordinal]
         else:
             return None
 
     @property
     def segment_name(self):
         if self.sym_type == SYMBOL_TYPE_SECT:
-            return self.owner_obj.sections_by_ordinal[self.n_sect].segname
+            return self.owner.sections_by_ordinal[self.n_sect].segname
         else:
             return None
 
     @property
     def section_name(self):
         if self.sym_type == SYMBOL_TYPE_SECT:
-            return self.owner_obj.sections_by_ordinal[self.n_sect].sectname
+            return self.owner.sections_by_ordinal[self.n_sect].sectname
         else:
             return None
 

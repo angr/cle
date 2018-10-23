@@ -25,7 +25,7 @@ the OS's loader.
 >>> hex(libc_main_reloc.addr)       # Address of GOT entry for libc_start_main
 '0x61c1c0'
 >>> import pyvex
->>> some_text_data = ''.join(ld.memory.read_bytes(ld.main_object.entry, 0x100))
+>>> some_text_data = ld.memory.load(ld.main_object.entry, 0x100)
 >>> irsb = pyvex.lift(some_text_data, ld.main_object.entry, ld.main_object.arch)
 >>> irsb.pp()
 IRSB {
@@ -79,10 +79,6 @@ There are several backends that can be used to load a single file:
     - ELF, as its name says, loads ELF binaries. ELF files loaded this way are
       statically parsed using PyElfTools.
 
-    - IdaBin relies on IDA (through IdaLink) to get information from the
-      binaries. At the moment, it works in a bare-bones fashion, but is
-      mostly unsupported.
-
     - PE is a backend to load Microsoft's Portable Executable format,
       effectively Windows binaries. It uses the (optional) `pefile` module.
 
@@ -104,7 +100,7 @@ unspecified, the loader will pick a reasonable default.
 - The loader determines which shared objects are needed when loading
   binaries, and searches for them in the following order:
     - in the current working directory
-    - in folders specified in the `custom_ld_path` option
+    - in folders specified in the `ld_path` option
     - in the same folder as the main binary
     - in the system (in the corresponding library path for the architecture
       of the binary, e.g., /usr/arm-linux-gnueabi/lib for ARM, note that

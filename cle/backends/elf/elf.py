@@ -65,8 +65,8 @@ class ELF(MetaELF):
 
             try:
                 self.reader = elffile.ELFFile(self.binary_stream)
-            except Exception: # pylint: disable=broad-except
-                raise CLECompatibilityError
+            except Exception as e: # pylint: disable=broad-except
+                raise CLECompatibilityError from e
 
         # Get an appropriate archinfo.Arch for this binary, unless the user specified one
         if self.arch is None:
@@ -93,6 +93,7 @@ class ELF(MetaELF):
 
         self._symbol_cache = {}
         self._symbols_by_name = {}
+        self._desperate_for_symbols = False
         self.demangled_names = {}
         self.imports = {}
         self.resolved_imports = []
@@ -102,7 +103,7 @@ class ELF(MetaELF):
 
         self._entry = self.reader.header.e_entry
         self.is_relocatable = self.reader.header.e_type == 'ET_REL'
-        self.pic = self.reader.header.e_type in ('ET_REL', 'ET_DYN')
+        self.pic = self.pic or self.reader.header.e_type in ('ET_REL', 'ET_DYN')
 
         self.tls_used = False
         self.tls_module_id = None
@@ -122,10 +123,14 @@ class ELF(MetaELF):
         try:
             self.mapped_base = self.linked_base = min(seg_addrs)
         except ValueError:
-            l.warn('no segments identified in PT_LOAD')
+            l.warning('no segments identified in PT_LOAD')
 
         self.__register_segments()
         self.__register_sections()
+
+        if not self.symbols:
+            self._desperate_for_symbols = True
+            self.symbols.update(self._symbol_cache.values())
 
         # call the methods defined by MetaELF
         self._ppc64_abiv1_entry_fix()
@@ -134,7 +139,7 @@ class ELF(MetaELF):
         self._populate_demangled_names()
 
         for offset, patch in patch_undo:
-            self.memory.write_bytes(AT.from_lva(self.min_addr + offset, self).to_rva(), patch)
+            self.memory.store(AT.from_lva(self.min_addr + offset, self).to_rva(), patch)
 
 
     #
@@ -144,7 +149,10 @@ class ELF(MetaELF):
     @classmethod
     def check_compatibility(cls, spec, obj):
         with stream_or_path(spec) as stream:
-            return cls.extract_arch(elffile.ELFFile(stream)) == obj.arch
+            try:
+                return cls.extract_arch(elffile.ELFFile(stream)) == obj.arch
+            except archinfo.ArchNotFound:
+                return False
 
     @staticmethod
     def is_compatible(stream):
@@ -216,7 +224,7 @@ class ELF(MetaELF):
             return symbol
         elif isinstance(symid, (str, unicode)):
             if not symid:
-                l.warn("Trying to resolve a symbol by its empty name")
+                l.warning("Trying to resolve a symbol by its empty name")
                 return None
             cached = self._symbols_by_name.get(symid, None)
             if cached:
@@ -259,6 +267,11 @@ class ELF(MetaELF):
     def _cache_symbol_name(self, symbol):
         name = symbol.name
         if name:
+            if self._desperate_for_symbols:
+                idx = self.symbols.bisect_key_left(symbol.relative_addr)
+                if idx >= len(self.symbols) or self.symbols[idx].name != name:
+                    self.symbols.add(symbol)
+
             if name in self._symbols_by_name:
                 old_symbol = self._symbols_by_name[name]
                 if not old_symbol.is_weak and symbol.is_weak:
@@ -271,21 +284,21 @@ class ELF(MetaELF):
             arr_start = AT.from_lva(self._dynamic['DT_PREINIT_ARRAY'], self).to_rva()
             arr_end = arr_start + self._dynamic['DT_PREINIT_ARRAYSZ']
             arr_entsize = self.arch.bytes
-            self._preinit_arr = list(map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize)))
+            self._preinit_arr = list(map(self.memory.unpack_word, range(arr_start, arr_end, arr_entsize)))
         if 'DT_INIT' in self._dynamic:
             self._init_func = AT.from_lva(self._dynamic['DT_INIT'], self).to_rva()
         if 'DT_INIT_ARRAY' in self._dynamic and 'DT_INIT_ARRAYSZ' in self._dynamic:
             arr_start = AT.from_lva(self._dynamic['DT_INIT_ARRAY'], self).to_rva()
             arr_end = arr_start + self._dynamic['DT_INIT_ARRAYSZ']
             arr_entsize = self.arch.bytes
-            self._init_arr = list(map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize)))
+            self._init_arr = list(map(self.memory.unpack_word, range(arr_start, arr_end, arr_entsize)))
         if 'DT_FINI' in self._dynamic:
             self._fini_func = AT.from_lva(self._dynamic['DT_FINI'], self).to_rva()
         if 'DT_FINI_ARRAY' in self._dynamic and 'DT_FINI_ARRAYSZ' in self._dynamic:
             arr_start = AT.from_lva(self._dynamic['DT_FINI_ARRAY'], self).to_rva()
             arr_end = arr_start + self._dynamic['DT_FINI_ARRAYSZ']
             arr_entsize = self.arch.bytes
-            self._fini_arr = list(map(self.memory.read_addr_at, range(arr_start, arr_end, arr_entsize)))
+            self._fini_arr = list(map(self.memory.unpack_word, range(arr_start, arr_end, arr_entsize)))
         self._inits_extracted = True
 
     def _load_segment(self, seg):
@@ -354,15 +367,14 @@ class ELF(MetaELF):
         been implemented, then update self.demangled_names in Symbol
         """
 
-        if not self._symbols_by_addr:
+        if not self.symbols:
             return
 
-        names = filter(lambda n: n.startswith("_Z"), (s.name for s in self._symbols_by_addr.values()))
-        lookup_names = map(lambda n: n.split("@@")[0], names)
+        names = [s.name for s in self.symbols if s.name.startswith("_Z")]
         # this monstrosity taken from stackoverflow
         # http://stackoverflow.com/questions/6526500/c-name-mangling-library-for-python
         args = ['c++filt']
-        args.extend(lookup_names)
+        args.extend(n.split('@@')[0] for n in names)
         try:
             pipe = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
             stdout, _ = pipe.communicate()
@@ -381,21 +393,20 @@ class ELF(MetaELF):
         if self.binary is None:
             raise ValueError("Can't pickle an object loaded from a stream")
 
-        # Get a copy of our pickleable self
-        out = dict(self.__dict__)
+        state = dict(self.__dict__)
 
         # Trash the unpickleable
         if type(self.binary_stream) is PatchedStream:
-            out['binary_stream'].stream = None
+            state['binary_stream'].stream = None
         else:
-            out['binary_stream'] = None
+            state['binary_stream'] = None
 
-        out['reader'] = None
-        out['strtab'] = None
-        out['dynsym'] = None
-        out['hashtable'] = None
+        state['reader'] = None
+        state['strtab'] = None
+        state['dynsym'] = None
+        state['hashtable'] = None
 
-        return out
+        return state
 
     def __setstate__(self, data):
         self.__dict__.update(data)
@@ -478,7 +489,7 @@ class ELF(MetaELF):
                 runpath = maybedecode(tag.runpath)
             elif tagstr == 'DT_RPATH':
                 rpath = maybedecode(tag.rpath)
-       
+
         self.extra_load_path = self.__parse_rpath(runpath, rpath)
 
         self.strtab = seg_readelf._get_stringtable()
@@ -620,7 +631,7 @@ class ELF(MetaELF):
             try:
                 dest_sec = self.sections[dest_sec_idx]
             except IndexError:
-                l.warn('the relocation section %s refers to unknown section index: %d', section.name, dest_sec_idx)
+                l.warning('the relocation section %s refers to unknown section index: %d', section.name, dest_sec_idx)
             else:
                 if not dest_sec.occupies_memory:
                     # The target section is not loaded into memory, so just continue
@@ -678,7 +689,7 @@ class ELF(MetaELF):
         self.tls_used = True
         self.tls_block_size = seg_readelf.header.p_memsz
         self.tls_tdata_size = seg_readelf.header.p_filesz
-        self.tls_tdata_start = seg_readelf.header.p_vaddr
+        self.tls_tdata_start = AT.from_lva(seg_readelf.header.p_vaddr, self).to_rva()
 
     def __register_sections(self):
         new_addr = 0
@@ -720,7 +731,7 @@ class ELF(MetaELF):
 
     def __register_section_symbols(self, sec_re):
         for sym_re in sec_re.iter_symbols():
-            self.get_symbol(sym_re)
+            self.symbols.add(self.get_symbol(sym_re))
 
     def __relocate_mips(self):
         if 'DT_MIPS_BASE_ADDRESS' not in self._dynamic:

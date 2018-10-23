@@ -33,8 +33,7 @@ class MetaELF(Backend):
         thumb = self.arch.name.startswith("ARM") and addr % 2 == 1
         realaddr = addr
         if thumb: realaddr -= 1
-        self.memory.seek(AT.from_lva(realaddr, self).to_rva())
-        dat = self.memory.read(40)
+        dat = self.memory.load(AT.from_lva(realaddr, self).to_rva(), 40)
         return pyvex.IRSB(dat, addr, self.arch, bytes_offset=1 if thumb else 0, opt_level=1)
 
     def _add_plt_stub(self, name, addr, sanity_check=True):
@@ -82,7 +81,7 @@ class MetaELF(Backend):
                 try:
                     self._add_plt_stub(
                         name,
-                        self.memory.read_addr_at(reloc.relative_addr) - 6,
+                        self.memory.unpack_word(reloc.relative_addr) - 6,
                         sanity_check=not self.pic)
                 except KeyError:
                     pass
@@ -95,7 +94,7 @@ class MetaELF(Backend):
         # right before the resolution stubs.
         if self.arch.name in ('PPC32',):
             resolver_stubs = sorted(
-                (self.memory.read_addr_at(reloc.relative_addr), name)
+                (self.memory.unpack_word(reloc.relative_addr), name)
                 for name, reloc in func_jmprel.items()
             )
             if resolver_stubs:
@@ -239,7 +238,7 @@ class MetaELF(Backend):
             ]
 
         name, addr = plt_hitlist[0]
-        if addr is None:
+        if addr is None and plt_sec is not None:
             # try to resolve the very first entry
             tick.bailout_timer = 5
             guessed_addr = plt_sec.vaddr
@@ -300,8 +299,8 @@ class MetaELF(Backend):
 
         if self.is_ppc64_abiv1:
             ep_offset = self._entry
-            self._entry = self.memory.read_addr_at(AT.from_lva(ep_offset, self).to_rva())
-            self.ppc64_initial_rtoc = self.memory.read_addr_at(AT.from_lva(ep_offset+8, self).to_rva())
+            self._entry = self.memory.unpack_word(AT.from_lva(ep_offset, self).to_rva())
+            self.ppc64_initial_rtoc = self.memory.unpack_word(AT.from_lva(ep_offset+8, self).to_rva())
 
     @staticmethod
     def extract_soname(path):

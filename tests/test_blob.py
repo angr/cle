@@ -17,9 +17,9 @@ def test_blob_0():
     blob_file = os.path.join(TEST_BASE, 'tests', 'i386', 'all')
     ld = cle.Loader(blob_file, main_opts={
         'backend': 'blob',
-        'custom_base_addr': BASE_ADDR,
-        'custom_entry_point': ENTRYPOINT,
-        'custom_arch': "ARM",
+        'base_addr': BASE_ADDR,
+        'entry_point': ENTRYPOINT,
+        'arch': "ARM",
     })
 
     nose.tools.assert_equal(ld.main_object.linked_base, BASE_ADDR)
@@ -36,7 +36,7 @@ def test_blob_0():
 
 def test_blob_1():
 
-    # Make sure the base address behaves as expected regardless of whether custom_offset is specified or not.
+    # Make sure the base address behaves as expected regardless of whether offset is specified or not.
 
     BASE_ADDR = 0x8000000
     ENTRYPOINT = 0x8001337
@@ -44,10 +44,10 @@ def test_blob_1():
     blob_file = os.path.join(TEST_BASE, 'tests', 'i386', 'all')
     ld = cle.Loader(blob_file, main_opts={
         'backend': 'blob',
-        'custom_base_addr': BASE_ADDR,
-        'custom_entry_point': ENTRYPOINT,
-        'custom_arch': "ARM",
-        'custom_offset': 0x200,
+        'base_addr': BASE_ADDR,
+        'entry_point': ENTRYPOINT,
+        'arch': "ARM",
+        'offset': 0x200,
     })
 
     nose.tools.assert_equal(ld.main_object.linked_base, BASE_ADDR)

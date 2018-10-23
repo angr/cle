@@ -1,9 +1,6 @@
 from ..symbol import Symbol
 from ...address_translator import AT
 
-if bytes is not str:
-    long = int
-
 def maybedecode(string):
     return string if type(string) is str else string.decode()
 
@@ -32,7 +29,7 @@ class ELFSymbol(Symbol):
         sec_ndx, value = symb.entry.st_shndx, symb.entry.st_value
 
         # A relocatable object's symbol's value is relative to its section's addr.
-        if owner.is_relocatable and isinstance(sec_ndx, (int, long)):
+        if owner.is_relocatable and isinstance(sec_ndx, int):
             value += owner.sections[sec_ndx].remap_offset
 
         super(ELFSymbol, self).__init__(owner,

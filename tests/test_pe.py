@@ -115,7 +115,7 @@ def test_tls():
     tls = ld.tls_object
     nose.tools.assert_is_not_none(tls)
     nose.tools.assert_equals(len(tls.modules), 1)
-    nose.tools.assert_equals(tls.get_tls_data_addr(0), tls.memory.read_addr_at(0))
+    nose.tools.assert_equals(tls.get_tls_data_addr(0), tls.memory.unpack_word(0))
     nose.tools.assert_raises(IndexError, tls.get_tls_data_addr, 1)
 
 if __name__ == '__main__':

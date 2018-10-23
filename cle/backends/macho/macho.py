@@ -64,7 +64,6 @@ class MachO(Backend):
         self.mod_init_func_pointers = []  # may be TUMB interworking
         self.mod_term_func_pointers = []  # may be THUMB interworking
         self.export_blob = None  # exports trie
-        self.symbols = []  # array of symbols
         self.binding_blob = None  # binding information
         self.lazy_binding_blob = None  # lazy binding information
         self.weak_binding_blob = None  # weak binidng information
@@ -186,7 +185,7 @@ class MachO(Backend):
         # factoring out common code
         def parse_mod_funcs_internal(s, target):
             for i in range(s.vaddr, s.vaddr + s.memsize, size):
-                addr = self._unpack_with_byteorder(fmt, "".join(self.memory.read_bytes(i, size)))[0]
+                addr = self._unpack_with_byteorder(fmt, "".join(self.memory.load(i, size)))[0]
                 l.debug("Addr: %#x", addr)
                 target.append(addr)
 
@@ -542,7 +541,6 @@ class MachO(Backend):
             packstr = "I2BhI"
             structsize = 12
 
-        self.symbols = []  # we cannot yet fill symbols_by_addr
         for i in range(0, self.symtab_nsyms):
             offset_in_symtab = (i * structsize)
             offset = offset_in_symtab+ self.symtab_offset
@@ -552,7 +550,7 @@ class MachO(Backend):
                     n_strx, n_type, n_sect, n_desc, n_value)
             sym = MachOSymbol(
                     self, offset_in_symtab,n_strx, n_type, n_sect, n_desc, n_value)
-            self.symbols.append(sym)
+            self.symbols.add(sym)
 
     def get_string(self, start):
         """Loads a string from the string table"""
@@ -639,7 +637,7 @@ class MachO(Backend):
         # add to sections_by_ordinal
         self.sections_by_ordinal.extend(seg.sections)
 
-        if segname == "__PAGEZERO":
+        if segname == b"__PAGEZERO":
             # TODO: What we actually need at this point is some sort of smart on-demand string or memory
             # This should not cause trouble because accesses to __PAGEZERO are SUPPOSED to crash (segment has access set to no access)
             # This optimization is here as otherwise several GB worth of zeroes would clutter our memory
