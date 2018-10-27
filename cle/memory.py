@@ -1,9 +1,8 @@
 import bisect
 import struct
+from typing import Tuple, Union, List
 
 __all__ = ('Clemory',)
-
-# TODO: Further optimization is possible now that the list of backers is sorted
 
 
 class Clemory:
@@ -17,7 +16,7 @@ class Clemory:
     """
     def __init__(self, arch, root=False):
         self._arch = arch
-        self._backers = []  # tuple of (start, str)
+        self._backers = []  # type: Tuple[int, Union[bytearray, Clemory, List[int]]]
         self._pointer = 0
         self._root = root
 
@@ -313,11 +312,41 @@ class Clemory:
     def tell(self):
         return self._pointer
 
+    def find(self, data, search_min=None, search_max=None):
+        """
+        Find all occurances of a bytestring in memory.
+
+        :param bytes data:          The bytestring to search for
+        :param int search_min:      Optional: The first address to include as valid
+        :param int search_max:      Optional: The last address to include as valid
+        :return Iterator[int]:      Iterates over addresses at which the bytestring occurs
+        """
+        if search_min is None:
+            search_min = self.min_addr
+        if search_max is None:
+            search_max = self.max_addr
+
+        for start, backer in self._backers:
+            if type(backer) is Clemory:
+                if search_max < backer.min_addr or search_min > backer.max_addr:
+                    continue
+                yield from (addr + start for addr in backer.find(data, search_min-start, search_max-start))
+            elif type(backer) is list:
+                raise TypeError("find is not supported for list-backed clemories")
+            else:
+                if search_max < start or search_min > start + len(data):
+                    continue
+                ptr = search_min - start - 1
+                while True:
+                    ptr += 1
+                    ptr = backer.find(data, ptr)
+                    if ptr == -1 or ptr + len(data) > search_max - start - 1:
+                        break
+                    yield ptr + start
+
     def _update_min_max(self):
         """
         Update the three properties of Clemory: consecutive, min_addr, and max_addr.
-
-        :return:    None
         """
 
         is_consecutive = True
