@@ -112,12 +112,12 @@ class Loader:
 
         self.aslr = aslr
         self.page_size = page_size
-        self.memory = None
+        self.memory = None # type: Clemory
 
-        self.main_object = None
-        self._tls_object = None
-        self._kernel_object = None
-        self._extern_object = None
+        self.main_object = None # type: Backend
+        self._tls_object = None # type: TLSObject
+        self._kernel_object = None # type: KernelObject
+        self._extern_object = None # type: ExternObject
         self.shared_objects = OrderedDict()
         self.all_objects = []  # this list should always be sorted by min_addr
         self.requested_names = set()
