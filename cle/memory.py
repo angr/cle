@@ -97,7 +97,7 @@ class Clemory:
 
         #concrete memory read
         if self.concrete_target is not None:
-            l.debug("invoked get_byte %x" % (k))
+            #l.debug("invoked get_byte %x" % (k))
             return self.concrete_target.read_memory(k, 1)
 
         for start, data in self._backers:
@@ -199,7 +199,7 @@ class Clemory:
 
         # concrete memory read
         if self.concrete_target is not None:
-            l.debug("invoked read_bytes %x %x" % (addr, n))
+            #l.debug("invoked read_bytes %x %x" % (addr, n))
             return self.concrete_target.read_memory(addr, n)
 
         views = []
@@ -322,7 +322,7 @@ class Clemory:
         """
 
         if self.concrete_target is not None:
-            l.debug("invoked read %x" % (nbytes))
+            #l.debug("invoked read %x" % (nbytes))
             return self.concrete_target.read_memory(self._pointer, nbytes)
 
         try:
