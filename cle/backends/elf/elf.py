@@ -163,9 +163,44 @@ class ELF(MetaELF):
         return False
 
     @staticmethod
+    def _extract_arm_attrs(reader):
+        # EDG says: Did you know ARM puts a whole special section in their elves to hold all their ABI junk?
+        # As ARM architectures start to diverge a bunch, we actually need this data to pick out
+        # what to do.  Particularly for us, it's whether we're doing Cortex-M or not, as our other ARM support
+        # is generic
+
+        # TODO: There's a whole pile of useful stuff in here. We should use it some day.
+        attrs_sec = reader.get_section_by_name('.ARM.attributes')
+        if not attrs_sec:
+            return # No attrs here!
+        attrs_sub_sec = None
+        for subsec in attrs_sec.subsections:
+            if isinstance(subsec, elftools.elf.sections.ARMAttributesSubsection):
+                attrs_sub_sec = subsec
+                break
+        if not attrs_sub_sec:
+            return # None here either
+        attrs_sub_sub_sec = None
+        for subsubsec in attrs_sub_sec.subsubsections:
+            if isinstance(subsubsec, elftools.elf.sections.ARMAttributesSubsubsection):
+                attrs_sub_sub_sec = subsubsec
+                break
+        if not attrs_sub_sub_sec:
+            return  # None here either
+        # Ok, now we can finally look at the goods
+        atts = {}
+        for attobj in attrs_sub_sub_sec.attributes:
+            atts[attobj.tag] = attobj.value
+        return atts
+
+    @staticmethod
     def extract_arch(reader):
         arch_str = reader['e_machine']
-        if arch_str == 'ARM':
+        if 'ARM' in arch_str:
+            # Check the ARM attributes, if they exist
+            arm_attrs = ELF._extract_arm_attrs(reader)
+            if arm_attrs and 'TAG_CPU_NAME' in arm_attrs and arm_attrs['TAG_CPU_NAME'].endswith("-M"):
+                return archinfo.ArchARMCortexM('Iend_LE')
             if reader.header.e_flags & 0x200:
                 return archinfo.ArchARMEL('Iend_LE' if reader.little_endian else 'Iend_BE')
             elif reader.header.e_flags & 0x400:
