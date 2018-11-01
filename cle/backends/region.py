@@ -88,6 +88,16 @@ class Region(object):
         """
         return self.offset
 
+    # EDG says: Blobs now have segments, and SimOS will get upset if these don't exist.  See simos.py line 107 for
+    # some code you should probably fix if you don't like it.
+    def is_readable(self):
+        return True
+
+    def is_writable(self):
+        return True
+
+    def is_executable(self):
+        return True
 
 class Segment(Region):
     pass

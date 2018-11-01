@@ -1,7 +1,7 @@
 from . import Backend, register_backend
 from ..errors import CLEError
 from ..patched_stream import PatchedStream
-
+from .region import Segment
 import logging
 l = logging.getLogger("cle.blob")
 
@@ -82,6 +82,8 @@ class Blob(Backend):
         self.binary_stream.seek(file_offset)
         string = self.binary_stream.read(size)
         self.memory.add_backer(mem_addr - self.linked_base, string)
+        seg = Segment(file_offset, mem_addr, size, size)
+        self.segments.append(seg)
         self._max_addr = max(len(string) + mem_addr, self._max_addr)
         self._min_addr = min(mem_addr, self._min_addr)
 
