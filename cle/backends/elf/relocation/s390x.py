@@ -25,3 +25,7 @@ class R_390_TLS_TPOFF(generic.GenericTLSOffsetReloc):
 
 class R_390_IRELATIVE(generic.GenericIRelativeReloc):
     pass
+
+
+class R_390_COPY(generic.GenericCopyReloc):
+    pass
