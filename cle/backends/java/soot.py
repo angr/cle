@@ -64,10 +64,10 @@ class Soot(Backend):
 
         if jni_libs:
             # native libraries are getting loaded by adding them as a dependency of this object
-            self.deps += [jni_libs] if type(jni_libs) in (str, unicode) else jni_libs
+            self.deps += [jni_libs] if type(jni_libs) in (str, bytes) else jni_libs
             # if available, add additional load path(s)
             if jni_libs_ld_path:
-                path_list = [jni_libs_ld_path] if type(jni_libs_ld_path) in (str, unicode) else jni_libs_ld_path
+                path_list = [jni_libs_ld_path] if type(jni_libs_ld_path) in (str, bytes) else jni_libs_ld_path
                 self.extra_load_path += path_list
             self.jni_support = True
         else:
@@ -135,7 +135,7 @@ class Soot(Backend):
                 'params': thing.params,
             }
 
-        elif isinstance(thing, (str, unicode)):
+        elif isinstance(thing, (str, bytes)):
             method_name = thing
 
             # if class_name is not set, parse it from the method name
@@ -206,4 +206,4 @@ class Soot(Backend):
     def is_zip_archive(stream):
         identstring = stream.read(4)
         stream.seek(0)
-        return identstring.startswith('\x50\x4b\x03\x04')
+        return identstring.startswith(b'\x50\x4b\x03\x04')
