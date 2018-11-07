@@ -75,9 +75,9 @@ class Jar(Soot):
             manifest = jar.open('META-INF/MANIFEST.MF', "r")
             data = {}
             for line in manifest.readlines():
-                if ':' in line:
-                    key, value = line.split(':')
-                    data[key.strip()] = value.strip()
+                if b':' in line:
+                    key, value = line.split(b':')
+                    data[key.strip().decode('utf-8')] = value.strip().decode('utf-8')
             return data
 
 
