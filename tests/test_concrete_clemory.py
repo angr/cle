@@ -30,6 +30,7 @@ def teardown():
     print("---------------------------\n")
 
 @nose.tools.with_setup(setup_x64,teardown)
+@attr(speed='slow')
 def test_concrete_clemory_read_bytes():
     global concrete_target
     clemory = cle.Clemory(None, root=True)
@@ -44,6 +45,7 @@ def test_concrete_clemory_read_bytes():
     nose.tools.assert_true(cle_msg == cle_msg_concrete and type(cle_msg) == type(cle_msg_concrete) and type(cle_msg[0] == cle_msg_concrete[0]) )
 
 @nose.tools.with_setup(setup_x64,teardown)
+@attr(speed='slow')
 def test_concrete_clemory_get_byte():
     global concrete_target
     clemory = cle.Clemory(None, root=True)
@@ -58,6 +60,7 @@ def test_concrete_clemory_get_byte():
     nose.tools.assert_true(cle_byte == cle_byte_concrete and type(cle_byte_concrete) == type(cle_byte_concrete))
 
 @nose.tools.with_setup(setup_x64,teardown)
+@attr(speed='slow')
 def test_concrete_clemory_read():
     global concrete_target
     clemory = cle.Clemory(None, root=True)
