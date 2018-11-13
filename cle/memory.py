@@ -29,10 +29,8 @@ class Clemory:
         self.consecutive = True
         self.min_addr = 0
         self.max_addr = 0
-
         self.concrete_target = None
 
-        raise Exception
 
     def is_concrete_target_set(self):
         return self.concrete_target is not None
