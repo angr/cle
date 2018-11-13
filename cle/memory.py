@@ -33,14 +33,7 @@ class Clemory:
         self.concrete_target = None
 
     def is_concrete_target_set(self):
-        try:
-            if self.concrete_target is not None:
-                return True
-            else:
-                return False
-        except AttributeError:
-            # For some reasons sometimes we have an AttributeError.
-            return False
+        return self.concrete_target is not None
 
     def set_concrete_target(self, concrete_target):
         self.concrete_target = concrete_target
@@ -162,6 +155,7 @@ class Clemory:
             'consecutive': self.consecutive,
             'min_addr': self.min_addr,
             'max_addr': self.max_addr,
+            'concrete_target': self.concrete_target
         }
 
         return s
@@ -174,6 +168,7 @@ class Clemory:
         self.consecutive = s['consecutive']
         self.min_addr = s['min_addr']
         self.max_addr = s['max_addr']
+        self.concrete_target = s['concrete_target']
 
     def backers(self, addr=0):
         """
