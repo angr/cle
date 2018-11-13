@@ -29,11 +29,18 @@ class Clemory:
         self.consecutive = True
         self.min_addr = 0
         self.max_addr = 0
+
         self.concrete_target = None
 
-
     def is_concrete_target_set(self):
-        return self.concrete_target is not None
+        try:
+            if self.concrete_target is not None:
+                return True
+            else:
+                return False
+        except AttributeError:
+            # For some reasons sometimes we have an AttributeError.
+            return False
 
     def set_concrete_target(self, concrete_target):
         self.concrete_target = concrete_target
@@ -96,7 +103,7 @@ class Clemory:
     def __getitem__(self, k):
 
         #concrete memory read
-        if self.concrete_target is not None:
+        if self.is_concrete_target_set():
             #l.debug("invoked get_byte %x" % (k))
             return self.concrete_target.read_memory(k, 1)
 
@@ -198,7 +205,7 @@ class Clemory:
         """
 
         # concrete memory read
-        if self.concrete_target is not None:
+        if self.is_concrete_target_set():
             #l.debug("invoked read_bytes %x %x" % (addr, n))
             return self.concrete_target.read_memory(addr, n)
 
@@ -321,7 +328,7 @@ class Clemory:
         encountered.
         """
 
-        if self.concrete_target is not None:
+        if self.is_concrete_target_set():
             #l.debug("invoked read %x" % (nbytes))
             return self.concrete_target.read_memory(self._pointer, nbytes)
 
