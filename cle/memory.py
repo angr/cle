@@ -14,7 +14,6 @@ class Clemory:
     __slots__ = ('_arch', '_backers', '_updates', '_pointer', '_root', '_cbackers', '_needs_flattening_personal',
                  'consecutive', 'min_addr', 'max_addr', 'concrete_target' )
 
-
     """
     An object representing a memory space.
 
@@ -47,7 +46,6 @@ class Clemory:
         """
         if not data:
             raise ValueError("Backer is empty!")
-            pass
 
         if not isinstance(data, (bytes, list, Clemory)):
             raise TypeError("Data must be a string or a Clemory")
@@ -95,9 +93,9 @@ class Clemory:
 
     def __getitem__(self, k):
 
-        #concrete memory read
+        # concrete memory read
         if self.is_concrete_target_set():
-            #l.debug("invoked get_byte %x" % (k))
+            # l.debug("invoked get_byte %x" % (k))
             return self.concrete_target.read_memory(k, 1)
 
         for start, data in self._backers:
@@ -201,7 +199,7 @@ class Clemory:
 
         # concrete memory read
         if self.is_concrete_target_set():
-            #l.debug("invoked read_bytes %x %x" % (addr, n))
+            # l.debug("invoked read_bytes %x %x" % (addr, n))
             return self.concrete_target.read_memory(addr, n)
 
         views = []
@@ -324,7 +322,7 @@ class Clemory:
         """
 
         if self.is_concrete_target_set():
-            #l.debug("invoked read %x" % (nbytes))
+            # l.debug("invoked read %x" % (nbytes))
             return self.concrete_target.read_memory(self._pointer, nbytes)
 
         try:
