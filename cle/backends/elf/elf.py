@@ -155,6 +155,13 @@ class ELF(MetaELF):
             except archinfo.ArchNotFound:
                 return False
 
+    @classmethod
+    def check_magic_compatibility(cls, stream):
+        stream.seek(0)
+        identstring = stream.read(0x10)
+        stream.seek(0)
+        return identstring.startswith(b'\x7fELF')
+
     @staticmethod
     def is_compatible(stream):
         stream.seek(0)

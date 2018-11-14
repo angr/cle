@@ -307,6 +307,14 @@ class Backend:
         """
         return False
 
+    @classmethod
+    def check_magic_compatibility(cls, stream): # pylint: disable=unused-argument
+        """
+        Check if a stream of bytes contains the same magic number as the main object
+        """
+        return False
+
+
     @staticmethod
     def _get_symbol_relative_addr(symbol):
         return symbol.relative_addr
