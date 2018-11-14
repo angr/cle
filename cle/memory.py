@@ -1,9 +1,6 @@
 
 import bisect
 import struct
-import cffi
-
-from .errors import CLEMemoryError
 from typing import Tuple, Union, List
 
 __all__ = ('Clemory',)
