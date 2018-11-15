@@ -106,9 +106,17 @@ class GenericAbsoluteReloc(ELFReloc):
 
 
 class GenericCopyReloc(ELFReloc):
-    @property
-    def value(self):
-        return self.resolvedby.owner.memory.unpack_word(self.resolvedby.relative_addr)
+    def relocate(self, solist, bypass_compatibility=False):
+        try:
+            solist.remove(self.owner)
+        except ValueError:
+            pass
+
+        if not self.resolve_symbol(solist, bypass_compatibility):
+            return False
+
+        self.owner.memory.store(self.relative_addr, self.resolvedby.owner.memory.load(self.resolvedby.relative_addr, self.resolvedby.size))
+        return True
 
 
 class MipsGlobalReloc(GenericAbsoluteReloc):

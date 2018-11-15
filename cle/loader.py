@@ -658,6 +658,7 @@ class Loader:
         if self._perform_relocations:
             for obj in objects:
                 self._relocate_object(obj)
+
         for obj in objects:
             if isinstance(obj, (MetaELF, PE)) and obj.tls_used:
                 self.tls_object.map_object(obj)

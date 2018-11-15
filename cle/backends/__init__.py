@@ -121,7 +121,7 @@ class Backend:
         self._custom_base_addr = base_addr
         self.provides = os.path.basename(self.binary) if self.binary is not None else None
 
-        self.memory = None
+        self.memory: Clemory = None
 
         # should be set inside `cle.Loader.add_object`
         self._is_mapped = False

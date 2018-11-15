@@ -1,6 +1,8 @@
 from __future__ import print_function
 import logging
 
+from . import Backend
+from .symbol import Symbol
 from ..address_translator import AT
 
 l = logging.getLogger('cle.backends.relocation')
@@ -17,16 +19,16 @@ class Relocation:
     :ivar rebased_addr: The address in the global memory space this relocation would like to write to
     :ivar resolvedby:   If the symbol this relocation refers to is an import symbol and that import has been resolved,
                         this attribute holds the symbol from a different binary that was used to resolve the import.
-    :ivar resolved:     Whether the application of this relocation was succesful
+    :ivar resolved:     Whether the application of this relocation was successful
     """
-    def __init__(self, owner, symbol, relative_addr):
+    def __init__(self, owner: Backend, symbol: Symbol, relative_addr: int):
         self.owner = owner
         self.arch = owner.arch
         self.symbol = symbol
         self.relative_addr = relative_addr
-        self.resolvedby = None
+        self.resolvedby: Symbol = None
         self.resolved = False
-        self.resolvewith = None
+        self.resolvewith: str = None
         if self.symbol is not None and self.symbol.is_import:
             self.owner.imports[self.symbol.name] = self
 
@@ -64,7 +66,7 @@ class Relocation:
         if self.symbol.is_weak:
             return False
 
-        new_symbol = self.owner.loader.extern_object.make_extern(self.symbol.name, thumb=thumb)
+        new_symbol = self.owner.loader.extern_object.make_extern(self.symbol.name, sym_type=self.symbol.type, thumb=thumb)
         self.resolve(new_symbol)
         return True
 
