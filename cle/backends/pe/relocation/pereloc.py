@@ -12,7 +12,7 @@ class PEReloc(Relocation):
         if self.resolvewith is not None:
             self.resolvewith = self.resolvewith.lower()
 
-    def resolve_symbol(self, solist, bypass_compatibility=False):
+    def resolve_symbol(self, solist, bypass_compatibility=False, thumb=False):
         if not bypass_compatibility:
             solist = [x for x in solist if self.resolvewith == x.provides]
         out = super(PEReloc, self).resolve_symbol(solist)

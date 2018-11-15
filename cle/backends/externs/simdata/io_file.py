@@ -81,9 +81,9 @@ class IoFile(SimData):
     type = SimData.TYPE_OBJECT
     fd = NotImplemented  # type: int
 
-    @staticmethod
-    def static_size(arch):
-        return io_file_data_for_arch(arch)['size']
+    @classmethod
+    def static_size(cls, owner):
+        return io_file_data_for_arch(owner.arch)['size']
 
     # the canonical verision of this should be the FILEBUF_LITERAL macro from glibc
     # for maximum hyperrealism we could have a dependency on the IO_jumps table which would have dependencies on

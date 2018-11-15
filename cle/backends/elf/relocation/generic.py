@@ -58,7 +58,7 @@ class GenericIRelativeReloc(ELFReloc):
         if not self.resolve_symbol(solist, bypass_compatibility):
             return False
 
-        self.owner.irelatives.append((self.resolvedby.mapped_base, self.relative_addr))
+        self.owner.irelatives.append((self.resolvedby.rebased_addr, self.relative_addr))
         return True
 
 
@@ -94,9 +94,11 @@ class GenericRelativeReloc(ELFReloc):
         if self.symbol.type == Symbol.TYPE_NONE:
             self.resolve(None)
             return True
-        return super(GenericRelativeReloc, self).resolve_symbol(solist, bypass_compatibility=bypass_compatibility,
-                                                                thumb=thumb
-                                                                )
+        return super(GenericRelativeReloc, self).resolve_symbol(
+            solist,
+            bypass_compatibility=bypass_compatibility,
+            thumb=thumb
+        )
 
 
 class GenericAbsoluteReloc(ELFReloc):
@@ -115,9 +117,10 @@ class GenericCopyReloc(ELFReloc):
         if not self.resolve_symbol(solist, bypass_compatibility):
             return False
 
-        if self.resolvedby.size != self.symbol.size:
-            l.error("Export symbol %s is different size than import symbol for copy relocation - you have messed something up", self.symbol.name)
-        self.owner.memory.store(self.relative_addr, self.resolvedby.owner.memory.load(self.resolvedby.relative_addr, self.resolvedby.size))
+        if self.resolvedby.size != self.symbol.size and (self.resolvedby.size != 0 or not self.resolvedby.is_extern):
+            l.error("Export symbol is different size than import symbol for copy relocation: %s", self.symbol.name)
+        else:
+            self.owner.memory.store(self.relative_addr, self.resolvedby.owner.memory.load(self.resolvedby.relative_addr, self.resolvedby.size))
         return True
 
 

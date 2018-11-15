@@ -23,6 +23,8 @@ class ELFSymbol(Symbol):
             symtype = Symbol.TYPE_SECTION
         elif realtype == 'STT_NOTYPE':
             symtype = Symbol.TYPE_NONE
+        elif realtype == 'STT_TLS':
+            symtype = Symbol.TYPE_TLS_OBJECT
         else:
             symtype = Symbol.TYPE_OTHER
 

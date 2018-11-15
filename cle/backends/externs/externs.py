@@ -14,7 +14,7 @@ class ExternSegment(Segment):
 
 
 class ExternObject(Backend):
-    def __init__(self, loader, map_size=0x8000):
+    def __init__(self, loader, map_size=0x8000, tls_size=0x1000):
         super(ExternObject, self).__init__('cle##externs', loader=loader)
         self.next_addr = 0
         self.map_size = map_size
@@ -23,6 +23,11 @@ class ExternObject(Backend):
         self.provides = 'extern-address space'
         self.pic = True
         self._import_symbols = {}
+        self._warned_data_import = False
+
+        self.tls_data_size = tls_size
+        self.tls_block_size = tls_size
+        self.tls_next_addr = 0
 
         self.segments.append(ExternSegment('externs', 0, 0, self.map_size))
 
@@ -40,13 +45,14 @@ class ExternObject(Backend):
 
         SymbolCls = Symbol
         simdata = lookup(name, libname)
+        tls = sym_type == Symbol.TYPE_TLS_OBJECT
         if simdata is not None:
             SymbolCls = simdata
-            size = simdata.static_size(self.arch)
+            size = simdata.static_size(self)
             if sym_type != simdata.type:
                 l.warning("Symbol type mismatch between export request and response for %s. What's going on?", name)
 
-        addr = self.allocate(max(size, 1), alignment=alignment, thumb=thumb)
+        addr = self.allocate(max(size, 1), alignment=alignment, thumb=thumb, tls=tls)
 
         if hasattr(self.loader.main_object, 'is_ppc64_abiv1') and self.loader.main_object.is_ppc64_abiv1 and sym_type == Symbol.TYPE_FUNCTION:
             func_symbol = SymbolCls(self, name + '#func', AT.from_mva(addr, self).to_rva(), size, sym_type)
@@ -63,7 +69,7 @@ class ExternObject(Backend):
             sym_type = Symbol.TYPE_OBJECT
             SymbolCls = Symbol
 
-        new_symbol = SymbolCls(self, name, AT.from_mva(addr, self).to_rva(), size, sym_type)
+        new_symbol = SymbolCls(self, name, addr if tls else AT.from_mva(addr, self).to_rva(), size, sym_type)
         new_symbol.is_export = True
         new_symbol.is_extern = True
 
@@ -75,12 +81,29 @@ class ExternObject(Backend):
     def get_pseudo_addr(self, name):
         return self.make_extern(name).rebased_addr
 
-    def allocate(self, size=1, alignment=8, thumb=False):
-        addr = ALIGN_UP(self.next_addr, alignment) | thumb
-        self.next_addr = addr + size
-        if self.next_addr > self.map_size:
+    def allocate(self, size=1, alignment=8, thumb=False, tls=False):
+        if tls:
+            if not self.tls_used:
+                self.tls_data_start = self.allocate(self.tls_data_size) - self.mapped_base
+                self.tls_used = True
+                self.loader.tls_object.register_object(self)
+            start = self.tls_next_addr
+            limit = self.tls_data_size
+        else:
+            start = self.next_addr
+            limit = self.map_size
+
+        addr = ALIGN_UP(start, alignment) | thumb
+        next_start = addr + size
+        if next_start >= limit:
             raise CLEOperationError("Ran out of room in the extern object...! Report this as a bug.")
-        return addr + self.mapped_base
+
+        if tls:
+            self.tls_next_addr = next_start
+            return addr
+        else:
+            self.next_addr = next_start
+            return addr + self.mapped_base
 
     @property
     def max_addr(self):
@@ -114,8 +137,9 @@ class ExternObject(Backend):
             for reloc in relocs:
                 reloc.relocate([self])
 
-        if symbol.size == 0 and symbol.type == Symbol.TYPE_OBJECT:
-            l.warning("Symbol %s was allocated without a known size. Emulation will fail if it is used non-opaquely.", symbol.name)
+        if symbol.size == 0 and symbol.type in (Symbol.TYPE_OBJECT, Symbol.TYPE_TLS_OBJECT):
+            l.warning("Symbol was allocated without a known size; emulation will fail if it is used non-opaquely: %s", symbol.name)
+            self._warned_data_import = True
 
 
 class KernelObject(Backend):

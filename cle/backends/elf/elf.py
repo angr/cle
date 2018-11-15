@@ -105,13 +105,6 @@ class ELF(MetaELF):
         self.is_relocatable = self.reader.header.e_type == 'ET_REL'
         self.pic = self.pic or self.reader.header.e_type in ('ET_REL', 'ET_DYN')
 
-        self.tls_used = False
-        self.tls_module_id = None
-        self.tls_block_offset = None
-        self.tls_block_size = None
-        self.tls_data_start = None
-        self.tls_data_size = None
-
         self.__parsed_reloc_tables = set()
 
         # The linked image base should be evaluated before registering any segment or section due to

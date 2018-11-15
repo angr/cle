@@ -52,14 +52,8 @@ class PE(Backend):
         else:
             self.provides = None
 
-        self.tls_used = False
-        self.tls_data_start = None
-        self.tls_data_size = None
         self.tls_index_address = None
         self.tls_callbacks = None
-        self.tls_block_size = None
-        self.tls_module_id = None
-        self.tls_block_offset = None
 
         self.supports_nx = self._pe.OPTIONAL_HEADER.DllCharacteristics & 0x100 != 0
         self.pic = self.pic or self._pe.OPTIONAL_HEADER.DllCharacteristics & 0x40 != 0

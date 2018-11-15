@@ -32,6 +32,7 @@ class Symbol:
     TYPE_FUNCTION = 2
     TYPE_OBJECT = 3
     TYPE_SECTION = 4
+    TYPE_TLS_OBJECT = 5
 
     def __init__(self, owner, name, relative_addr, size, sym_type):
         """

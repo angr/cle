@@ -116,6 +116,15 @@ class Backend:
         self.pic = force_rebase
         self.execstack = False
 
+        # tls info
+        self.tls_used = False
+        self.tls_module_id = None
+        self.tls_block_offset = None
+        self.tls_block_size = None
+        self.tls_data_start = None
+        self.tls_data_size = None
+
+
         # Custom options
         self._custom_entry_point = entry_point
         self._custom_base_addr = base_addr
