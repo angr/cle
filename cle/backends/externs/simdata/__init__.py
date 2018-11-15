@@ -4,6 +4,8 @@ from typing import List
 from ...relocation import Relocation
 from ...symbol import Symbol
 
+# pylint: disable=unused-argument,no-self-use
+
 class SimData(Symbol):
     name = NotImplemented  # type: str
     type = NotImplemented  # type: int
