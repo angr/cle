@@ -5,9 +5,9 @@ from ...relocation import Relocation
 from ...symbol import Symbol
 
 class SimData(Symbol):
-    name: str = NotImplemented
-    type: int = NotImplemented
-    libname: str = NotImplemented
+    name = NotImplemented  # type: str
+    type = NotImplemented  # type: int
+    libname = NotImplemented  # type: str
 
     @staticmethod
     def static_size(arch) -> int:

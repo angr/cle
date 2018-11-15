@@ -2,10 +2,10 @@ from . import SimData
 from ...relocation import Relocation
 
 class PointTo(SimData):
-    pointto_name: str = NotImplemented
-    pointto_type: int = NotImplemented
+    pointto_name = NotImplemented  # type: str
+    pointto_type = NotImplemented  # type: int
     type = SimData.TYPE_OBJECT
-    addend: int = 0
+    addend = 0  # type: int
 
     @staticmethod
     def static_size(arch):
