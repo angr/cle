@@ -150,7 +150,7 @@ class PE(Backend):
     def __register_relocs(self):
         if not hasattr(self._pe, 'DIRECTORY_ENTRY_BASERELOC'):
             l.debug("%s has no relocations", self.binary)
-            return
+            return []
 
         for base_reloc in self._pe.DIRECTORY_ENTRY_BASERELOC:
             entry_idx = 0

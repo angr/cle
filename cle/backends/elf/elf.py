@@ -420,11 +420,8 @@ class ELF(MetaELF):
                     'sh_flags': 0,
                     'sh_addralign': 0,
                 }
-                try:
-                    self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.memory, self.reader, self.strtab)
-                except TypeError:
-                    self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.reader, self.strtab)
-                    self.dynsym.stream = self.memory
+                self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.reader, self.strtab)
+                self.dynsym.stream = self.memory
 
                 if 'DT_GNU_HASH' in self._dynamic:
                     self.hashtable = GNUHashTable(
@@ -498,11 +495,8 @@ class ELF(MetaELF):
                     'sh_flags': 0,
                     'sh_addralign': 0,
                 }
-                try:
-                    self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.memory, self.reader, self.strtab)
-                except TypeError:
-                    self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.reader, self.strtab)
-                    self.dynsym.stream = self.memory
+                self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.reader, self.strtab)
+                self.dynsym.stream = self.memory
 
                 # set up the hash table, prefering the gnu hash section to the old hash section
                 # the hash table lets you get any symbol given its name
@@ -555,11 +549,8 @@ class ELF(MetaELF):
                         'sh_flags': 0,
                         'sh_addralign': 0,
                     }
-                    try:
-                        readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self.memory, self.reader)
-                    except TypeError:
-                        readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self.reader)
-                        readelf_relocsec.stream = self.memory
+                    readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self.reader)
+                    readelf_relocsec.stream = self.memory
                     self.__register_relocs(readelf_relocsec)
 
                 # try to parse relocations out of a table of type DT_JMPREL
@@ -576,11 +567,8 @@ class ELF(MetaELF):
                         'sh_flags': 0,
                         'sh_addralign': 0,
                     }
-                    try:
-                        readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.memory, self.reader)
-                    except TypeError:
-                        readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.reader)
-                        readelf_jmprelsec.stream = self.memory
+                    readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.reader)
+                    readelf_jmprelsec.stream = self.memory
                     self.__register_relocs(readelf_jmprelsec, force_jmprel=True)
 
     def __parse_rpath(self, runpath, rpath):
