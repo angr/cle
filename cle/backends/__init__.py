@@ -24,7 +24,7 @@ class Backend:
     :ivar segments:         A listing of all the loaded segments in this file
     :ivar sections:         A listing of all the demarked sections in the file
     :ivar sections_map:     A dict mapping from section name to section
-    :ivar imports:          A mapping from symbol name to import symbol
+    :ivar imports:          A mapping from symbol name to import relocation
     :ivar resolved_imports: A list of all the import symbols that are successfully resolved
     :ivar relocs:           A list of all the relocations in this binary
     :ivar irelatives:       A list of tuples representing all the irelative relocations that need to be performed. The

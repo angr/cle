@@ -39,3 +39,4 @@ def lookup(name, libname):
 
 # pylint: disable=unused-import
 from . import io_file
+from . import progname

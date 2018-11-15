@@ -22,17 +22,21 @@ class ExternObject(Backend):
         self.memory.add_backer(0, bytes(map_size))
         self.provides = 'extern-address space'
         self.pic = True
+        self._import_symbols = {}
 
         self.segments.append(ExternSegment('externs', 0, 0, self.map_size))
 
 
-    def make_extern(self, name, size=1, alignment=8, thumb=False, sym_type=Symbol.TYPE_FUNCTION, libname=None):
+    def make_extern(self, name, size=0, alignment=None, thumb=False, sym_type=Symbol.TYPE_FUNCTION, libname=None):
         try:
             return self._symbol_cache[name]
         except KeyError:
             pass
 
         l.info("Creating extern symbol for %s", name)
+
+        if alignment is None:
+            alignment = self.arch.bytes
 
         SymbolCls = Symbol
         simdata = lookup(name, libname)
@@ -42,7 +46,7 @@ class ExternObject(Backend):
             if sym_type != simdata.type:
                 l.warning("Symbol type mismatch between export request and response for %s. What's going on?", name)
 
-        addr = self.allocate(size, alignment=alignment, thumb=thumb)
+        addr = self.allocate(max(size, 1), alignment=alignment, thumb=thumb)
 
         if hasattr(self.loader.main_object, 'is_ppc64_abiv1') and self.loader.main_object.is_ppc64_abiv1 and sym_type == Symbol.TYPE_FUNCTION:
             func_symbol = SymbolCls(self, name + '#func', AT.from_mva(addr, self).to_rva(), size, sym_type)
@@ -53,6 +57,7 @@ class ExternObject(Backend):
             self._init_symbol(func_symbol)
 
             toc = self.allocate(0x18, alignment=8)
+            size = 0x18
             self.memory.pack_word(AT.from_mva(toc, self).to_rva(), addr)
             addr = toc
             sym_type = Symbol.TYPE_OBJECT
@@ -86,10 +91,13 @@ class ExternObject(Backend):
             sym = Symbol(self, name, 0, 0, sym_type)
             sym.is_import = True
             sym.is_extern = True
-            self.imports[name] = sym
+            # this is kind of tricky... normally if you have an import and an export of the same name in the binary
+            # the two symbols are *the same symbol*. but we don't know ahead of time whether we will have the symbol
+            # here in externs, so we will not expose the import symbol to the rest of the world.
+            self._import_symbols[name] = sym
             return sym
         else:
-            sym = self.imports[name]
+            sym = self._import_symbols[name]
             if sym.type != sym_type:
                 raise CLEOperationError("Created the same extern import %s with two different types. Something isn't right!")
             return sym
@@ -105,6 +113,9 @@ class ExternObject(Backend):
             self.relocs.extend(relocs)
             for reloc in relocs:
                 reloc.relocate([self])
+
+        if symbol.size == 0 and symbol.type == Symbol.TYPE_OBJECT:
+            l.warning("Symbol %s was allocated without a known size. Emulation will fail if it is used non-opaquely.", symbol.name)
 
 
 class KernelObject(Backend):

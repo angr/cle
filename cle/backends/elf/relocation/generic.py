@@ -115,6 +115,8 @@ class GenericCopyReloc(ELFReloc):
         if not self.resolve_symbol(solist, bypass_compatibility):
             return False
 
+        if self.resolvedby.size != self.symbol.size:
+            l.error("Export symbol %s is different size than import symbol for copy relocation - you have messed something up", self.symbol.name)
         self.owner.memory.store(self.relative_addr, self.resolvedby.owner.memory.load(self.resolvedby.relative_addr, self.resolvedby.size))
         return True
 
