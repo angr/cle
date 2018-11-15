@@ -109,8 +109,8 @@ class ELF(MetaELF):
         self.tls_module_id = None
         self.tls_block_offset = None
         self.tls_block_size = None
-        self.tls_tdata_start = None
-        self.tls_tdata_size = None
+        self.tls_data_start = None
+        self.tls_data_size = None
 
         self.__parsed_reloc_tables = set()
 
@@ -688,8 +688,8 @@ class ELF(MetaELF):
     def __register_tls(self, seg_readelf):
         self.tls_used = True
         self.tls_block_size = seg_readelf.header.p_memsz
-        self.tls_tdata_size = seg_readelf.header.p_filesz
-        self.tls_tdata_start = AT.from_lva(seg_readelf.header.p_vaddr, self).to_rva()
+        self.tls_data_size = seg_readelf.header.p_filesz
+        self.tls_data_start = AT.from_lva(seg_readelf.header.p_vaddr, self).to_rva()
 
     def __register_sections(self):
         new_addr = 0

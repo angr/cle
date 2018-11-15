@@ -57,9 +57,9 @@ class PE(Backend):
         self.tls_data_size = None
         self.tls_index_address = None
         self.tls_callbacks = None
-        self.tls_size_of_zero_fill = None
+        self.tls_block_size = None
         self.tls_module_id = None
-        self.tls_data_pointer = None
+        self.tls_block_offset = None
 
         self.supports_nx = self._pe.OPTIONAL_HEADER.DllCharacteristics & 0x100 != 0
         self.pic = self.pic or self._pe.OPTIONAL_HEADER.DllCharacteristics & 0x40 != 0
@@ -210,11 +210,11 @@ class PE(Backend):
             tls = self._pe.DIRECTORY_ENTRY_TLS.struct
 
             self.tls_used = True
-            self.tls_data_start = tls.StartAddressOfRawData
+            self.tls_data_start = AT.from_lva(tls.StartAddressOfRawData, self).to_rva()
             self.tls_data_size = tls.EndAddressOfRawData - tls.StartAddressOfRawData
             self.tls_index_address = tls.AddressOfIndex
             self.tls_callbacks = self._register_tls_callbacks(tls.AddressOfCallBacks)
-            self.tls_size_of_zero_fill = tls.SizeOfZeroFill
+            self.tls_block_size = self.tls_data_size + tls.SizeOfZeroFill
 
     def _register_tls_callbacks(self, addr):
         """

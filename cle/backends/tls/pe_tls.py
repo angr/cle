@@ -54,15 +54,13 @@ class PETLSObject(TLSObject):
     """
 
     def __init__(self, loader, max_modules=256, max_data=0x8000):
-        super(PETLSObject, self).__init__(loader)
-        self.max_modules = max_modules
+        super(PETLSObject, self).__init__(loader, max_modules=max_modules)
         self.max_data = max_data
 
         self.used_data = 0
-        self.next_module_id = 0
         self.data_start = self.arch.bytes*max_modules
 
-        self.memory.add_backer(0, b'\0'*self.data_start)
+        self.memory.add_backer(0, bytes(self.data_start))
 
     def register_object(self, obj):
         if not obj.tls_used:
@@ -70,14 +68,9 @@ class PETLSObject(TLSObject):
 
         super(PETLSObject, self).register_object(obj)
 
-        obj.tls_module_id = self.next_module_id
-        self.next_module_id += 1
-        if self.next_module_id > self.max_modules:
-            raise CLEError("Too many loaded modules for TLS to handle... file this as a bug")
-
         data_start = self.data_start + self.used_data
-        obj.tls_data_pointer = AT.from_rva(data_start, self).to_mva()
-        self.used_data += obj.tls_data_size + obj.tls_size_of_zero_fill
+        obj.tls_block_offset = data_start
+        self.used_data += obj.tls_block_size
         if self.used_data > self.max_data:
             raise CLEError("Too much TLS data to handle... file this as a bug")
 
@@ -87,12 +80,6 @@ class PETLSObject(TLSObject):
         # Write the address of the data start into the array
         self.memory.pack_word(obj.tls_module_id*self.arch.bytes, AT.from_rva(data_start, self).to_mva())
         self.relocs.append(InternalTLSRelocation(data_start, obj.tls_module_id*self.arch.bytes, self))
-
-    def map_object(self, obj):
-        # Add the data image
-        image = obj.memory.load(AT.from_lva(obj.tls_data_start, obj).to_rva(),
-                obj.tls_data_size) + b'\0'*obj.tls_size_of_zero_fill
-        self.memory.add_backer(AT.from_mva(obj.tls_data_pointer, self).to_rva(), image)
 
     def get_tls_data_addr(self, tls_idx):
         """

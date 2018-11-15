@@ -110,7 +110,7 @@ def test_tls():
     nose.tools.assert_equals(ld.main_object.tls_data_size, 520)
     nose.tools.assert_equals(ld.main_object.tls_index_address, 0x41913C)
     nose.tools.assert_equals(ld.main_object.tls_callbacks, [0x411302])
-    nose.tools.assert_equals(ld.main_object.tls_size_of_zero_fill, 0)
+    nose.tools.assert_equals(ld.main_object.tls_block_size, ld.main_object.tls_data_size)
 
     tls = ld.tls_object
     nose.tools.assert_is_not_none(tls)
