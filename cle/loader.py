@@ -119,6 +119,9 @@ class Loader:
         # cache
         self._last_object = None
 
+        if self._extern_object and self._extern_object._warned_data_import:
+            l.warning('For more information about "Symbol was allocated without a known size", see https://docs.angr.io/extending-angr/environment#simdata')
+
     # Basic functions and properties
 
     def close(self):
@@ -658,9 +661,13 @@ class Loader:
         if self._perform_relocations:
             for obj in objects:
                 self._relocate_object(obj)
+
         for obj in objects:
             if isinstance(obj, (MetaELF, PE)) and obj.tls_used:
                 self.tls_object.map_object(obj)
+        if self._extern_object and self._extern_object.tls_used:
+            # this entire scheme will break when we do dynamic loading. you have been warned, me.
+            self.tls_object.map_object(self._extern_object)
 
         return objects
 

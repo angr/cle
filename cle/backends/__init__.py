@@ -24,7 +24,7 @@ class Backend:
     :ivar segments:         A listing of all the loaded segments in this file
     :ivar sections:         A listing of all the demarked sections in the file
     :ivar sections_map:     A dict mapping from section name to section
-    :ivar imports:          A mapping from symbol name to import symbol
+    :ivar imports:          A mapping from symbol name to import relocation
     :ivar resolved_imports: A list of all the import symbols that are successfully resolved
     :ivar relocs:           A list of all the relocations in this binary
     :ivar irelatives:       A list of tuples representing all the irelative relocations that need to be performed. The
@@ -116,12 +116,21 @@ class Backend:
         self.pic = force_rebase
         self.execstack = False
 
+        # tls info
+        self.tls_used = False
+        self.tls_module_id = None
+        self.tls_block_offset = None
+        self.tls_block_size = None
+        self.tls_data_start = None
+        self.tls_data_size = None
+
+
         # Custom options
         self._custom_entry_point = entry_point
         self._custom_base_addr = base_addr
         self.provides = os.path.basename(self.binary) if self.binary is not None else None
 
-        self.memory = None
+        self.memory = None  # type: Clemory
 
         # should be set inside `cle.Loader.add_object`
         self._is_mapped = False

@@ -12,7 +12,7 @@ class PEReloc(Relocation):
         if self.resolvewith is not None:
             self.resolvewith = self.resolvewith.lower()
 
-    def resolve_symbol(self, solist, bypass_compatibility=False):
+    def resolve_symbol(self, solist, bypass_compatibility=False, thumb=False):
         if not bypass_compatibility:
             solist = [x for x in solist if self.resolvewith == x.provides]
         out = super(PEReloc, self).resolve_symbol(solist)
@@ -22,7 +22,7 @@ class PEReloc(Relocation):
 
         newsym = self.resolvedby.resolve_forwarder()
         if newsym is None:
-            new_symbol = self.owner.loader.extern_object.make_extern(self.symbol.name)
+            new_symbol = self.owner.loader.extern_object.make_extern(self.symbol.name, sym_type=self.symbol.type)
             self.resolvedby.resolvedby = new_symbol
             self.resolve(new_symbol)
             return True

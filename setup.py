@@ -17,7 +17,7 @@ setup(
     python_requires='>=3.5',
     packages=packages,
     install_requires=[
-        'pyelftools>=0.24',
+        'pyelftools>=0.25',
         'cffi',
         'idalink',
         'archinfo==8.18.10.25',

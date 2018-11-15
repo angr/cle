@@ -105,13 +105,6 @@ class ELF(MetaELF):
         self.is_relocatable = self.reader.header.e_type == 'ET_REL'
         self.pic = self.pic or self.reader.header.e_type in ('ET_REL', 'ET_DYN')
 
-        self.tls_used = False
-        self.tls_module_id = None
-        self.tls_block_offset = None
-        self.tls_block_size = None
-        self.tls_tdata_start = None
-        self.tls_tdata_size = None
-
         self.__parsed_reloc_tables = set()
 
         # The linked image base should be evaluated before registering any segment or section due to
@@ -427,11 +420,8 @@ class ELF(MetaELF):
                     'sh_flags': 0,
                     'sh_addralign': 0,
                 }
-                try:
-                    self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.memory, self.reader, self.strtab)
-                except TypeError:
-                    self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.reader, self.strtab)
-                    self.dynsym.stream = self.memory
+                self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.reader, self.strtab)
+                self.dynsym.stream = self.memory
 
                 if 'DT_GNU_HASH' in self._dynamic:
                     self.hashtable = GNUHashTable(
@@ -505,11 +495,8 @@ class ELF(MetaELF):
                     'sh_flags': 0,
                     'sh_addralign': 0,
                 }
-                try:
-                    self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.memory, self.reader, self.strtab)
-                except TypeError:
-                    self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.reader, self.strtab)
-                    self.dynsym.stream = self.memory
+                self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.reader, self.strtab)
+                self.dynsym.stream = self.memory
 
                 # set up the hash table, prefering the gnu hash section to the old hash section
                 # the hash table lets you get any symbol given its name
@@ -562,11 +549,8 @@ class ELF(MetaELF):
                         'sh_flags': 0,
                         'sh_addralign': 0,
                     }
-                    try:
-                        readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self.memory, self.reader)
-                    except TypeError:
-                        readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self.reader)
-                        readelf_relocsec.stream = self.memory
+                    readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self.reader)
+                    readelf_relocsec.stream = self.memory
                     self.__register_relocs(readelf_relocsec)
 
                 # try to parse relocations out of a table of type DT_JMPREL
@@ -583,11 +567,8 @@ class ELF(MetaELF):
                         'sh_flags': 0,
                         'sh_addralign': 0,
                     }
-                    try:
-                        readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.memory, self.reader)
-                    except TypeError:
-                        readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.reader)
-                        readelf_jmprelsec.stream = self.memory
+                    readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.reader)
+                    readelf_jmprelsec.stream = self.memory
                     self.__register_relocs(readelf_jmprelsec, force_jmprel=True)
 
     def __parse_rpath(self, runpath, rpath):
@@ -688,8 +669,8 @@ class ELF(MetaELF):
     def __register_tls(self, seg_readelf):
         self.tls_used = True
         self.tls_block_size = seg_readelf.header.p_memsz
-        self.tls_tdata_size = seg_readelf.header.p_filesz
-        self.tls_tdata_start = AT.from_lva(seg_readelf.header.p_vaddr, self).to_rva()
+        self.tls_data_size = seg_readelf.header.p_filesz
+        self.tls_data_start = AT.from_lva(seg_readelf.header.p_vaddr, self).to_rva()
 
     def __register_sections(self):
         new_addr = 0

@@ -14,11 +14,11 @@ class Symbol:
     There should never be more than one Symbol instance representing a single symbol. To make sure of this, only use
     the :meth:`cle.backends.Backend.get_symbol()` to create new symbols.
 
-    :ivar owner:        The object that contains this symbol
-    :vartype owner:     cle.backends.Backend
+    :ivar owner:            The object that contains this symbol
+    :vartype owner:         cle.backends.Backend
     :ivar str name:         The name of this symbol
     :ivar int addr:         The un-based address of this symbol, an RVA
-    :iver int size:         The size of this symbol
+    :ivar int size:         The size of this symbol
     :ivar int type:         The type of this symbol as one of SYMBOL.TYPE_*
     :ivar bool resolved:    Whether this import symbol has been resolved to a real symbol
     :ivar resolvedby:       The real symbol this import symbol has been resolve to
@@ -32,6 +32,7 @@ class Symbol:
     TYPE_FUNCTION = 2
     TYPE_OBJECT = 3
     TYPE_SECTION = 4
+    TYPE_TLS_OBJECT = 5
 
     def __init__(self, owner, name, relative_addr, size, sym_type):
         """
