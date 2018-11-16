@@ -1,3 +1,4 @@
+
 import bisect
 import struct
 from typing import Tuple, Union, List
@@ -7,7 +8,8 @@ __all__ = ('Clemory',)
 
 class Clemory:
 
-    __slots__ = ('_arch', '_backers', '_pointer', '_root', 'consecutive', 'min_addr', 'max_addr')
+    __slots__ = ('_arch', '_backers', '_updates', '_pointer', '_root', '_cbackers', '_needs_flattening_personal',
+                 'consecutive', 'min_addr', 'max_addr', 'concrete_target' )
 
     """
     An object representing a memory space.
@@ -24,6 +26,14 @@ class Clemory:
         self.min_addr = 0
         self.max_addr = 0
 
+        self.concrete_target = None
+
+    def is_concrete_target_set(self):
+        return self.concrete_target is not None
+
+    def set_concrete_target(self, concrete_target):
+        self.concrete_target = concrete_target
+
     def add_backer(self, start, data):
         """
         Adds a backer to the memory.
@@ -33,6 +43,7 @@ class Clemory:
         """
         if not data:
             raise ValueError("Backer is empty!")
+
         if not isinstance(data, (bytes, list, Clemory)):
             raise TypeError("Data must be a string or a Clemory")
         if start in self:
@@ -78,6 +89,12 @@ class Clemory:
                     yield start + x
 
     def __getitem__(self, k):
+
+        # concrete memory read
+        if self.is_concrete_target_set():
+            # l.debug("invoked get_byte %x" % (k))
+            return self.concrete_target.read_memory(k, 1)
+
         for start, data in self._backers:
             if type(data) in (bytearray, list):
                 if 0 <= k - start < len(data):
@@ -133,6 +150,7 @@ class Clemory:
             'consecutive': self.consecutive,
             'min_addr': self.min_addr,
             'max_addr': self.max_addr,
+            'concrete_target': self.concrete_target
         }
 
         return s
@@ -145,6 +163,7 @@ class Clemory:
         self.consecutive = s['consecutive']
         self.min_addr = s['min_addr']
         self.max_addr = s['max_addr']
+        self.concrete_target = s['concrete_target']
 
     def backers(self, addr=0):
         """
@@ -174,6 +193,11 @@ class Clemory:
         Reading will stop at the beginning of the first unallocated region found, or when
         `n` bytes have been read.
         """
+
+        # concrete memory read
+        if self.is_concrete_target_set():
+            # l.debug("invoked read_bytes %x %x" % (addr, n))
+            return self.concrete_target.read_memory(addr, n)
 
         views = []
 
@@ -293,6 +317,11 @@ class Clemory:
         Up to `nbytes` bytes will be read, halting at the beginning of the first unmapped region
         encountered.
         """
+
+        if self.is_concrete_target_set():
+            # l.debug("invoked read %x" % (nbytes))
+            return self.concrete_target.read_memory(self._pointer, nbytes)
+
         try:
             out = self.load(self._pointer, nbytes)
         except KeyError:

@@ -212,6 +212,7 @@ class Backend:
         """
         if self._is_mapped:
             raise CLEOperationError("Image already rebased from %#x to %#x" % (self.linked_base, self.mapped_base))
+
         if self.sections:
             self.sections._rebase(self.image_base_delta)
         if self.segments and self.sections is not self.segments:
@@ -314,6 +315,14 @@ class Backend:
         Performs a minimal static load of ``spec`` and returns whether it's compatible with other_obj
         """
         return False
+
+    @classmethod
+    def check_magic_compatibility(cls, stream): # pylint: disable=unused-argument
+        """
+        Check if a stream of bytes contains the same magic number as the main object
+        """
+        return False
+
 
     @staticmethod
     def _get_symbol_relative_addr(symbol):

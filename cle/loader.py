@@ -31,6 +31,9 @@ class Loader:
     The following parameters are optional.
 
     :param auto_load_libs:      Whether to automatically load shared libraries that loaded objects depend on.
+    :param concrete_target:     Whether to instantiate a concrete target for a concrete execution of the process.
+                                if this is the case we will need to instantiate a SimConcreteEngine that wraps the
+                                ConcreteTarget provided by the user.
     :param force_load_libs:     A list of libraries to load regardless of if they're required by a loaded object.
     :param skip_libs:           A list of libraries to never load, even if they're required by a loaded object.
     :param main_opts:           A dictionary of options to be used loading the main binary.
@@ -68,7 +71,7 @@ class Loader:
     More keys are defined on a per-backend basis.
     """
 
-    def __init__(self, main_binary, auto_load_libs=True,
+    def __init__(self, main_binary, auto_load_libs=True, concrete_target = None,
                  force_load_libs=(), skip_libs=(),
                  main_opts=None, lib_opts=None, ld_path=(), use_system_libs=True,
                  ignore_import_version_numbers=True, case_insensitive=False, rebase_granularity=0x1000000,
@@ -80,6 +83,11 @@ class Loader:
         else:
             self._main_binary_path = os.path.realpath(str(main_binary))
             self._main_binary_stream = None
+
+        # auto_load_libs doesn't make any sense if we have a concrete target.
+        if concrete_target:
+            auto_load_libs = False
+
         self._auto_load_libs = auto_load_libs
         self._satisfied_deps = dict((x, False) for x in skip_libs)
         self._main_opts = {} if main_opts is None else main_opts
@@ -619,7 +627,6 @@ class Loader:
             if self.find_object(main_spec, extra_objects=objects) is not None:
                 l.info("Skipping load request %s - already loaded", main_spec)
                 continue
-            l.info("loading %s...", main_spec)
             main_obj = self._load_object_isolated(main_spec)
             objects.append(main_obj)
             dependencies.extend(main_obj.deps)
@@ -639,7 +646,7 @@ class Loader:
 
             try:
                 l.info("Loading %s...", dep_spec)
-                dep_obj = self._load_object_isolated(dep_spec)
+                dep_obj = self._load_object_isolated(dep_spec)  # loading dependencies
             except CLEFileNotFoundError:
                 l.info("... not found")
                 cached_failures.add(dep_spec)
@@ -719,6 +726,7 @@ class Loader:
 
         # STEP 4: LOAD!
         l.debug("... loading with %s", backend_cls)
+
         return backend_cls(full_spec, is_main_bin=self.main_object is None, loader=self, **options)
 
     def _map_object(self, obj):

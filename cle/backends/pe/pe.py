@@ -84,6 +84,13 @@ class PE(Backend):
         return False
 
     @classmethod
+    def check_magic_compatibility(cls, stream):
+        stream.seek(0)
+        identstring = stream.read(0x10)
+        stream.seek(0)
+        return identstring.startswith(b'MZ')
+
+    @classmethod
     def check_compatibility(cls, spec, obj):
         if hasattr(spec, 'read') and hasattr(spec, 'seek'):
             pe = pefile.PE(data=spec.read(), fast_load=True)
