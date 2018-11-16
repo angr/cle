@@ -328,7 +328,7 @@ class Clemory:
 
         for start, backer in self._backers:
             if type(backer) is Clemory:
-                if search_max < backer.min_addr or search_min > backer.max_addr:
+                if search_max < backer.min_addr + start or search_min > backer.max_addr + start:
                     continue
                 yield from (addr + start for addr in backer.find(data, search_min-start, search_max-start))
             elif type(backer) is list:
