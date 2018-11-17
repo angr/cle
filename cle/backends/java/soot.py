@@ -78,22 +78,6 @@ class Soot(Backend):
         # FIXME: This is a hack to satisfy checks elsewhere that max_addr must be greater than min_addr
         return self.min_addr + 1
 
-    @staticmethod
-    def is_compatible(stream):
-        identstring = stream.read(4)
-        stream.seek(0)
-        if identstring.startswith(b'\x50\x4b\x03\x04') and Soot.is_jar(stream):
-            return True
-        return False
-
-    @staticmethod
-    def is_jar(stream):
-        z = zipfile.ZipFile(stream)
-        for f in z.filelist:
-            if f.filename == 'META-INF/MANIFEST.MF':
-                return True
-        return False
-
     @property
     def entry(self):
         return self._entry
