@@ -115,7 +115,8 @@ class MetaELF(Backend):
         # keep a timer so we don't get stuck. keep this short and sweet.
         def tick():
             tick.bailout_timer -= 1
-            assert tick.bailout_timer > 0
+            if tick.bailout_timer <= 0:
+                raise TimeoutError()
         tick.bailout_timer = 5
 
         def scan_forward(addr, name, push=False):
@@ -167,7 +168,8 @@ class MetaELF(Backend):
                 # "push" means try to increase the address as far as we can without regard for semantics
                 # the alternative is to only try to lop off nop instructions
                 if push:
-                    assert block_is_good.name is not None
+                    if block_is_good.name is None:
+                        raise ValueError('block_is_good.name cannot be None.')
                     old_name = block_is_good.name
                     while block_is_good(self._block(addr + instruction_alignment)) and block_is_good.name == old_name:
                         addr += instruction_alignment
@@ -194,7 +196,7 @@ class MetaELF(Backend):
                                 # there's some behavior, not good
                                 break
                 return self._add_plt_stub(block_is_good.name, addr)
-            except (AssertionError, KeyError, pyvex.PyVEXError):
+            except (TimeoutError, ValueError, KeyError, pyvex.PyVEXError):
                 return False
 
         if not self._plt and '__libc_start_main' in func_jmprel and self.entry != 0:
@@ -213,7 +215,7 @@ class MetaELF(Backend):
 
                 if last_jk == 'Ijk_Call':
                     self._add_plt_stub('__libc_start_main', addr)
-            except (AssertionError, KeyError, pyvex.PyVEXError):
+            except (TimeoutError, KeyError, pyvex.PyVEXError):
                 pass
 
         # if func_jmprel.keys()[0] not in self._plt:

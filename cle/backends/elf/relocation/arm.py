@@ -16,9 +16,10 @@ def _applyReloc(inst, result, mask=0xFFFFFFFF):
     is valid for the given result.
     """
     try:
-        assert not (result & ~mask)                 # pylint: disable=superfluous-parens
-    except AssertionError as e:
-        l.warning("Relocation failed: %r", e)
+        if result & ~mask:
+            raise ValueError('result & ~mask is not 0.')
+    except ValueError as ex:
+        l.warning("Relocation failed: %r", ex)
         return 0                                    # worst case, you hook it yourself
     return ((inst & ~mask) | (result & mask))       # pylint: disable=superfluous-parens
 
