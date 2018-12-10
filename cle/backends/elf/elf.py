@@ -623,7 +623,7 @@ class ELF(MetaELF):
             except IndexError:
                 l.warning('the relocation section %s refers to unknown section index: %d', section.name, dest_sec_idx)
             else:
-                if not dest_sec.occupies_memory:
+                if dest_sec.is_active and not dest_sec.occupies_memory:
                     # The target section is not loaded into memory, so just continue
                     return
 
