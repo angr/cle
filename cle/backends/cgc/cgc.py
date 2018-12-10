@@ -1,5 +1,6 @@
 import binascii
 
+from ...address_translator import AT
 from .. import register_backend
 from ..elf import ELF
 from ...patched_stream import PatchedStream
@@ -25,7 +26,7 @@ class CGC(ELF):
             stream = PatchedStream(open(binary, 'rb'), [(0, ELF_HEADER)])
         kwargs['filename'] = filename
         super(CGC, self).__init__(stream, *args, **kwargs)
-        self.memory.store(0, CGC_HEADER) # repair CGC header
+        self.memory.store(AT.from_raw(0, self).to_rva(), CGC_HEADER)  # repair the CGC header
         self.os = 'cgc'
         self.execstack = True  # the stack is always executable in CGC
 
