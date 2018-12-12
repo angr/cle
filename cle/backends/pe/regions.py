@@ -13,6 +13,7 @@ class PESection(Section):
         )
 
         self.characteristics = pe_section.Characteristics
+        self.size_of_raw_data = pe_section.SizeOfRawData
 
     #
     # Public properties
@@ -29,3 +30,7 @@ class PESection(Section):
     @property
     def is_executable(self):
         return self.characteristics & 0x20000000 != 0
+
+    @property
+    def only_contains_uninitialized_data(self):
+        return self.size_of_raw_data == 0

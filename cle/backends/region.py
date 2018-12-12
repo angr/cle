@@ -130,6 +130,13 @@ class Section(Region):
         """
         raise NotImplementedError()
 
+    @property
+    def only_contains_uninitialized_data(self):
+        """
+        Whether this section is initialized to zero after the executable is loaded.
+        """
+        raise NotImplementedError()
+
     def __repr__(self):
         return "<%s | offset %#x, vaddr %#x, size %#x>" % (
             self.name if self.name else "Unnamed",
