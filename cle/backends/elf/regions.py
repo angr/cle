@@ -74,3 +74,7 @@ class ELFSection(Section):
     @property
     def is_strings(self):
         return self.flags & self.SHF_STRINGS != 0
+
+    @property
+    def only_contains_uninitialized_data(self):
+        return self.type == "SHT_NOBITS"
