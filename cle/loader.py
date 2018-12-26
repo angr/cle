@@ -249,7 +249,7 @@ class Loader:
         """
         Return a set of every name that was requested as a shared object dependency but could not be loaded
         """
-        return self.requested_names - set(self._satisfied_deps)
+        return self.requested_names - set(k for k,v in self._satisfied_deps.items() if v is not False)
 
     def describe_addr(self, addr):
         """
