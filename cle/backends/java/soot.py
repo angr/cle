@@ -174,12 +174,12 @@ class Soot(Backend):
                 return None
             else:
                 raise CLEError('Method with description %s does not exist in class %s.'
-                               % (method_description, class_name))
+                               % (method_description, method_description['class_name']))
 
         if len(methods) > 1:
             # Warn if we found several matching methods
             l.warning('Method with description %s is ambiguous in class %s.',
-                       method_description, class_name)
+                       method_description, method_description['class_name'])
 
         return methods[0]
 
