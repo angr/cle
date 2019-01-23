@@ -14,7 +14,7 @@ try:
 except ImportError:
     pysoot = None
 
-l = logging.getLogger("cle.backends.soot")
+l = logging.getLogger(name=__name__)
 
 
 class Soot(Backend):
