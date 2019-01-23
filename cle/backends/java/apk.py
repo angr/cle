@@ -136,40 +136,4 @@ class Apk(Soot):
             return False
         return True
 
-            # Step 3: get the first supported jni arch that is available in the APK
-            jni_archs = [arch for arch in supported_jni_archs
-                            if  arch in available_jni_archs]
-            if not jni_archs:
-                raise ValueError("Couldn't find a supported JNI arch. Available %s. Supported %s."
-                                 "" % (available_jni_archs, supported_jni_archs))
-            jni_arch = jni_archs[0]
-            l.info("Libs are available with arch(s): %s. Picking %s.", ", ".join(available_jni_archs), jni_arch)
-
-            # Step 4: extract all used libaries from the APK
-            # TODO: implement this w/o the need of actually writing files to disk
-            #       see https://github.com/angr/cle/issues/123
-            tmp_dir = tempfile.mkdtemp()
-            for lib in jni_libs:
-                apk_file = "lib/{jni_arch}/{lib_name}".format(jni_arch=jni_arch, lib_name=lib)
-                apk.extract(apk_file, path=tmp_dir)
-            jni_libs_ld_path = os.path.join(tmp_dir, 'lib', jni_arch)
-
-            l.info("Extracted lib(s) to %s", jni_libs_ld_path)
-            return jni_libs, jni_libs_ld_path
-
-    @staticmethod
-    def is_compatible(stream):
-        # check if stream is an archive
-        if not Soot.is_zip_archive(stream):
-            return False
-        # get filelist
-        with ZipFile(stream) as apk:
-            filelist = apk.namelist()
-        # check for manifest and the .dex bytecode file
-        if 'AndroidManifest.xml' not in filelist:
-            return False
-        if 'classes.dex' not in filelist:
-            return False
-        return True
-
 register_backend('apk', Apk)
