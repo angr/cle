@@ -14,7 +14,7 @@ class Jar(Soot):
 
     is_default = True  # let CLE automatically use this backend
 
-    def __init__(self, jar_path, entry_point=None, jni_libs=None, jni_libs_ld_path=None, **options):
+    def __init__(self, jar_path, entry_point=None, entry_point_params=(), jni_libs=None, jni_libs_ld_path=None, **options):
         """
         :param jar_path:                Path to JAR.
 
@@ -37,11 +37,14 @@ class Jar(Soot):
             main_class = self.manifest.get('Main-Class', None)
             if main_class:
                 entry_point = main_class + "." + "main"
+                # FIXME: Make this parametric
+                entry_point_params = ('java.lang.String[]', )
 
         # the actual lifting is done by the Soot superclass
         super(Jar, self).__init__(jar_path,
                                   input_format='jar',
                                   entry_point=entry_point,
+                                  entry_point_params=entry_point_params,
                                   jni_libs=jni_libs,
                                   jni_libs_ld_path=jni_libs_ld_path,
                                   **options)

@@ -22,7 +22,7 @@ class Soot(Backend):
     The basis backend for lifting and loading bytecode from JARs and APKs to Soot IR.
     """
 
-    def __init__(self, path, entry_point=None, input_format=None,
+    def __init__(self, path, entry_point=None, entry_point_params=(), input_format=None,
                  additional_jars=None, additional_jar_roots=None,
                  jni_libs_ld_path=None, jni_libs=None,
                  android_sdk=None, **kwargs):
@@ -50,7 +50,7 @@ class Soot(Backend):
         # find entry method
         if entry_point:
             try:
-                ep_method = self.get_soot_method(entry_point)
+                ep_method = self.get_soot_method(entry_point, params=entry_point_params)
                 ep_method_descriptor = SootMethodDescriptor.from_soot_method(ep_method)
                 self._entry = SootAddressDescriptor(ep_method_descriptor, 0, 0)
                 l.debug("Entry point set to %s", self._entry)
@@ -170,7 +170,7 @@ class Soot(Backend):
     def _description_matches_soot_method(self, soot_method, name=None, class_name=None, params=()):
         if name       and soot_method.name != name:              return False
         if class_name and soot_method.class_name != class_name:  return False
-        if params     and soot_method.params != params:          return False
+        if soot_method.params != params:          return False
         return True
 
     @property
