@@ -251,7 +251,11 @@ class ELF(MetaELF):
             if symid == 0:
                 # special case the null symbol, this is important for static binaries
                 return self._nullsymbol
-            re_sym = symbol_table.get_symbol(symid)
+            try:
+                re_sym = symbol_table.get_symbol(symid)
+            except:
+                l.error("Error parsing symbol at %#08x" % symid)
+                return None
             cache_key = self._symbol_to_tuple(re_sym)
             cached = self._symbol_cache.get(cache_key, None)
             if cached is not None:
@@ -665,6 +669,9 @@ class ELF(MetaELF):
                     return
 
         symtab = self.reader.get_section(section.header['sh_link']) if 'sh_link' in section.header else None
+        if isinstance(symtab, elftools.elf.sections.NullSection):
+            # Oh my god Atmel please stop
+            symtab = self.reader.get_section_by_name('.symtab')
         relocs = []
         for readelf_reloc in section.iter_relocations():
             # MIPS64 is just plain old fucked up
@@ -704,6 +711,8 @@ class ELF(MetaELF):
                         self.relocs.append(reloc)
             else:
                 symbol = self.get_symbol(readelf_reloc.entry.r_info_sym, symtab)
+                if symbol is None:
+                    continue
                 reloc = self._make_reloc(readelf_reloc, symbol, dest_sec)
                 if reloc is not None:
                     relocs.append(reloc)
