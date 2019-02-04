@@ -13,15 +13,15 @@ if bytes is str:
 setup(
     name='cle',
     description='CLE Loads Everything (at least, many binary formats!) and provides a pythonic interface to analyze what they are and what they would look like in memory.',
-    version='8.18.10.25',
+    version='8.19.2.4',
     python_requires='>=3.5',
     packages=packages,
     install_requires=[
         'pyelftools>=0.25',
         'cffi',
         'idalink',
-        'archinfo==8.18.10.25',
-        'pyvex==8.18.10.25',
+        'archinfo==8.19.2.4',
+        'pyvex==8.19.2.4',
         'pefile',
         'sortedcontainers>=2.0',
     ]
