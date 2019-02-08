@@ -344,5 +344,6 @@ from .blob import Blob
 from .cgc import CGC, BackedCGC
 from .ihex import Hex
 from .macho import MachO
-from .soot import Soot
+from .java.jar import Jar
+from .java.apk import Apk
 from .binja import BinjaBin
