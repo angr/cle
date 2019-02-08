@@ -167,7 +167,8 @@ class Soot(Backend):
 
         return methods[0]
 
-    def _description_matches_soot_method(self, soot_method, name=None, class_name=None, params=()):
+    @staticmethod
+    def _description_matches_soot_method(soot_method, name=None, class_name=None, params=()):
         if name       and soot_method.name != name:              return False
         if class_name and soot_method.class_name != class_name:  return False
         if soot_method.params != params:          return False
