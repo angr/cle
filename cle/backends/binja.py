@@ -167,7 +167,7 @@ class BinjaBin(Backend):
         magic = stream.read(100)
         stream.seek(0)
         # bndb files are SQlite 3
-        if magic.startswith("SQLite format 3".encode()) and stream.name.endswith("bndb"):
+        if magic.startswith(b"SQLite format 3") and stream.name.endswith("bndb"):
             return True
 
         return False
