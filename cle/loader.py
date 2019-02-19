@@ -52,7 +52,8 @@ class Loader:
     :param aslr:                Load libraries in symbolic address space. Do not use this option.
     :param page_size:           The granularity with which data is mapped into memory. Set to 1 if you are working
                                 in a non-paged environment.
-
+    :param preload_libs:        Similar to `force_load_libs` but will provide for symbol resolution, with precedence
+                                over any dependencies.
     :ivar memory:               The loaded, rebased, and relocated memory of the program.
     :vartype memory:            cle.memory.Clemory
     :ivar main_object:          The object representing the main binary (i.e., the executable).
@@ -77,7 +78,7 @@ class Loader:
                  main_opts=None, lib_opts=None, ld_path=(), use_system_libs=True,
                  ignore_import_version_numbers=True, case_insensitive=False, rebase_granularity=0x1000000,
                  except_missing_libs=False, aslr=False, perform_relocations=True,
-                 page_size=0x1, extern_size=0x8000):
+                 page_size=0x1, extern_size=0x8000, preload_libs=()):
         if hasattr(main_binary, 'seek') and hasattr(main_binary, 'read'):
             self._main_binary_path = None
             self._main_binary_stream = main_binary
@@ -123,7 +124,9 @@ class Loader:
         self.all_objects = []  # this list should always be sorted by min_addr
         self.requested_names = set()
 
-        self.initial_load_objects = self._internal_load(main_binary, *force_load_libs)
+        self.preload_libs = []
+        self.initial_load_objects = self._internal_load(main_binary, *preload_libs, preloading=True)
+        self.initial_load_objects.extend(self._internal_load(*force_load_libs))
 
         # cache
         self._last_object = None
@@ -616,13 +619,20 @@ class Loader:
         """
         return 'ld.so' in name or 'ld64.so' in name or 'ld-linux' in name
 
-    def _internal_load(self, *args):
+    def _internal_load(self, *args, preloading=False):
         """
         Pass this any number of files or libraries to load. If it can't load any of them for any reason, it will
         except out. Note that the sematics of ``auto_load_libs`` and ``except_missing_libs`` apply at all times.
 
         It will return a list of all the objects successfully loaded, which may be smaller than the list you provided
         if any of them were previously loaded.
+
+        The ``main_binary`` has to come first, followed by any ``preload_libs`` to ensure symbols are resolved to
+        preloaded libraries ahead of any others. Without ``preloading=True``, then all the libraries will be treated
+        like ``force_load_libs`` (i.e., not resolving symbols to them).
+
+        :param preloading: If True, loaded objects are appended to ``self.preload_libs`` (i.e., force_load_libs are
+                           not treated like preload_libs)
         """
         objects = []
         dependencies = []
@@ -639,6 +649,8 @@ class Loader:
             if self.main_object is None:
                 self.main_object = main_obj
                 self.memory = Clemory(self.main_object.arch, root=True)
+            elif preloading:
+                    self.preload_libs.append(main_obj)
 
         while self._auto_load_libs and dependencies:
             dep_spec = dependencies.pop(0)
@@ -780,6 +792,9 @@ class Loader:
             return
         self._relocated_objects.add(id(obj))
 
+        for f in self.preload_libs:
+            self._relocate_object(f)
+
         dep_objs = [self.shared_objects[dep_name] for dep_name in obj.deps if dep_name in self.shared_objects]
         for dep_obj in dep_objs:
             self._relocate_object(dep_obj)
@@ -787,7 +802,7 @@ class Loader:
         l.info("Relocating %s", obj.binary)
         for reloc in obj.relocs:
             if not reloc.resolved:
-                reloc.relocate(([self.main_object] if self.main_object is not obj else []) + dep_objs + [obj])
+                reloc.relocate(([self.main_object] if self.main_object is not obj else []) + self.preload_libs + dep_objs + [obj])
 
     # Address space management
 
