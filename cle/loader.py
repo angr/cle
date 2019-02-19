@@ -125,7 +125,7 @@ class Loader:
         self.requested_names = set()
 
         self.preload_libs = []
-        self.initial_load_objects = self._internal_load(main_binary, *preload_libs, preload=True)
+        self.initial_load_objects = self._internal_load(main_binary, *preload_libs, preloading=True)
         self.initial_load_objects.extend(self._internal_load(*force_load_libs))
 
         # cache
@@ -619,7 +619,7 @@ class Loader:
         """
         return 'ld.so' in name or 'ld64.so' in name or 'ld-linux' in name
 
-    def _internal_load(self, *args, **kwargs):
+    def _internal_load(self, *args, preloading=False):
         """
         Pass this any number of files or libraries to load. If it can't load any of them for any reason, it will
         except out. Note that the sematics of ``auto_load_libs`` and ``except_missing_libs`` apply at all times.
@@ -628,17 +628,15 @@ class Loader:
         if any of them were previously loaded.
 
         The ``main_binary`` has to come first, followed by any ``preload_libs`` to ensure symbols are resolved to
-        preloaded libraries ahead of any others. Without ``preload=True``, then all the libraries will be treated
+        preloaded libraries ahead of any others. Without ``preloading=True``, then all the libraries will be treated
         like ``force_load_libs`` (i.e., not resolving symbols to them).
 
-        :Keyword Arguments:
-        **preload(bool): If True, loaded objects are appended to ``self.preload_libs`` (i.e., force_load_libs are
-                         not treated like preload_libs)
+        :param preloading: If True, loaded objects are appended to ``self.preload_libs`` (i.e., force_load_libs are
+                           not treated like preload_libs)
         """
         objects = []
         dependencies = []
         cached_failures = set() # this assumes that the load path is global and immutable by the time we enter this func
-        preloading = kwargs.pop('preload', False)
 
         for main_spec in args:
             if self.find_object(main_spec, extra_objects=objects) is not None:
@@ -651,8 +649,7 @@ class Loader:
             if self.main_object is None:
                 self.main_object = main_obj
                 self.memory = Clemory(self.main_object.arch, root=True)
-            else:
-                if preloading:
+            elif preloading:
                     self.preload_libs.append(main_obj)
 
         while self._auto_load_libs and dependencies:
