@@ -124,12 +124,13 @@ class Apk(Soot):
 
     @staticmethod
     def is_compatible(stream):
-        # check if stream is an archive
-        if not Soot.is_zip_archive(stream):
-            return False
         # get filelist
-        with ZipFile(stream) as apk:
-            filelist = apk.namelist()
+        try:
+            with ZipFile(stream) as apk:
+                filelist = apk.namelist()
+        except:
+            # stream is not unzippable
+            return False
         # check for manifest and the .dex bytecode file
         if 'AndroidManifest.xml' not in filelist:
             return False
