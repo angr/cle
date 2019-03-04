@@ -172,21 +172,21 @@ class ELF(MetaELF):
         # TODO: There's a whole pile of useful stuff in here. We should use it some day.
         attrs_sec = reader.get_section_by_name('.ARM.attributes')
         if not attrs_sec:
-            return # No attrs here!
+            return None  # No attrs here!
         attrs_sub_sec = None
         for subsec in attrs_sec.subsections:
             if isinstance(subsec, elftools.elf.sections.ARMAttributesSubsection):
                 attrs_sub_sec = subsec
                 break
         if not attrs_sub_sec:
-            return # None here either
+            return None  # None here either
         attrs_sub_sub_sec = None
         for subsubsec in attrs_sub_sec.subsubsections:
             if isinstance(subsubsec, elftools.elf.sections.ARMAttributesSubsubsection):
                 attrs_sub_sub_sec = subsubsec
                 break
         if not attrs_sub_sub_sec:
-            return  # None here either
+            return None  # None here either
         # Ok, now we can finally look at the goods
         atts = {}
         for attobj in attrs_sub_sub_sec.attributes:
@@ -253,8 +253,8 @@ class ELF(MetaELF):
                 return self._nullsymbol
             try:
                 re_sym = symbol_table.get_symbol(symid)
-            except:
-                l.error("Error parsing symbol at %#08x" % symid)
+            except Exception: # pylint: disable=bare-except
+                l.exception("Error parsing symbol at %#08x", symid)
                 return None
             cache_key = self._symbol_to_tuple(re_sym)
             cached = self._symbol_cache.get(cache_key, None)

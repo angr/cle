@@ -115,7 +115,6 @@ class Loader:
         self.aslr = aslr
         self.page_size = page_size
         self.memory = None # type: Clemory
-        
         self.main_object = None # type: Backend
         self._tls_object = None # type: TLSObject
         self._kernel_object = None # type: KernelObject
