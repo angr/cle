@@ -8,6 +8,18 @@ from cle.address_translator import AT
 l = logging.getLogger(name=__name__)
 
 class ExternSegment(Segment):
+    def __init__(self, map_size):
+        super().__init__(None, 0, None, map_size)
+
+    def addr_to_offset(self, addr):
+        raise CLEOperationError("'offset' operations on the extern object are meaningless as it is not mapped from a file")
+
+    def offset_to_addr(self, offset):
+        raise CLEOperationError("'offset' operations on the extern object are meaningless as it is not mapped from a file")
+
+    def contains_offset(self, offset):
+        return False
+
     is_readable = True
     is_writable = True
     is_executable = True
@@ -29,7 +41,7 @@ class ExternObject(Backend):
         self.tls_block_size = tls_size
         self.tls_next_addr = 0
 
-        self.segments.append(ExternSegment('externs', 0, 0, self.map_size))
+        self.segments.append(ExternSegment(self.map_size))
 
 
     def make_extern(self, name, size=0, alignment=None, thumb=False, sym_type=Symbol.TYPE_FUNCTION, libname=None):

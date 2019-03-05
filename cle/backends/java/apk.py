@@ -20,8 +20,8 @@ class Apk(Soot):
 
     is_default = True  # let CLE automatically use this backend
 
-    def __init__(self, apk_path, entry_point=None, android_sdk=None, supported_jni_archs=None,
-                 jni_libs=None, jni_libs_ld_path=None, **options):
+    def __init__(self, apk_path, entry_point=None, entry_point_params=(), android_sdk=None,
+                 supported_jni_archs=None, jni_libs=None, jni_libs_ld_path=None, **options):
         """
         :param apk_path:                Path to APK.
         :param android_sdk:             Path to Android SDK folder (e.g. "/home/angr/android/platforms")
@@ -54,14 +54,21 @@ class Apk(Soot):
             l.info("Using user defined JNI lib(s) %s (load path(s) %s)", jni_libs, jni_libs_ld_path)
 
         if not entry_point:
-            # TODO find a suitable entry point
-            pass
+            try:
+                from pyaxmlparser import APK as APKParser
+                apk_parser = APKParser(apk_path)
+                main_activity = apk_parser.get_main_activity()
+                entry_point = main_activity + '.' + 'onCreate'
+                entry_point_params = ('android.os.Bundle',)
+            except ImportError:
+                l.error("Install pyaxmlparser to identify APK entry point.")
 
         # the actual lifting is done by the Soot superclass
         super(Apk, self).__init__(apk_path,
                                   input_format='apk',
                                   android_sdk=android_sdk,
                                   entry_point=entry_point,
+                                  entry_point_params=entry_point_params,
                                   jni_libs=jni_libs,
                                   jni_libs_ld_path=jni_libs_ld_path,
                                   **options)
