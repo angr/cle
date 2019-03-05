@@ -51,5 +51,5 @@ class ELFSymbol(Symbol):
         # these do not appear to be 100% correct, but they work so far...
         # e.g. the "stdout" import symbol will be marked as an export symbol by this
         # there does not seem to be a good way to reliably isolate import symbols
-        self.is_import = self.section is None and self.binding in ('STB_GLOBAL', 'STB_WEAK')
+        self.is_import = self.section is None and self.binding in ('STB_GLOBAL', 'STB_WEAK') and sec_ndx is 'SHN_UNDEF'
         self.is_export = self.section is not None and self.binding in ('STB_GLOBAL', 'STB_WEAK')
