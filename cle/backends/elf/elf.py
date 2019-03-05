@@ -23,10 +23,6 @@ l = logging.getLogger('cle.elf')
 
 __all__ = ('ELFSymbol', 'ELF')
 
-if bytes is not str:
-    long = int
-    unicode = str
-
 def maybedecode(string):
     # so... it turns out that pyelftools is garbage and will transparently give you either strings or bytestrings
     # based on pretty much nothing whatsoever
@@ -214,7 +210,7 @@ class ELF(MetaELF):
         if symbol_table is None:
             symbol_table = self.dynsym
 
-        if isinstance(symid, (int, long)):
+        if type(symid) is int:
             if symid == 0:
                 # special case the null symbol, this is important for static binaries
                 return self._nullsymbol
@@ -227,7 +223,7 @@ class ELF(MetaELF):
             self._symbol_cache[cache_key] = symbol
             self._cache_symbol_name(symbol)
             return symbol
-        elif isinstance(symid, (str, unicode)):
+        elif type(symid) is str:
             if not symid:
                 l.warning("Trying to resolve a symbol by its empty name")
                 return None
