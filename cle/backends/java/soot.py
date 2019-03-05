@@ -189,6 +189,7 @@ class Soot(Backend):
 
     @staticmethod
     def is_zip_archive(stream):
+        stream.seek(0)
         identstring = stream.read(4)
         stream.seek(0)
         return identstring.startswith(b'\x50\x4b\x03\x04')
