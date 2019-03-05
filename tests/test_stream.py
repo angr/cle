@@ -14,7 +14,7 @@ def test_stream():
     lib2path = os.path.join(dirpath, "ld-linux.so.2")
 
     path_ld = cle.Loader(filepath)
-    stream_ld = cle.Loader(open(filepath, 'rb'), auto_load_libs=False, force_load_libs=(open(lib1path, 'rb'), open(lib2path, 'rb')))
+    stream_ld = cle.Loader(open(filepath, 'rb'), auto_load_libs=False, preload_libs=(open(lib1path, 'rb'), open(lib2path, 'rb')))
 
     nose.tools.assert_equal(path_ld.main_object.entry, stream_ld.main_object.entry)
     nose.tools.assert_equal([x for x in path_ld.shared_objects.keys() if x != 'fauxware'], list(stream_ld.shared_objects.keys()))
