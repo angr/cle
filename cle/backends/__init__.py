@@ -1,6 +1,11 @@
 import os
 import logging
-import sortedcontainers
+
+try:
+    import sortedcontainers.SortedKeyList as SortedKeyList
+except ModuleNotFoundError:
+    from sortedcontainers import SortedListWithKey as SortedKeyList
+    
 
 import archinfo
 from .region import Region, Segment, Section
@@ -91,7 +96,7 @@ class Backend:
         self._segments = Regions() # List of segments
         self._sections = Regions() # List of sections
         self.sections_map = {}  # Mapping from section name to section
-        self.symbols = sortedcontainers.SortedKeyList(key=self._get_symbol_relative_addr)
+        self.symbols = SortedKeyList(key=self._get_symbol_relative_addr)
         self.imports = {}
         self.resolved_imports = []
         self.relocs = []
