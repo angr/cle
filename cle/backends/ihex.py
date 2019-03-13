@@ -34,10 +34,6 @@ class Hex(Blob):
     """
     is_default = True # Tell CLE to automatically consider using the Hex backend
 
-    def __init__(self, path, arch=None, entry_point=0, **kwargs):
-        super(Hex, self).__init__(path, arch=arch, entry_point=entry_point, **kwargs)
-        self._entry = None
-
     @staticmethod
     def parse_record(line):
         m = intel_hex_re.match(line)

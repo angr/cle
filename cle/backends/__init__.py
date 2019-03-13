@@ -87,7 +87,7 @@ class Backend:
         self.is_main_bin = is_main_bin
         self.has_memory = has_memory
         self.loader = loader
-        self._entry = None
+        self._entry = 0
         self._segments = Regions() # List of segments
         self._sections = Regions() # List of sections
         self.sections_map = {}  # Mapping from section name to section
