@@ -11,9 +11,6 @@ from collections import OrderedDict
 
 __all__ = ('MetaELF',)
 
-if str is not bytes:
-    unicode = str
-
 
 class MetaELF(Backend):
     """
@@ -315,8 +312,8 @@ class MetaELF(Backend):
                     elif seg.header.p_type == 'PT_DYNAMIC':
                         for tag in seg.iter_tags():
                             if tag.entry.d_tag == 'DT_SONAME':
-                                return tag.soname
-                        if type(path) in (bytes, unicode):
+                                return tag.soname.decode()
+                        if type(path) is str:
                             return os.path.basename(path)
 
             except elftools.common.exceptions.ELFError:
