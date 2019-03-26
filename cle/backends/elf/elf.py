@@ -10,7 +10,7 @@ from collections import OrderedDict, defaultdict
 from .symbol import ELFSymbol, Symbol
 from .regions import ELFSection, ELFSegment
 from .hashtable import ELFHashTable, GNUHashTable
-from .metaelf import MetaELF
+from .metaelf import MetaELF, maybedecode
 from .. import register_backend
 from .relocation import get_relocation
 from .relocation.generic import MipsGlobalReloc, MipsLocalReloc
@@ -22,11 +22,6 @@ from ...address_translator import AT
 l = logging.getLogger('cle.elf')
 
 __all__ = ('ELFSymbol', 'ELF')
-
-def maybedecode(string):
-    # so... it turns out that pyelftools is garbage and will transparently give you either strings or bytestrings
-    # based on pretty much nothing whatsoever
-    return string if type(string) is str else string.decode()
 
 
 class ELF(MetaELF):

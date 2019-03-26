@@ -12,6 +12,11 @@ from collections import OrderedDict
 __all__ = ('MetaELF',)
 
 
+def maybedecode(string):
+    # so... it turns out that pyelftools is garbage and will transparently give you either strings or bytestrings
+    # based on pretty much nothing whatsoever
+    return string if type(string) is str else string.decode()
+
 class MetaELF(Backend):
     """
     A base class that implements functions used by all backends that can load an ELF.
@@ -312,7 +317,7 @@ class MetaELF(Backend):
                     elif seg.header.p_type == 'PT_DYNAMIC':
                         for tag in seg.iter_tags():
                             if tag.entry.d_tag == 'DT_SONAME':
-                                return tag.soname.decode()
+                                return maybedecode(tag.soname)
                         if type(path) is str:
                             return os.path.basename(path)
 
