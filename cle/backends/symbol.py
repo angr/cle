@@ -1,5 +1,5 @@
 from __future__ import print_function
-from enum import Enum
+from enum import Enum, auto
 import subprocess
 import logging
 
@@ -12,12 +12,12 @@ class SymbolType(Enum):
     """
     ABI-agnostic symbol types
     """
-    TYPE_OTHER = 0
-    TYPE_NONE = 1
-    TYPE_FUNCTION = 2
-    TYPE_OBJECT = 3
-    TYPE_SECTION = 4
-    TYPE_TLS_OBJECT = 5
+    TYPE_OTHER = auto()
+    TYPE_NONE = auto()
+    TYPE_FUNCTION = auto()
+    TYPE_OBJECT = auto()
+    TYPE_SECTION = auto()
+    TYPE_TLS_OBJECT = auto()
 
 
 class SymbolSubType(Enum):
