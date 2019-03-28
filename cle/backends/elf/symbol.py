@@ -10,6 +10,16 @@ class ElfSymbolType(SymbolSubType):
     """
     ELF-specific symbol types
     """
+
+    # Enum classes cannot be inherited. Therefore, additional platform-specific
+    # values should simply be added to this enumeration (e.g., STT_GNU_IFUNC)
+    # with an appropriate conversion in `to_base_type()`.
+    #
+    # Though that could be solved with IntEnum as well, that breaks the
+    # strong typing and is discouraged by Python docs.
+
+
+    # Basic types
     STT_NOTYPE = 0     # Symbol's type is not specified
     STT_OBJECT = 1     # Symbol is a data object (variable, array, etc.)
     STT_FUNC = 2       # Symbol is executable code (function, etc.)
@@ -18,7 +28,7 @@ class ElfSymbolType(SymbolSubType):
     STT_COMMON = 5     # An uninitialized common block
     STT_TLS = 6        # Thread local data object
 
-    STT_GNU_IFUNC = 10 # GNU indirect function
+    # ELF's generic place-holders
     STT_LOOS = 10      # Lowest operating system-specific symbol type
     STT_HIOS = 12      # Highest operating system-specific symbol type
     STT_LOPROC = 13    # Lowest processor-specific symbol type
@@ -27,18 +37,28 @@ class ElfSymbolType(SymbolSubType):
     # AMDGPU symbol types
     STT_AMDGPU_HSA_KERNEL = 10
 
+    # GNU
+    STT_GNU_IFUNC = 10  # GNU indirect function
+
     def to_base_type(self):
         if self is ElfSymbolType.STT_NOTYPE:
             return SymbolType.TYPE_NONE
+
         elif self is ElfSymbolType.STT_FUNC:
             return SymbolType.TYPE_FUNCTION
+
         elif self in [ElfSymbolType.STT_OBJECT, ElfSymbolType.STT_COMMON]:
             return SymbolType.TYPE_OBJECT
+
         elif self is ElfSymbolType.STT_SECTION:
             return SymbolType.TYPE_SECTION
+
         elif self is ElfSymbolType.STT_TLS:
             return SymbolType.TYPE_TLS_OBJECT
-        # TODO: Fill in the rest of these
+
+        elif self is ElfSymbolType.STT_GNU_IFUNC:
+            return SymbolType.TYPE_FUNCTION
+
         else:
             return SymbolType.TYPE_OTHER
 
