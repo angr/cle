@@ -73,6 +73,7 @@ class ELFSymbol(Symbol):
     """
     def __init__(self, owner, symb):
         self._subtype = ElfSymbolType[symb.entry.st_info.type]
+        self._type = self._subtype.to_base_type()
 
         sec_ndx, value = symb.entry.st_shndx, symb.entry.st_value
 
@@ -99,10 +100,6 @@ class ELFSymbol(Symbol):
         # there does not seem to be a good way to reliably isolate import symbols
         self.is_import = sec_ndx == 'SHN_UNDEF' and self.binding in ('STB_GLOBAL', 'STB_WEAK')
         self.is_export = self.section is not None and self.binding in ('STB_GLOBAL', 'STB_WEAK')
-
-    @property
-    def type(self):
-        return self._subtype.to_base_type()
 
     @property
     def subtype(self):
