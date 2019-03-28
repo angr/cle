@@ -1,9 +1,11 @@
 from . import SimData, register
 from .common import PointTo, StaticWord
+from ...symbol import SymbolType
+
 
 class DummyProgname(SimData):
     name = '_dummy_progname'
-    type = SimData.TYPE_OBJECT
+    _type = SymbolType.TYPE_OBJECT
     libname = 'libc.so.6'
 
     progname = b'./program\0'
@@ -17,18 +19,18 @@ class DummyProgname(SimData):
 
 class Progname(PointTo):
     pointto_name = '_dummy_progname'
-    pointto_type = SimData.TYPE_OBJECT
+    pointto_type = SymbolType.TYPE_OBJECT
     name = '__progname'
     libname = 'libc.so.6'
-    type = SimData.TYPE_OBJECT
+    _type = SymbolType.TYPE_OBJECT
     addend = 2
 
 class PrognameFull(PointTo):
     pointto_name = '_dummy_progname'
-    pointto_type = SimData.TYPE_OBJECT
+    pointto_type = SymbolType.TYPE_OBJECT
     name = '__progname_full'
     libname = 'libc.so.6'
-    type = SimData.TYPE_OBJECT
+    _type = SymbolType.TYPE_OBJECT
     addend = 0
 
 class EnvironmentPointer(StaticWord):

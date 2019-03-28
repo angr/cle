@@ -1,10 +1,35 @@
 from __future__ import print_function
+from enum import Enum
 import subprocess
 import logging
 
 from ..address_translator import AT
 
 l = logging.getLogger('cle.backends.symbol')
+
+
+class SymbolType(Enum):
+    """
+    ABI-agnostic symbol types
+    """
+    TYPE_OTHER = 0
+    TYPE_NONE = 1
+    TYPE_FUNCTION = 2
+    TYPE_OBJECT = 3
+    TYPE_SECTION = 4
+    TYPE_TLS_OBJECT = 5
+
+
+class SymbolSubType(Enum):
+    """
+    Abstract base class for ABI-specific symbol types
+    """
+    def to_base_type(self) -> SymbolType:
+        """
+        A subclass' ABI-specific mapping to :SymbolType:
+        A subclass' ABI-specific mapping to :SymbolType:
+        """
+        raise ValueError("Abstract base class SymbolSubType has no base_type")
 
 
 class Symbol:
@@ -19,20 +44,12 @@ class Symbol:
     :ivar str name:         The name of this symbol
     :ivar int addr:         The un-based address of this symbol, an RVA
     :ivar int size:         The size of this symbol
-    :ivar int type:         The type of this symbol as one of SYMBOL.TYPE_*
+    :ivar SymbolType _type: The ABI-agnostic type of this symbol
     :ivar bool resolved:    Whether this import symbol has been resolved to a real symbol
     :ivar resolvedby:       The real symbol this import symbol has been resolve to
     :vartype resolvedby:    None or cle.backends.Symbol
     :ivar str resolvewith:  The name of the library we must use to resolve this symbol, or None if none is required.
     """
-
-    # enum for symbol types
-    TYPE_OTHER = 0
-    TYPE_NONE = 1
-    TYPE_FUNCTION = 2
-    TYPE_OBJECT = 3
-    TYPE_SECTION = 4
-    TYPE_TLS_OBJECT = 5
 
     def __init__(self, owner, name, relative_addr, size, sym_type):
         """
@@ -42,7 +59,7 @@ class Symbol:
         self.name = name
         self.relative_addr = relative_addr
         self.size = size
-        self.type = sym_type
+        self._type = SymbolType(sym_type)
         self.resolved = False
         self.resolvedby = None
 
@@ -63,6 +80,20 @@ class Symbol:
         self.owner.resolved_imports.append(self)
 
     @property
+    def type(self) -> SymbolType:
+        """
+        The ABI-agnostic SymbolType. Must be overridden by derived types.
+        """
+        return self._type
+
+    @property
+    def subtype(self) -> SymbolSubType:
+        """
+        A subclass' ABI-specific types
+        """
+        raise ValueError("Base class Symbol has no subtype")
+
+    @property
     def rebased_addr(self):
         """
         The address of this symbol in the global memory space
@@ -78,7 +109,7 @@ class Symbol:
         """
         Whether this symbol is a function
         """
-        return self.type == Symbol.TYPE_FUNCTION
+        return self.type is SymbolType.TYPE_FUNCTION
 
     # These may be overridden in subclasses
     is_static = False

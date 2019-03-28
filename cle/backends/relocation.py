@@ -65,7 +65,7 @@ class Relocation:
         if self.symbol.is_weak:
             return False
 
-        new_symbol = self.owner.loader.extern_object.make_extern(self.symbol.name, sym_type=self.symbol.type, thumb=thumb)
+        new_symbol = self.owner.loader.extern_object.make_extern(self.symbol.name, sym_type=self.symbol._type, thumb=thumb)
         self.resolve(new_symbol)
         return True
 

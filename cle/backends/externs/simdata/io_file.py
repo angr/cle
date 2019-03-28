@@ -2,6 +2,7 @@ import struct
 import logging
 
 from . import SimData, register
+from ...symbol import SymbolType
 from .common import PointTo
 
 l = logging.getLogger(name=__name__)
@@ -61,7 +62,7 @@ def io_file_data_for_arch(arch):
 
 class IoFilePointer(PointTo):
     libname = 'libc.so.6'
-    pointto_type = PointTo.TYPE_OBJECT
+    pointto_type = SymbolType.TYPE_OBJECT
 
 class IoStdinPointer(IoFilePointer):
     name = 'stdin'
@@ -78,7 +79,7 @@ class IoStderrPointer(IoFilePointer):
 
 class IoFile(SimData):
     libname = 'libc.so.6'
-    type = SimData.TYPE_OBJECT
+    _type = SymbolType.TYPE_OBJECT
     fd = NotImplemented  # type: int
 
     @classmethod

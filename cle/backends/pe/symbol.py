@@ -1,6 +1,6 @@
 import logging
 
-from .. import Symbol
+from ..symbol import Symbol, SymbolType
 
 l = logging.getLogger('cle.backends.pe.symbol')
 
@@ -9,7 +9,7 @@ class WinSymbol(Symbol):
     Represents a symbol for the PE format.
     """
     def __init__(self, owner, name, addr, is_import, is_export, ordinal_number, forwarder):
-        super(WinSymbol, self).__init__(owner, name, addr, owner.arch.bytes, Symbol.TYPE_FUNCTION)
+        super(WinSymbol, self).__init__(owner, name, addr, owner.arch.bytes, SymbolType.TYPE_FUNCTION)
         self.is_import = is_import
         self.is_export = is_export
         self.ordinal_number = ordinal_number

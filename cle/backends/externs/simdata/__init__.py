@@ -2,7 +2,7 @@ from collections import defaultdict
 from typing import List
 
 from ...relocation import Relocation
-from ...symbol import Symbol
+from ...symbol import Symbol, SymbolType
 
 # pylint: disable=unused-argument,no-self-use
 
@@ -14,12 +14,12 @@ class SimData(Symbol):
 
     :cvar name:     The name of the symbol to provide
     :cvar libname:  The name of the library from which the symbol originally comes (currently unused).
-    :cvar type:     The type of the symbol, usually ``Symbol.TYPE_OBJECT``.
+    :cvar _type:     The type of the symbol, usually ``SymbolType.TYPE_OBJECT``.
 
     Use the below `register` method to register SimData subclasses with CLE.
     """
     name = NotImplemented  # type: str
-    type = NotImplemented  # type: int
+    _type = NotImplemented  # type: SymbolType
     libname = NotImplemented  # type: str
 
     @classmethod

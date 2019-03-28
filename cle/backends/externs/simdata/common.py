@@ -2,6 +2,7 @@ import struct
 
 from . import SimData
 from ...relocation import Relocation
+from ...symbol import SymbolType
 
 
 class StaticData(SimData):
@@ -13,7 +14,7 @@ class StaticData(SimData):
     :cvar libname:  The name of the library from which the symbol originally comes (currently unused).
     :cvar data:     The bytes to provide
     """
-    type = SimData.TYPE_OBJECT
+    _type = SymbolType.TYPE_OBJECT
     data = NotImplemented  # type: bytes
 
     @classmethod
@@ -34,7 +35,7 @@ class StaticWord(SimData):
     :cvar word:     The value to provide
     :cvar wordsize: (optional) The size of the value in bytes, default the CPU wordsize
     """
-    type = SimData.TYPE_OBJECT
+    _type = SymbolType.TYPE_OBJECT
     word = NotImplemented  # type: int
     wordsize = None # type: int
 
@@ -54,13 +55,13 @@ class PointTo(SimData):
     :cvar name:         The name of the symbol to provide.
     :cvar libname:      The name of the library from which the symbol originally comes (currently unused).
     :cvar pointto_name: The name of the symbol to point to
-    :cvar pointto_type: The type of the symbol to point to (usually ``Symbol.TYPE_FUNCTION`` or
-                        ``Symbol.TYPE_OBJECT``)
+    :cvar pointto_type: The type of the symbol to point to (usually ``SymbolType.TYPE_FUNCTION`` or
+                        ``SymbolType.TYPE_OBJECT``)
     :cvar addend:       (optional) an integer to be added to the symbol's address before storage
     """
     pointto_name = NotImplemented  # type: str
-    pointto_type = NotImplemented  # type: int
-    type = SimData.TYPE_OBJECT
+    pointto_type = NotImplemented  # type: SymbolType
+    _type = SymbolType.TYPE_OBJECT # type: SymbolType
     addend = 0  # type: int
 
     @classmethod
