@@ -27,7 +27,6 @@ class SymbolSubType(Enum):
     def to_base_type(self) -> SymbolType:
         """
         A subclass' ABI-specific mapping to :SymbolType:
-        A subclass' ABI-specific mapping to :SymbolType:
         """
         raise ValueError("Abstract base class SymbolSubType has no base_type")
 
