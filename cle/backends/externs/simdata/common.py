@@ -14,7 +14,7 @@ class StaticData(SimData):
     :cvar libname:  The name of the library from which the symbol originally comes (currently unused).
     :cvar data:     The bytes to provide
     """
-    _type = SymbolType.TYPE_OBJECT
+    type = SymbolType.TYPE_OBJECT
     data = NotImplemented  # type: bytes
 
     @classmethod
@@ -35,7 +35,7 @@ class StaticWord(SimData):
     :cvar word:     The value to provide
     :cvar wordsize: (optional) The size of the value in bytes, default the CPU wordsize
     """
-    _type = SymbolType.TYPE_OBJECT
+    type = SymbolType.TYPE_OBJECT
     word = NotImplemented  # type: int
     wordsize = None # type: int
 
@@ -61,7 +61,7 @@ class PointTo(SimData):
     """
     pointto_name = NotImplemented  # type: str
     pointto_type = NotImplemented  # type: SymbolType
-    _type = SymbolType.TYPE_OBJECT # type: SymbolType
+    type = SymbolType.TYPE_OBJECT # type: SymbolType
     addend = 0  # type: int
 
     @classmethod

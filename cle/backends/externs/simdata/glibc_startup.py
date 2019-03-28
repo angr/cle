@@ -5,7 +5,7 @@ from ...symbol import SymbolType
 
 class DummyProgname(SimData):
     name = '_dummy_progname'
-    _type = SymbolType.TYPE_OBJECT
+    type = SymbolType.TYPE_OBJECT
     libname = 'libc.so.6'
 
     progname = b'./program\0'
@@ -22,7 +22,7 @@ class Progname(PointTo):
     pointto_type = SymbolType.TYPE_OBJECT
     name = '__progname'
     libname = 'libc.so.6'
-    _type = SymbolType.TYPE_OBJECT
+    type = SymbolType.TYPE_OBJECT
     addend = 2
 
 class PrognameFull(PointTo):
@@ -30,7 +30,7 @@ class PrognameFull(PointTo):
     pointto_type = SymbolType.TYPE_OBJECT
     name = '__progname_full'
     libname = 'libc.so.6'
-    _type = SymbolType.TYPE_OBJECT
+    type = SymbolType.TYPE_OBJECT
     addend = 0
 
 class EnvironmentPointer(StaticWord):

@@ -14,12 +14,14 @@ class SimData(Symbol):
 
     :cvar name:     The name of the symbol to provide
     :cvar libname:  The name of the library from which the symbol originally comes (currently unused).
-    :cvar _type:     The type of the symbol, usually ``SymbolType.TYPE_OBJECT``.
+    :cvar type:     The type of the symbol, usually ``SymbolType.TYPE_OBJECT``.
 
     Use the below `register` method to register SimData subclasses with CLE.
+
+    NOTE: SimData.type hides the Symbol.type instance property
     """
     name = NotImplemented  # type: str
-    _type = NotImplemented  # type: SymbolType
+    type = NotImplemented  # type: SymbolType
     libname = NotImplemented  # type: str
 
     @classmethod
