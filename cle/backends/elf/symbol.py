@@ -1,4 +1,3 @@
-from enum import Enum
 from ..symbol import Symbol, SymbolType, SymbolSubType
 from ...address_translator import AT
 
