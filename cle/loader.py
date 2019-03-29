@@ -78,7 +78,7 @@ class Loader:
                  main_opts=None, lib_opts=None, ld_path=(), use_system_libs=True,
                  ignore_import_version_numbers=True, case_insensitive=False, rebase_granularity=0x1000000,
                  except_missing_libs=False, aslr=False, perform_relocations=True,
-                 page_size=0x1, extern_size=0x8000, preload_libs=()):
+                 page_size=0x1, extern_size=0x8000, preload_libs=(), arch=None):
         if hasattr(main_binary, 'seek') and hasattr(main_binary, 'read'):
             self._main_binary_path = None
             self._main_binary_stream = main_binary
@@ -115,7 +115,6 @@ class Loader:
         self.aslr = aslr
         self.page_size = page_size
         self.memory = None # type: Clemory
-
         self.main_object = None # type: Backend
         self._tls_object = None # type: TLSObject
         self._kernel_object = None # type: KernelObject
@@ -123,7 +122,8 @@ class Loader:
         self.shared_objects = OrderedDict()
         self.all_objects = []  # this list should always be sorted by min_addr
         self.requested_names = set()
-
+        if arch is not None:
+            self._main_opts.update({'arch': arch})
         self.preload_libs = []
         self.initial_load_objects = self._internal_load(main_binary, *preload_libs, preloading=True)
         self.initial_load_objects.extend(self._internal_load(*force_load_libs))

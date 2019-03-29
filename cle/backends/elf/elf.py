@@ -158,9 +158,46 @@ class ELF(MetaELF):
         return False
 
     @staticmethod
+    def _extract_arm_attrs(reader):
+        # EDG says: Did you know ARM puts a whole special section in their elves to hold all their ABI junk?
+        # As ARM architectures start to diverge a bunch, we actually need this data to pick out
+        # what to do.  Particularly for us, it's whether we're doing Cortex-M or not, as our other ARM support
+        # is generic
+
+        # TODO: There's a whole pile of useful stuff in here. We should use it some day.
+        attrs_sec = reader.get_section_by_name('.ARM.attributes')
+        if not attrs_sec:
+            return None  # No attrs here!
+        attrs_sub_sec = None
+        for subsec in attrs_sec.subsections:
+            if isinstance(subsec, elftools.elf.sections.ARMAttributesSubsection):
+                attrs_sub_sec = subsec
+                break
+        if not attrs_sub_sec:
+            return None  # None here either
+        attrs_sub_sub_sec = None
+        for subsubsec in attrs_sub_sec.subsubsections:
+            if isinstance(subsubsec, elftools.elf.sections.ARMAttributesSubsubsection):
+                attrs_sub_sub_sec = subsubsec
+                break
+        if not attrs_sub_sub_sec:
+            return None  # None here either
+        # Ok, now we can finally look at the goods
+        atts = {}
+        for attobj in attrs_sub_sub_sec.attributes:
+            atts[attobj.tag] = attobj.value
+        return atts
+
+    @staticmethod
     def extract_arch(reader):
         arch_str = reader['e_machine']
-        if arch_str == 'ARM':
+        if 'ARM' in arch_str:
+            # Check the ARM attributes, if they exist
+            arm_attrs = ELF._extract_arm_attrs(reader)
+            if arm_attrs and 'TAG_CPU_NAME' in arm_attrs:
+                if arm_attrs['TAG_CPU_NAME'].endswith("-M") \
+                    or 'Cortex-M' in arm_attrs['TAG_CPU_NAME']:
+                    return archinfo.ArchARMCortexM('Iend_LE')
             if reader.header.e_flags & 0x200:
                 return archinfo.ArchARMEL('Iend_LE' if reader.little_endian else 'Iend_BE')
             elif reader.header.e_flags & 0x400:
@@ -209,7 +246,11 @@ class ELF(MetaELF):
             if symid == 0:
                 # special case the null symbol, this is important for static binaries
                 return self._nullsymbol
-            re_sym = symbol_table.get_symbol(symid)
+            try:
+                re_sym = symbol_table.get_symbol(symid)
+            except Exception: # pylint: disable=bare-except
+                l.exception("Error parsing symbol at %#08x", symid)
+                return None
             cache_key = self._symbol_to_tuple(re_sym)
             cached = self._symbol_cache.get(cache_key, None)
             if cached is not None:
@@ -623,6 +664,9 @@ class ELF(MetaELF):
                     return
 
         symtab = self.reader.get_section(section.header['sh_link']) if 'sh_link' in section.header else None
+        if isinstance(symtab, elftools.elf.sections.NullSection):
+            # Oh my god Atmel please stop
+            symtab = self.reader.get_section_by_name('.symtab')
         relocs = []
         for readelf_reloc in section.iter_relocations():
             # MIPS64 is just plain old fucked up
@@ -662,6 +706,8 @@ class ELF(MetaELF):
                         self.relocs.append(reloc)
             else:
                 symbol = self.get_symbol(readelf_reloc.entry.r_info_sym, symtab)
+                if symbol is None:
+                    continue
                 reloc = self._make_reloc(readelf_reloc, symbol, dest_sec)
                 if reloc is not None:
                     relocs.append(reloc)

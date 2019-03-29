@@ -42,6 +42,7 @@ class ELFSymbol(Symbol):
 
         self.elftype = realtype
         self.binding = symb.entry.st_info.bind
+        self.is_hidden = symb.entry['st_other']['visibility'] == 'STV_HIDDEN'
         self.section = sec_ndx if type(sec_ndx) is not str else None
         self.is_static = self.type == Symbol.TYPE_SECTION or sec_ndx == 'SHN_ABS'
         self.is_common = sec_ndx == 'SHN_COMMON'
