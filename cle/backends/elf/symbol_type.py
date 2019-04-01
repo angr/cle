@@ -73,34 +73,35 @@ class ELFSymbolType(SymbolSubType):
     # STT_HP_STUB = (STT_LOOS[0] + 2, 'hppa')
     # STT_PARISC_MILLICODE = (STT_LOPROC[0], 'hppa')
 
-    def __init__(self, *args):
+    def __init__(self, *args):  # pylint: disable=unused-argument
         # Essentially a static type check, this will fail on import
         # if someone defines a type that's not a `tuple`
         if not isinstance(self.value, tuple):
             raise ValueError(
-                "Symbol value '{}' for member '{}' is invalid. Values must be tuples.".format(self.value, self.name))
+                "Symbol value '{}' for member '{}' is invalid. Values must be tuples.".format(self.value, self.name))  # pylint: disable=logging-format-interpolation
         try:
             if self.os_proc:  # ignore our defaults
                 arch_from_id(self.os_proc)
         except ArchNotFound:
             _l.warning(
-                "Symbol value '{}' for member '{}' does not have an archinfo type.".format(self.value, self.name))
+                "Symbol value '{}' for member '{}' does not have an archinfo type.".format(self.value, self.name))  # pylint: disable=logging-format-interpolation
 
     def __repr__(self):
         return "ELFSymbolType.{}: (elf_value: {}, os_proc: {})".format(self.name, self.elf_value, self.os_proc)
 
     @property
     def elf_value(self):
-        return self.value[0]
+        return self.value[0]  # pylint: disable=unsubscriptable-object
 
     @property
     def os_proc(self):
-        return self.value[1]
+        return self.value[1]  # pylint: disable=unsubscriptable-object
 
     @property
     def is_custom_os_proc(self):
-        return self.elf_value in range(self.STT_LOOS.elf_value, self.STT_HIPROC.elf_value + 1) and \
-               self.os_proc is not None
+        if self.elf_value in range(self.STT_LOOS.elf_value, self.STT_HIPROC.elf_value + 1):  # pylint: disable=no-member
+            return self.os_proc is not None
+        return False
 
     def to_base_type(self):
         if self is ELFSymbolType.STT_NOTYPE:

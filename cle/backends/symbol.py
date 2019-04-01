@@ -24,7 +24,7 @@ class SymbolSubType(Enum):
     """
     Abstract base class for ABI-specific symbol types
     """
-    def to_base_type(self) -> SymbolType:
+    def to_base_type(self) -> SymbolType:  # pylint: disable=no-self-use
         """
         A subclass' ABI-specific mapping to :SymbolType:
         """
