@@ -125,12 +125,20 @@ class ELFSymbolType(SymbolSubType):
             return SymbolType.TYPE_OTHER
 
 
-# courtesy: https://stackoverflow.com/q/24105268/1137728
-def __ElfSymbolTypeArchParser(cls, value):
+def __ELFSymbolTypeArchParser(cls, value):
+    """
+    This is just a nice way to allow for just specifying the `int` for
+    default types: `ELFSymbolType(10)` rather than `ELFSymbolType((10,None))`.
+
+    Idea courtesy: https://stackoverflow.com/q/24105268/1137728.
+
+    We don't need to implement the `str` parsing like the SO link above since
+    `Enum` already has built-in item access: `ELFSymbolType['STT_FUNC']`.
+    """
     if isinstance(value, int):
         return super(ELFSymbolType, cls).__new__(cls, (value, None))
     else:
         return super(ELFSymbolType, cls).__new__(cls, value)
 
 
-setattr(ELFSymbolType, '__new__', __ElfSymbolTypeArchParser)
+setattr(ELFSymbolType, '__new__', __ELFSymbolTypeArchParser)
