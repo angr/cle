@@ -1,65 +1,10 @@
-from ..symbol import Symbol, SymbolType, SymbolSubType
+from ..symbol import Symbol, SymbolType
 from ...address_translator import AT
+from .symbol_type import ELFSymbolType
+
 
 def maybedecode(string):
     return string if type(string) is str else string.decode()
-
-
-class ElfSymbolType(SymbolSubType):
-    """
-    ELF-specific symbol types
-    """
-
-    # Enum classes cannot be inherited. Therefore, additional platform-specific
-    # values should simply be added to this enumeration (e.g., STT_GNU_IFUNC)
-    # with an appropriate conversion in `to_base_type()`.
-    #
-    # Though that could be solved with IntEnum as well, that breaks the
-    # strong typing and is discouraged by Python docs.
-
-
-    # Basic types
-    STT_NOTYPE = 0     # Symbol's type is not specified
-    STT_OBJECT = 1     # Symbol is a data object (variable, array, etc.)
-    STT_FUNC = 2       # Symbol is executable code (function, etc.)
-    STT_SECTION = 3    # Symbol refers to a section
-    STT_FILE = 4       # Local, absolute symbol that refers to a file
-    STT_COMMON = 5     # An uninitialized common block
-    STT_TLS = 6        # Thread local data object
-
-    # ELF's generic place-holders
-    STT_LOOS = 10      # Lowest operating system-specific symbol type
-    STT_HIOS = 12      # Highest operating system-specific symbol type
-    STT_LOPROC = 13    # Lowest processor-specific symbol type
-    STT_HIPROC = 15    # Highest processor-specific symbol type
-
-    # AMDGPU symbol types
-    STT_AMDGPU_HSA_KERNEL = 10
-
-    # GNU
-    STT_GNU_IFUNC = 10  # GNU indirect function
-
-    def to_base_type(self):
-        if self is ElfSymbolType.STT_NOTYPE:
-            return SymbolType.TYPE_NONE
-
-        elif self is ElfSymbolType.STT_FUNC:
-            return SymbolType.TYPE_FUNCTION
-
-        elif self in [ElfSymbolType.STT_OBJECT, ElfSymbolType.STT_COMMON]:
-            return SymbolType.TYPE_OBJECT
-
-        elif self is ElfSymbolType.STT_SECTION:
-            return SymbolType.TYPE_SECTION
-
-        elif self is ElfSymbolType.STT_TLS:
-            return SymbolType.TYPE_TLS_OBJECT
-
-        elif self is ElfSymbolType.STT_GNU_IFUNC:
-            return SymbolType.TYPE_FUNCTION
-
-        else:
-            return SymbolType.TYPE_OTHER
 
 
 class ELFSymbol(Symbol):
@@ -68,10 +13,10 @@ class ELFSymbol(Symbol):
 
     :ivar str binding:      The binding of this symbol as an ELF enum string
     :ivar section:          The section associated with this symbol, or None
-    :ivar _subtype:         The ElfSymbolType of this symbol
+    :ivar _subtype:         The ELFSymbolType of this symbol
     """
     def __init__(self, owner, symb):
-        self._subtype = ElfSymbolType[symb.entry.st_info.type]
+        self._subtype = ELFSymbolType[symb.entry.st_info.type]
         self._type = self._subtype.to_base_type()
 
         sec_ndx, value = symb.entry.st_shndx, symb.entry.st_value
@@ -101,5 +46,5 @@ class ELFSymbol(Symbol):
         self.is_export = self.section is not None and self.binding in ('STB_GLOBAL', 'STB_WEAK')
 
     @property
-    def subtype(self):
+    def subtype(self) -> ELFSymbolType:
         return self._subtype

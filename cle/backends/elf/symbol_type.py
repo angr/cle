@@ -1,0 +1,136 @@
+import logging
+
+from archinfo import ArchNotFound, arch_from_id
+from ..symbol import SymbolType, SymbolSubType
+
+_l = logging.getLogger('cle.backends.elf.symbol')
+
+
+class ELFSymbolType(SymbolSubType):
+    """
+    ELF-specific symbol types
+    """
+
+    # Enum classes cannot be inherited. Therefore, additional platform-specific
+    # values should simply be added to this enumeration (e.g., STT_GNU_IFUNC)
+    # with an appropriate conversion in `to_base_type()`.
+    #
+    # Though that could be solved with IntEnum as well, that breaks the
+    # strong typing and is discouraged by Python docs.
+
+
+    # Basic types
+    STT_NOTYPE = (0, None)     # Symbol's type is not specified
+    STT_OBJECT = (1, None)     # Symbol is a data object (variable, array, etc.)
+    STT_FUNC = (2, None)       # Symbol is executable code (function, etc.)
+    STT_SECTION = (3, None)    # Symbol refers to a section
+    STT_FILE = (4, None)       # Local, absolute symbol that refers to a file
+    STT_COMMON = (5, None)     # An uninitialized common block
+    STT_TLS = (6, None)        # Thread local data object
+
+    # ELF's generic place-holders
+    STT_LOOS = (10, None)      # Lowest operating system-specific symbol type
+    STT_HIOS = (12, None)      # Highest operating system-specific symbol type
+
+    STT_LOPROC = (13, None)    # Lowest processor-specific symbol type
+    STT_HIPROC = (15, None)    # Highest processor-specific symbol type
+
+    #
+    # OS- and processor-specific types. Note that the entire range
+    # of values is used indiscriminantly for OS or processor.
+    #
+    # Try to use values that map to an `archinfo.Arch` so that `arch_from_id()`
+    # is able to return a specific type. Otherwise, use something indicative
+    # of its purpose.
+    #
+
+    # GNU indirect function
+    #
+    # HACK: It's GNU-specific, not OS-specific but GNU doesn't care. This
+    # shouldn't be an issue unless someone tries analyzing an old ELF that
+    # uses STT_LOOS for something else, before STT_GNU_IFUNC came about, in
+    # which case angr will need a new SimOS variant anyway.
+    STT_GNU_IFUNC = (STT_LOOS[0], 'gnu')
+
+    #
+    # Below are examples of additional types that can be added. These are
+    # commented out since they've never actually been used or tested.
+    #
+
+    # AMDGPU HSA
+    #
+    # https://github.com/RadeonOpenCompute/ROCR-Runtime/blob/master/src/inc/amd_hsa_elf.h
+    # TODO: Update the arch name here if this arch is ever supported
+    # STT_AMDGPU_HSA_KERNEL = (STT_LOOS[0], 'amdgpu_hsa')
+    # STT_AMDGPU_HSA_INDIRECT_FUNCTION = (STT_LOOS[0] + 1, 'amdgpu_hsa')
+    # STT_AMDGPU_HSA_METADATA = (STT_LOOS[0] + 2, 'amdgpu_hsa')
+
+    # HP Precision Architecture (PA-RISC)
+    #
+    # https://github.com/lattera/glibc/blob/master/elf/elf.h
+    # TODO: Update the arch name here if this arch is ever supported
+    # STT_HP_OPAQUE = (STT_LOOS[0] + 1, 'hppa')
+    # STT_HP_STUB = (STT_LOOS[0] + 2, 'hppa')
+    # STT_PARISC_MILLICODE = (STT_LOPROC[0], 'hppa')
+
+    def __init__(self, *args):
+        # Essentially a static type check, this will fail on import
+        # if someone defines a type that's not a `tuple`
+        if not isinstance(self.value, tuple):
+            raise ValueError(
+                "Symbol value '{}' for member '{}' is invalid. Values must be tuples.".format(self.value, self.name))
+        try:
+            if self.os_proc:  # ignore our defaults
+                arch_from_id(self.os_proc)
+        except ArchNotFound:
+            _l.warning(
+                "Symbol value '{}' for member '{}' does not have an archinfo type.".format(self.value, self.name))
+
+    def __repr__(self):
+        return "ELFSymbolType.{}: (elf_value: {}, os_proc: {})".format(self.name, self.elf_value, self.os_proc)
+
+    @property
+    def elf_value(self):
+        return self.value[0]
+
+    @property
+    def os_proc(self):
+        return self.value[1]
+
+    @property
+    def is_custom_os_proc(self):
+        return self.elf_value in range(self.STT_LOOS.elf_value, self.STT_HIPROC.elf_value + 1) and \
+               self.os_proc is not None
+
+    def to_base_type(self):
+        if self is ELFSymbolType.STT_NOTYPE:
+            return SymbolType.TYPE_NONE
+
+        elif self in [ELFSymbolType.STT_FUNC, ELFSymbolType.STT_GNU_IFUNC]:
+            return SymbolType.TYPE_FUNCTION
+
+        elif self in [ELFSymbolType.STT_OBJECT, ELFSymbolType.STT_COMMON]:
+            return SymbolType.TYPE_OBJECT
+
+        elif self is ELFSymbolType.STT_SECTION:
+            return SymbolType.TYPE_SECTION
+
+        elif self is ELFSymbolType.STT_TLS:
+            return SymbolType.TYPE_TLS_OBJECT
+
+        elif self is ELFSymbolType.STT_GNU_IFUNC:
+            return SymbolType.TYPE_FUNCTION
+
+        else:
+            return SymbolType.TYPE_OTHER
+
+
+# courtesy: https://stackoverflow.com/q/24105268/1137728
+def __ElfSymbolTypeArchParser(cls, value):
+    if isinstance(value, int):
+        return super(ELFSymbolType, cls).__new__(cls, (value, None))
+    else:
+        return super(ELFSymbolType, cls).__new__(cls, value)
+
+
+setattr(ELFSymbolType, '__new__', __ElfSymbolTypeArchParser)
