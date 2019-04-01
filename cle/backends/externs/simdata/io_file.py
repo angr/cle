@@ -79,7 +79,7 @@ class IoStderrPointer(IoFilePointer):
 
 class IoFile(SimData):
     libname = 'libc.so.6'
-    _type = SymbolType.TYPE_OBJECT
+    type = SymbolType.TYPE_OBJECT
     fd = NotImplemented  # type: int
 
     @classmethod
