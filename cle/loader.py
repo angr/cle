@@ -689,9 +689,10 @@ class Loader:
         for obj in objects:
             if isinstance(obj, (MetaELF, PE)) and obj.tls_used:
                 self.tls_object.map_object(obj)
-        if self._extern_object and self._extern_object.tls_used:
+        if self._extern_object and self._extern_object.tls_used and not self._extern_object._tls_mapped:
             # this entire scheme will break when we do dynamic loading. you have been warned, me.
             self.tls_object.map_object(self._extern_object)
+            self._extern_object._tls_mapped = True
 
         return objects
 

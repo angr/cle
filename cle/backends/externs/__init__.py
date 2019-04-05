@@ -40,6 +40,7 @@ class ExternObject(Backend):
         self.tls_data_size = tls_size
         self.tls_block_size = tls_size
         self.tls_next_addr = 0
+        self._tls_mapped = False
 
         self.segments.append(ExternSegment(self.map_size))
 
