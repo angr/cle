@@ -227,7 +227,7 @@ class MetaELF(Backend):
                 # WAHP WAHP
                 return
 
-        # Last try: Find the first block to references ANY GOT slot
+        # LAST TRY: Find the first block to references ANY GOT slot
         tick.bailout_timer = 5
         scan_forward(plt_sec.vaddr, list(func_jmprel.keys()), push=True)
 
