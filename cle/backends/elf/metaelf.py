@@ -222,14 +222,14 @@ class MetaELF(Backend):
 
         # if func_jmprel.keys()[0] not in self._plt:
         if not set(func_jmprel.keys()).intersection(self._plt.keys()):
-            # LAST TRY: check if we have a .plt section
+            # Check if we have a .plt section
             if plt_sec is None:
                 # WAHP WAHP
                 return
 
-            # try to find a block that references ANY GOT slot
-            tick.bailout_timer = 5
-            scan_forward(plt_sec.vaddr, list(func_jmprel.keys()), push=True)
+        # Last try: Find the first block to references ANY GOT slot
+        tick.bailout_timer = 5
+        scan_forward(plt_sec.vaddr, list(func_jmprel.keys()), push=True)
 
         if not self._plt:
             # \(_^^)/
