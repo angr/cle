@@ -372,7 +372,9 @@ class ELF(MetaELF):
 
         # see https://code.woboq.org/userspace/glibc/elf/dl-map-segments.h.html#88
         data = get_mmaped_data(seg.stream, mapoff, mapend - mapstart, self.loader.page_size)
-
+        if not data:
+            l.warning("Segment %s is empty at %#08x!", seg.header.p_type, mapstart)
+            return
         if allocend > dataend:
             zero = dataend
             zeropage = (zero + self.loader.page_size - 1) & ~(self.loader.page_size - 1)
