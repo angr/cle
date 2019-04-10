@@ -7,6 +7,17 @@ from nose.tools import assert_true
 test_location = str(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', 'binaries', 'tests'))
 
 
+def test_empty_segements():
+    """
+    Test for bizarre ELves #1: Energy Micro's compiler makes empty segments
+
+    :return:
+    """
+    path = os.path.join(test_location, "armel", "efm32gg.elf")
+    cle.Loader(path, rebase_granularity=0x1000)
+    # If we survive this, we're doing OK!
+
+
 def test_thumb_object():
     """
     Test for an object file I ripped out of an ARM firmware HAL.
@@ -26,5 +37,7 @@ def test_thumb_object():
         # We missed it
         assert_true(r.value == 0xbff7f000)
 
+
 if __name__ == "__main__":
     test_thumb_object()
+    test_empty_segements()
