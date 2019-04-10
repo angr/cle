@@ -173,8 +173,14 @@ class MetaELF(Backend):
                     if block_is_good.name is None:
                         raise ValueError('block_is_good.name cannot be None.')
                     old_name = block_is_good.name
-                    while block_is_good(self._block(addr + instruction_alignment)) and block_is_good.name == old_name:
-                        addr += instruction_alignment
+                    block = self._block(addr)
+                    if len(block.instruction_addresses) > 1:
+                        for instruction in block.instruction_addresses[1:]:
+                            candidate_block = self._block(instruction)
+                            if block_is_good(candidate_block) and block_is_good.name == old_name:
+                                addr = candidate_block.addr
+                            else:
+                                break
                     block_is_good.name = old_name
                 else:
                     cont = True
