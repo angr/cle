@@ -45,7 +45,7 @@ class Clemory:
             raise ValueError("Backer is empty!")
 
         if not isinstance(data, (bytes, list, Clemory)):
-            raise TypeError("Data must be a string or a Clemory")
+            raise TypeError("Data must be a bytes, list, or Clemory object.")
         if start in self:
             raise ValueError("Address %#x is already backed!" % start)
         if isinstance(data, Clemory) and data._root:
@@ -57,7 +57,7 @@ class Clemory:
 
     def update_backer(self, start, data):
         if not isinstance(data, (bytes, list, Clemory)):
-            raise TypeError("Data must be a string or a Clemory")
+            raise TypeError("Data must be a bytes, list, or Clemory object.")
         if type(data) is bytes:
             data = bytearray(data)
         for i, (oldstart, _) in enumerate(self._backers):
