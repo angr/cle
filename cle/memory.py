@@ -8,7 +8,7 @@ __all__ = ('Clemory',)
 
 class Clemory:
 
-    __slots__ = ('_arch', '_backers', '_updates', '_pointer', '_root', '_cbackers', '_needs_flattening_personal',
+    __slots__ = ('_arch', '_backers', '_pointer', '_root',
                  'consecutive', 'min_addr', 'max_addr', 'concrete_target' )
 
     """
