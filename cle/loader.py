@@ -349,18 +349,18 @@ class Loader:
 
         # check the cache first
         if self._last_object is not None and \
-                self._last_object.min_addr <= addr < self._last_object.max_addr:
+                self._last_object.min_addr <= addr <= self._last_object.max_addr:
             if not membership_check: return self._last_object
             o = _check_object_memory(self._last_object)
             if o: return o
 
-        if addr >= self.max_addr or addr < self.min_addr:
+        if addr > self.max_addr or addr < self.min_addr:
             return None
 
         obj = key_bisect_floor_key(self.all_objects, addr, keyfunc=lambda obj: obj.min_addr)
         if obj is None:
             return None
-        if not obj.min_addr <= addr < obj.max_addr:
+        if not obj.min_addr <= addr <= obj.max_addr:
             return None
         if not membership_check:
             return obj
