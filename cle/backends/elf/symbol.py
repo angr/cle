@@ -1,5 +1,7 @@
-from ..symbol import Symbol
+from ..symbol import Symbol, SymbolType
 from ...address_translator import AT
+from .symbol_type import ELFSymbolType
+
 
 def maybedecode(string):
     return string if type(string) is str else string.decode()
@@ -9,24 +11,13 @@ class ELFSymbol(Symbol):
     """
     Represents a symbol for the ELF format.
 
-    :ivar str elftype:      The type of this symbol as an ELF enum string
     :ivar str binding:      The binding of this symbol as an ELF enum string
     :ivar section:          The section associated with this symbol, or None
+    :ivar _subtype:         The ELFSymbolType of this symbol
     """
     def __init__(self, owner, symb):
-        realtype = owner.arch.translate_symbol_type(symb.entry.st_info.type)
-        if realtype == 'STT_FUNC':
-            symtype = Symbol.TYPE_FUNCTION
-        elif realtype == 'STT_OBJECT':
-            symtype = Symbol.TYPE_OBJECT
-        elif realtype == 'STT_SECTION':
-            symtype = Symbol.TYPE_SECTION
-        elif realtype == 'STT_NOTYPE':
-            symtype = Symbol.TYPE_NONE
-        elif realtype == 'STT_TLS':
-            symtype = Symbol.TYPE_TLS_OBJECT
-        else:
-            symtype = Symbol.TYPE_OTHER
+        self._subtype = ELFSymbolType[symb.entry.st_info.type]
+        self._type = self._subtype.to_base_type()
 
         sec_ndx, value = symb.entry.st_shndx, symb.entry.st_value
 
@@ -38,13 +29,12 @@ class ELFSymbol(Symbol):
                                         maybedecode(symb.name),
                                         AT.from_lva(value, owner).to_rva(),
                                         symb.entry.st_size,
-                                        symtype)
+                                        self.type)
 
-        self.elftype = realtype
         self.binding = symb.entry.st_info.bind
         self.is_hidden = symb.entry['st_other']['visibility'] == 'STV_HIDDEN'
         self.section = sec_ndx if type(sec_ndx) is not str else None
-        self.is_static = self.type == Symbol.TYPE_SECTION or sec_ndx == 'SHN_ABS'
+        self.is_static = self._type == SymbolType.TYPE_SECTION or sec_ndx == 'SHN_ABS'
         self.is_common = sec_ndx == 'SHN_COMMON'
         self.is_weak = self.binding == 'STB_WEAK'
         self.is_local = self.binding == 'STB_LOCAL'
@@ -54,3 +44,7 @@ class ELFSymbol(Symbol):
         # there does not seem to be a good way to reliably isolate import symbols
         self.is_import = sec_ndx == 'SHN_UNDEF' and self.binding in ('STB_GLOBAL', 'STB_WEAK')
         self.is_export = self.section is not None and self.binding in ('STB_GLOBAL', 'STB_WEAK')
+
+    @property
+    def subtype(self) -> ELFSymbolType:
+        return self._subtype

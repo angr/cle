@@ -1,6 +1,6 @@
 import logging
 
-from cle.backends import Backend, Symbol, Segment
+from cle.backends import Backend, Symbol, Segment, SymbolType
 from cle.utils import ALIGN_UP
 from cle.errors import CLEOperationError
 from cle.address_translator import AT
@@ -45,7 +45,7 @@ class ExternObject(Backend):
         self.segments.append(ExternSegment(self.map_size))
 
 
-    def make_extern(self, name, size=0, alignment=None, thumb=False, sym_type=Symbol.TYPE_FUNCTION, libname=None):
+    def make_extern(self, name, size=0, alignment=None, thumb=False, sym_type=SymbolType.TYPE_FUNCTION, libname=None):
         try:
             return self._symbol_cache[name]
         except KeyError:
@@ -58,7 +58,7 @@ class ExternObject(Backend):
 
         SymbolCls = Symbol
         simdata = lookup(name, libname)
-        tls = sym_type == Symbol.TYPE_TLS_OBJECT
+        tls = sym_type == SymbolType.TYPE_TLS_OBJECT
         if simdata is not None:
             SymbolCls = simdata
             size = simdata.static_size(self)
@@ -67,7 +67,7 @@ class ExternObject(Backend):
 
         addr = self.allocate(max(size, 1), alignment=alignment, thumb=thumb, tls=tls)
 
-        if hasattr(self.loader.main_object, 'is_ppc64_abiv1') and self.loader.main_object.is_ppc64_abiv1 and sym_type == Symbol.TYPE_FUNCTION:
+        if hasattr(self.loader.main_object, 'is_ppc64_abiv1') and self.loader.main_object.is_ppc64_abiv1 and sym_type == SymbolType.TYPE_FUNCTION:
             func_symbol = SymbolCls(self, name + '#func', AT.from_mva(addr, self).to_rva(), size, sym_type)
             func_symbol.is_export = True
             func_symbol.is_extern = True
@@ -79,7 +79,7 @@ class ExternObject(Backend):
             size = 0x18
             self.memory.pack_word(AT.from_mva(toc, self).to_rva(), addr)
             addr = toc
-            sym_type = Symbol.TYPE_OBJECT
+            sym_type = SymbolType.TYPE_OBJECT
             SymbolCls = Symbol
 
         new_symbol = SymbolCls(self, name, addr if tls else AT.from_mva(addr, self).to_rva(), size, sym_type)
@@ -150,7 +150,7 @@ class ExternObject(Backend):
             for reloc in relocs:
                 reloc.relocate([self])
 
-        if symbol.size == 0 and symbol.type in (Symbol.TYPE_OBJECT, Symbol.TYPE_TLS_OBJECT):
+        if symbol.size == 0 and symbol.type in (SymbolType.TYPE_OBJECT, SymbolType.TYPE_TLS_OBJECT):
             l.warning("Symbol was allocated without a known size; emulation will fail if it is used non-opaquely: %s", symbol.name)
             self._warned_data_import = True
 
@@ -165,7 +165,7 @@ class KernelObject(Backend):
         self.pic = True
 
     def add_name(self, name, addr):
-        self._symbol_cache[name] = Symbol(self, name, AT.from_mva(addr, self).to_rva(), 1, Symbol.TYPE_FUNCTION)
+        self._symbol_cache[name] = Symbol(self, name, AT.from_mva(addr, self).to_rva(), 1, SymbolType.TYPE_FUNCTION)
 
     @property
     def max_addr(self):

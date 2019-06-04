@@ -7,7 +7,7 @@ import elftools
 from elftools.elf import elffile, sections
 from collections import OrderedDict, defaultdict
 
-from .symbol import ELFSymbol, Symbol
+from .symbol import ELFSymbol, Symbol, SymbolType
 from .regions import ELFSection, ELFSegment
 from .hashtable import ELFHashTable, GNUHashTable
 from .metaelf import MetaELF, maybedecode
@@ -79,7 +79,7 @@ class ELF(MetaELF):
         self._init_arr = []
         self._fini_func = None
         self._fini_arr = []
-        self._nullsymbol = Symbol(self, '', 0, 0, Symbol.TYPE_NONE)
+        self._nullsymbol = Symbol(self, '', 0, 0, SymbolType.TYPE_NONE)
         self._nullsymbol.is_static = True
 
         self._symbol_cache = {}

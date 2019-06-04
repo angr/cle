@@ -5,7 +5,7 @@ import sortedcontainers
 import archinfo
 from .region import Region, Segment, Section
 from .regions import Regions
-from .symbol import Symbol
+from .symbol import Symbol, SymbolType
 from ..address_translator import AT
 from ..memory import Clemory
 from ..errors import CLEOperationError, CLEError

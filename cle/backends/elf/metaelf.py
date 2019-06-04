@@ -3,7 +3,7 @@ import elftools
 import os
 
 from .. import Backend
-from ..symbol import Symbol
+from ..symbol import SymbolType
 from ...address_translator import AT
 from ...utils import stream_or_path
 from elftools.elf.descriptions import describe_ei_osabi
@@ -68,7 +68,7 @@ class MetaELF(Backend):
             plt_sec = self.sections_map['.MIPS.stubs']
 
         self.jmprel = OrderedDict(sorted(self.jmprel.items(), key=lambda x: x[1].linked_addr))
-        func_jmprel = OrderedDict((k, v) for k, v in self.jmprel.items() if v.symbol.type not in (Symbol.TYPE_OBJECT, Symbol.TYPE_SECTION, Symbol.TYPE_OTHER))
+        func_jmprel = OrderedDict((k, v) for k, v in self.jmprel.items() if v.symbol.type not in (SymbolType.TYPE_OBJECT, SymbolType.TYPE_SECTION, SymbolType.TYPE_OTHER))
 
         # ATTEMPT 1: some arches will just leave the plt stub addr in the import symbol
         if self.arch.name in ('ARM', 'ARMEL', 'ARMHF', 'ARMCortexM', 'AARCH64', 'MIPS32', 'MIPS64'):

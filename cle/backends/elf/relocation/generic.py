@@ -3,7 +3,7 @@ import logging
 
 from ....address_translator import AT
 from ....errors import CLEOperationError
-from ... import Symbol
+from ... import SymbolType
 from .elfreloc import ELFReloc
 
 l = logging.getLogger('cle.backends.elf.relocation.generic')
@@ -22,7 +22,7 @@ class GenericTLSDoffsetReloc(ELFReloc):
 class GenericTLSOffsetReloc(ELFReloc):
     def relocate(self, solist, bypass_compatibility=False):  #pylint: disable=unused-argument
         hell_offset = self.owner.arch.elf_tls.tp_offset
-        if self.symbol.type == Symbol.TYPE_NONE:
+        if self.symbol.type == SymbolType.TYPE_NONE:
             self.owner.memory.pack_word(
                 self.relative_addr,
                 self.owner.tls_block_offset + self.addend + self.symbol.relative_addr - hell_offset)
@@ -38,7 +38,7 @@ class GenericTLSOffsetReloc(ELFReloc):
 
 class GenericTLSModIdReloc(ELFReloc):
     def relocate(self, solist, bypass_compatibility=False):  #pylint: disable=unused-argument
-        if self.symbol.type == Symbol.TYPE_NONE:
+        if self.symbol.type == SymbolType.TYPE_NONE:
             self.owner.memory.pack_word(self.relative_addr, self.owner.tls_module_id)
             self.resolve(None)
         else:
@@ -50,7 +50,7 @@ class GenericTLSModIdReloc(ELFReloc):
 
 class GenericIRelativeReloc(ELFReloc):
     def relocate(self, solist, bypass_compatibility=False):  #pylint: disable=unused-argument
-        if self.symbol.type == Symbol.TYPE_NONE:
+        if self.symbol.type == SymbolType.TYPE_NONE:
             self.owner.irelatives.append((AT.from_lva(self.addend, self.owner).to_mva(), self.relative_addr))
             self.resolve(None)
             return True
@@ -91,7 +91,7 @@ class GenericRelativeReloc(ELFReloc):
         return self.owner.mapped_base + self.addend
 
     def resolve_symbol(self, solist, bypass_compatibility=False, thumb=False):  #pylint: disable=unused-argument
-        if self.symbol.type == Symbol.TYPE_NONE:
+        if self.symbol.type == SymbolType.TYPE_NONE:
             self.resolve(None)
             return True
         return super(GenericRelativeReloc, self).resolve_symbol(

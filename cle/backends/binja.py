@@ -1,7 +1,7 @@
 
 import logging
 
-from . import Backend, register_backend, Symbol
+from . import Backend, register_backend, Symbol, SymbolType
 from .relocation import Relocation
 from ..errors import CLEError
 from ..address_translator import AT
@@ -35,11 +35,11 @@ class BinjaSymbol(Symbol):
             raise CLEError(BINJA_NOT_INSTALLED_STR)
 
         if sym.type in self.BINJA_FUNC_SYM_TYPES:
-            symtype = Symbol.TYPE_FUNCTION
+            symtype = SymbolType.TYPE_FUNCTION
         elif sym.type in self.BINJA_DATA_SYM_TYPES:
-            symtype = Symbol.TYPE_OBJECT
+            symtype = SymbolType.TYPE_OBJECT
         else:
-            symtype = Symbol.TYPE_OTHER
+            symtype = SymbolType.TYPE_OTHER
 
         super(BinjaSymbol, self).__init__(owner,
                                           sym.raw_name,

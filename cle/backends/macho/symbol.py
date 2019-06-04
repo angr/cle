@@ -3,7 +3,7 @@
 # This file is part of Mach-O Loader for CLE.
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
 
-from .. import Symbol
+from .. import Symbol, SymbolType
 
 import logging
 l = logging.getLogger('cle.backends.macho.symbol')
@@ -39,7 +39,7 @@ class MachOSymbol(Symbol):
         # pointing to the symobl.
         # Stub addresses must be obtained through some sort of higher-level analysis
         # Note 3: A symbols name may not be unique!
-        # Note 4: The symbol type of all symbols is Symbol.TYPE_OTHER because without docs I was unable to problerly map Mach-O symbol types to CLE's notion of a symbol type
+        # Note 4: The symbol type of all symbols is SymbolType.TYPE_OTHER because without docs I was unable to proplerly map Mach-O symbol types to CLE's notion of a symbol type
 
         # store the mach-o properties, all these are raw values straight from the binary
         self.symtab_offset = symtab_offset # offset from the start of the symbol table
@@ -61,7 +61,7 @@ class MachOSymbol(Symbol):
                owner.get_string(n_strx).decode() if n_strx != 0 else "",
                 self.value,
                 owner.arch.bytes,
-                Symbol.TYPE_OTHER)
+                SymbolType.TYPE_OTHER)
 
         # set further fields
         self.is_import = self.sym_type == SYMBOL_TYPE_UNDEF and self.is_external and self.library_ordinal != LIBRARY_ORDINAL_SELF
