@@ -1,3 +1,5 @@
+from elftools.elf.enums import ENUM_ST_INFO_TYPE
+
 from ..symbol import Symbol, SymbolType
 from ...address_translator import AT
 from .symbol_type import ELFSymbolType
@@ -16,7 +18,19 @@ class ELFSymbol(Symbol):
     :ivar _subtype:         The ELFSymbolType of this symbol
     """
     def __init__(self, owner, symb):
-        self._subtype = ELFSymbolType[symb.entry.st_info.type]
+        subtype_num = ENUM_ST_INFO_TYPE.get(symb.entry.st_info.type, symb.entry.st_info.type)
+        arch_list = [owner.arch.name, None]
+        if 'UNIX' in owner.os:
+            arch_list.insert(1, 'gnu')
+        for arch in arch_list:
+            try:
+                self._subtype = ELFSymbolType((subtype_num, arch))
+            except ValueError:
+                pass
+            else:
+                break
+        else:
+            self._subtype = None
         self._type = self._subtype.to_base_type()
 
         sec_ndx, value = symb.entry.st_shndx, symb.entry.st_value

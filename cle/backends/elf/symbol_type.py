@@ -1,6 +1,5 @@
 import logging
 
-from archinfo import ArchNotFound, arch_from_id
 from ..symbol import SymbolType, SymbolSubType
 
 _l = logging.getLogger('cle.backends.elf.symbol')
@@ -79,12 +78,6 @@ class ELFSymbolType(SymbolSubType):
         if not isinstance(self.value, tuple):
             raise ValueError(
                 "Symbol value '{}' for member '{}' is invalid. Values must be tuples.".format(self.value, self.name))  # pylint: disable=logging-format-interpolation
-        try:
-            if self.os_proc:  # ignore our defaults
-                arch_from_id(self.os_proc)
-        except ArchNotFound:
-            _l.warning(
-                "Symbol value '{}' for member '{}' does not have an archinfo type.".format(self.value, self.name))  # pylint: disable=logging-format-interpolation
 
     def __repr__(self):
         return "ELFSymbolType.{}: (elf_value: {}, os_proc: {})".format(self.name, self.elf_value, self.os_proc)
