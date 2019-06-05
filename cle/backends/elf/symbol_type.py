@@ -82,6 +82,14 @@ class ELFSymbolType(SymbolSubType):
     def __repr__(self):
         return "ELFSymbolType.{}: (elf_value: {}, os_proc: {})".format(self.name, self.elf_value, self.os_proc)
 
+    def __eq__(self, other):
+        if type(self) is not type(other):
+            return False
+        return self.value[0] == other.value[0]
+
+    def __ne__(self, other):
+        return not (self == other)
+
     @property
     def elf_value(self):
         return self.value[0]  # pylint: disable=unsubscriptable-object

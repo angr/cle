@@ -28,10 +28,11 @@ class ELFSymbol(Symbol):
             except ValueError:
                 pass
             else:
+                self._type = self._subtype.to_base_type()
                 break
         else:
             self._subtype = None
-        self._type = self._subtype.to_base_type()
+            self._type = SymbolType.TYPE_OTHER
 
         sec_ndx, value = symb.entry.st_shndx, symb.entry.st_value
 
