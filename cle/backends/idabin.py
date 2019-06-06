@@ -48,7 +48,7 @@ class IDABin(Backend):
 
         for segaddr in self.ida.idautils.Segments():
             segend = self.ida.idc.SegEnd(segaddr)
-            string = ''.join(memcache[i] if i in memcache else '\0' for i in xrange(segaddr, segend))
+            string = ''.join(memcache[i] if i in memcache else '\0' for i in range(segaddr, segend))
             self.memory.add_backer(segaddr, string)
 
         self.got_begin = None
@@ -194,7 +194,7 @@ class IDABin(Backend):
         import_modules_count = self.ida.idaapi.get_import_module_qty()
         self.raw_imports = {}
 
-        for i in xrange(0, import_modules_count):
+        for i in range(import_modules_count):
             self.current_module_name = self.ida.idaapi.get_import_module_name(i)
             self.ida.idaapi.enum_import_names(i, self._import_entry_callback)
 
