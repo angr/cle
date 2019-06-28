@@ -1,11 +1,10 @@
 from . import Backend, register_backend
 from ..errors import CLEError
-from ..patched_stream import PatchedStream
 from .region import Segment
 import logging
-l = logging.getLogger("cle.blob")
+l = logging.getLogger("cle.named_region")
 
-__all__ = ('Blob',)
+__all__ = ('NamedRegion',)
 
 class NamedRegion(Backend):
     """
@@ -15,16 +14,25 @@ class NamedRegion(Backend):
     like RAM, MMIO, etc
     """
     is_default = False
-
+    has_memory = False
     def __init__(self, name, start, end, **kwargs):
         """
         """
+        self.name = name
+        self._min_addr = start
+        self._max_addr = end
 
-        self._max_addr = start
-        self._min_addr = end
-
+        super(NamedRegion, self).__init__(name, **kwargs)
+        self._min_addr = start
+        self.linked_base = start
+        self._max_addr = end
+        self.has_memory = False
         s = Segment(0, start, 0, end - start)
         self.segments.append(s)
+
+    
+    def __repr__(self):
+         return '<NamedRegion %s, maps [%#x:%#x]>' % (self.name, self.min_addr, self.max_addr)
 
     @staticmethod
     def is_compatible(stream):
@@ -47,15 +55,9 @@ class NamedRegion(Backend):
     def contains_addr(self, addr):
         return self.min_addr <= addr < self.max_addr
 
-    def in_which_segment(self, addr): #pylint: disable=unused-argument,no-self-use
-        """
-        Blobs don't support segments.
-        """
-        return None
-
     @classmethod
     def check_compatibility(cls, spec, obj): # pylint: disable=unused-argument
         return True
 
 
-register_backend("blob", Blob)
+register_backend("named_region", NamedRegion)
