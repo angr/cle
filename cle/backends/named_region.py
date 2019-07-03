@@ -1,5 +1,4 @@
 from . import Backend, register_backend
-from ..errors import CLEError
 from .region import Segment
 import logging
 l = logging.getLogger("cle.named_region")
@@ -15,6 +14,7 @@ class NamedRegion(Backend):
     """
     is_default = False
     has_memory = False
+
     def __init__(self, name, start, end, **kwargs):
         """
         """
@@ -29,7 +29,6 @@ class NamedRegion(Backend):
         self.has_memory = False
         s = Segment(0, start, 0, end - start)
         self.segments.append(s)
-
     
     def __repr__(self):
          return '<NamedRegion %s, maps [%#x:%#x]>' % (self.name, self.min_addr, self.max_addr)
