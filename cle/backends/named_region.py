@@ -5,6 +5,7 @@ l = logging.getLogger("cle.named_region")
 
 __all__ = ('NamedRegion',)
 
+
 class NamedRegion(Backend):
     """
     A NamedRegion represent a region of memory that has a name, a location, but no static content.
@@ -29,9 +30,9 @@ class NamedRegion(Backend):
         self.has_memory = False
         s = Segment(0, start, 0, end - start)
         self.segments.append(s)
-    
+        
     def __repr__(self):
-         return '<NamedRegion %s, maps [%#x:%#x]>' % (self.name, self.min_addr, self.max_addr)
+        return '<NamedRegion %s, maps [%#x:%#x]>' % (self.name, self.min_addr, self.max_addr)
 
     @staticmethod
     def is_compatible(stream):
