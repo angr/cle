@@ -30,7 +30,7 @@ class NamedRegion(Backend):
         self.has_memory = False
         s = Segment(0, start, 0, end - start)
         self.segments.append(s)
-        
+
     def __repr__(self):
         return '<NamedRegion %s, maps [%#x:%#x]>' % (self.name, self.min_addr, self.max_addr)
 
