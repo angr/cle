@@ -42,6 +42,8 @@ class Backend:
     :ivar bool execstack:   Whether this executable has an executable stack
     :ivar str provides:     The name of the shared library dependancy that this object resolves
     :ivar list symbols:     A list of symbols provided by this object, sorted by address
+    :ivar has_memory:       Whether this backend is backed by a Clemory or not. As it stands now, a backend should still
+                            define `min_addr` and `max_addr` even if `has_memory` is False.
     """
     is_default = False
 
