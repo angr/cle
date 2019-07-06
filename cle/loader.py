@@ -363,6 +363,8 @@ class Loader:
             return None
         if not membership_check:
             return obj
+        if not obj.has_memory:
+            return obj
         return _check_object_memory(obj)
 
     def find_segment_containing(self, addr, skip_pseudo_objects=True):

@@ -349,3 +349,4 @@ from .macho import MachO
 from .java.jar import Jar
 from .java.apk import Apk
 from .binja import BinjaBin
+from .named_region import NamedRegion
