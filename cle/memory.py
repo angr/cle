@@ -215,7 +215,7 @@ class Clemory:
                 break
 
         if not views:
-            raise KeyError(n)
+            raise KeyError(addr)
         return b''.join(views)
 
     def store(self, addr, data):
