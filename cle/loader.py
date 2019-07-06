@@ -781,7 +781,7 @@ class Loader:
         if obj.has_memory:
             l.info("Mapping %s at %#x", obj.binary, base_addr)
             self.memory.add_backer(base_addr, obj.memory)
-            key_bisect_insort_left(self.all_objects, obj, keyfunc=lambda o: o.min_addr)
+        key_bisect_insort_left(self.all_objects, obj, keyfunc=lambda o: o.min_addr)
         obj._is_mapped = True
 
     def _relocate_object(self, obj):
