@@ -22,7 +22,7 @@ class NamedRegion(Backend):
         self.name = name
         self._min_addr = start
         self._max_addr = end
-
+        self.has_memory = False
         super(NamedRegion, self).__init__(name, **kwargs)
         self._min_addr = start
         self.linked_base = start
