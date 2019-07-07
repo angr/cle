@@ -32,13 +32,11 @@ class NamedRegion(Backend):
         :param kwargs:
         """
         self.name = name
-        self._min_addr = start
-        self._max_addr = end
-
         super(NamedRegion, self).__init__(name, **kwargs)
         self._min_addr = start
         self.linked_base = start
         self._max_addr = end
+        self.has_memory = False
         s = EmptySegment(start, end - start, is_readable, is_writable, is_executable)
         self.segments.append(s)
 
