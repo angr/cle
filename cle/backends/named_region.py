@@ -1,9 +1,5 @@
 from . import Backend, register_backend
-<<<<<<< HEAD
 from .region import EmptySegment
-=======
-from .region import Segment
->>>>>>> master
 import logging
 l = logging.getLogger("cle.named_region")
 
