@@ -20,6 +20,9 @@ l = logging.getLogger(name=__name__)
 class Soot(Backend):
     """
     The basis backend for lifting and loading bytecode from JARs and APKs to Soot IR.
+
+    Note that self.min_addr will be 0 and self.max_addr will be 1. Hopefully no other object will be mapped at address
+    0.
     """
 
     def __init__(self, path, entry_point=None, entry_point_params=(), input_format=None,
