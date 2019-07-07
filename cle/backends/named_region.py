@@ -1,5 +1,5 @@
 from . import Backend, register_backend
-from .region import Segment
+from .region import EmptySegment
 import logging
 l = logging.getLogger("cle.named_region")
 
@@ -16,7 +16,7 @@ class NamedRegion(Backend):
     is_default = False
     has_memory = False
 
-    def __init__(self, name, start, end, **kwargs):
+    def __init__(self, name, start, end, is_readable=True, is_writable=True, is_executable=False, **kwargs):
         """
         """
         self.name = name
@@ -28,7 +28,7 @@ class NamedRegion(Backend):
         self.linked_base = start
         self._max_addr = end
         self.has_memory = False
-        s = Segment(0, start, 0, end - start)
+        s = EmptySegment(start, end - start, is_readable, is_writable, is_executable)
         self.segments.append(s)
 
     def __repr__(self):

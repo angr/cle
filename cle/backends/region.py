@@ -106,6 +106,37 @@ class Segment(Region):
     pass
 
 
+class EmptySegment(Segment):
+    """
+    A segment with no static content, and permissions
+    """
+
+    def __init__(self, vaddr, memsize, is_readable=True, is_writable=True, is_executable=False):
+        super(EmptySegment, self).__init__(0, vaddr, 0, memsize)
+        self._is_readable = is_readable
+        self._is_writable = is_writable
+        self._is_executable = is_executable
+
+    @property
+    def is_executable(self):
+        return self._is_executable
+
+    @property
+    def is_writable(self):
+        return self._is_writable
+
+    @property
+    def is_readable(self):
+        return self._is_readable
+
+    @property
+    def only_contains_uninitialized_data(self):
+        """
+        Whether this section is initialized to zero after the executable is loaded.
+        """
+        return True
+
+
 class Section(Region):
     """
     Simple representation of a loaded section.
