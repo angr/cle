@@ -19,7 +19,6 @@ setup(
     install_requires=[
         'pyelftools>=0.25',
         'cffi',
-        'idalink',
         'archinfo==8.19.4.5',
         'pyvex==8.19.4.5',
         'pefile',
