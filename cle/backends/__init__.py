@@ -352,7 +352,7 @@ from .java.apk import Apk
 
 try:
     from .binja import BinjaBin
-except Exception:
+except Exception:  # pylint:disable=broad-except
     l.warning("Binary Ninja is installed in the environment but the BinjaBin backend fails to initialize. Your Binary "
               "Ninja might be too old.",
               exc_info=True)
