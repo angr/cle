@@ -346,7 +346,13 @@ from .blob import Blob
 from .cgc import CGC, BackedCGC
 from .ihex import Hex
 from .macho import MachO
+from .named_region import NamedRegion
 from .java.jar import Jar
 from .java.apk import Apk
-from .binja import BinjaBin
-from .named_region import NamedRegion
+
+try:
+    from .binja import BinjaBin
+except Exception:  # pylint:disable=broad-except
+    l.warning("Binary Ninja is installed in the environment but the BinjaBin backend fails to initialize. Your Binary "
+              "Ninja might be too old.",
+              exc_info=True)
