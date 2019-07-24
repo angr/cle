@@ -48,6 +48,10 @@ class IMAGE_REL_BASED_DIR64(PEReloc):
         org_bytes = self.owner.memory.load(self.relative_addr, 8)
         org_value = struct.unpack('<Q', org_bytes)[0]
         rebased_value = AT.from_lva(org_value, self.owner).to_mva()
+        if rebased_value < 0 or rebased_value >= 0x10000000000000000:
+            l.error("Incorrect rebased address %x found at %s. Maybe the relocation table is broken.",
+                    rebased_value, self.owner)
+            return None
         rebased_bytes = struct.pack('<Q', rebased_value)
         return rebased_bytes
 
