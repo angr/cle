@@ -33,10 +33,11 @@ class PEReloc(Relocation):
 
     def relocate(self, solist, bypass_compatibility=False):
         if self.symbol is None:  # relocation described in the DIRECTORY_ENTRY_BASERELOC table
-            if self.value is None:
+            value = self.value
+            if value is None:
                 l.debug('Unresolved relocation with no symbol.')
                 return
-            self.owner.memory.store(self.relative_addr, self.value)
+            self.owner.memory.store(self.relative_addr, value)
         else:
             return super(PEReloc, self).relocate(solist, bypass_compatibility)
 
