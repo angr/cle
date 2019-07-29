@@ -62,6 +62,10 @@ class ELF(MetaELF):
         # Get an appropriate archinfo.Arch for this binary, unless the user specified one
         if self.arch is None:
             self.set_arch(self.extract_arch(self.reader))
+        else:
+            other_arch = self.extract_arch(self.reader)
+            if other_arch != self.arch:
+                l.warning("User specified %s but autodetected %s. Proceed with caution.", self.arch, other_arch)
 
         self._addend = addend
 
