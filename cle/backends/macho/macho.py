@@ -222,7 +222,7 @@ class MachO(Backend):
     def _resolve_entry(self):
         if self.entryoff:
             self._mapped_base = self.find_segment_by_name("__TEXT").vaddr
-            self._entry = self.find_segment_by_name("__TEXT").vaddr + self.entryoff
+            self._entry = self.entryoff
         elif self.unixthread_pc:
             self._entry = self.unixthread_pc
         else:
