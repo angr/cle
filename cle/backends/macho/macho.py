@@ -7,9 +7,10 @@ import struct
 import sys
 from io import BytesIO
 import archinfo
+import sortedcontainers
 
 from .section import MachOSection
-from .symbol import MachOSymbol
+from .symbol import SymbolTableSymbol
 from .segment import MachOSegment
 from .binding import BindingHelper, read_uleb
 from .. import Backend, register_backend
@@ -46,6 +47,7 @@ class MachO(Backend):
         super(MachO, self).__init__(binary, **kwargs)
 
         self.struct_byteorder = None  # holds byteorder for struct.unpack(...)
+        self._mapped_base = None # temporary holder für mapped base derived via loading
         self.cputype = None
         self.cpusubtype = None
         self.filetype = None
@@ -70,6 +72,14 @@ class MachO(Backend):
         self.symtab_offset = None # offset to the symtab
         self.symtab_nsyms = None # number of symbols in the symtab
         self.binding_done = False # if true binding was already done and do_bind will be a no-op
+
+        # TODO: Comment By Wittmann Andreas
+        # TODO: This line is as dirty as it can get. To still be api compatible, a SortedKeyList is used as predefined
+        # TODO: by the angr-api. As certain mach-o analyses require index based access (e.g. stub-parser) the order
+        # TODO: in which symbols are inserted is important and has to preserved or the complete symbol structure
+        # TODO: has to be changed. This line transforms a SortedKeyList into a non sorted key list where its order
+        # TODO: is preserved. This is a very very dirty workaround
+        self.symbols = sortedcontainers.SortedKeyList(key=lambda key: True)
 
         # Begin parsing the file
         try:
@@ -153,6 +163,8 @@ class MachO(Backend):
         self._parse_exports()
         self._parse_symbols(binary_file)
         self._parse_mod_funcs()
+        self.mapped_base = self._mapped_base
+
 
     @staticmethod
     def is_compatible(stream):
@@ -185,7 +197,7 @@ class MachO(Backend):
         # factoring out common code
         def parse_mod_funcs_internal(s, target):
             for i in range(s.vaddr, s.vaddr + s.memsize, size):
-                addr = self._unpack_with_byteorder(fmt, "".join(self.memory.load(i, size)))[0]
+                addr = self._unpack_with_byteorder(fmt, self.memory.load(i, size))[0]
                 l.debug("Addr: %#x", addr)
                 target.append(addr)
 
@@ -209,6 +221,7 @@ class MachO(Backend):
 
     def _resolve_entry(self):
         if self.entryoff:
+            self._mapped_base = self.find_segment_by_name("__TEXT").vaddr
             self._entry = self.find_segment_by_name("__TEXT").vaddr + self.entryoff
         elif self.unixthread_pc:
             self._entry = self.unixthread_pc
@@ -300,7 +313,9 @@ class MachO(Backend):
             l.info("Found weak binding blob. According to current state of knowledge, weak binding "
                    "is only sensible if multiple binaries are involved and is thus skipped.")
 
+
         self.binding_done=True
+
 
     def _parse_exports(self):
         """
@@ -458,7 +473,7 @@ class MachO(Backend):
             address += uleb[0]
 
             self.lc_function_starts.append(address)
-            l.debug("Function start @ %#x", uleb[0])
+            l.debug("Function start @ %#x (%#x)", uleb[0],address)
             i += uleb[1]
         l.debug("Done parsing function starts")
 
@@ -548,9 +563,11 @@ class MachO(Backend):
             l.debug("Adding symbol # %d @ %#x: %s,%s,%s,%s,%s",
                     i, offset,
                     n_strx, n_type, n_sect, n_desc, n_value)
-            sym = MachOSymbol(
-                    self, offset_in_symtab,n_strx, n_type, n_sect, n_desc, n_value)
+            sym = SymbolTableSymbol(
+                    self, offset_in_symtab, n_strx, n_type, n_sect, n_desc, n_value)
             self.symbols.add(sym)
+
+            l.debug("Symbol # %d @ %#x is '%s'",i,offset, sym.name)
 
     def get_string(self, start):
         """Loads a string from the string table"""
@@ -642,7 +659,7 @@ class MachO(Backend):
             # This should not cause trouble because accesses to __PAGEZERO are SUPPOSED to crash (segment has access set to no access)
             # This optimization is here as otherwise several GB worth of zeroes would clutter our memory
             l.info("Found PAGEZERO, skipping backer for memory conservation")
-        else:
+        elif seg.filesize > 0:
             # Append segment data to memory
             blob = self._read(f, seg.offset, seg.filesize)
             if seg.filesize < seg.memsize:
@@ -653,6 +670,7 @@ class MachO(Backend):
         # Store segment
         self.segments.append(seg)
 
+
     def get_symbol_by_address_fuzzy(self, address):
         """
         Locates a symbol by checking the given address against sym.addr, sym.bind_xrefs and
@@ -662,6 +680,7 @@ class MachO(Backend):
             if address == sym.relative_addr or address in sym.bind_xrefs or address in sym.symbol_stubs:
                 return sym
 
+
     def get_symbol(self, name, include_stab=False, fuzzy=False): # pylint: disable=arguments-differ
         """
         Returns all symbols matching name.
@@ -669,6 +688,7 @@ class MachO(Backend):
         Note that especially when include_stab=True there may be multiple symbols with the same
         name, therefore this method always returns an array.
 
+        :param name the name of the symbol
         :param include_stab: Include debugging symbols NOT RECOMMENDED
         :param fuzzy: Replace exact match with "contains"-style match
         """

@@ -4,6 +4,8 @@
 
 import struct
 
+from .symbol import BindingSymbol
+
 from ...errors import CLEInvalidBinaryError
 from ...address_translator import AT
 
@@ -193,7 +195,7 @@ class BindingHelper(object):
         end = len(blob)
         while not s.done and s.index < end:
             l.debug("Current address: %#x, blob index (offset): %#x", s.address, s.index)
-            raw_opcode = struct.unpack("B", blob[s.index])[0]
+            raw_opcode = blob[s.index]
             opcode = raw_opcode & OPCODE_MASK
             immediate = raw_opcode & IMM_MASK
             s.index += 1
@@ -241,9 +243,11 @@ def n_opcode_set_dylib_special_imm(s, b, i, blob):
 def n_opcode_set_trailing_flags_imm(s, b, i, blob):
     s.sym_name = ""
     s.sym_flags = i
-    while blob[s.index] != "\x00":
-        s.sym_name += blob[s.index]
+
+    while blob[s.index] != 0:
+        s.sym_name += chr(blob[s.index])
         s.index += 1
+
     s.index += 1  # move past 0 byte
     l.debug("SET_SYMBOL_TRAILING_FLAGS_IMM @ %#x: %r,%#x", s.index - len(s.sym_name) - 1, s.sym_name, s.sym_flags)
     return s
@@ -356,20 +360,32 @@ def default_binding_handler(state, binary):
 
     # locate the symbol:
     # TODO: A lookup structure of some kind would be nice (see __init__)
-    matches = [s for s in binary.symbols if s.name == state.sym_name and s.library_ordinal == state.lib_ord]
+    matches = list(
+        filter(
+            lambda s, compare_state=state:
+                s.name == compare_state.sym_name and
+                s.library_ordinal == compare_state.lib_ord
+                and not s.is_stab, binary.symbols
+        )
+    )
     if len(matches) > 1:
         l.error("Cannot bind: More than one match for (%r,%d)", state.sym_name, state.lib_ord)
         raise CLEInvalidBinaryError()
     elif len(matches) < 1:
-        l.error("Cannot bind: No match for (%r,%d)", state.sym_name, state.lib_ord)
-        raise CLEInvalidBinaryError()
+        l.info("No match for (%r,%d), generating BindingSymbol ...", state.sym_name, state.lib_ord)
+        matches =[BindingSymbol(binary,state.sym_name,state.lib_ord)]
+        binary.symbols.add(matches[0])
 
     symbol = matches[0]
     location = state.address
 
-    value = symbol.linked_addr + state.addend
+    # If the linked_addr is equal to zero, it's an imported symbol which is by that time unresolved.
+    # Don't write addend's there
+
+    value = symbol.linked_addr + state.addend if symbol.linked_addr != 0 else 0x0
+
     if state.binding_type == 1:  # POINTER
-        l.info("Updating address %#x with symobl %r @ %#x", location, state.sym_name, value)
+        l.debug("Updating address %#x with symobl %r @ %#x", location, state.sym_name, value)
         binary.memory.store(
             AT.from_lva(location, binary).to_rva(),
             struct.pack(binary.struct_byteorder + ("Q" if binary.arch.bits == 64 else "I"), value))
@@ -377,7 +393,7 @@ def default_binding_handler(state, binary):
     elif state.binding_type == 2:  # ABSOLUTE32
         location_32 = location % (2 ** 32)
         value_32 = value % (2 ** 32)
-        l.info("Updating address %#x with symobl %r @ %#x", state.sym_name, location_32, value_32)
+        l.debug("Updating address %#x with symobl %r @ %#x", state.sym_name, location_32, value_32)
         binary.memory.store(
             AT.from_lva(location_32, binary).to_rva(),
             struct.pack(binary.struct_byteorder + "I", value_32))
@@ -385,7 +401,7 @@ def default_binding_handler(state, binary):
     elif state.binding_type == 3:  # PCREL32
         location_32 = location % (2 ** 32)
         value_32 = (value - (location + 4)) % (2 ** 32)
-        l.info("Updating address %#x with symobl %r @ %#x", state.sym_name, location_32, value_32)
+        l.debug("Updating address %#x with symobl %r @ %#x", state.sym_name, location_32, value_32)
         binary.memory.store(
             AT.from_lva(location_32, binary).to_rva(),
             struct.pack(binary.struct_byteorder + "I", value_32))

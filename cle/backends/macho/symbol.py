@@ -21,10 +21,32 @@ LIBRARY_ORDINAL_OLD_MAX = 0xfe
 LIBRARY_ORDINAL_DYN_LOOKUP = 0xfe
 LIBRARY_ORDINAL_EXECUTABLE = 0xff
 
-
-class MachOSymbol(Symbol):
+class AbstractMachOSymbol(Symbol):
     """
-    Base class for Mach-O symbols. Made to be (somewhat) compatible with backends.Symbol.
+    Base class for Mach-O symbols.
+    Defines the minimum common properties all types of mach-o symbols must have
+    """
+
+    def __init__(self, owner, name, relative_addr, size, sym_type):
+        super(AbstractMachOSymbol,self).__init__(owner,name,relative_addr,size,sym_type)
+
+        # additional properties
+        self.bind_xrefs = []  # XREFs discovered during binding of the symbol
+        self.symbol_stubs = []  # starting addresses of stubs that resolve to this symbol - note that this must be obtained through an analysis of some sort
+
+    @property
+    def library_ordinal(self):
+        return None
+
+    @property
+    def is_stab(self):
+        return False
+
+class SymbolTableSymbol(AbstractMachOSymbol):
+    """
+    "Regular" symbol. Made to be (somewhat) compatible with backends.Symbol.
+    A SymbolTableSymbol is an entry in the binary's symbol table.
+
     Note that ELF-specific fields from backends.Symbol are not used and semantics of the remaining fields differ in
     many cases. As a result most stock functionality from Angr and related libraries WILL NOT WORK PROPERLY on
     MachOSymbol.
@@ -50,15 +72,12 @@ class MachOSymbol(Symbol):
         self.n_strx = n_strx # index into the string table
 
 
-        # additional properties
-        self.bind_xrefs = []  # XREFs discovered during binding of the symbol
-        self.symbol_stubs = []  # starting addresses of stubs that resolve to this symbol - note that this must be obtained through an analysis of some sort
 
         # now we may call super
         # however we cannot access any properties yet that would touch superclass-initialized attributes
         # so we have to repeat some work
-        super(MachOSymbol, self).__init__(owner,
-               owner.get_string(n_strx).decode() if n_strx != 0 else "",
+        super(SymbolTableSymbol, self).__init__(owner,
+               owner.get_string(n_strx).decode('utf-8') if n_strx != 0 else "",
                 self.value,
                 owner.arch.bytes,
                 SymbolType.TYPE_OTHER)
@@ -70,10 +89,11 @@ class MachOSymbol(Symbol):
     @property
     def library_name(self):
         if self.is_import:
-            return self.owner.imported_libraries[self.library_ordinal]
-        else:
-            return None
-
+            if LIBRARY_ORDINAL_DYN_LOOKUP == self.library_ordinal:
+                l.warn("LIBRARY_ORDINAL_DYN_LOOKUP found, cannot handle")
+                return None
+            else:
+                return self.owner.imported_libraries[self.library_ordinal]
     @property
     def segment_name(self):
         if self.sym_type == SYMBOL_TYPE_SECT:
@@ -193,3 +213,74 @@ class MachOSymbol(Symbol):
     @property
     def is_alt_entry(self):
         return self.n_desc & 0x0200
+
+
+class BindingSymbol(AbstractMachOSymbol):
+    """
+    "Binding" symbol. Made to be (somewhat) compatible with backends.Symbol.
+    A BindingSymbol is an imported symbol discovered during the binding process.
+
+    Note that ELF-specific fields from backends.Symbol are not used and semantics of the remaining fields differ in
+    many cases. As a result most stock functionality from Angr and related libraries WILL NOT WORK PROPERLY on
+    MachOSymbol.
+
+    Much of the code below is based on heuristics as official documentation is sparse, consider yourself warned!
+    """
+
+
+
+    def __init__(self, owner, name,lib_ordinal):
+        # Note 1: Setting size = owner.arch.bytes has been directly taken over from the PE backend,
+        # there is no meaningful definition of a symbol's size so I assume the size of an address counts here
+        # Note 2: relative_addr will be the address of a symbols __got or __nl_symbol_ptr entry, not the address of a stub
+        # pointing to the symobl.
+        # Stub addresses must be obtained through some sort of higher-level analysis
+        # Note 3: A symbols name may not be unique!
+        # Note 4: The symbol type of all symbols is SymbolType.TYPE_OTHER because without docs I was unable to problerly map Mach-O symbol types to CLE's notion of a symbol type
+
+        # store the mach-o properties, all these are raw values straight from the binary
+        self.lib_ordinal = lib_ordinal
+
+        # now we may call super
+        # however we cannot access any properties yet that would touch superclass-initialized attributes
+        # so we have to repeat some work
+        super(BindingSymbol, self).__init__(owner,
+                                                name,
+                                                0,
+                                                owner.arch.bytes,
+                                                SymbolType.TYPE_OTHER)
+
+        # set further fields
+        self.is_import = True # this is always an import
+        self.is_export = self.name in self.owner_obj.exports_by_name
+
+    @property
+    def library_name(self):
+        if LIBRARY_ORDINAL_DYN_LOOKUP == self.lib_ordinal:
+            l.warn("LIBRARY_ORDINAL_DYN_LOOKUP found, cannot handle")
+            return None
+
+        return self.owner_obj.imported_libraries[self.lib_ordinal]
+
+
+    def is_function(self):
+        # Incompatibility to CLE
+        l.warn("It is not possible to decide wether a symbol is a function or not for MachOSymbols")
+        return False
+
+    @property
+    def rebased_addr(self):
+        l.warn("Rebasing not implemented for Mach-O")
+        return self.linked_addr
+
+    def resolve(self, obj):
+        # Incompatibility to CLE
+        pass  # Mach-O cannot be resolved like this as the whole binary is involved
+
+    def demangled_name(self):
+        return self.name  # it is not THAT easy with Mach-O
+
+    @property
+    def library_ordinal(self):
+        return self.lib_ordinal
+

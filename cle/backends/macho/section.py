@@ -11,7 +11,6 @@ ATTRIBUTES_MASK = 0xffffff00
 class MachOSection(Region):
     """
     Mach-O Section, only defined within the context of a Mach-O Segment.
-
         - offset is the offset into the file the region starts
         - vaddr (or just addr) is the virtual address
         - filesize (or just size) is the size of the region in the file

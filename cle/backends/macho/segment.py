@@ -8,7 +8,6 @@ from .. import Region
 class MachOSegment(Region):
     """
     Mach-O Segment
-
         - offset is the offset into the file the region starts
         - vaddr (or just addr) is the virtual address
         - filesize (or just size) is the size of the region in the file
