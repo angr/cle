@@ -309,6 +309,7 @@ class TestBindingHelper(unittest.TestCase):
         machofile = os.path.join(TEST_BASE, 'tests', 'armhf', 'FileProtection-05.armv7.macho')
         ld = cle.Loader(machofile, auto_load_libs=False)
         macho = ld.main_object
+        macho.do_binding()
 
         expected = {
             "_OBJC_CLASS_$_UIResponder": [0xc970],
@@ -408,7 +409,7 @@ class TestBindingHelper(unittest.TestCase):
         machofile = os.path.join(TEST_BASE, 'tests', 'armhf', 'FileProtection-05.arm64.macho')
         ld = cle.Loader(machofile, auto_load_libs=False)
         macho = ld.main_object
-
+        macho.do_binding()
         expected = {
             "_OBJC_CLASS_$_UIResponder": [0x100009128],
             "_OBJC_CLASS_$_UIScreen": [0x1000090f8],
