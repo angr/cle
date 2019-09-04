@@ -500,4 +500,5 @@ class TestBindingHelper(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    pass
+    # TODO run the testclasses without having to run each test in case the CI needs this
+    raise NotImplementedError()
