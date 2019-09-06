@@ -90,10 +90,12 @@ class SymbolTableSymbol(AbstractMachOSymbol):
     def library_name(self):
         if self.is_import:
             if LIBRARY_ORDINAL_DYN_LOOKUP == self.library_ordinal:
-                l.warn("LIBRARY_ORDINAL_DYN_LOOKUP found, cannot handle")
+                l.warning("LIBRARY_ORDINAL_DYN_LOOKUP found, cannot handle")
                 return None
             else:
                 return self.owner.imported_libraries[self.library_ordinal]
+        return None
+
     @property
     def segment_name(self):
         if self.sym_type == SYMBOL_TYPE_SECT:
@@ -131,12 +133,12 @@ class SymbolTableSymbol(AbstractMachOSymbol):
 
     def is_function(self):
         # Incompatibility to CLE
-        l.warn("It is not possible to decide wether a symbol is a function or not for MachOSymbols")
+        l.warning("It is not possible to decide wether a symbol is a function or not for MachOSymbols")
         return False
 
     @property
     def rebased_addr(self):
-        l.warn("Rebasing not implemented for Mach-O")
+        l.warning("Rebasing not implemented for Mach-O")
         return self.linked_addr
 
     def resolve(self, obj):
@@ -257,7 +259,7 @@ class BindingSymbol(AbstractMachOSymbol):
     @property
     def library_name(self):
         if LIBRARY_ORDINAL_DYN_LOOKUP == self.lib_ordinal:
-            l.warn("LIBRARY_ORDINAL_DYN_LOOKUP found, cannot handle")
+            l.warning("LIBRARY_ORDINAL_DYN_LOOKUP found, cannot handle")
             return None
 
         return self.owner_obj.imported_libraries[self.lib_ordinal]
@@ -265,12 +267,12 @@ class BindingSymbol(AbstractMachOSymbol):
 
     def is_function(self):
         # Incompatibility to CLE
-        l.warn("It is not possible to decide wether a symbol is a function or not for MachOSymbols")
+        l.warning("It is not possible to decide wether a symbol is a function or not for MachOSymbols")
         return False
 
     @property
     def rebased_addr(self):
-        l.warn("Rebasing not implemented for Mach-O")
+        l.warning("Rebasing not implemented for Mach-O")
         return self.linked_addr
 
     def resolve(self, obj):
@@ -283,4 +285,3 @@ class BindingSymbol(AbstractMachOSymbol):
     @property
     def library_ordinal(self):
         return self.lib_ordinal
-

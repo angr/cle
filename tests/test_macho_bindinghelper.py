@@ -1,22 +1,15 @@
 #!/usr/bin/env python
 # Contributed September 2019 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
-import logging
-import nose
-from nose.tools import with_setup
-from unittest import skip
 import unittest
 import os
 
 import cle
 
-from cle.backends.macho import MachO
-from cle.backends.macho.binding import BindingHelper,BindingState,read_sleb,read_uleb
+from cle.backends.macho.binding import BindingState,read_sleb,read_uleb
 
 from cle.backends.macho.binding import n_opcode_done,n_opcode_set_dylib_ordinal_imm,n_opcode_set_dylib_ordinal_uleb
 from cle.backends.macho.binding import n_opcode_set_dylib_special_imm,n_opcode_set_trailing_flags_imm,n_opcode_set_type_imm
-from cle.backends.macho.binding import n_opcode_set_addend_sleb,n_opcode_set_segment_and_offset_uleb,n_opcode_add_addr_uleb
-from cle.backends.macho.binding import n_opcode_do_bind,n_opcode_do_bind_add_addr_uleb,n_opcode_do_bind_add_addr_imm_scaled
-from cle.backends.macho.binding import n_opcode_do_bind_uleb_times_skipping_uleb
+from cle.backends.macho.binding import n_opcode_set_addend_sleb
 
 from cle import CLEInvalidBinaryError
 
@@ -136,20 +129,20 @@ class TestBindingState(unittest.TestCase):
 class TestLEB(unittest.TestCase):
     def test_read_uleb(self):
         # Test vector from wikipedia https://en.wikipedia.org/wiki/LEB128
-        input = b'\xE5\x8E\x26'
+        buffer = b'\xE5\x8E\x26'
         expected = (624485,3)
-        result = read_uleb(input,0)
+        result = read_uleb(buffer,0)
         self.assertEqual(expected,result)
 
     def test_read_sleb(self):
         # Test vector from wikipedia https://en.wikipedia.org/wiki/LEB128
-        input = b'\xE5\x8E\x26'
+        buffer = b'\xE5\x8E\x26'
         expected = (624485,3)
-        result = read_sleb(input,0)
+        result = read_sleb(buffer,0)
         self.assertEqual(expected,result)
 
-        input = b'\x9b\xf1\x59'
-        result= read_sleb(input,0)
+        buffer = b'\x9b\xf1\x59'
+        result= read_sleb(buffer,0)
         expected = (-624485,3)
         self.assertEqual(result,expected)
 
@@ -281,6 +274,7 @@ class TestBindingHelper(unittest.TestCase):
         self.n_opcode_set_addend_sleb_helper(b"\xFF\x1F\xEE", 4095)
 
     def test_n_opcode_set_segment_and_offset_uleb(self):
+        # pylint: disable=unused-variable
         s = BindingState(is_64=True)
         self.skipTest("TODO: The function needs a binary with segments to test")
 

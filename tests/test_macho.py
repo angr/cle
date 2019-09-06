@@ -78,8 +78,8 @@ def test_dummy():
     }
 
     nose.tools.assert_equal(len(expected_segments), len(macho.segments))
-    for tuple in expected_segments:
-        (segname, vaddr, vsize, foff, fsize, nsect, flags) = tuple
+    for segment_tuple in expected_segments:
+        (segname, vaddr, vsize, foff, fsize, nsect, flags) = segment_tuple
         seg = macho[segname]
         nose.tools.assert_is_not_none(seg)
         nose.tools.assert_equal(segname, seg.segname)
@@ -90,11 +90,11 @@ def test_dummy():
         nose.tools.assert_equal(nsect, seg.nsect)
         nose.tools.assert_equal(flags, seg.flags)
 
-    for k in expected_sections.keys():
+    for k in expected_sections:
         seg = macho[k]
         nose.tools.assert_equal(len(expected_sections[k]), len(seg.sections))
-        for tuple in expected_sections[k]:
-            (secname, segname, vaddr, vsize, foff, align, reloff, nreloc, flags) = tuple
+        for segment_tuple in expected_sections[k]:
+            (secname, segname, vaddr, vsize, foff, align, reloff, nreloc, flags) = segment_tuple
             sec = seg[secname]
             # print secname
             nose.tools.assert_is_not_none(sec)
