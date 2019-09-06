@@ -18,6 +18,7 @@ def test_fauxware():
     nose.tools.assert_equal(sorted(list(ld.main_object.exports_by_name))[-1], '_sneaky')
 
 
+# Contributed September 2019 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
 def test_dummy():
     """All-in-one testcase exercising all features in combination for 64 bit binaries"""
     # TODO: Updated with new features

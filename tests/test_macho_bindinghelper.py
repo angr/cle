@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+# Contributed September 2019 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
 import logging
 import nose
 from nose.tools import with_setup
