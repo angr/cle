@@ -123,9 +123,6 @@ class MachOSymbol(Symbol):
         # Incompatibility to CLE
         pass  # Mach-O cannot be resolved like this as the whole binary is involved
 
-    def demangled_name(self):
-        return self.name  # it is not THAT easy with Mach-O
-
     # real symbols have properties, mach-o symbols have plenty of them:
     @property
     def is_stab(self):
