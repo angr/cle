@@ -1,6 +1,5 @@
 import os
 import struct
-import subprocess
 import logging
 import archinfo
 import elftools
@@ -249,7 +248,7 @@ class ELF(MetaELF):
                 return self._nullsymbol
             try:
                 re_sym = symbol_table.get_symbol(symid)
-            except Exception: # pylint: disable=bare-except
+            except Exception:  # pylint: disable=broad-except
                 l.exception("Error parsing symbol at %#08x", symid)
                 return None
             cache_key = self._symbol_to_tuple(re_sym)

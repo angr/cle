@@ -1,5 +1,4 @@
 from enum import Enum
-import subprocess
 import logging
 
 from ..address_translator import AT
