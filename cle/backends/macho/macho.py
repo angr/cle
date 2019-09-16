@@ -670,7 +670,6 @@ class MachO(Backend):
         # Store segment
         self.segments.append(seg)
 
-
     def get_symbol_by_address_fuzzy(self, address):
         """
         Locates a symbol by checking the given address against sym.addr, sym.bind_xrefs and
@@ -680,7 +679,6 @@ class MachO(Backend):
             if address == sym.relative_addr or address in sym.bind_xrefs or address in sym.symbol_stubs:
                 return sym
 
-
     def get_symbol(self, name, include_stab=False, fuzzy=False): # pylint: disable=arguments-differ
         """
         Returns all symbols matching name.
@@ -688,7 +686,7 @@ class MachO(Backend):
         Note that especially when include_stab=True there may be multiple symbols with the same
         name, therefore this method always returns an array.
 
-        :param name the name of the symbol
+        :param name: the name of the symbol
         :param include_stab: Include debugging symbols NOT RECOMMENDED
         :param fuzzy: Replace exact match with "contains"-style match
         """
