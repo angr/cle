@@ -7,7 +7,6 @@ import struct
 import sys
 from io import BytesIO
 import archinfo
-import sortedcontainers
 
 from .section import MachOSection
 from .symbol import SymbolTableSymbol
@@ -370,7 +369,7 @@ class MachO(Backend):
                         self.exports_by_name[sym_str.decode()] = (flags, lib_ordinal, lib_sym_name.decode())
                     elif flags & FLAGS_STUB_AND_RESOLVER:
                         # STUB_AND_RESOLVER: uleb: stub offset, uleb: resovler offset
-                        l.warn("EXPORT: STUB_AND_RESOLVER found")
+                        l.warning("EXPORT: STUB_AND_RESOLVER found")
                         tmp = read_uleb(blob, blob_f.tell())
                         blob_f.seek(tmp[1], SEEK_CUR)
                         stub_offset = tmp[0]
@@ -675,6 +674,7 @@ class MachO(Backend):
         for sym in self.symbols:
             if address == sym.relative_addr or address in sym.bind_xrefs or address in sym.symbol_stubs:
                 return sym
+        return None
 
     def get_symbol(self, name, include_stab=False, fuzzy=False): # pylint: disable=arguments-differ
         """
