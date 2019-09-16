@@ -73,13 +73,9 @@ class MachO(Backend):
         self.symtab_nsyms = None # number of symbols in the symtab
         self.binding_done = False # if true binding was already done and do_bind will be a no-op
 
-        # TODO: Comment By Wittmann Andreas
-        # TODO: This line is as dirty as it can get. To still be api compatible, a SortedKeyList is used as predefined
-        # TODO: by the angr-api. As certain mach-o analyses require index based access (e.g. stub-parser) the order
-        # TODO: in which symbols are inserted is important and has to preserved or the complete symbol structure
-        # TODO: has to be changed. This line transforms a SortedKeyList into a non sorted key list where its order
-        # TODO: is preserved. This is a very very dirty workaround
-        self.symbols = sortedcontainers.SortedKeyList(key=lambda key: True)
+        # For some analysis the insertion order of the symbols is relevant and needs to be kept.
+        # This is has to be separate from self.symbols because the latter is sorted by address
+        self._ordered_symbols = []
 
         # Begin parsing the file
         try:
@@ -566,6 +562,7 @@ class MachO(Backend):
             sym = SymbolTableSymbol(
                     self, offset_in_symtab, n_strx, n_type, n_sect, n_desc, n_value)
             self.symbols.add(sym)
+            self._ordered_symbols.append(sym)
 
             l.debug("Symbol # %d @ %#x is '%s'",i,offset, sym.name)
 
@@ -704,6 +701,16 @@ class MachO(Backend):
                     result.append(sym)
 
         return result
+
+    def get_symbol_by_insertion_order(self, idx):
+        """
+
+        :param idx: idx when this symbol was inserted
+        :type idx: int
+        :return:
+        :rtype: AbstractMachOSymbol
+        """
+        return self._ordered_symbols[idx]
 
     def get_segment_by_name(self, name):
         """

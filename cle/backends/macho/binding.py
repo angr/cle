@@ -375,6 +375,7 @@ def default_binding_handler(state, binary):
         l.info("No match for (%r,%d), generating BindingSymbol ...", state.sym_name, state.lib_ord)
         matches =[BindingSymbol(binary,state.sym_name,state.lib_ord)]
         binary.symbols.add(matches[0])
+        binary._ordered_symbols.append(matches[0])
 
     symbol = matches[0]
     location = state.address
