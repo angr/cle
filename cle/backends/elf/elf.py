@@ -1,6 +1,5 @@
 import os
 import struct
-import subprocess
 import logging
 import archinfo
 import elftools
@@ -89,7 +88,6 @@ class ELF(MetaELF):
         self._symbol_cache = {}
         self._symbols_by_name = {}
         self._desperate_for_symbols = False
-        self.demangled_names = {}
         self.imports = {}
         self.resolved_imports = []
 
@@ -123,8 +121,6 @@ class ELF(MetaELF):
         # call the methods defined by MetaELF
         self._ppc64_abiv1_entry_fix()
         self._load_plt()
-
-        self._populate_demangled_names()
 
         for offset, patch in patch_undo:
             self.memory.store(AT.from_lva(self.min_addr + offset, self).to_rva(), patch)
@@ -252,7 +248,7 @@ class ELF(MetaELF):
                 return self._nullsymbol
             try:
                 re_sym = symbol_table.get_symbol(symid)
-            except Exception: # pylint: disable=bare-except
+            except Exception:  # pylint: disable=broad-except
                 l.exception("Error parsing symbol at %#08x", symid)
                 return None
             cache_key = self._symbol_to_tuple(re_sym)
@@ -403,29 +399,6 @@ class ELF(MetaELF):
             address += dest_section.remap_offset
 
         return RelocClass(self, symbol, address, addend)
-
-    def _populate_demangled_names(self):
-        """
-        TODO: remove this once a python implementation of a name demangler has
-        been implemented, then update self.demangled_names in Symbol
-        """
-
-        if not self.symbols:
-            return
-
-        names = [s.name for s in self.symbols if s.name.startswith("_Z")]
-        # this monstrosity taken from stackoverflow
-        # http://stackoverflow.com/questions/6526500/c-name-mangling-library-for-python
-        args = ['c++filt']
-        args.extend(n.split('@@')[0] for n in names)
-        try:
-            pipe = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-            stdout, _ = pipe.communicate()
-            demangled = stdout.decode().split("\n")[:-1]
-
-            self.demangled_names = dict(zip(names, demangled))
-        except OSError:
-            pass
 
     #
     # Private Methods... really. Calling these out of context

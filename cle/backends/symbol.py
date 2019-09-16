@@ -1,5 +1,4 @@
 from enum import Enum
-import subprocess
 import logging
 
 from ..address_translator import AT
@@ -61,11 +60,6 @@ class Symbol:
         self.resolved = False
         self.resolvedby = None
 
-        # would be nice if we could populate demangled_names here...
-        #demangled = self.demangled_name
-        #if demangled is not None:
-        #    self.owner.demangled_names[self.name] = demangled
-
     def __repr__(self):
         if self.is_import:
             return '<Symbol "%s" in %s (import)>' % (self.name, self.owner.provides)
@@ -118,29 +112,6 @@ class Symbol:
     is_weak = False
     is_extern = False
     is_forward = False
-
-    @property
-    def demangled_name(self):
-        """
-        The name of this symbol, run through a C++ demangler
-
-        Warning: this calls out to the external program `c++filt` and will fail loudly if it's not installed
-        """
-        # make sure it's mangled
-        if self.name.startswith("_Z"):
-            name = self.name
-            if '@@' in self.name:
-                name = self.name.split("@@")[0]
-            args = ['c++filt']
-            args.append(name)
-            pipe = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-            stdout, _ = pipe.communicate()
-            demangled = stdout.decode().split("\n")
-
-            if demangled:
-                return demangled[0]
-
-        return self.name
 
     def resolve_forwarder(self):
         """
