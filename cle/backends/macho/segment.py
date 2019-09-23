@@ -28,7 +28,8 @@ class MachOSegment(Region):
 
         super(MachOSegment, self).__init__(offset, vaddr, size, vsize)
 
-        self.segname = macholib_segment.segname.decode()
+        self.segname = macholib_segment.segname.decode().strip('\x00') 
+        # XXX: Is removing trailing null bytes acceptable? Probably yes
         self.nsect = macholib_segment.nsects
         self.sections = self._create_sections(macholib_sections)
         self.flags = macholib_segment.flags

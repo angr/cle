@@ -33,8 +33,8 @@ class MachOSection(Region):
 
         super(MachOSection, self).__init__(offset, vaddr, size, vsize)
 
-        self.segname = macholib_section.segname.decode()
-        self.sectname = macholib_section.sectname.decode()
+        self.segname = macholib_section.segname.decode().strip('\x00')
+        self.sectname = macholib_section.sectname.decode().strip('\x00')
         self.align = macholib_section.align
         self.reloff = macholib_section.reloff
         self.nreloc = macholib_section.nreloc

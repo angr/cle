@@ -58,15 +58,14 @@ class MachO(Backend):
         # TODO: add lsb/msb support here properly. self._header.endian is exactly it
         self.set_arch(archinfo.arch_from_id(arch_ident, endness="lsb"))
                 
-        self.cputype = None
-        self.cpusubtype = None
-        self.filetype = None
         self.pie = None  # position independent executable?
-        self.ncmds = None  # number of load commands
         self.flags = None  # binary flags
-        self.sizeofcmds = None  # total size of load commands
         self.imported_libraries = ["Self"]  # ordinal 0 = SELF_LIBRARY_ORDINAL
+
+        # XXX: Fill this in. I don't know what it's for.
+        # This was what was historically done: self.sections_by_ordinal.extend(seg.sections)
         self.sections_by_ordinal = [None] # ordinal 0 = None == Self
+
         self.exports_by_name = {}  # note exports is currently a raw and unprocessed datastructure.
         # If we intend to use it we must first upgrade it to a class or somesuch
         self.entryoff = None
@@ -126,7 +125,7 @@ class MachO(Backend):
             0x100000c: "aarch64",
             0xc: "arm",
             0x7: "x86",
-            0x1000007: "amd64",
+            0x1000007: "amd64", # x64, amd64
         }
         return arch_lookup[header.cputype]
 
@@ -148,40 +147,40 @@ class MachO(Backend):
             return True
         return False
 
-    def is_thumb_interworking(self, address):
-        """Returns true if the given address is a THUMB interworking address"""
-        # Note: Untested
-        return self.arch.bits != 64 and address & 1
+    #def is_thumb_interworking(self, address):
+    #    """Returns true if the given address is a THUMB interworking address"""
+    #    # Note: Untested
+    #    return self.arch.bits != 64 and address & 1
 
-    def decode_thumb_interworking(self, address):
-        """Decodes a thumb interworking address"""
-        # Note: Untested
-        return address & ~1 if self.is_thumb_interworking(address) else address
+    #def decode_thumb_interworking(self, address):
+    #    """Decodes a thumb interworking address"""
+    #    # Note: Untested
+    #    return address & ~1 if self.is_thumb_interworking(address) else address
 
-    def _parse_mod_funcs(self):
-        l.debug("Parsing module init/term function pointers")
+    #def _parse_mod_funcs(self):
+    #    l.debug("Parsing module init/term function pointers")
 
-        fmt = "Q" if self.arch.bits == 64 else "I"
-        size = 8 if self.arch.bits == 64 else 4
+    #    fmt = "Q" if self.arch.bits == 64 else "I"
+    #    size = 8 if self.arch.bits == 64 else 4
 
-        # factoring out common code
-        def parse_mod_funcs_internal(s, target):
-            for i in range(s.vaddr, s.vaddr + s.memsize, size):
-                addr = self._unpack_with_byteorder(fmt, self.memory.load(i, size))[0]
-                l.debug("Addr: %#x", addr)
-                target.append(addr)
+    #    # factoring out common code
+    #    def parse_mod_funcs_internal(s, target):
+    #        for i in range(s.vaddr, s.vaddr + s.memsize, size):
+    #            addr = self._unpack_with_byteorder(fmt, self.memory.load(i, size))[0]
+    #            l.debug("Addr: %#x", addr)
+    #            target.append(addr)
 
-        for seg in self.segments:
-            for sec in seg.sections:
+    #    for seg in self.segments:
+    #        for sec in seg.sections:
 
-                if sec.type == 0x9:  # S_MOD_INIT_FUNC_POINTERS
-                    l.debug("Section %s contains init pointers", sec.sectname)
-                    parse_mod_funcs_internal(sec, self.mod_init_func_pointers)
-                elif sec.type == 0xa:  # S_MOD_TERM_FUNC_POINTERS
-                    l.debug("Section %s contains term pointers", sec.sectname)
-                    parse_mod_funcs_internal(sec, self.mod_term_func_pointers)
+    #            if sec.type == 0x9:  # S_MOD_INIT_FUNC_POINTERS
+    #                l.debug("Section %s contains init pointers", sec.sectname)
+    #                parse_mod_funcs_internal(sec, self.mod_init_func_pointers)
+    #            elif sec.type == 0xa:  # S_MOD_TERM_FUNC_POINTERS
+    #                l.debug("Section %s contains term pointers", sec.sectname)
+    #                parse_mod_funcs_internal(sec, self.mod_term_func_pointers)
 
-        l.debug("Done parsing module init/term function pointers")
+    #    l.debug("Done parsing module init/term function pointers")
 
     def find_segment_by_name(self, name):
         for s in self.segments:
@@ -210,165 +209,154 @@ class MachO(Backend):
         fp.seek(offset)
         return fp.read(size)
 
-    def _unpack_with_byteorder(self, fmt, data):
-        """
-        Appends self.struct_byteorder before fmt to ensure usage of correct byteorder
-        :return: struct.unpack(self.struct_byteorder+fmt,input)
-        """
-        return struct.unpack(self.struct_byteorder + fmt, data)
+    #def _unpack_with_byteorder(self, fmt, data):
+    #    """
+    #    Appends self.struct_byteorder before fmt to ensure usage of correct byteorder
+    #    :return: struct.unpack(self.struct_byteorder+fmt,input)
+    #    """
+    #    return struct.unpack(self.struct_byteorder + fmt, data)
 
-    def _unpack(self, fmt, fp, offset, size):
-        """Convenience"""
-        return self._unpack_with_byteorder(fmt, self._read(fp, offset, size))
+    #def _unpack(self, fmt, fp, offset, size):
+    #    """Convenience"""
+    #    return self._unpack_with_byteorder(fmt, self._read(fp, offset, size))
 
-    @staticmethod
-    def _detect_byteorder(magic):
-        """Determines the binary's byteorder """
+    #@staticmethod
+    #def _detect_byteorder(magic):
+    #    """Determines the binary's byteorder """
 
-        l.debug("Magic is %#x", magic)
+    #    l.debug("Magic is %#x", magic)
 
-        host_is_little = sys.byteorder == 'little'
+    #    host_is_little = sys.byteorder == 'little'
 
-        if host_is_little:
-            if magic in [MachO.MH_MAGIC_64, MachO.MH_MAGIC]:
-                l.debug("Detected little-endian")
-                return "<"
-            elif magic in [MachO.MH_CIGAM, MachO.MH_CIGAM_64]:
-                l.debug("Detected big-endian")
-                return ">"
-            else:
-                l.debug("Not a mach-o file")
-                raise CLECompatibilityError()
-        else:
-            if magic in [MachO.MH_MAGIC_64, MachO.MH_MAGIC]:
-                l.debug("Detected big-endian")
-                return ">"
-            elif magic in [MachO.MH_CIGAM_64, MachO.MH_CIGAM]:
-                l.debug("Detected little-endian")
-                return "<"
-            else:
-                l.debug("Not a mach-o file")
-                raise CLECompatibilityError()
-
-
-    def do_binding(self):
-        # Perform binding
-
-        if self.binding_done:
-            l.warning("Binding already done, reset self.binding_done to override if you know what you are doing")
-            return
-
-        bh = BindingHelper(self)  # TODO: Make this configurable
-        bh.do_normal_bind(self.binding_blob)
-        bh.do_lazy_bind(self.lazy_binding_blob)
-        if self.weak_binding_blob is not None and len(self.weak_binding_blob) > 0:
-            l.info("Found weak binding blob. According to current state of knowledge, weak binding "
-                   "is only sensible if multiple binaries are involved and is thus skipped.")
+    #    if host_is_little:
+    #        if magic in [MachO.MH_MAGIC_64, MachO.MH_MAGIC]:
+    #            l.debug("Detected little-endian")
+    #            return "<"
+    #        elif magic in [MachO.MH_CIGAM, MachO.MH_CIGAM_64]:
+    #            l.debug("Detected big-endian")
+    #            return ">"
+    #        else:
+    #            l.debug("Not a mach-o file")
+    #            raise CLECompatibilityError()
+    #    else:
+    #        if magic in [MachO.MH_MAGIC_64, MachO.MH_MAGIC]:
+    #            l.debug("Detected big-endian")
+    #            return ">"
+    #        elif magic in [MachO.MH_CIGAM_64, MachO.MH_CIGAM]:
+    #            l.debug("Detected little-endian")
+    #            return "<"
+    #        else:
+    #            l.debug("Not a mach-o file")
+    #            raise CLECompatibilityError()
 
 
-        self.binding_done=True
+    #def do_binding(self):
+    #    # Perform binding
 
-    def _parse_exports(self):
-        """
-        Parses the exports trie
-        """
-        l.debug("Parsing exports")
-        blob = self.export_blob
-        if blob is None:
-            l.debug("Parsing exports done: No exports found")
-            return
+    #    if self.binding_done:
+    #        l.warning("Binding already done, reset self.binding_done to override if you know what you are doing")
+    #        return
 
-        # Note some of these fields are currently not used, keep them in to make used variables explicit
-        index = 0
-        sym_str = b''
-        # index,str
-        nodes_to_do = [(0, b'')]
-        blob_f = BytesIO(blob)  # easier to handle seeking here
+    #    bh = BindingHelper(self)  # TODO: Make this configurable
+    #    bh.do_normal_bind(self.binding_blob)
+    #    bh.do_lazy_bind(self.lazy_binding_blob)
+    #    if self.weak_binding_blob is not None and len(self.weak_binding_blob) > 0:
+    #        l.info("Found weak binding blob. According to current state of knowledge, weak binding "
+    #               "is only sensible if multiple binaries are involved and is thus skipped.")
 
-        # constants
-        #FLAGS_KIND_MASK = 0x03
-        #FLAGS_KIND_REGULAR = 0x00
-        #FLAGS_KIND_THREAD_LOCAL = 0x01
-        #FLAGS_WEAK_DEFINITION = 0x04
-        FLAGS_REEXPORT = 0x08
-        FLAGS_STUB_AND_RESOLVER = 0x10
 
-        try:
-            while True:
-                index, sym_str = nodes_to_do.pop()
-                l.debug("Processing node %#x %r", index, sym_str)
-                blob_f.seek(index, SEEK_SET)
-                info_len = struct.unpack("B", blob_f.read(1))[0]
-                if info_len > 127:
-                    # special case
-                    blob_f.seek(-1, SEEK_CUR)
-                    tmp = read_uleb(blob, blob_f.tell())  # a bit kludgy
-                    info_len = tmp[0]
-                    blob_f.seek(tmp[1], SEEK_CUR)
+    #    self.binding_done=True
 
-                if info_len > 0:
-                    # a symbol is complete
-                    tmp = read_uleb(blob, blob_f.tell())
-                    blob_f.seek(tmp[1], SEEK_CUR)
-                    flags = tmp[0]
-                    if flags & FLAGS_REEXPORT:
-                        # REEXPORT: uleb:lib ordinal, zero-term str
-                        tmp = read_uleb(blob, blob_f.tell())
-                        blob_f.seek(tmp[1], SEEK_CUR)
-                        lib_ordinal = tmp[0]
-                        lib_sym_name = b''
-                        char = blob_f.read(1)
-                        while char != b'\0':
-                            lib_sym_name += char
-                            char = blob_f.read(1)
-                        l.info("Found REEXPORT export %r: %d,%r", sym_str, lib_ordinal, lib_sym_name)
-                        self.exports_by_name[sym_str.decode()] = (flags, lib_ordinal, lib_sym_name.decode())
-                    elif flags & FLAGS_STUB_AND_RESOLVER:
-                        # STUB_AND_RESOLVER: uleb: stub offset, uleb: resovler offset
-                        l.warning("EXPORT: STUB_AND_RESOLVER found")
-                        tmp = read_uleb(blob, blob_f.tell())
-                        blob_f.seek(tmp[1], SEEK_CUR)
-                        stub_offset = tmp[0]
-                        tmp = read_uleb(blob, blob_f.tell())
-                        blob_f.seek(tmp[1], SEEK_CUR)
-                        resolver_offset = tmp[0]
-                        l.info("Found STUB_AND_RESOLVER export %r: %#x,%#x'", sym_str, stub_offset, resolver_offset)
-                        self.exports_by_name[sym_str.decode()] = (flags, stub_offset, resolver_offset)
-                    else:
-                        # normal: offset from mach header
-                        tmp = read_uleb(blob, blob_f.tell())
-                        blob_f.seek(tmp[1], SEEK_CUR)
-                        symbol_offset = tmp[0] + self.segments[1].vaddr
-                        l.info("Found normal export %r: %#x", sym_str, symbol_offset)
-                        self.exports_by_name[sym_str.decode()] = (flags, symbol_offset)
+    #def _parse_exports(self):
+    #    """
+    #    Parses the exports trie
+    #    """
+    #    l.debug("Parsing exports")
+    #    blob = self.export_blob
+    #    if blob is None:
+    #        l.debug("Parsing exports done: No exports found")
+    #        return
 
-                child_count = struct.unpack("B", blob_f.read(1))[0]
-                for i in range(0, child_count):
-                    child_str = sym_str
-                    char = blob_f.read(1)
-                    while char != b'\0':
-                        child_str += char
-                        char = blob_f.read(1)
-                    tmp = read_uleb(blob, blob_f.tell())
-                    blob_f.seek(tmp[1], SEEK_CUR)
-                    next_node = tmp[0]
-                    l.debug("%d. child: (%#x, %r)", i, next_node, child_str)
-                    nodes_to_do.append((next_node, child_str))
+    #    # Note some of these fields are currently not used, keep them in to make used variables explicit
+    #    index = 0
+    #    sym_str = b''
+    #    # index,str
+    #    nodes_to_do = [(0, b'')]
+    #    blob_f = BytesIO(blob)  # easier to handle seeking here
 
-        except IndexError:
-            # List is empty we are done!
-            l.debug("Done parsing exports")
+    #    # constants
+    #    #FLAGS_KIND_MASK = 0x03
+    #    #FLAGS_KIND_REGULAR = 0x00
+    #    #FLAGS_KIND_THREAD_LOCAL = 0x01
+    #    #FLAGS_WEAK_DEFINITION = 0x04
+    #    FLAGS_REEXPORT = 0x08
+    #    FLAGS_STUB_AND_RESOLVER = 0x10
 
-    def _detect_arch_ident(self):
-        """
-        Determines the binary's architecture by inspecting cputype and cpusubtype.
-        :return: archinfo.arch_from_id-compatible ident string
-        """
-        # determine architecture by major CPU type
-        try:
-            return arch_lookup[self.cputype]  # subtype currently not needed
-        except KeyError:
-            return None
+    #    try:
+    #        while True:
+    #            index, sym_str = nodes_to_do.pop()
+    #            l.debug("Processing node %#x %r", index, sym_str)
+    #            blob_f.seek(index, SEEK_SET)
+    #            info_len = struct.unpack("B", blob_f.read(1))[0]
+    #            if info_len > 127:
+    #                # special case
+    #                blob_f.seek(-1, SEEK_CUR)
+    #                tmp = read_uleb(blob, blob_f.tell())  # a bit kludgy
+    #                info_len = tmp[0]
+    #                blob_f.seek(tmp[1], SEEK_CUR)
+
+    #            if info_len > 0:
+    #                # a symbol is complete
+    #                tmp = read_uleb(blob, blob_f.tell())
+    #                blob_f.seek(tmp[1], SEEK_CUR)
+    #                flags = tmp[0]
+    #                if flags & FLAGS_REEXPORT:
+    #                    # REEXPORT: uleb:lib ordinal, zero-term str
+    #                    tmp = read_uleb(blob, blob_f.tell())
+    #                    blob_f.seek(tmp[1], SEEK_CUR)
+    #                    lib_ordinal = tmp[0]
+    #                    lib_sym_name = b''
+    #                    char = blob_f.read(1)
+    #                    while char != b'\0':
+    #                        lib_sym_name += char
+    #                        char = blob_f.read(1)
+    #                    l.info("Found REEXPORT export %r: %d,%r", sym_str, lib_ordinal, lib_sym_name)
+    #                    self.exports_by_name[sym_str.decode()] = (flags, lib_ordinal, lib_sym_name.decode())
+    #                elif flags & FLAGS_STUB_AND_RESOLVER:
+    #                    # STUB_AND_RESOLVER: uleb: stub offset, uleb: resovler offset
+    #                    l.warning("EXPORT: STUB_AND_RESOLVER found")
+    #                    tmp = read_uleb(blob, blob_f.tell())
+    #                    blob_f.seek(tmp[1], SEEK_CUR)
+    #                    stub_offset = tmp[0]
+    #                    tmp = read_uleb(blob, blob_f.tell())
+    #                    blob_f.seek(tmp[1], SEEK_CUR)
+    #                    resolver_offset = tmp[0]
+    #                    l.info("Found STUB_AND_RESOLVER export %r: %#x,%#x'", sym_str, stub_offset, resolver_offset)
+    #                    self.exports_by_name[sym_str.decode()] = (flags, stub_offset, resolver_offset)
+    #                else:
+    #                    # normal: offset from mach header
+    #                    tmp = read_uleb(blob, blob_f.tell())
+    #                    blob_f.seek(tmp[1], SEEK_CUR)
+    #                    symbol_offset = tmp[0] + self.segments[1].vaddr
+    #                    l.info("Found normal export %r: %#x", sym_str, symbol_offset)
+    #                    self.exports_by_name[sym_str.decode()] = (flags, symbol_offset)
+
+    #            child_count = struct.unpack("B", blob_f.read(1))[0]
+    #            for i in range(0, child_count):
+    #                child_str = sym_str
+    #                char = blob_f.read(1)
+    #                while char != b'\0':
+    #                    child_str += char
+    #                    char = blob_f.read(1)
+    #                tmp = read_uleb(blob, blob_f.tell())
+    #                blob_f.seek(tmp[1], SEEK_CUR)
+    #                next_node = tmp[0]
+    #                l.debug("%d. child: (%#x, %r)", i, next_node, child_str)
+    #                nodes_to_do.append((next_node, child_str))
+
+    #    except IndexError:
+    #        # List is empty we are done!
+    #        l.debug("Done parsing exports")
 
     def _load_lc_data_in_code(self, f, off):
         l.debug("Parsing data in code")
@@ -537,83 +525,6 @@ class MachO(Backend):
             tmp = self._unpack("c", f, start + ctr, 1)[0]
 
         return s
-
-    def _load_segment(self, f, offset):
-        """
-        Handles LC_SEGMENT(_64) commands
-        :param f: input file
-        :param offset: starting offset of the LC_SEGMENT command
-        :return:
-        """
-        # determine if 64 or 32 bit segment
-        is64 = self.arch.bits == 64
-        if not is64:
-            segment_s_size = 56
-            (_, _, segname, vmaddr, vmsize, fileoff, filesize, maxprot, initprot, nsects, flags) = self._unpack(
-                "2I16s8I", f, offset, segment_s_size)
-        else:
-            segment_s_size = 72
-            (_, _, segname, vmaddr, vmsize, fileoff, filesize, maxprot, initprot, nsects, flags) = self._unpack(
-                "2I16s4Q4I", f, offset, segment_s_size)
-
-        # Cleanup segname
-        segname = segname.replace(b'\0', b'')
-        l.debug("Processing segment %r", segname)
-
-        # create segment
-        seg = MachOSegment(fileoff, vmaddr, filesize, vmsize, segname, nsects, [], flags, initprot, maxprot)
-
-        # Parse section datastructures
-        if not is64:
-            # 32 bit
-            section_s_size = 68
-            section_s_packstr = "16s16s9I"
-        else:
-            # 64 bit
-            section_s_size = 80
-            # The correct packstring is "16s16s2Q8I", however we use a different one that merges the last two reserved
-            # fields (reserved2,reserved3) because it makes the parsing logic below easier
-            section_s_packstr = "16s16s2Q6IQ"
-
-        section_start = offset + segment_s_size
-        for i in range(0, nsects):
-            # Read section
-            l.debug("Processing section # %d in %r", i + 1, segname)
-            (section_sectname, section_segname, section_vaddr, section_vsize, section_foff, section_align,
-             section_reloff,
-             section_nreloc, section_flags, r1, r2) = \
-                self._unpack(section_s_packstr, f, (i * section_s_size) + section_start, section_s_size)
-
-            # Clean segname and sectname
-            section_sectname = section_sectname.replace(b'\0', b'')
-            section_segname = section_segname.replace(b'\0', b'')
-
-            # Create section
-            sec = MachOSection(section_foff, section_vaddr, section_vsize, section_vsize, section_segname,
-                               section_sectname,
-                               section_align, section_reloff, section_nreloc, section_flags, r1, r2)
-
-            # Store section
-            seg.sections.append(sec)
-
-        # add to sections_by_ordinal
-        self.sections_by_ordinal.extend(seg.sections)
-
-        if segname == b"__PAGEZERO":
-            # TODO: What we actually need at this point is some sort of smart on-demand string or memory
-            # This should not cause trouble because accesses to __PAGEZERO are SUPPOSED to crash (segment has access set to no access)
-            # This optimization is here as otherwise several GB worth of zeroes would clutter our memory
-            l.info("Found PAGEZERO, skipping backer for memory conservation")
-        elif seg.filesize > 0:
-            # Append segment data to memory
-            blob = self._read(f, seg.offset, seg.filesize)
-            if seg.filesize < seg.memsize:
-                blob += b'\0' * (seg.memsize - seg.filesize)  # padding
-
-            self.memory.add_backer(seg.vaddr, blob)
-
-        # Store segment
-        self.segments.append(seg)
 
     def get_symbol_by_address_fuzzy(self, address):
         """
