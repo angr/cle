@@ -14,7 +14,7 @@ from .symbol import SymbolTableSymbol
 from .segment import MachOSegment
 from .binding import BindingHelper, read_uleb
 from .. import Backend, register_backend
-from ...errors import CLEInvalidBinaryError, CLECompatibilityError, CLEOperationError
+from ...errors import CLEInvalidBinaryError, CLECompatibilityError, CLEOperationError, CLEError
 
 import logging
 l = logging.getLogger('cle.backends.macho')
@@ -46,13 +46,15 @@ class MachO(Backend):
         super(MachO, self).__init__(binary, **kwargs)
 
         parsed_macho = MachOLoader.MachO(self.binary)
-        if len(parsed_macho.headers) > 1 and target_arch is None:
-            l.warning('No target slice specified. Picking one at random.. Good luck!')
-            self._header = parsed_macho.headers[0]
-        else:
+        if not target_arch is None:
             self._header = self.match_target_arch_to_header(target_arch, parsed_macho.headers)
-            if self._header is None:
+            if not self._header:
+                # Print out all architectures found?
                 raise CLEError("Couldn't find architecture %s" % target_arch)
+        else:
+            if len(parsed_macho.headers) > 1:
+                l.warning('No target slice specified. Picking one at random.. Good luck!')
+            self._header = parsed_macho.headers[0]
 
         arch_ident = self.get_arch_from_header(self._header.header)
         # TODO: add lsb/msb support here properly. self._header.endian is exactly it
@@ -146,6 +148,17 @@ class MachO(Backend):
            identstring.startswith(struct.pack('I', MachO.MH_CIGAM)):
             return True
         return False
+
+    @property
+    def initializers(self):
+        # Parse __mod_init_func if exists
+        return []
+
+    @property
+    def finalizers(self):
+        # Parse __mod_term_func if exists (Or __mod_exit_func?)
+        return []
+
 
     #def is_thumb_interworking(self, address):
     #    """Returns true if the given address is a THUMB interworking address"""
