@@ -89,11 +89,12 @@ class MachO(Backend):
 
         self.segments = []
 
+        self._mapped_base = 0x0100000000 
+
         # The documentation for Mach-O is at http://opensource.apple.com//source/xnu/xnu-1228.9.59/EXTERNAL_HEADERS/mach-o/loader.h
 
         # File is read, begin populating internal fields
         self._parse_load_cmds()
-        #self._resolve_entry()
         #self._parse_exports()
         #self._parse_symbols(binary_file)
         #self._parse_mod_funcs()
@@ -113,7 +114,8 @@ class MachO(Backend):
         self.memory.add_backer(seg.vaddr, blob)
     
     def _handle_main_load_command(self, entry_point_command):
-        pass
+        # What do I do with stacksize? :x
+        self._entry = self._mapped_base + entry_point_command.entryoff
 
     def _parse_load_cmds(self):
         segments = []
@@ -130,6 +132,10 @@ class MachO(Backend):
             elif cmd_name == 'LC_FUNCTION_STARTS':
                 pass
             elif cmd_name == 'LC_SYMTAB':
+                pass
+            elif cmd_name == 'LC_THREAD': # core file
+                pass
+            elif cmd_name == 'LC_UNIXTHREAD': # LC_UNIXTHREAD should be dead in favor of LC_MAIN
                 pass
             else:
                 pass
@@ -214,16 +220,6 @@ class MachO(Backend):
             if s.segname == name:
                 return s
         return None
-
-    def _resolve_entry(self):
-        if self.entryoff:
-            self._mapped_base = self.find_segment_by_name("__TEXT").vaddr
-            self._entry = self.entryoff
-        elif self.unixthread_pc:
-            self._entry = self.unixthread_pc
-        else:
-            l.warning("No entry point found")
-            self._entry = 0
 
     @staticmethod
     def _read(fp, offset, size):
