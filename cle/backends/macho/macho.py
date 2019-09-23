@@ -8,6 +8,7 @@ import sys
 from io import BytesIO
 import archinfo
 
+from macholib import MachO as MachOLoader
 from .section import MachOSection
 from .symbol import SymbolTableSymbol
 from .segment import MachOSegment
@@ -19,7 +20,6 @@ import logging
 l = logging.getLogger('cle.backends.macho')
 
 __all__ = ('MachO', 'MachOSection', 'MachOSegment')
-
 
 class MachO(Backend):
     """
@@ -33,20 +33,31 @@ class MachO(Backend):
     *   ...
     """
     is_default = True # Tell CLE to automatically consider using the MachO backend
+    _header = None
 
     MH_MAGIC_64 = 0xfeedfacf
     MH_CIGAM_64 = 0xcffaedfe
     MH_MAGIC = 0xfeedface
     MH_CIGAM = 0xcefaedfe
 
-
-    def __init__(self, binary, **kwargs):
+    def __init__(self, binary, target_arch=None, **kwargs):
         l.warning('The Mach-O backend is not well-supported. Good luck!')
 
         super(MachO, self).__init__(binary, **kwargs)
 
-        self.struct_byteorder = None  # holds byteorder for struct.unpack(...)
-        self._mapped_base = None # temporary holder für mapped base derived via loading
+        parsed_macho = MachOLoader.MachO(self.binary)
+        if len(parsed_macho.headers) > 1 and target_arch is None:
+            l.warning('No target slice specified. Picking one at random.. Good luck!')
+            self._header = parsed_macho.headers[0]
+        else:
+            self._header = self.match_target_arch_to_header(target_arch, parsed_macho.headers)
+            if self._header is None:
+                raise CLEError("Couldn't find architecture %s" % target_arch)
+
+        arch_ident = self.get_arch_from_header(self._header.header)
+        # TODO: add lsb/msb support here properly. self._header.endian is exactly it
+        self.set_arch(archinfo.arch_from_id(arch_ident, endness="lsb"))
+                
         self.cputype = None
         self.cpusubtype = None
         self.filetype = None
@@ -60,8 +71,7 @@ class MachO(Backend):
         # If we intend to use it we must first upgrade it to a class or somesuch
         self.entryoff = None
         self.unixthread_pc = None
-        self.os = "macos"
-        self.lc_data_in_code = []  # data from LC_DATA_IN_CODE (if encountered). Format: (offset,length,kind)
+        self.os = "darwin"
         self.mod_init_func_pointers = []  # may be TUMB interworking
         self.mod_term_func_pointers = []  # may be THUMB interworking
         self.export_blob = None  # exports trie
@@ -76,90 +86,55 @@ class MachO(Backend):
         # This is has to be separate from self.symbols because the latter is sorted by address
         self._ordered_symbols = []
 
-        # Begin parsing the file
-        try:
-
-            binary_file = self.binary_stream
-            # get magic value and determine endianness
-            self.struct_byteorder = self._detect_byteorder(struct.unpack("=I", binary_file.read(4))[0])
-
-            # parse the mach header:
-            # (ignore all irrelevant fiels)
-            self._parse_mach_header(binary_file)
-
-            # determine architecture
-            arch_ident = self._detect_arch_ident()
-            if not arch_ident:
-                raise CLECompatibilityError(
-                    "Unsupported architecture: 0x{0:X}:0x{1:X}".format(self.cputype, self.cpusubtype))
-
-            # Create archinfo
-            # Note that this should be customized for Apple ABI (TODO)
-            self.set_arch(
-                archinfo.arch_from_id(arch_ident, endness="lsb" if self.struct_byteorder == "<" else "msb"))
-
-            # Start reading load commands
-            lc_offset = (7 if self.arch.bits == 32 else 8) * 4
-
-            # Possible optimization: Remove all unecessary calls to seek()
-            # Load commands have a common structure: First 4 bytes identify the command by a magic number
-            # second 4 bytes determine the commands size. Everything after this generic "header" is command-specific
-            # this makes parsing the commands easy.
-            # The documentation for Mach-O is at http://opensource.apple.com//source/xnu/xnu-1228.9.59/EXTERNAL_HEADERS/mach-o/loader.h
-            count = 0
-            offset = lc_offset
-            while count < self.ncmds and (offset - lc_offset) < self.sizeofcmds:
-                count += 1
-                (cmd, size) = self._unpack("II", binary_file, offset, 8)
-
-                # check for segments that interest us
-                if cmd in [0x1, 0x19]:  # LC_SEGMENT,LC_SEGMENT_64
-                    l.debug("Found LC_SEGMENT(_64) @ %#x", offset)
-                    self._load_segment(binary_file, offset)
-                elif cmd == 0x2:  # LC_SYMTAB
-                    l.debug("Found LC_SYMTAB @ %#x", offset)
-                    self._load_symtab(binary_file, offset)
-                elif cmd in [0x22, 0x80000022]:  # LC_DYLD_INFO(_ONLY)
-                    l.debug("Found LC_DYLD_INFO(_ONLY) @ %#x", offset)
-                    self._load_dyld_info(binary_file, offset)
-                elif cmd in [0xc, 0x8000001c, 0x80000018]:  # LC_LOAD_DYLIB, LC_REEXPORT_DYLIB,LC_LOAD_WEAK_DYLIB
-                    l.debug("Found LC_*_DYLIB @ %#x", offset)
-                    self._load_dylib_info(binary_file, offset)
-                elif cmd == 0x80000028:  # LC_MAIN
-                    l.debug("Found LC_MAIN @ %#x", offset)
-                    self._load_lc_main(binary_file, offset)
-                elif cmd == 0x5:  # LC_UNIXTHREAD
-                    l.debug("Found LC_UNIXTHREAD @ %#x", offset)
-                    self._load_lc_unixthread(binary_file, offset)
-                elif cmd == 0x26:  # LC_FUNCTION_STARTS
-                    l.debug("Found LC_FUNCTION_STARTS @ %#x", offset)
-                    self._load_lc_function_starts(binary_file, offset)
-                elif cmd == 0x29:  # LC_DATA_IN_CODE
-                    l.debug("Found LC_DATA_IN_CODE @ %#x", offset)
-                    self._load_lc_data_in_code(binary_file, offset)
-                elif cmd in [0x21, 0x2c]:  # LC_ENCRYPTION_INFO(_64)
-                    l.debug("Found LC_ENCRYPTION_INFO @ %#x", offset)
-                    self._assert_unencrypted(binary_file, offset)
-
-                # update bookkeeping
-                offset += size
-
-            # Assertion to catch malformed binaries - YES this is needed!
-            if count < self.ncmds or (offset - lc_offset) < self.sizeofcmds:
-                raise CLEInvalidBinaryError(
-                    "Assertion triggered: {0} < {1} or {2} < {3}".format(count, self.ncmds, (offset - lc_offset),
-                                                                         self.sizeofcmds))
-        except IOError as e:
-            l.exception(e)
-            raise CLEOperationError(e)
+        # The documentation for Mach-O is at http://opensource.apple.com//source/xnu/xnu-1228.9.59/EXTERNAL_HEADERS/mach-o/loader.h
 
         # File is read, begin populating internal fields
-        self._resolve_entry()
-        self._parse_exports()
-        self._parse_symbols(binary_file)
-        self._parse_mod_funcs()
-        self.mapped_base = self._mapped_base
+        self._load_segments()
+        #self._resolve_entry()
+        #self._parse_exports()
+        #self._parse_symbols(binary_file)
+        #self._parse_mod_funcs()
 
+    def _load_segments(self):
+        segments = []
+        
+        for load_cmd_trie in self._header.commands:
+            cmd = load_cmd_trie[0]
+            if cmd.get_cmd_name() != 'LC_SEGMENT' and cmd.get_cmd_name() != 'LC_SEGMENT_64':
+                continue
+
+            seg = MachOSegment(load_cmd_trie[1], load_cmd_trie[2]) # load_cmd_trie[1] is the segment, load_cmd_trie[2] is the sections
+            segments.append(seg)
+
+            # __PAGEZERO will be handled later.
+            if seg.segname == '__PAGEZERO':
+                continue
+
+            blob = self._read(self.binary_stream, seg.offset, seg.filesize)
+            if seg.filesize < seg.memsize:
+                blob += b'\0' * (seg.memsize - seg.filesize)  # padding
+
+            self.memory.add_backer(seg.vaddr, blob)
+
+        self.segments = segments
+
+    def get_arch_from_header(self, header):
+        # XXX: Should this be case insensitive?
+        arch_lookup = {
+            # contains all supported architectures. Note that apple deviates from standard ABI, see Apple docs
+            # XXX: these are referred to differently in mach/machine.h
+            0x100000c: "aarch64",
+            0xc: "arm",
+            0x7: "x86",
+            0x1000007: "amd64",
+        }
+        return arch_lookup[header.cputype]
+
+    def match_target_arch_to_header(self, target_arch, headers):
+        for mach_header in headers:
+            if self.get_arch_from_header(mach_header.header) == target_arch:
+                return mach_header
+        return None
 
     @staticmethod
     def is_compatible(stream):
@@ -246,24 +221,6 @@ class MachO(Backend):
         """Convenience"""
         return self._unpack_with_byteorder(fmt, self._read(fp, offset, size))
 
-    def _parse_mach_header(self, f):
-        """
-        Parses the mach-o header and sets
-        self.cputype, self.cpusubtype, self.pie, self.ncmds,self.flags,self.sizeofcmds and self.filetype
-
-        Currently ignores any type of information that is not directly relevant to analyses
-        :param f: The binary as a file object
-        :return: None
-        """
-        # this method currently disregards any differences between 32 and 64 bit code
-        (_, self.cputype, self.cpusubtype, self.filetype, self.ncmds, self.sizeofcmds,
-         self.flags) = self._unpack("7I", f, 0, 28)
-
-        self.pie = bool(self.flags & 0x200000)  # MH_PIE
-
-        if not bool(self.flags & 0x80):  # ensure MH_TWOLEVEL
-            raise CLEInvalidBinaryError("Cannot handle non MH_TWOLEVEL binaries")
-
     @staticmethod
     def _detect_byteorder(magic):
         """Determines the binary's byteorder """
@@ -310,7 +267,6 @@ class MachO(Backend):
 
 
         self.binding_done=True
-
 
     def _parse_exports(self):
         """
@@ -410,13 +366,6 @@ class MachO(Backend):
         """
         # determine architecture by major CPU type
         try:
-            arch_lookup = {
-            # contains all supported architectures. Note that apple deviates from standard ABI, see Apple docs
-                0x100000c: "aarch64",
-                0xc: "arm",
-                0x7: "x86",
-                0x1000007: "x64",
-            }
             return arch_lookup[self.cputype]  # subtype currently not needed
         except KeyError:
             return None

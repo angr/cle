@@ -25,17 +25,22 @@ class MachOSection(Region):
         - r1 and r2 are values for the reserved1 and reserved2 fields respectively
     """
 
-    def __init__(self, offset, vaddr, size, vsize, segname, sectname, align, reloff, nreloc, flags, r1, r2):
+    def __init__(self, macholib_section):
+        offset = macholib_section.offset
+        vaddr = macholib_section.addr
+        size = macholib_section.size
+        vsize = macholib_section.size
+
         super(MachOSection, self).__init__(offset, vaddr, size, vsize)
 
-        self.segname = segname.decode()
-        self.sectname = sectname.decode()
-        self.align = align
-        self.reloff = reloff
-        self.nreloc = nreloc
-        self.flags = flags
-        self.reserved1 = r1
-        self.reserved2 = r2
+        self.segname = macholib_section.segname.decode()
+        self.sectname = macholib_section.sectname.decode()
+        self.align = macholib_section.align
+        self.reloff = macholib_section.reloff
+        self.nreloc = macholib_section.nreloc
+        self.flags = macholib_section.flags
+        self.reserved1 = macholib_section.reserved1
+        self.reserved2 = macholib_section.reserved2
 
     @property
     def type(self):

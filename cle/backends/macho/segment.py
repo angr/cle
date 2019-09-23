@@ -20,15 +20,23 @@ class MachOSegment(Region):
         - initprot and maxprot are initial and maximum permissions respectively
     """
 
-    def __init__(self, offset, vaddr, size, vsize, segname, nsect, sections, flags, initprot, maxprot):
+    def __init__(self, macholib_segment, macholib_sections):
+        offset = macholib_segment.fileoff
+        vaddr = macholib_segment.vmaddr
+        size = macholib_segment.filesize
+        vsize = macholib_segment.vmsize
+
         super(MachOSegment, self).__init__(offset, vaddr, size, vsize)
 
-        self.segname = segname.decode()
-        self.nsect = nsect
-        self.sections = sections
-        self.flags = flags
-        self.initprot = initprot
-        self.maxprot = maxprot
+        self.segname = macholib_segment.segname.decode()
+        self.nsect = macholib_segment.nsects
+        self.sections = self._create_sections(macholib_sections)
+        self.flags = macholib_segment.flags
+        self.initprot = macholib_segment.initprot
+        self.maxprot = macholib_segment.maxprot
+
+    def _create_sections(self, macholib_sections):
+        return []
 
     def get_section_by_name(self, name):
         """
