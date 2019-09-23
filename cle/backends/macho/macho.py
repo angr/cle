@@ -46,6 +46,7 @@ class MachO(Backend):
         super(MachO, self).__init__(binary, **kwargs)
 
         parsed_macho = MachOLoader.MachO(self.binary)
+
         if not target_arch is None:
             self._header = self.match_target_arch_to_header(target_arch, parsed_macho.headers)
             if not self._header:
@@ -64,7 +65,7 @@ class MachO(Backend):
         self.flags = None  # binary flags
         self.imported_libraries = ["Self"]  # ordinal 0 = SELF_LIBRARY_ORDINAL
 
-        # XXX: Fill this in. I don't know what it's for.
+        # XXX: Fill this in. 
         # This was what was historically done: self.sections_by_ordinal.extend(seg.sections)
         self.sections_by_ordinal = [None] # ordinal 0 = None == Self
 
@@ -73,8 +74,7 @@ class MachO(Backend):
         self.entryoff = None
         self.unixthread_pc = None
         self.os = "darwin"
-        self.mod_init_func_pointers = []  # may be TUMB interworking
-        self.mod_term_func_pointers = []  # may be THUMB interworking
+        
         self.export_blob = None  # exports trie
         self.binding_blob = None  # binding information
         self.lazy_binding_blob = None  # lazy binding information
@@ -87,40 +87,55 @@ class MachO(Backend):
         # This is has to be separate from self.symbols because the latter is sorted by address
         self._ordered_symbols = []
 
+        self.segments = []
+
         # The documentation for Mach-O is at http://opensource.apple.com//source/xnu/xnu-1228.9.59/EXTERNAL_HEADERS/mach-o/loader.h
 
         # File is read, begin populating internal fields
-        self._load_segments()
+        self._parse_load_cmds()
         #self._resolve_entry()
         #self._parse_exports()
         #self._parse_symbols(binary_file)
         #self._parse_mod_funcs()
 
-    def _load_segments(self):
+    def _handle_segment_load_command(self, macholib_seginfo, macholib_secinfo):
+        seg = MachOSegment(macholib_seginfo, macholib_secinfo) # load_cmd_trie[1] is the segment, load_cmd_trie[2] is the sections
+        self.segments.append(seg)
+
+        # __PAGEZERO will be handled later.
+        if seg.segname == '__PAGEZERO':
+            return
+
+        blob = self._read(self.binary_stream, seg.offset, seg.filesize)
+        if seg.filesize < seg.memsize:
+            blob += b'\0' * (seg.memsize - seg.filesize)  # padding
+
+        self.memory.add_backer(seg.vaddr, blob)
+    
+    def _handle_main_load_command(self, entry_point_command):
+        pass
+
+    def _parse_load_cmds(self):
         segments = []
         
         for load_cmd_trie in self._header.commands:
             cmd = load_cmd_trie[0]
-            if cmd.get_cmd_name() != 'LC_SEGMENT' and cmd.get_cmd_name() != 'LC_SEGMENT_64':
-                continue
+            cmd_name = cmd.get_cmd_name()
+            if cmd_name == 'LC_SEGMENT' or cmd_name == 'LC_SEGMENT_64':
+                self._handle_segment_load_command(load_cmd_trie[1], load_cmd_trie[2])
+            elif cmd_name == 'LC_MAIN':
+                self._handle_main_load_command(load_cmd_trie[1])
+            elif cmd_name == 'LC_LOAD_DYLIB':
+                pass
+            elif cmd_name == 'LC_FUNCTION_STARTS':
+                pass
+            elif cmd_name == 'LC_SYMTAB':
+                pass
+            else:
+                pass
 
-            seg = MachOSegment(load_cmd_trie[1], load_cmd_trie[2]) # load_cmd_trie[1] is the segment, load_cmd_trie[2] is the sections
-            segments.append(seg)
-
-            # __PAGEZERO will be handled later.
-            if seg.segname == '__PAGEZERO':
-                continue
-
-            blob = self._read(self.binary_stream, seg.offset, seg.filesize)
-            if seg.filesize < seg.memsize:
-                blob += b'\0' * (seg.memsize - seg.filesize)  # padding
-
-            self.memory.add_backer(seg.vaddr, blob)
-
-        self.segments = segments
-
+    # XXX: Should this be case insensitive?
     def get_arch_from_header(self, header):
-        # XXX: Should this be case insensitive?
         arch_lookup = {
             # contains all supported architectures. Note that apple deviates from standard ABI, see Apple docs
             # XXX: these are referred to differently in mach/machine.h
@@ -158,7 +173,6 @@ class MachO(Backend):
     def finalizers(self):
         # Parse __mod_term_func if exists (Or __mod_exit_func?)
         return []
-
 
     #def is_thumb_interworking(self, address):
     #    """Returns true if the given address is a THUMB interworking address"""
