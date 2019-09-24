@@ -170,6 +170,12 @@ class MachO(Backend):
             s = SymbolTableSymbol(self, sym_str, sym.n_type, sym.n_sect, sym.n_desc, sym.n_value) 
             self.symbols.add(s)
 
+        for lsym in stable.localsyms:
+            sym = lsym[0]
+            sym_str = lsym[1]
+            s = SymbolTableSymbol(self, sym_str, sym.n_type, sym.n_sect, sym.n_desc, sym.n_value) 
+            self.symbols.add(s)
+
     # XXX: Should this be case insensitive?
     def get_arch_from_header(self, header):
         arch_lookup = {
