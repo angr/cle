@@ -9,6 +9,7 @@ from io import BytesIO
 import archinfo
 
 from macholib import MachO as MachOLoader
+from macholib import SymbolTable as MachOLoaderSymbolTable
 from .section import MachOSection
 from .symbol import SymbolTableSymbol
 from .segment import MachOSegment
@@ -119,6 +120,8 @@ class MachO(Backend):
 
     def _parse_load_cmds(self):
         segments = []
+
+        has_symbol_table = False
         
         for load_cmd_trie in self._header.commands:
             cmd = load_cmd_trie[0]
@@ -132,6 +135,7 @@ class MachO(Backend):
             elif cmd_name == 'LC_FUNCTION_STARTS':
                 pass
             elif cmd_name == 'LC_SYMTAB':
+                has_symbol_table = True
                 pass
             elif cmd_name == 'LC_THREAD': # core file
                 pass
@@ -140,12 +144,32 @@ class MachO(Backend):
             else:
                 pass
 
+        if has_symbol_table:
+            self._load_symbol_table()
+
+    def _load_symbol_table(self):
+        stable = MachOLoaderSymbolTable.SymbolTable(self._header.parent)
+
+        # Parse out stable.extdefsyms
+        for esym in stable.extdefsyms:
+            sym = esym[0]
+            sym_str = esym[1] # No need to decode, apparently :-)
+            s = SymbolTableSymbol(self, sym_str, sym.n_type, sym.n_sect, sym.n_desc, sym.n_value) 
+            self.symbols.add(s)
+
+        # Parse out stable.undefsyms
+        for usym in stable.undefsyms:
+            sym = usym[0]
+            sym_str = usym[1]
+            s = SymbolTableSymbol(self, sym_str, sym.n_type, sym.n_sect, sym.n_desc, sym.n_value) 
+            self.symbols.add(s)
+
     # XXX: Should this be case insensitive?
     def get_arch_from_header(self, header):
         arch_lookup = {
             # contains all supported architectures. Note that apple deviates from standard ABI, see Apple docs
             # XXX: these are referred to differently in mach/machine.h
-            0x100000c: "aarch64",
+            0x100000c: "aarch64", # arm64
             0xc: "arm",
             0x7: "x86",
             0x1000007: "amd64", # x64, amd64
@@ -432,14 +456,6 @@ class MachO(Backend):
             i += uleb[1]
         l.debug("Done parsing function starts")
 
-    def _load_lc_main(self, f, offset):
-        if self.entryoff is not None or self.unixthread_pc is not None:
-            l.error("More than one entry point for main detected, abort.")
-            raise CLEInvalidBinaryError()
-
-        (_, _, self.entryoff, _) = self._unpack("2I2Q", f, offset, 24)
-        l.debug("LC_MAIN: entryoff=%#x", self.entryoff)
-
     def _load_lc_unixthread(self, f, offset):
         if self.entryoff is not None or self.unixthread_pc is not None:
             l.error("More than one entry point for main detected, abort.")
@@ -483,47 +499,6 @@ class MachO(Backend):
         self.weak_binding_blob = blob_or_None(f, wboff, wbsize)
         self.lazy_binding_blob = blob_or_None(f, lboff, lbsize)
         self.export_blob = blob_or_None(f, eoff, esize)
-
-    def _load_symtab(self, f, offset):
-        """
-        Handles loading of the symbol table
-        :param f: input file
-        :param offset: offset to the LC_SYMTAB structure
-        :return:
-        """
-
-        (_, _, symoff, nsyms, stroff, strsize) = self._unpack("6I", f, offset, 24)
-
-        # load string table
-        self.strtab = self._read(f, stroff, strsize)
-
-        # store symtab info
-        self.symtab_nsyms = nsyms
-        self.symtab_offset = symoff
-
-    def _parse_symbols(self,f):
-
-        # parse the symbol entries and create (unresolved) MachOSymbols.
-        if self.arch.bits == 64:
-            packstr = "I2BHQ"
-            structsize = 16
-        else:
-            packstr = "I2BhI"
-            structsize = 12
-
-        for i in range(0, self.symtab_nsyms):
-            offset_in_symtab = (i * structsize)
-            offset = offset_in_symtab+ self.symtab_offset
-            (n_strx, n_type, n_sect, n_desc, n_value) = self._unpack(packstr, f, offset, structsize)
-            l.debug("Adding symbol # %d @ %#x: %s,%s,%s,%s,%s",
-                    i, offset,
-                    n_strx, n_type, n_sect, n_desc, n_value)
-            sym = SymbolTableSymbol(
-                    self, offset_in_symtab, n_strx, n_type, n_sect, n_desc, n_value)
-            self.symbols.add(sym)
-            self._ordered_symbols.append(sym)
-
-            l.debug("Symbol # %d @ %#x is '%s'",i,offset, sym.name)
 
     def get_string(self, start):
         """Loads a string from the string table"""

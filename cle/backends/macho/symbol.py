@@ -54,7 +54,7 @@ class SymbolTableSymbol(AbstractMachOSymbol):
     Much of the code below is based on heuristics as official documentation is sparse, consider yourself warned!
     """
 
-    def __init__(self, owner, symtab_offset, n_strx, n_type, n_sect, n_desc, n_value):
+    def __init__(self, owner, symname, n_type, n_sect, n_desc, n_value):
         # Note 1: Setting size = owner.arch.bytes has been directly taken over from the PE backend,
         # there is no meaningful definition of a symbol's size so I assume the size of an address counts here
         # Note 2: relative_addr will be the address of a symbols __got or __nl_symbol_ptr entry, not the address of a stub
@@ -64,23 +64,15 @@ class SymbolTableSymbol(AbstractMachOSymbol):
         # Note 4: The symbol type of all symbols is SymbolType.TYPE_OTHER because without docs I was unable to proplerly map Mach-O symbol types to CLE's notion of a symbol type
 
         # store the mach-o properties, all these are raw values straight from the binary
-        self.symtab_offset = symtab_offset # offset from the start of the symbol table
         self.n_type = n_type # n_type field from the symbol table
         self.n_sect = n_sect # n_sect field from the symbol table
         self.n_desc = n_desc # n_desc  field from the symbol table
         self.n_value = n_value  # n_value field from the symbol table.
-        self.n_strx = n_strx # index into the string table
-
-
 
         # now we may call super
         # however we cannot access any properties yet that would touch superclass-initialized attributes
         # so we have to repeat some work
-        super(SymbolTableSymbol, self).__init__(owner,
-               owner.get_string(n_strx).decode('utf-8') if n_strx != 0 else "",
-                self.value,
-                owner.arch.bytes,
-                SymbolType.TYPE_OTHER)
+        super(SymbolTableSymbol, self).__init__(owner, symname, self.value, owner.arch.bytes, SymbolType.TYPE_OTHER)
 
         # set further fields
         self.is_import = self.sym_type == SYMBOL_TYPE_UNDEF and self.is_external and self.library_ordinal != LIBRARY_ORDINAL_SELF
