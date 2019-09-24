@@ -15,6 +15,7 @@ from .symbol import SymbolTableSymbol
 from .segment import MachOSegment
 from .binding import BindingHelper, read_uleb
 from .. import Backend, register_backend
+from ...utils import stream_or_path
 from ...errors import CLEInvalidBinaryError, CLECompatibilityError, CLEOperationError, CLEError
 
 import logging
@@ -41,12 +42,19 @@ class MachO(Backend):
     MH_MAGIC = 0xfeedface
     MH_CIGAM = 0xcefaedfe
 
+    MH_FAT_MAGIC = 0xcafebabe
+    MH_FAT_CIGAM = 0xbebafeca
+
     def __init__(self, binary, target_arch=None, **kwargs):
         l.warning('The Mach-O backend is not well-supported. Good luck!')
 
         super(MachO, self).__init__(binary, **kwargs)
 
         parsed_macho = MachOLoader.MachO(self.binary)
+
+        if not self.is_main_bin:
+            # target_arch prefrence goes to main bin...
+            target_arch = self.loader.main_object.arch.name.lower()
 
         if not target_arch is None:
             self._header = self.match_target_arch_to_header(target_arch, parsed_macho.headers)
@@ -62,7 +70,8 @@ class MachO(Backend):
         # TODO: add lsb/msb support here properly. self._header.endian is exactly it
         self.set_arch(archinfo.arch_from_id(arch_ident, endness="lsb"))
                 
-        self.pie = None  # position independent executable?
+        # XXX: Actually populate this...
+        self.pic = True  # position independent executable?
         self.flags = None  # binary flags
         self.imported_libraries = ["Self"]  # ordinal 0 = SELF_LIBRARY_ORDINAL
 
@@ -84,13 +93,16 @@ class MachO(Backend):
         self.symtab_nsyms = None # number of symbols in the symtab
         self.binding_done = False # if true binding was already done and do_bind will be a no-op
 
+        # Library dependencies.
+        self.linking = 'dynamic' # static is impossible in macos... kinda 
+
         # For some analysis the insertion order of the symbols is relevant and needs to be kept.
         # This is has to be separate from self.symbols because the latter is sorted by address
         self._ordered_symbols = []
 
         self.segments = []
 
-        self._mapped_base = 0x0100000000 
+        self.linked_base = 0x0100000000 
 
         # The documentation for Mach-O is at http://opensource.apple.com//source/xnu/xnu-1228.9.59/EXTERNAL_HEADERS/mach-o/loader.h
 
@@ -116,7 +128,7 @@ class MachO(Backend):
     
     def _handle_main_load_command(self, entry_point_command):
         # What do I do with stacksize? :x
-        self._entry = self._mapped_base + entry_point_command.entryoff
+        self._entry = self.linked_base + entry_point_command.entryoff
 
     def _parse_load_cmds(self):
         segments = []
@@ -136,7 +148,10 @@ class MachO(Backend):
                 pass
             elif cmd_name == 'LC_SYMTAB':
                 has_symbol_table = True
-                pass
+            elif cmd_name == 'LC_LOAD_DYLINKER':
+                self.deps.append(load_cmd_trie[2].decode().strip('\x00'))
+            elif cmd_name == 'LC_LOAD_DYLIB':
+                self.deps.append(load_cmd_trie[2].decode().strip('\x00'))
             elif cmd_name == 'LC_THREAD': # core file
                 pass
             elif cmd_name == 'LC_UNIXTHREAD': # LC_UNIXTHREAD should be dead in favor of LC_MAIN
@@ -182,6 +197,12 @@ class MachO(Backend):
                 return mach_header
         return None
 
+    @classmethod
+    def check_compatibility(cls, spec, obj):
+        with stream_or_path(spec) as stream:
+            return cls.is_compatible(stream)
+        return False
+
     @staticmethod
     def is_compatible(stream):
         stream.seek(0)
@@ -190,8 +211,12 @@ class MachO(Backend):
         if identstring.startswith(struct.pack('I', MachO.MH_MAGIC_64)) or \
            identstring.startswith(struct.pack('I', MachO.MH_CIGAM_64)) or \
            identstring.startswith(struct.pack('I', MachO.MH_MAGIC)) or \
-           identstring.startswith(struct.pack('I', MachO.MH_CIGAM)):
+           identstring.startswith(struct.pack('I', MachO.MH_CIGAM)) or \
+           identstring.startswith(struct.pack('I', MachO.MH_FAT_MAGIC)) or \
+           identstring.startswith(struct.pack('I', MachO.MH_FAT_CIGAM)):
             return True
+
+        print(';no compat????')
         return False
 
     @property
@@ -266,36 +291,6 @@ class MachO(Backend):
     #def _unpack(self, fmt, fp, offset, size):
     #    """Convenience"""
     #    return self._unpack_with_byteorder(fmt, self._read(fp, offset, size))
-
-    #@staticmethod
-    #def _detect_byteorder(magic):
-    #    """Determines the binary's byteorder """
-
-    #    l.debug("Magic is %#x", magic)
-
-    #    host_is_little = sys.byteorder == 'little'
-
-    #    if host_is_little:
-    #        if magic in [MachO.MH_MAGIC_64, MachO.MH_MAGIC]:
-    #            l.debug("Detected little-endian")
-    #            return "<"
-    #        elif magic in [MachO.MH_CIGAM, MachO.MH_CIGAM_64]:
-    #            l.debug("Detected big-endian")
-    #            return ">"
-    #        else:
-    #            l.debug("Not a mach-o file")
-    #            raise CLECompatibilityError()
-    #    else:
-    #        if magic in [MachO.MH_MAGIC_64, MachO.MH_MAGIC]:
-    #            l.debug("Detected big-endian")
-    #            return ">"
-    #        elif magic in [MachO.MH_CIGAM_64, MachO.MH_CIGAM]:
-    #            l.debug("Detected little-endian")
-    #            return "<"
-    #        else:
-    #            l.debug("Not a mach-o file")
-    #            raise CLECompatibilityError()
-
 
     #def do_binding(self):
     #    # Perform binding
@@ -559,16 +554,6 @@ class MachO(Backend):
                     result.append(sym)
 
         return result
-
-    def get_symbol_by_insertion_order(self, idx):
-        """
-
-        :param idx: idx when this symbol was inserted
-        :type idx: int
-        :return:
-        :rtype: AbstractMachOSymbol
-        """
-        return self._ordered_symbols[idx]
 
     def get_segment_by_name(self, name):
         """
