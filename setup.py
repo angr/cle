@@ -17,6 +17,7 @@ setup(
     python_requires='>=3.5',
     packages=packages,
     install_requires=[
+        'macholib>=1.11',
         'pyelftools>=0.25',
         'cffi',
         'archinfo==8.19.7.25',
