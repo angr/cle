@@ -37,14 +37,6 @@ class MachO(Backend):
     is_default = True # Tell CLE to automatically consider using the MachO backend
     _header = None
 
-    MH_MAGIC_64 = 0xfeedfacf
-    MH_CIGAM_64 = 0xcffaedfe
-    MH_MAGIC = 0xfeedface
-    MH_CIGAM = 0xcefaedfe
-
-    MH_FAT_MAGIC = 0xcafebabe
-    MH_FAT_CIGAM = 0xbebafeca
-
     def __init__(self, binary, target_arch=None, **kwargs):
         l.warning('The Mach-O backend is not well-supported. Good luck!')
 
@@ -208,15 +200,15 @@ class MachO(Backend):
         stream.seek(0)
         identstring = stream.read(0x5)
         stream.seek(0)
-        if identstring.startswith(struct.pack('I', MachO.MH_MAGIC_64)) or \
-           identstring.startswith(struct.pack('I', MachO.MH_CIGAM_64)) or \
-           identstring.startswith(struct.pack('I', MachO.MH_MAGIC)) or \
-           identstring.startswith(struct.pack('I', MachO.MH_CIGAM)) or \
-           identstring.startswith(struct.pack('I', MachO.MH_FAT_MAGIC)) or \
-           identstring.startswith(struct.pack('I', MachO.MH_FAT_CIGAM)):
+        if identstring.startswith(struct.pack('I', MachOLoader.MH_MAGIC_64)) or \
+           identstring.startswith(struct.pack('I', MachOLoader.MH_CIGAM_64)) or \
+           identstring.startswith(struct.pack('I', MachOLoader.MH_MAGIC)) or \
+           identstring.startswith(struct.pack('I', MachOLoader.MH_CIGAM)) or \
+           identstring.startswith(struct.pack('>I', MachOLoader.FAT_MAGIC_64)) or \
+           identstring.startswith(struct.pack('>I', MachOLoader.FAT_MAGIC)):
+           # Being that Macholib doesn't have FAT_CIGAM.. I'm gonna assume it doesnt happen
             return True
 
-        print(';no compat????')
         return False
 
     @property
