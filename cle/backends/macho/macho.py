@@ -130,12 +130,11 @@ class MachO(Backend):
         for load_cmd_trie in self._header.commands:
             cmd = load_cmd_trie[0]
             cmd_name = cmd.get_cmd_name()
+            print(cmd_name)
             if cmd_name == 'LC_SEGMENT' or cmd_name == 'LC_SEGMENT_64':
                 self._handle_segment_load_command(load_cmd_trie[1], load_cmd_trie[2])
             elif cmd_name == 'LC_MAIN':
                 self._handle_main_load_command(load_cmd_trie[1])
-            elif cmd_name == 'LC_LOAD_DYLIB':
-                pass
             elif cmd_name == 'LC_FUNCTION_STARTS':
                 pass
             elif cmd_name == 'LC_SYMTAB':
