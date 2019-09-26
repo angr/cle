@@ -112,7 +112,9 @@ class MachO(Backend):
         if seg.segname == '__PAGEZERO':
             return
 
-        blob = self._read(self.binary_stream, seg.offset, seg.filesize)
+        print('[%s] MAPPING: 0x%x -> 0x%x' % (self.binary, seg.offset, seg.vaddr))
+
+        blob = self._read(self.binary_stream, self._header.offset + seg.offset, seg.filesize)
         if seg.filesize < seg.memsize:
             blob += b'\0' * (seg.memsize - seg.filesize)  # padding
 
@@ -123,14 +125,11 @@ class MachO(Backend):
         self._entry = self.linked_base + entry_point_command.entryoff
 
     def _parse_load_cmds(self):
-        segments = []
-
         has_symbol_table = False
         
         for load_cmd_trie in self._header.commands:
             cmd = load_cmd_trie[0]
             cmd_name = cmd.get_cmd_name()
-            print(cmd_name)
             if cmd_name == 'LC_SEGMENT' or cmd_name == 'LC_SEGMENT_64':
                 self._handle_segment_load_command(load_cmd_trie[1], load_cmd_trie[2])
             elif cmd_name == 'LC_MAIN':

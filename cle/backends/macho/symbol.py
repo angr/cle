@@ -4,6 +4,7 @@
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/) and updated in September 2019.
 
 from .. import Symbol, SymbolType
+from ...address_translator import AT
 
 import logging
 l = logging.getLogger('cle.backends.macho.symbol')
@@ -130,8 +131,7 @@ class SymbolTableSymbol(AbstractMachOSymbol):
 
     @property
     def rebased_addr(self):
-        l.warning("Rebasing not implemented for Mach-O")
-        return self.linked_addr
+        return AT.from_rva(self.relative_addr, self.owner).to_mva()
 
     def resolve(self, obj):
         # Incompatibility to CLE
@@ -261,8 +261,7 @@ class BindingSymbol(AbstractMachOSymbol):
 
     @property
     def rebased_addr(self):
-        l.warning("Rebasing not implemented for Mach-O")
-        return self.linked_addr
+        return AT.from_rva(self.relative_addr, self.owner).to_mva()
 
     def resolve(self, obj):
         # Incompatibility to CLE
