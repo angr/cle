@@ -75,7 +75,7 @@ class MachO(Backend):
         # If we intend to use it we must first upgrade it to a class or somesuch
         self.entryoff = None
         self.unixthread_pc = None
-        self.os = "darwin"
+        self.os = "Darwin"
         
         self.export_blob = None  # exports trie
         self.binding_blob = None  # binding information
@@ -112,13 +112,12 @@ class MachO(Backend):
         if seg.segname == '__PAGEZERO':
             return
 
-        print('[%s] MAPPING: 0x%x -> 0x%x' % (self.binary, seg.offset, seg.vaddr))
-
         blob = self._read(self.binary_stream, self._header.offset + seg.offset, seg.filesize)
         if seg.filesize < seg.memsize:
             blob += b'\0' * (seg.memsize - seg.filesize)  # padding
 
-        self.memory.add_backer(seg.vaddr, blob)
+        print('Mapping: 0x%x, len: 0x%x' % (seg.vaddr, len(blob)))
+        self.memory.add_backer(seg.vaddr -  self.linked_base, blob)
     
     def _handle_main_load_command(self, entry_point_command):
         # What do I do with stacksize? :x

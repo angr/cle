@@ -50,6 +50,9 @@ class MachOSegment(Region):
                 return sec
         return None
 
+    def __repr__(self):
+        return 'no'
+
     def __getitem__(self, item):
         """
         Syntactic sugar for get_section_by_name
