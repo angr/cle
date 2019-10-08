@@ -991,7 +991,7 @@ class Loader:
                 if self._ignore_import_version_numbers:
                     yield os.path.basename(spec.binary).rstrip('.0123456789')
         elif hasattr(spec, 'read') and hasattr(spec, 'seek'):
-            backend_cls = self._static_backend(spec)
+            backend_cls = self._static_backend(spec, ignore_hints=True)
             if backend_cls is not None:
                 soname = backend_cls.extract_soname(spec)
                 if soname is not None:
@@ -1006,7 +1006,7 @@ class Loader:
                 yield os.path.basename(spec).rstrip('.0123456789')
 
             if os.path.exists(spec):
-                backend_cls = self._static_backend(spec)
+                backend_cls = self._static_backend(spec, ignore_hints=True)
                 if backend_cls is not None:
                     soname = backend_cls.extract_soname(spec)
                     if soname is not None:
@@ -1018,18 +1018,19 @@ class Loader:
             for name in self._possible_idents(spec, lowercase=True):
                 yield name.lower()
 
-    def _static_backend(self, spec):
+    def _static_backend(self, spec, ignore_hints=False):
         """
         Returns the correct loader for the file at `spec`.
         Returns None if it's a blob or some unknown type.
         TODO: Implement some binwalk-like thing to carve up blobs automatically
         """
 
-        for ident in self._possible_idents(spec):
-            try:
-                return self._backend_resolver(self._lib_opts[ident]['backend'])
-            except KeyError:
-                pass
+        if not ignore_hints:
+            for ident in self._possible_idents(spec):
+                try:
+                    return self._backend_resolver(self._lib_opts[ident]['backend'])
+                except KeyError:
+                    pass
 
         with stream_or_path(spec) as stream:
             for rear in ALL_BACKENDS.values():
