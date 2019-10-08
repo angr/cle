@@ -1025,10 +1025,11 @@ class Loader:
         TODO: Implement some binwalk-like thing to carve up blobs automatically
         """
 
-        try:
-            return self._backend_resolver(self._lib_opts[spec]['backend'])
-        except KeyError:
-            pass
+        for ident in self._possible_idents(spec):
+            try:
+                return self._backend_resolver(self._lib_opts[ident]['backend'])
+            except KeyError:
+                pass
 
         with stream_or_path(spec) as stream:
             for rear in ALL_BACKENDS.values():
