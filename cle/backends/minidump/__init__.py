@@ -4,6 +4,7 @@ from minidump import minidumpfile
 from minidump.streams import SystemInfoStream
 
 from .. import register_backend, Backend
+from ..region import Section
 from ... memory import Clemory
 
 # https://docs.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-context
@@ -71,10 +72,27 @@ class _CONTEXT_AMD64(ctypes.Structure):
 				return cls.from_thread(md, thread)
 		raise ValueError('the specified thread id was not found')
 
+	def update_state(self, state):
+		state.regs.fs = self.SegFs
+		state.regs.gs = self.SegGs
+		state.regs.rax = self.Rax
+		state.regs.rbx = self.Rbx
+		state.regs.rcx = self.Rcx
+		state.regs.rdx = self.Rdx
+		state.regs.rsp = self.Rsp
+		state.regs.rsi = self.Rsi
+		state.regs.rdi = self.Rdi
+		for idx in range(8, 16):
+			setattr(state.regs, 'r' + str(idx), getattr(self, 'R' + str(idx)))
+		state.regs.rip = self.Rip
+		state.regs.eflags = self.EFlags
+
 class Minidump(Backend):
+	is_default = True
 	def __init__(self, *args, **kwargs):
 		super(Minidump, self).__init__(*args, **kwargs)
 		self.os = 'windows'
+		self.supports_nx = True
 		if self.binary is None:
 			self._mdf = minidumpfile.MinidumpFile.parse_bytes(self.binary_stream.read())
 		else:
@@ -103,6 +121,11 @@ class Minidump(Backend):
 			clemory.add_backer(0, data)
 			self.memory.add_backer(segment.start_virtual_address, clemory)
 
+		for module in self.modules:
+			section = Section(module.name, None, module.baseaddress, module.size)
+			self.sections.append(section)
+			self.sections_map[section.name] = section
+
 	@property
 	def file_handle(self):
 		return self._mdf.file_handle
@@ -114,7 +137,18 @@ class Minidump(Backend):
 		return identstring == b'MDMP'
 
 	@property
+	def modules(self):
+		return self._mdf.modules.modules
+
+	@property
 	def threads(self):
 		return self._mdf.threads.threads
+
+	def get_thread_context_by_id(self, thread_id):
+		if self.arch == archinfo.ArchAMD64():
+			Context = _CONTEXT_AMD64
+		else:
+			raise NotImplementedError()
+		return Context.from_thread_id(self, thread_id)
 
 register_backend('minidump', Minidump)
