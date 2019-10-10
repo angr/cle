@@ -345,6 +345,7 @@ from .pe import PE
 from .blob import Blob
 from .cgc import CGC, BackedCGC
 from .ihex import Hex
+from .minidump import Minidump
 from .macho import MachO
 from .named_region import NamedRegion
 from .java.jar import Jar
