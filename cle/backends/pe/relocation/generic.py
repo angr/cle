@@ -39,7 +39,7 @@ class IMAGE_REL_BASED_HIGHLOW(PEReloc):
         org_bytes = self.owner.memory.load(self.relative_addr, 4)
         org_value = struct.unpack('<I', org_bytes)[0]
         rebased_value = AT.from_lva(org_value, self.owner).to_mva()
-        rebased_bytes = struct.pack('<I', rebased_value)
+        rebased_bytes = struct.pack('<I', rebased_value & 0xffffffff)
         return rebased_bytes
 
 class IMAGE_REL_BASED_DIR64(PEReloc):
