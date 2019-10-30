@@ -687,7 +687,11 @@ class ELF(MetaELF):
                 symbol = self.get_symbol(readelf_reloc.entry.r_info_sym, symtab)
                 if symbol is None:
                     continue
-                reloc = self._make_reloc(readelf_reloc, symbol, dest_sec)
+                try:
+                    reloc = self._make_reloc(readelf_reloc, symbol, dest_sec)
+                except KeyError:
+                    l.warning("Invalid reloc %s in section %s" % (repr(symbol), repr(dest_sec)))
+                    reloc = None
                 if reloc is not None:
                     relocs.append(reloc)
                     self.relocs.append(reloc)
