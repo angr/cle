@@ -1,94 +1,18 @@
 import archinfo
-import ctypes
 import ntpath
 
 from minidump import minidumpfile
 from minidump.streams import SystemInfoStream
 
+from . import context
 from .. import register_backend, Backend
 from ..region import Section
 from ... memory import Clemory
 
-# https://docs.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-context
-DWORD64 = ctypes.c_uint64
-DWORD = ctypes.c_uint32
-WORD = ctypes.c_uint16
-class _CONTEXT_AMD64(ctypes.Structure):
-    _fields_ = (
-        ('P1Home', DWORD64),
-        ('P2Home', DWORD64),
-        ('P3Home', DWORD64),
-        ('P4Home', DWORD64),
-        ('P5Home', DWORD64),
-        ('P6Home', DWORD64),
-        ('ContextFlags', DWORD),
-        ('MxCsr', DWORD),
-        ('SegCs', WORD),
-        ('SegDs', WORD),
-        ('SegEs', WORD),
-        ('SegFs', WORD),
-        ('SegGs', WORD),
-        ('SegSs', WORD),
-        ('EFlags', DWORD),
-        ('Dr0', DWORD64),
-        ('Dr1', DWORD64),
-        ('Dr2', DWORD64),
-        ('Dr3', DWORD64),
-        ('Dr6', DWORD64),
-        ('Dr7', DWORD64),
-        ('Rax', DWORD64),
-        ('Rcx', DWORD64),
-        ('Rdx', DWORD64),
-        ('Rbx', DWORD64),
-        ('Rsp', DWORD64),
-        ('Rbp', DWORD64),
-        ('Rsi', DWORD64),
-        ('Rdi', DWORD64),
-        ('R8', DWORD64),
-        ('R9', DWORD64),
-        ('R10', DWORD64),
-        ('R11', DWORD64),
-        ('R12', DWORD64),
-        ('R13', DWORD64),
-        ('R14', DWORD64),
-        ('R15', DWORD64),
-        ('Rip', DWORD64),
-    )
-    @classmethod
-    def from_bytes(cls, data):
-        inst = cls()
-        ctypes.memmove(ctypes.byref(inst), data, ctypes.sizeof(inst))
-        return inst
-
-    @classmethod
-    def from_thread(cls, md, thread):
-        md.file_handle.seek(thread.ThreadContext.Rva)
-        data = md.file_handle.read(thread.ThreadContext.DataSize)
-        md.file_handle.seek(0)
-        return cls.from_bytes(data)
-
-    @classmethod
-    def from_thread_id(cls, md, thread_id):
-        for thread in md.threads:
-            if thread.ThreadId == thread_id:
-                return cls.from_thread(md, thread)
-        raise ValueError('the specified thread id was not found')
-
-    def update_state(self, state):
-        state.regs.fs = self.SegFs
-        state.regs.gs = self.SegGs
-        state.regs.rax = self.Rax
-        state.regs.rbx = self.Rbx
-        state.regs.rcx = self.Rcx
-        state.regs.rdx = self.Rdx
-        state.regs.rsp = self.Rsp
-        state.regs.rsi = self.Rsi
-        state.regs.rdi = self.Rdi
-        for idx in range(8, 16):
-            setattr(state.regs, 'r' + str(idx), getattr(self, 'R' + str(idx)))
-        state.regs.rip = self.Rip
-        state.regs.eflags = self.EFlags
-        return state
+class MinidumpMissingStreamError(Exception):
+    def __init__(self, stream, message=None):
+        self.message = message
+        self.stream = stream
 
 class Minidump(Backend):
     is_default = True
@@ -103,7 +27,7 @@ class Minidump(Backend):
 
         if self.arch is None:
             if getattr(self._mdf, 'sysinfo', None) is None:
-                raise RuntimeError('The architecture was not specified and the minidump is missing the information stream')
+                raise MinidumpMissingStreamError('SystemInfo', 'The architecture was not specified')
             arch = self._mdf.sysinfo.ProcessorArchitecture
             if arch == SystemInfoStream.PROCESSOR_ARCHITECTURE.AMD64:
                 self.set_arch(archinfo.ArchAMD64())
@@ -113,10 +37,12 @@ class Minidump(Backend):
                 # has not been tested with other architectures
                 raise ValueError('The minidump architecture is not AMD64 or x86')
 
-        if self.arch == archinfo.ArchAMD64():
+        if self._mdf.memory_segments_64 is not None:
             segments = self._mdf.memory_segments_64.memory_segments
-        else:
+        elif self._mdf.memory_segments is not None:
             segments = self._mdf.memory_segments.memory_segments
+        else:
+            raise MinidumpMissingStreamError('MemoryList', 'The memory segments were not defined')
 
         for segment in segments:
             clemory = Clemory(self.arch)
@@ -162,8 +88,11 @@ class Minidump(Backend):
         return self._mdf.threads.threads
 
     def get_thread_context_by_id(self, thread_id):
+        """Get an architecture specific thread context object for the specified thread."""
         if self.arch == archinfo.ArchAMD64():
-            Context = _CONTEXT_AMD64
+            Context = context.ContextAMD64
+        elif self.arch == archinfo.ArchX86():
+            Context = context.ContextX86
         else:
             raise NotImplementedError()
         return Context.from_thread_id(self, thread_id)
