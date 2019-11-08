@@ -78,6 +78,7 @@ class ContextAMD64(Context):
         ('Rip', DWORD64),
         # ...
     )
+
     def update_state(self, state):
         state.regs.fs = self.SegFs
         state.regs.gs = self.SegGs
@@ -136,3 +137,17 @@ class ContextX86(Context):
         ('SegSs', DWORD),
         ('ExtendedRegisters', BYTE * 512)
     )
+
+    def update_state(self, state):
+        state.regs.fs = self.SegFs
+        state.regs.gs = self.SegGs
+        state.regs.eax = self.Eax
+        state.regs.ebx = self.Ebx
+        state.regs.ecx = self.Ecx
+        state.regs.edx = self.Edx
+        state.regs.esp = self.Esp
+        state.regs.esi = self.Esi
+        state.regs.edi = self.Edi
+        state.regs.eip = self.Eip
+        state.regs.eflags = self.EFlags
+        return state
