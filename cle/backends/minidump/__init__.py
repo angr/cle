@@ -11,6 +11,7 @@ from ... memory import Clemory
 
 class MinidumpMissingStreamError(Exception):
     def __init__(self, stream, message=None):
+        super(MinidumpMissingStreamError, self).__init__()
         self.message = message
         self.stream = stream
 
