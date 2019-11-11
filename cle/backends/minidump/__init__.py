@@ -1,10 +1,10 @@
 import archinfo
 import ntpath
+import struct
 
 from minidump import minidumpfile
 from minidump.streams import SystemInfoStream
 
-from . import context
 from .. import register_backend, Backend
 from ..region import Section
 from ... memory import Clemory
@@ -88,14 +88,48 @@ class Minidump(Backend):
     def threads(self):
         return self._mdf.threads.threads
 
-    def get_thread_context_by_id(self, thread_id):
-        """Get an architecture specific thread context object for the specified thread."""
-        if self.arch == archinfo.ArchAMD64():
-            Context = context.ContextAMD64
-        elif self.arch == archinfo.ArchX86():
-            Context = context.ContextX86
+    def get_thread_registers_by_id(self, thread_id):
+        """Get the registers for a specific thread by its id."""
+        for thread in self.threads:
+            if thread.ThreadId == thread_id:
+                break
         else:
-            raise NotImplementedError()
-        return Context.from_thread_id(self, thread_id)
+            raise ValueError('The specified thread id was not found')
+        self.file_handle.seek(thread.ThreadContext.Rva)
+        data = self.file_handle.read(thread.ThreadContext.DataSize)
+        self.file_handle.seek(0)
+
+        if self.arch == archinfo.ArchAMD64():
+            format = 'QQQQQQIIHHHHHHIQQQQQQQQQQQQQQQQQQQQQQQ'
+            format_registers = {
+                'fs':     11, 'gs':  12,
+                'eflags': 14, 'rax': 21,
+                'rcx':    22, 'rdx': 23,
+                'rbx':    24, 'rsp': 25,
+                'rbp':    26, 'rsi': 27,
+                'rdi':    28, 'r8':  29,
+                'r9':     30, 'r10': 31,
+                'r11':    32, 'r12': 33,
+                'r13':    34, 'r14': 35,
+                'r15':    36, 'rip': 37
+            }
+        elif self.arch == archinfo.ArchX86():
+            format = 'IIIIIII112xIIIIIIIIIIIIIIII512x'
+            format_registers = {
+                'gs':     7,  'fs':  8,
+                'edi':    11, 'esi': 12,
+                'ebx':    13, 'edx': 14,
+                'ecx':    15, 'eax': 16,
+                'ebp':    17, 'eip': 18,
+                'eflags': 20, 'esp': 21
+            }
+        else:
+            raise ValueError('The architecture is unsupported')
+        data = data[:struct.calcsize(format)]
+        members = struct.unpack(format, data)
+        thread_registers = {}
+        for register, position in format_registers.items():
+            thread_registers[register] = members[position]
+        return thread_registers
 
 register_backend('minidump', Minidump)
