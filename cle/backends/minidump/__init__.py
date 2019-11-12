@@ -52,9 +52,15 @@ class Minidump(Backend):
             self.memory.add_backer(segment.start_virtual_address, clemory)
 
         for module in self.modules:
-            section = Section(module.name, None, module.baseaddress, module.size)
+            for segment in segments:
+                if segment.start_virtual_address == module.baseaddress:
+                    break
+            else:
+                raise RuntimeError('Missing segment for loaded module: ' + module.name)
+            section = Section(module.name, segment.start_file_address, module.baseaddress, module.size)
             self.sections.append(section)
             self.sections_map[ntpath.basename(section.name)] = section
+        self.segments = self.sections
 
     def __getstate__(self):
         if self.binary is None:
