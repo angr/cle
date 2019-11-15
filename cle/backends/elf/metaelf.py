@@ -23,9 +23,10 @@ class MetaELF(Backend):
     """
     def __init__(self, *args, **kwargs):
         super(MetaELF, self).__init__(*args, **kwargs)
-        self.os = describe_ei_osabi(elftools.elf.elffile.ELFFile(self.binary_stream).header.e_ident.EI_OSABI)
+        tmp_reader = elftools.elf.elffile.ELFFile(self.binary_stream)
+        self.os = describe_ei_osabi(tmp_reader.header.e_ident.EI_OSABI)
+        self.elfflags = tmp_reader.header.e_flags
         self._plt = {}
-        self.elfflags = 0
         self.ppc64_initial_rtoc = None
 
     supported_filetypes = ['elf']
