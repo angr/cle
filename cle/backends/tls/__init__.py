@@ -18,6 +18,7 @@ class TLSObject(Backend):
         self.next_module_id = 0
         self.tp_offset = 0
         self.max_modules = max_modules
+        self._finalized_modules = None
 
     def register_object(self, obj):
         """
@@ -30,6 +31,17 @@ class TLSObject(Backend):
 
         self.modules.append(obj)
 
+    def finalize_layout(self):
+        """
+        Will Be called when all objects have been registered and none have been mapped. Do the heavy
+        lifting in a subclass.
+        """
+        if self._finalized_modules == len(self.modules):
+            return
+        elif self._finalized_modules is not None:
+            raise CLEError("Trying to refinalize the TLS layout with more data. Are you trying to do dynamic loading with TLS? Report this as a bug")
+
+        self._finalized_modules = len(self.modules)
     def map_object(self, obj):
         # Grab the init images and map them into memory
         data = obj.memory.load(obj.tls_data_start, obj.tls_data_size).ljust(obj.tls_block_size, b'\0')

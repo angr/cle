@@ -1,6 +1,5 @@
 import struct
 
-from ...errors import CLEError
 from . import TLSObject, InternalTLSRelocation
 
 TLS_BLOCK_ALIGN = 0x10
@@ -23,13 +22,21 @@ class ELFTLSObject(TLSObject):
         - https://www.uclibc.org/docs/tls-ppc64.txt
         - https://www.linux-mips.org/wiki/NPTL
     """
-    def __init__(self, loader, max_data=0x8000, max_modules=256):
+    def __init__(self, loader, max_modules=256):
         super(ELFTLSObject, self).__init__(loader, max_modules=max_modules)
         self.next_module_id = 1
-        self.total_blocks_size = 0
-        self.max_data = max_data
-        self.modules = []
+        self.used_data = 0
         self._max_addr = 0
+        self._finalized_modules = None
+
+        self.tcb_offset = None
+        self.dtv_offset = None
+
+    def finalize_layout(self):
+        if self._finalized_modules == len(self.modules):
+            return
+
+        super().finalize_layout()  # sets self._finalized_modules
 
         if self.arch.elf_tls.variant == 1:
             # variant 1: memory is laid out like so:
@@ -37,20 +44,20 @@ class ELFTLSObject(TLSObject):
             #         ^ thread pointer
             self.tcb_offset = TLS_TOTAL_HEAD_SIZE - self.arch.elf_tls.tcbhead_size
             self.tp_offset = TLS_TOTAL_HEAD_SIZE    # CRITICAL DIFFERENCE FROM THE DOC - variant 1 seems to expect the thread pointer points to the end of the TCB
-            self.dtv_offset = TLS_TOTAL_HEAD_SIZE + self.max_data + 2*self.arch.bytes
-            self._max_addr = self.dtv_offset + 2*self.arch.bytes*max_modules
+            self.dtv_offset = TLS_TOTAL_HEAD_SIZE + self.used_data + 2 * self.arch.bytes
+            self._max_addr = self.dtv_offset + 2*self.arch.bytes*self.max_modules
             self.memory.add_backer(0, bytes(TLS_TOTAL_HEAD_SIZE))
         else:
             # variant 2: memory is laid out like so:
             # [module data][header][dtv]
             #              ^ thread pointer
-            self.tcb_offset = roundup(self.max_data, TLS_HEAD_ALIGN)
-            self.tp_offset = roundup(self.max_data, TLS_HEAD_ALIGN)
+            self.tcb_offset = roundup(self.used_data, TLS_HEAD_ALIGN)
+            self.tp_offset = roundup(self.used_data, TLS_HEAD_ALIGN)
             self.dtv_offset = self.tp_offset + TLS_TOTAL_HEAD_SIZE + 2*self.arch.bytes
-            self._max_addr = self.dtv_offset + 2*self.arch.bytes*max_modules
+            self._max_addr = self.dtv_offset + 2*self.arch.bytes*self.max_modules
             self.memory.add_backer(self.tp_offset, bytes(TLS_TOTAL_HEAD_SIZE))
 
-        self.memory.add_backer(self.dtv_offset - 2*self.arch.bytes, bytes(2*self.arch.bytes*max_modules + 2*self.arch.bytes))
+        self.memory.add_backer(self.dtv_offset - 2*self.arch.bytes, bytes(2*self.arch.bytes*self.max_modules + 2*self.arch.bytes))
 
         # Set the appropriate pointers in the tcbhead
         for off in self.arch.elf_tls.head_offsets:
@@ -60,9 +67,16 @@ class ELFTLSObject(TLSObject):
         for off in self.arch.elf_tls.pthread_offsets:
             self.drop_int(self.tp_offset, off + self.tcb_offset, True)     # ?????
 
+        # Set up the DTV
         # at dtv[-1] there's capacity, at dtv[0] there's count (technically generation number?)
         self.drop_int(self.max_modules-1, self.dtv_offset - 2*self.arch.bytes)
-        self.drop_int(0, self.dtv_offset)
+        self.drop_int(len(self.modules), self.dtv_offset)
+
+        for obj in self.modules:
+            dtv_entry_offset = self.dtv_offset + 2*self.arch.bytes*obj.tls_module_id
+            self.drop_int(self.tp_offset + obj.tls_block_offset + self.arch.elf_tls.dtv_entry_offset, dtv_entry_offset, True)
+            self.drop_int(1, dtv_entry_offset + self.arch.bytes)
+
 
     def drop(self, string, offset):
         for i, c in enumerate(string):
@@ -84,21 +98,11 @@ class ELFTLSObject(TLSObject):
         # tls_block_offset has these semantics: the thread pointer plus the block offset equals the address of the
         # module's TLS data in memory
         if self.arch.elf_tls.variant == 1:
-            obj.tls_block_offset = self.total_blocks_size
+            obj.tls_block_offset = self.used_data
         else:
-            obj.tls_block_offset = -self.total_blocks_size - roundup(obj.tls_block_size)
+            obj.tls_block_offset = -self.used_data - roundup(obj.tls_block_size)
 
-        self.total_blocks_size += roundup(obj.tls_block_size)
-        if self.total_blocks_size > self.max_data:
-            raise CLEError("Too much TLS data to handle... file this as a bug")
-
-        # update dtv size
-        self.drop_int(len(self.modules), self.dtv_offset)
-
-        # Set up the DTV
-        dtv_entry_offset = self.dtv_offset + 2*self.arch.bytes*obj.tls_module_id
-        self.drop_int(self.tp_offset + obj.tls_block_offset + self.arch.elf_tls.dtv_entry_offset, dtv_entry_offset, True)
-        self.drop_int(1, dtv_entry_offset + self.arch.bytes)
+        self.used_data += roundup(obj.tls_block_size)
 
     @property
     def thread_pointer(self):

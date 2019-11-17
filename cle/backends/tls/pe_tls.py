@@ -53,10 +53,8 @@ class PETLSObject(TLSObject):
     TLS array to get the start address of the TLS data.
     """
 
-    def __init__(self, loader, max_modules=256, max_data=0x8000):
+    def __init__(self, loader, max_modules=256):
         super(PETLSObject, self).__init__(loader, max_modules=max_modules)
-        self.max_data = max_data
-
         self.used_data = 0
         self.data_start = self.arch.bytes*max_modules
 
@@ -71,8 +69,6 @@ class PETLSObject(TLSObject):
         data_start = self.data_start + self.used_data
         obj.tls_block_offset = data_start
         self.used_data += obj.tls_block_size
-        if self.used_data > self.max_data:
-            raise CLEError("Too much TLS data to handle... file this as a bug")
 
         # The PE TLS header says to write its index into a given address
         obj.memory.pack_word(AT.from_lva(obj.tls_index_address, obj).to_rva(), obj.tls_module_id)
