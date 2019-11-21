@@ -101,13 +101,13 @@ class Minidump(Backend):
                 break
         else:
             raise ValueError('The specified thread id was not found')
-        self.file_handle.seek(thread.ThreadContext.Rva)
-        data = self.file_handle.read(thread.ThreadContext.DataSize)
+        self.file_handle.seek(thread.ThreadContext.Rva)  # pylint: disable=undefined-loop-variable
+        data = self.file_handle.read(thread.ThreadContext.DataSize)  # pylint: disable=undefined-loop-variable
         self.file_handle.seek(0)
 
         if self.arch == archinfo.ArchAMD64():
-            format = 'QQQQQQIIHHHHHHIQQQQQQQQQQQQQQQQQQQQQQQ'
-            format_registers = {
+            fmt = 'QQQQQQIIHHHHHHIQQQQQQQQQQQQQQQQQQQQQQQ'
+            fmt_registers = {
                 'fs':     11, 'gs':  12,
                 'eflags': 14, 'rax': 21,
                 'rcx':    22, 'rdx': 23,
@@ -120,8 +120,8 @@ class Minidump(Backend):
                 'r15':    36, 'rip': 37
             }
         elif self.arch == archinfo.ArchX86():
-            format = 'IIIIIII112xIIIIIIIIIIIIIIII512x'
-            format_registers = {
+            fmt = 'IIIIIII112xIIIIIIIIIIIIIIII512x'
+            fmt_registers = {
                 'gs':     7,  'fs':  8,
                 'edi':    11, 'esi': 12,
                 'ebx':    13, 'edx': 14,
@@ -131,10 +131,10 @@ class Minidump(Backend):
             }
         else:
             raise ValueError('The architecture is unsupported')
-        data = data[:struct.calcsize(format)]
-        members = struct.unpack(format, data)
+        data = data[:struct.calcsize(fmt)]
+        members = struct.unpack(fmt, data)
         thread_registers = {}
-        for register, position in format_registers.items():
+        for register, position in fmt_registers.items():
             thread_registers[register] = members[position]
         return thread_registers
 
