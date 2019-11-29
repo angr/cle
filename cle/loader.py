@@ -94,6 +94,8 @@ class Loader:
         self._main_opts = {} if main_opts is None else main_opts
         self._lib_opts = {} if lib_opts is None else lib_opts
         self._custom_ld_path = [ld_path] if type(ld_path) is str else ld_path
+        force_load_libs = [force_load_libs] if type(force_load_libs) is str else force_load_libs
+        preload_libs = [preload_libs] if type(preload_libs) is str else preload_libs
         self._use_system_libs = use_system_libs
         self._ignore_import_version_numbers = ignore_import_version_numbers
         self._case_insensitive = case_insensitive
