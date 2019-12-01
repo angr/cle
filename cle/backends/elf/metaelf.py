@@ -234,13 +234,14 @@ class MetaELF(Backend):
                 # WAHP WAHP
                 return
 
-        # LAST TRY: Find the first block to references ANY GOT slot
-        tick.bailout_timer = 5
-        scan_forward(plt_sec.vaddr, list(func_jmprel.keys()), push=True)
+        if plt_sec is not None:
+            # LAST TRY: Find the first block to references ANY GOT slot
+            tick.bailout_timer = 5
+            scan_forward(plt_sec.vaddr, list(func_jmprel.keys()), push=True)
 
-        if not self._plt:
-            # \(_^^)/
-            return
+            if not self._plt:
+                # \(_^^)/
+                return
 
         # if we've gotten this far there is at least one plt slot address known, guaranteed.
         plt_hitlist = [
