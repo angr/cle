@@ -239,9 +239,9 @@ class MetaELF(Backend):
             tick.bailout_timer = 5
             scan_forward(plt_sec.vaddr, list(func_jmprel.keys()), push=True)
 
-            if not self._plt:
-                # \(_^^)/
-                return
+        if not self._plt:
+            # \(_^^)/
+            return
 
         # if we've gotten this far there is at least one plt slot address known, guaranteed.
         plt_hitlist = [
