@@ -297,14 +297,14 @@ class Backend:
         return []
 
     @property
-    def threads(self):
+    def threads(self):  # pylint: disable=no-self-use
         """
         If this backend represents a dump of a running program, it may contain one or more thread contexts, i.e.
         register files. This property should contain a list of names for these threads, which should be unique.
         """
         return []
 
-    def thread_registers(self, thread=None):
+    def thread_registers(self, thread=None):  # pylint: disable=no-self-use,unused-argument
         """
         If this backend represents a dump of a running program, it may contain one or more thread contexts, i.e.
         register files. This method should return the register file for a given thread (as named in ``Backend.threads``)
