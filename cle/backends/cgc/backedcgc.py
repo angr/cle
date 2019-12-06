@@ -37,7 +37,6 @@ class BackedCGC(CGC):
         self.permissions_map = permissions_map
         self.current_allocation_base = current_allocation_base
 
-        exec_seg_addr = None
         for seg in self.segments:
             if seg.is_executable:
                 exec_seg_addr = seg.vaddr
@@ -70,7 +69,11 @@ class BackedCGC(CGC):
     def is_compatible(stream):
         return False # Don't use this for anything unless it's manual
 
-    def initial_register_values(self):
-        return self.register_backer.iteritems()
+    @property
+    def threads(self):
+        return [0]
+
+    def thread_registers(self, thread=None):
+        return self.register_backer.items()
 
 register_backend('backedcgc', BackedCGC)

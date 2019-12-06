@@ -23,7 +23,7 @@ def test_minidump():
     nose.tools.assert_in('kernel32.dll', sections_map)
 
     nose.tools.assert_equal(len(ld.main_object.threads), 2)
-    registers = ld.main_object.get_thread_registers_by_id(0x0548)
+    registers = ld.main_object.thread_registers(0x0548)
     nose.tools.assert_is_instance(registers, dict)
     nose.tools.assert_equal(registers, {
         'gs': 43,

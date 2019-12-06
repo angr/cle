@@ -296,6 +296,30 @@ class Backend:
         """
         return []
 
+    @property
+    def threads(self):
+        """
+        If this backend represents a dump of a running program, it may contain one or more thread contexts, i.e.
+        register files. This property should contain a list of names for these threads, which should be unique.
+        """
+        return []
+
+    def thread_registers(self, thread=None):
+        """
+        If this backend represents a dump of a running program, it may contain one or more thread contexts, i.e.
+        register files. This method should return the register file for a given thread (as named in ``Backend.threads``)
+        as a dict mapping register names (as seen in archinfo) to numbers. If the thread is not specified, it should
+        return the context for a "default" thread. If there are no threads, it should return an empty dict.
+        """
+        return {}
+
+    def initial_register_values(self):
+        """
+        Deprecated
+        """
+        l.critical("Deprecation warning: initial_register_values is deprecated - use backend.thread_registers() instead")
+        return self.thread_registers().items()
+
     def get_symbol(self, name): # pylint: disable=no-self-use,unused-argument
         """
         Stub function. Implement to find the symbol with name `name`.

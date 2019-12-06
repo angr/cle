@@ -66,7 +66,7 @@ class ELFCore(ELF):
         self.pr_cutime_usec = None
         self.pr_cstime_usec = None
 
-        self.registers = None
+        self._registers = None
 
         self.pr_fpvalid = None
 
@@ -87,8 +87,12 @@ class ELFCore(ELF):
             return False
         return False
 
-    def initial_register_values(self):
-        return self.registers.items()
+    @property
+    def threads(self):
+        return [0]
+
+    def thread_registers(self, thread=None):
+        return self._registers
 
     def __extract_note_info(self):
         """
@@ -205,7 +209,7 @@ class ELFCore(ELF):
                     't0', 't1', 't2', 't3', 't4', 't5', 't6', 't7',
                     's0', 's1', 's2', 's3', 's4', 's5', 's6', 's7',
                     't8', 't9', 'k0', 'k1', 'gp', 'sp', 's8', 'ra',
-                    'lo', 'hi', 'pc', 'bad', 'sr', 'status', 'cuase']
+                    'lo', 'hi', 'pc', 'bad', 'sr', 'status', 'cause']
             nreg = 45
         else:
             raise CLECompatibilityError("Architecture '%s' unsupported by ELFCore" % self.arch.name)
@@ -213,8 +217,8 @@ class ELFCore(ELF):
         regvals = []
         for idx in range(pos, pos+nreg*arch_bytes, arch_bytes):
             regvals.append(struct.unpack("<" + fmt, prstatus.desc[idx:idx+arch_bytes])[0])
-        self.registers = dict(zip(rnames, regvals))
-        del self.registers['xxx']
+        self._registers = dict(zip(rnames, regvals))
+        del self._registers['xxx']
 
         pos += nreg * arch_bytes
         self.pr_fpvalid = struct.unpack("<I", prstatus.desc[pos:pos+4])[0]

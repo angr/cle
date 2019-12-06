@@ -8,6 +8,7 @@ from minidump.streams import SystemInfoStream
 from .. import register_backend, Backend
 from ..region import Section
 from ... memory import Clemory
+from ...errors import CLEError, CLEInvalidBinaryError
 
 class MinidumpMissingStreamError(Exception):
     def __init__(self, stream, message=None):
@@ -36,7 +37,7 @@ class Minidump(Backend):
                 self.set_arch(archinfo.ArchX86())
             else:
                 # has not been tested with other architectures
-                raise ValueError('The minidump architecture is not AMD64 or x86')
+                raise CLEError('Loading minidumps is not implemented for this architecture')
 
         if self._mdf.memory_segments_64 is not None:
             segments = self._mdf.memory_segments_64.memory_segments
@@ -56,7 +57,7 @@ class Minidump(Backend):
                 if segment.start_virtual_address == module.baseaddress:
                     break
             else:
-                raise RuntimeError('Missing segment for loaded module: ' + module.name)
+                raise CLEInvalidBinaryError('Missing segment for loaded module: ' + module.name)
             section = Section(module.name, segment.start_file_address, module.baseaddress, module.size)
             self.sections.append(section)
             self.sections_map[ntpath.basename(section.name)] = section
@@ -92,20 +93,26 @@ class Minidump(Backend):
 
     @property
     def threads(self):
+        return [t.ThreadId for t in self._mdf.threads.threads]
+
+    @property
+    def raw_thread_records(self):
         return self._mdf.threads.threads
 
-    def get_thread_registers_by_id(self, thread_id):
-        """Get the registers for a specific thread by its id."""
-        for thread in self.threads:
-            if thread.ThreadId == thread_id:
+    def thread_registers(self, thread=None):
+        if thread is None:
+            thread = self.threads[0]
+
+        for thread_record in self._mdf.threads.threads:
+            if thread_record.ThreadId == thread:
                 break
         else:
-            raise ValueError('The specified thread id was not found')
-        self.file_handle.seek(thread.ThreadContext.Rva)  # pylint: disable=undefined-loop-variable
-        data = self.file_handle.read(thread.ThreadContext.DataSize)  # pylint: disable=undefined-loop-variable
+            raise KeyError('The specified thread id was not found')
+        self.file_handle.seek(thread_record.ThreadContext.Rva)  # pylint: disable=undefined-loop-variable
+        data = self.file_handle.read(thread_record.ThreadContext.DataSize)  # pylint: disable=undefined-loop-variable
         self.file_handle.seek(0)
 
-        if self.arch == archinfo.ArchAMD64():
+        if self.arch.name == 'AMD64':
             fmt = 'QQQQQQIIHHHHHHIQQQQQQQQQQQQQQQQQQQQQQQ'
             fmt_registers = {
                 'fs':     11, 'gs':  12,
@@ -119,7 +126,7 @@ class Minidump(Backend):
                 'r13':    34, 'r14': 35,
                 'r15':    36, 'rip': 37
             }
-        elif self.arch == archinfo.ArchX86():
+        elif self.arch.name == 'X86':
             fmt = 'IIIIIII112xIIIIIIIIIIIIIIII512x'
             fmt_registers = {
                 'gs':     7,  'fs':  8,
@@ -130,12 +137,15 @@ class Minidump(Backend):
                 'eflags': 20, 'esp': 21
             }
         else:
-            raise ValueError('The architecture is unsupported')
+            raise CLEError('Deserializing minidump registers is not implemented for this architecture')
         data = data[:struct.calcsize(fmt)]
         members = struct.unpack(fmt, data)
         thread_registers = {}
         for register, position in fmt_registers.items():
             thread_registers[register] = members[position]
         return thread_registers
+
+    def get_thread_registers_by_id(self, thread_id):
+        return self.thread_registers(thread_id)
 
 register_backend('minidump', Minidump)

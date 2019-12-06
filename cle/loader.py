@@ -816,7 +816,7 @@ class Loader:
         overlap with anything already loaded.
         """
         # this assumes that self.main_object exists, which should... definitely be safe
-        if self.main_object.arch.bits < 32:
+        if self.main_object.arch.bits < 32 or self.main_object.max_addr >= 2**(self.main_object.arch.bits-1):
             # HACK: On small arches, we should be more aggressive in packing stuff in.
             gap_start = 0
         else:
