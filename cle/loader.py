@@ -52,6 +52,10 @@ class Loader:
     :param page_size:           The granularity with which data is mapped into memory. Set to 1 if you are working
                                 in a non-paged environment.
     :param preload_libs:        Similar to `force_load_libs` but will provide for symbol resolution, with precedence
+    :param extern_size:         How much space to allocate for externs. Default 0x8000, or 0x80000 for 64-bit
+                                architectures.
+    :param tls_size:            How much space to allocate for tls. Default 0x8000, or 0x80000 for 64-bit
+                                architectures.
                                 over any dependencies.
     :ivar memory:               The loaded, rebased, and relocated memory of the program.
     :vartype memory:            cle.memory.Clemory
@@ -77,7 +81,7 @@ class Loader:
                  main_opts=None, lib_opts=None, ld_path=(), use_system_libs=True,
                  ignore_import_version_numbers=True, case_insensitive=False, rebase_granularity=0x1000000,
                  except_missing_libs=False, aslr=False, perform_relocations=True,
-                 page_size=0x1, extern_size=0x8000, preload_libs=(), arch=None):
+                 page_size=0x1, extern_size=None, tls_size=None, preload_libs=(), arch=None):
         if hasattr(main_binary, 'seek') and hasattr(main_binary, 'read'):
             self._main_binary_path = None
             self._main_binary_stream = main_binary
@@ -102,6 +106,7 @@ class Loader:
         self._rebase_granularity = rebase_granularity
         self._except_missing_libs = except_missing_libs
         self._extern_size = extern_size
+        self._tls_size = tls_size
         self._relocated_objects = set()
         self._perform_relocations = perform_relocations
 
@@ -200,9 +205,13 @@ class Loader:
         Accessing this property will load this object into memory if it was not previously present.
         """
         if self._extern_object is None:
-            if self.main_object.arch.bits < 32 and self._extern_size == 0x8000:
-                l.warning("Your extern object is probably too big for your memory space.  Making it 0x200")
-                self._extern_size = 0x200
+            if self._extern_size is None:
+                if self.main_object.arch.bits < 32:
+                    self._extern_size = 0x200
+                elif self.main_object.arch.bits == 32:
+                    self._extern_size = 0x8000
+                else:
+                    self._extern_size = 0x80000
             self._extern_object = ExternObject(self, map_size=self._extern_size)
             self._map_object(self._extern_object)
         return self._extern_object
@@ -227,11 +236,18 @@ class Loader:
         Accessing this property will load this object into memory if it was not previously present.
         """
         if self._tls_object is None:
+            if self._tls_size is None:
+                if self.main_object.arch.bits < 32:
+                    self._tls_size = 0x200
+                elif self.main_object.arch.bits == 32:
+                    self._tls_size = 0x8000
+                else:
+                    self._tls_size = 0x80000
             if isinstance(self.main_object, MetaELF):
-                self._tls_object = ELFTLSObject(self)
+                self._tls_object = ELFTLSObject(self, max_data=self._tls_size)
                 self._map_object(self._tls_object)
             elif isinstance(self.main_object, PE):
-                self._tls_object = PETLSObject(self)
+                self._tls_object = PETLSObject(self, max_data=self._tls_size)
                 self._map_object(self._tls_object)
         return self._tls_object
 
