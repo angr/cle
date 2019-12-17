@@ -1,6 +1,7 @@
 import pyvex
 import elftools
 import os
+import logging
 
 from .. import Backend
 from ..symbol import SymbolType
@@ -11,6 +12,7 @@ from collections import OrderedDict
 
 __all__ = ('MetaELF',)
 
+l = logging.getLogger(name=__name__)
 
 def maybedecode(string):
     # so... it turns out that pyelftools is garbage and will transparently give you either strings or bytestrings
@@ -27,7 +29,7 @@ class MetaELF(Backend):
         self.os = describe_ei_osabi(tmp_reader.header.e_ident.EI_OSABI)
         self.elfflags = tmp_reader.header.e_flags
         self._plt = {}
-        self.ppc64_initial_rtoc = None
+        self._ppc64_abiv1_initial_rtoc = None
 
     supported_filetypes = ['elf']
 
@@ -294,25 +296,60 @@ class MetaELF(Backend):
     @property
     def is_ppc64_abiv1(self):
         """
-        Returns whether the arch is powerpc64 ABIv1.
+        Returns whether the arch is PowerPC64 ABIv1.
 
-        :return: True if powerpc64 ABIv1, False otherwise.
+        :return: True if PowerPC64 ABIv1, False otherwise.
         """
         return self.arch.name == 'PPC64' and self.elfflags & 3 < 2
 
+    @property
+    def is_ppc64_abiv2(self):
+        """
+        Returns whether the arch is PowerPC64 ABIv2.
+
+        :return: True if PowerPC64 ABIv2, False otherwise.
+        """
+        return self.arch.name == 'PPC64' and self.elfflags & 3 == 2
+
+    @property
+    def ppc64_initial_rtoc(self):
+        """
+        Get initial rtoc value for PowerPC64 architecture.
+        """
+        if self.is_ppc64_abiv1:
+            return self._ppc64_abiv1_initial_rtoc
+        elif self.is_ppc64_abiv2:
+            return self._ppc64_abiv2_get_initial_rtoc()
+        else:
+            return None
+
     def _ppc64_abiv1_entry_fix(self):
         """
-        On powerpc64, the e_flags elf header entry's lowest two bits determine the ABI type. in ABIv1, the entry point
+        On PowerPC64, the e_flags elf header entry's lowest two bits determine the ABI type. in ABIv1, the entry point
         given in the elf headers is not actually the entry point, but rather the address in memory where there
         exists a pointer to the entry point.
 
         Utter bollocks, but this function should fix it.
         """
-
         if self.is_ppc64_abiv1:
             ep_offset = self._entry
             self._entry = self.memory.unpack_word(AT.from_lva(ep_offset, self).to_rva())
-            self.ppc64_initial_rtoc = self.memory.unpack_word(AT.from_lva(ep_offset+8, self).to_rva())
+            self._ppc64_abiv1_initial_rtoc = self.memory.unpack_word(AT.from_lva(ep_offset+8, self).to_rva())
+
+    def _ppc64_abiv2_get_initial_rtoc(self):
+        """
+        Guess initial table of contents value for PPC64 based on .got section.
+
+        According to PPC64 ABIv2 Specification (Section 3.3): "the TOC pointer
+        register typically points to the beginning of the .got section +
+        0x8000." Guess the initial rtoc value based on that to handle the
+        typical case.
+        """
+        got_section = self.sections_map.get('.got', None)
+        if got_section is None:
+            l.warning('Failed to guess initial rtoc value due to missing .got')
+            return None
+        return got_section.vaddr + 0x8000
 
     @staticmethod
     def extract_soname(path):
