@@ -2,7 +2,7 @@ import logging
 from . import generic
 from .pereloc import PEReloc
 
-l = logging.getLogger('cle.backends.pe.relocation.arm')
+l = logging.getLogger(name=__name__)
 
 arch = 'arm'
 

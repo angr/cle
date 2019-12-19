@@ -4,7 +4,7 @@ from . import Backend
 from .symbol import Symbol
 from ..address_translator import AT
 
-l = logging.getLogger('cle.backends.relocation')
+l = logging.getLogger(name=__name__)
 
 
 class Relocation:

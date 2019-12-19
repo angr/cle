@@ -1,7 +1,7 @@
 import logging
 from ...relocation import Relocation
 
-l=logging.getLogger('cle.cle.backends.pe.relocation.pereloc')
+l=logging.getLogger(name=__name__)
 
 # Reference: https://msdn.microsoft.com/en-us/library/ms809762.aspx
 class PEReloc(Relocation):

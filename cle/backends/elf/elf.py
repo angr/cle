@@ -18,7 +18,7 @@ from ...errors import CLEError, CLEInvalidBinaryError, CLECompatibilityError
 from ...utils import ALIGN_DOWN, ALIGN_UP, get_mmaped_data, stream_or_path
 from ...address_translator import AT
 
-l = logging.getLogger('cle.elf')
+l = logging.getLogger(name=__name__)
 
 __all__ = ('ELFSymbol', 'ELF')
 

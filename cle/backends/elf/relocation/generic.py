@@ -6,7 +6,7 @@ from ....errors import CLEOperationError
 from ... import SymbolType
 from .elfreloc import ELFReloc
 
-l = logging.getLogger('cle.backends.elf.relocation.generic')
+l = logging.getLogger(name=__name__)
 
 
 class GenericTLSDoffsetReloc(ELFReloc):

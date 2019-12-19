@@ -1,7 +1,7 @@
 import logging
 from . import generic
 
-l = logging.getLogger('cle.backends.elf.relocation.x86')
+l = logging.getLogger(name=__name__)
 arch = 'X86'
 
 class R_386_32(generic.GenericAbsoluteAddendReloc):

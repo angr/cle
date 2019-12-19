@@ -10,7 +10,7 @@ from ...errors import CLEInvalidBinaryError
 from ...address_translator import AT
 
 import logging
-l = logging.getLogger('cle.backends.macho.binding')
+l = logging.getLogger(name=__name__)
 
 OPCODE_MASK = 0xF0
 IMM_MASK = 0x0F

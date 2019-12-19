@@ -7,7 +7,7 @@ from ..errors import CLEError
 from ..address_translator import AT
 import archinfo
 
-l = logging.getLogger("cle.binja")
+l = logging.getLogger(name=__name__)
 
 try:
     import binaryninja as bn

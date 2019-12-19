@@ -16,7 +16,7 @@ from .. import Backend, register_backend
 from ...errors import CLEInvalidBinaryError, CLECompatibilityError, CLEOperationError
 
 import logging
-l = logging.getLogger('cle.backends.macho')
+l = logging.getLogger(name=__name__)
 
 __all__ = ('MachO', 'MachOSection', 'MachOSegment')
 

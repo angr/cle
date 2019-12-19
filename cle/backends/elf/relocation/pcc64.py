@@ -2,7 +2,7 @@ import logging
 from . import generic
 from .elfreloc import ELFReloc
 
-l = logging.getLogger('cle.backends.elf.relocations.ppc64')
+l = logging.getLogger(name=__name__)
 
 # http://refspecs.linuxfoundation.org/ELF/ppc64/PPC-elf64abi-1.9.pdf
 arch = 'PPC64'

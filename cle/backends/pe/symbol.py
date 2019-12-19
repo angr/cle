@@ -2,7 +2,7 @@ import logging
 
 from ..symbol import Symbol, SymbolType
 
-l = logging.getLogger('cle.backends.pe.symbol')
+l = logging.getLogger(name=__name__)
 
 class WinSymbol(Symbol):
     """

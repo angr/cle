@@ -7,7 +7,7 @@ from . import register_backend
 from ..errors import CLEError
 from .blob import Blob
 
-l = logging.getLogger("cle.hex")
+l = logging.getLogger(name=__name__)
 
 __all__ = ('Hex',)
 
