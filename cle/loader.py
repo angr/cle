@@ -17,7 +17,7 @@ except ImportError:
 
 __all__ = ('Loader',)
 
-l = logging.getLogger("cle.loader")
+l = logging.getLogger(name=__name__)
 
 
 class Loader:

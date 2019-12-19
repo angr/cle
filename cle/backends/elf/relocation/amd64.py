@@ -1,7 +1,7 @@
 import logging
 from . import generic
 
-l = logging.getLogger('cle.backends.elf.relocation.amd64')
+l = logging.getLogger(name=__name__)
 arch = 'AMD64'
 
 class R_X86_64_64(generic.GenericAbsoluteAddendReloc):

@@ -1,7 +1,7 @@
 import logging
 from . import generic
 
-l = logging.getLogger('cle.backends.elf.relocations.aarch64')
+l = logging.getLogger(name=__name__)
 
 # http://infocenter.arm.com/help/topic/com.arm.doc.ihi0056b/IHI0056B_aaelf64.pdf
 arch = 'AARCH64'

@@ -6,7 +6,7 @@ from zipfile import ZipFile
 from .. import register_backend
 from .soot import Soot
 
-l = logging.getLogger("cle.backends.apk")
+l = logging.getLogger(name=__name__)
 
 # Default list of JNI archs (in descending order of preference)
 # => specifies which arch should be used for loading native libs from the APK

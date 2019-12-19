@@ -12,7 +12,7 @@ from ...address_translator import AT
 from ...patched_stream import PatchedStream
 
 
-l = logging.getLogger('cle.pe')
+l = logging.getLogger(name=__name__)
 
 
 class PE(Backend):

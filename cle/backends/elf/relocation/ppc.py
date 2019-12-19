@@ -1,7 +1,7 @@
 import logging
 from . import generic
 
-l = logging.getLogger('cle.backends.elf.relocations.ppc')
+l = logging.getLogger(name=__name__)
 arch = 'PPC32'
 
 class R_PPC_ADDR32(generic.GenericAbsoluteAddendReloc):

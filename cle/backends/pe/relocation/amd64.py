@@ -1,7 +1,7 @@
 import logging
 from . import generic
 
-l = logging.getLogger('cle.backends.pe.relocation.amd64')
+l = logging.getLogger(name=__name__)
 
 arch = 'AMD64'
 

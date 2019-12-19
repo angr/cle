@@ -9,7 +9,7 @@ ALL_RELOCATIONS = defaultdict(dict)
 complaint_log = set()
 
 path = os.path.dirname(os.path.abspath(__file__))
-l = logging.getLogger('cle.backends.elf.relocation')
+l = logging.getLogger(name=__name__)
 
 def load_relocations():
     for filename in os.listdir(path):

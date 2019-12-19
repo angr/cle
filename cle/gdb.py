@@ -4,7 +4,7 @@ import logging
 from .backends.elf.metaelf import MetaELF
 from .errors import CLEFileNotFoundError
 
-l = logging.getLogger('cle.gdb')
+l = logging.getLogger(name=__name__)
 
 def convert_info_sharedlibrary(fname):
     """

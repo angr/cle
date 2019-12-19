@@ -6,7 +6,7 @@
 from .. import Symbol, SymbolType
 
 import logging
-l = logging.getLogger('cle.backends.macho.symbol')
+l = logging.getLogger(name=__name__)
 
 # some constants:
 SYMBOL_TYPE_UNDEF = 0x0

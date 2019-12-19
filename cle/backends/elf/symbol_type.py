@@ -2,7 +2,7 @@ import logging
 
 from ..symbol import SymbolType, SymbolSubType
 
-_l = logging.getLogger('cle.backends.elf.symbol')
+_l = logging.getLogger(name=__name__)
 
 
 class ELFSymbolType(SymbolSubType):

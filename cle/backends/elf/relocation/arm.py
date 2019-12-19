@@ -4,7 +4,7 @@ from .elfreloc import ELFReloc
 from ....errors import CLEOperationError
 
 
-l = logging.getLogger('cle.backends.elf.relocations.arm')
+l = logging.getLogger(name=__name__)
 arch = 'ARM'
 
 # Reference: "ELF for the ARM Architecture ABI r2.10"

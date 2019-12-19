@@ -3,7 +3,7 @@ import logging
 
 from ..address_translator import AT
 
-l = logging.getLogger('cle.backends.symbol')
+l = logging.getLogger(name=__name__)
 
 
 class SymbolType(Enum):

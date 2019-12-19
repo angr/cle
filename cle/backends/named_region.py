@@ -1,7 +1,7 @@
 from . import Backend, register_backend
 from .region import EmptySegment
 import logging
-l = logging.getLogger("cle.named_region")
+l = logging.getLogger(name=__name__)
 
 __all__ = ('NamedRegion',)
 

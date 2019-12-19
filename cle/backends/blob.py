@@ -3,7 +3,7 @@ from ..errors import CLEError
 from ..patched_stream import PatchedStream
 from .region import Segment
 import logging
-l = logging.getLogger("cle.blob")
+l = logging.getLogger(name=__name__)
 
 __all__ = ('Blob',)
 

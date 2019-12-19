@@ -3,7 +3,7 @@ import logging
 from .pereloc import PEReloc
 from ....address_translator import AT
 
-l = logging.getLogger('cle.backends.pe.relocation.generic')
+l = logging.getLogger(name=__name__)
 
 class DllImport(PEReloc):
     """

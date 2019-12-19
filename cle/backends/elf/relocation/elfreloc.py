@@ -1,7 +1,7 @@
 import logging
 from ...relocation import Relocation
 
-l = logging.getLogger('cle.backends.elf.relocation.elfreloc')
+l = logging.getLogger(name=__name__)
 
 
 class ELFReloc(Relocation):

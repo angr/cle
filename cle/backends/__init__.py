@@ -10,7 +10,7 @@ from ..address_translator import AT
 from ..memory import Clemory
 from ..errors import CLEOperationError, CLEError
 
-l = logging.getLogger('cle.backends')
+l = logging.getLogger(name=__name__)
 
 
 class Backend:

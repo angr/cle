@@ -6,7 +6,7 @@ from .elf import ELF
 from .. import register_backend
 from ...errors import CLEError, CLECompatibilityError
 
-l = logging.getLogger('cle.elfcore')
+l = logging.getLogger(name=__name__)
 
 
 class CoreNote(object):
