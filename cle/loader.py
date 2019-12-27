@@ -241,6 +241,13 @@ class Loader:
         return [o for o in self.all_objects if isinstance(o, MetaELF)]
 
     @property
+    def all_mach_objects(self):
+        """
+        Return a list of every object that was loaded from a Mach-O file.
+        """
+        return [o for o in self.all_objects if isinstance(o, MachO)]
+
+    @property
     def all_pe_objects(self):
         """
         Return a list of every object that was loaded from an ELF file.
@@ -1051,7 +1058,7 @@ class Loader:
 
 from .errors import CLEError, CLEFileNotFoundError, CLECompatibilityError, CLEOperationError
 from .memory import Clemory
-from .backends import MetaELF, ELF, PE, Blob, ALL_BACKENDS, Backend
+from .backends import MachO, MetaELF, ELF, PE, Blob, ALL_BACKENDS, Backend
 from .backends.tls import PETLSObject, ELFTLSObject, TLSObject
 from .backends.externs import ExternObject, KernelObject
 from .utils import stream_or_path

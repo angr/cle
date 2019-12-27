@@ -94,8 +94,6 @@ class MachO(Backend):
 
         self.segments = []
 
-        self.linked_base = 0x0100000000 
-
         # The documentation for Mach-O is at http://opensource.apple.com//source/xnu/xnu-1228.9.59/EXTERNAL_HEADERS/mach-o/loader.h
 
         # File is read, begin populating internal fields
@@ -121,10 +119,12 @@ class MachO(Backend):
     
     def _handle_main_load_command(self, entry_point_command):
         # What do I do with stacksize? :x
-        self._entry = self.linked_base + entry_point_command.entryoff
+        self._entry = entry_point_command.entryoff
 
     def _parse_load_cmds(self):
         has_symbol_table = False
+
+        unhandled_load_cmds = set()
         
         for load_cmd_trie in self._header.commands:
             cmd = load_cmd_trie[0]
@@ -134,6 +134,8 @@ class MachO(Backend):
             elif cmd_name == 'LC_MAIN':
                 self._handle_main_load_command(load_cmd_trie[1])
             elif cmd_name == 'LC_FUNCTION_STARTS':
+                # Should be used for function discovery unless turned off
+                # explicitly by user
                 pass
             elif cmd_name == 'LC_SYMTAB':
                 has_symbol_table = True
@@ -141,12 +143,13 @@ class MachO(Backend):
                 self.deps.append(load_cmd_trie[2].decode().strip('\x00'))
             elif cmd_name == 'LC_LOAD_DYLIB':
                 self.deps.append(load_cmd_trie[2].decode().strip('\x00'))
-            elif cmd_name == 'LC_THREAD': # core file
-                pass
             elif cmd_name == 'LC_UNIXTHREAD': # LC_UNIXTHREAD should be dead in favor of LC_MAIN
                 pass
             else:
+                unhandled_load_cmds.add(cmd_name)
                 pass
+
+        l.warning("Not currently handling the following load commands: %s" % ", ".join(unhandled_load_cmds))
 
         if has_symbol_table:
             self._load_symbol_table()
