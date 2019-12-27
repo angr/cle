@@ -23,6 +23,14 @@ l = logging.getLogger('cle.backends.macho')
 
 __all__ = ('MachO', 'MachOSection', 'MachOSegment')
 
+# The documentation for Mach-O is at http://opensource.apple.com//source/xnu/xnu-1228.9.59/EXTERNAL_HEADERS/mach-o/loader.h
+
+# TODO:
+# Handle loading corefile; corefiles in macos don't indicate where
+#   fs_base/gs_base is, so user will have to manually indicate
+# In the future, possibly add support for full_init_state, which will just
+#   execute the dyld code; unsure if can bypass dyld trying to load dependencies
+
 class MachO(Backend):
     """
     Mach-O binaries for CLE
@@ -33,6 +41,8 @@ class MachO(Backend):
     *   Symbol resolution must be handled by the binary
     *   Rebasing cannot be done statically (i.e. self.mapped_base is ignored for now)
     *   ...
+    *   In the case that the file loaded is not a corefile, this simulates the 
+    *   dyld initialization routines.
     """
     is_default = True # Tell CLE to automatically consider using the MachO backend
     _header = None
@@ -42,6 +52,7 @@ class MachO(Backend):
 
         super(MachO, self).__init__(binary, **kwargs)
 
+        print('Loading... %s' % self.binary)
         parsed_macho = MachOLoader.MachO(self.binary)
 
         if not self.is_main_bin:
@@ -94,7 +105,8 @@ class MachO(Backend):
 
         self.segments = []
 
-        # The documentation for Mach-O is at http://opensource.apple.com//source/xnu/xnu-1228.9.59/EXTERNAL_HEADERS/mach-o/loader.h
+        if self.is_main_bin:
+            self.linked_base = 0x0100000000 
 
         # File is read, begin populating internal fields
         self._parse_load_cmds()
@@ -106,20 +118,21 @@ class MachO(Backend):
         seg = MachOSegment(macholib_seginfo, macholib_secinfo) # load_cmd_trie[1] is the segment, load_cmd_trie[2] is the sections
         self.segments.append(seg)
 
-        # __PAGEZERO will be handled later.
-        if seg.segname == '__PAGEZERO':
-            return
+        # Can't map here; need to determine linked_base before trying to map :(
 
-        blob = self._read(self.binary_stream, self._header.offset + seg.offset, seg.filesize)
-        if seg.filesize < seg.memsize:
-            blob += b'\0' * (seg.memsize - seg.filesize)  # padding
+    def _map_segments(self):
+        for seg in self.segments:
+            if seg.segname == '__PAGEZERO':
+                continue
+            blob = self._read(self.binary_stream, self._header.offset + seg.offset, seg.filesize)
+            if seg.filesize < seg.memsize:
+                blob += b'\0' * (seg.memsize - seg.filesize)  # padding
 
-        print('Mapping: 0x%x, len: 0x%x' % (seg.vaddr, len(blob)))
-        self.memory.add_backer(seg.vaddr -  self.linked_base, blob)
-    
+            self.memory.add_backer(seg.vaddr - self.linked_base, blob)
+
     def _handle_main_load_command(self, entry_point_command):
         # What do I do with stacksize? :x
-        self._entry = entry_point_command.entryoff
+        self._entry = self.linked_base + entry_point_command.entryoff
 
     def _parse_load_cmds(self):
         has_symbol_table = False
@@ -134,8 +147,7 @@ class MachO(Backend):
             elif cmd_name == 'LC_MAIN':
                 self._handle_main_load_command(load_cmd_trie[1])
             elif cmd_name == 'LC_FUNCTION_STARTS':
-                # Should be used for function discovery unless turned off
-                # explicitly by user
+                # Should use this unless user explicitly turns off
                 pass
             elif cmd_name == 'LC_SYMTAB':
                 has_symbol_table = True
@@ -143,6 +155,8 @@ class MachO(Backend):
                 self.deps.append(load_cmd_trie[2].decode().strip('\x00'))
             elif cmd_name == 'LC_LOAD_DYLIB':
                 self.deps.append(load_cmd_trie[2].decode().strip('\x00'))
+            elif cmd_name == 'LC_THREAD': # core file
+                pass
             elif cmd_name == 'LC_UNIXTHREAD': # LC_UNIXTHREAD should be dead in favor of LC_MAIN
                 pass
             else:
@@ -150,6 +164,11 @@ class MachO(Backend):
                 pass
 
         l.warning("Not currently handling the following load commands: %s" % ", ".join(unhandled_load_cmds))
+
+        seg_addrs = (x.vaddr for x in self.segments if x.segname != '__PAGEZERO')
+        self.linked_base = min(seg_addrs)
+
+        self._map_segments()
 
         if has_symbol_table:
             self._load_symbol_table()
@@ -161,20 +180,20 @@ class MachO(Backend):
         for esym in stable.extdefsyms:
             sym = esym[0]
             sym_str = esym[1] # No need to decode, apparently :-)
-            s = SymbolTableSymbol(self, sym_str, sym.n_type, sym.n_sect, sym.n_desc, sym.n_value) 
+            s = SymbolTableSymbol(self, sym_str, sym.n_type, sym.n_sect, sym.n_desc, sym.n_value - self.linked_base) 
             self.symbols.add(s)
 
         # Parse out stable.undefsyms
         for usym in stable.undefsyms:
             sym = usym[0]
             sym_str = usym[1]
-            s = SymbolTableSymbol(self, sym_str, sym.n_type, sym.n_sect, sym.n_desc, sym.n_value) 
+            s = SymbolTableSymbol(self, sym_str, sym.n_type, sym.n_sect, sym.n_desc, sym.n_value - self.linked_base) 
             self.symbols.add(s)
 
         for lsym in stable.localsyms:
             sym = lsym[0]
             sym_str = lsym[1]
-            s = SymbolTableSymbol(self, sym_str, sym.n_type, sym.n_sect, sym.n_desc, sym.n_value) 
+            s = SymbolTableSymbol(self, sym_str, sym.n_type, sym.n_sect, sym.n_desc, sym.n_value - self.linked_base) 
             self.symbols.add(s)
 
     # XXX: Should this be case insensitive?
