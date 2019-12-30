@@ -52,7 +52,6 @@ class MachO(Backend):
 
         super(MachO, self).__init__(binary, **kwargs)
 
-        print('Loading... %s' % self.binary)
         parsed_macho = MachOLoader.MachO(self.binary)
 
         if not self.is_main_bin:
@@ -117,8 +116,8 @@ class MachO(Backend):
     def _handle_segment_load_command(self, macholib_seginfo, macholib_secinfo):
         seg = MachOSegment(macholib_seginfo, macholib_secinfo) # load_cmd_trie[1] is the segment, load_cmd_trie[2] is the sections
         self.segments.append(seg)
-
         # Can't map here; need to determine linked_base before trying to map :(
+        self.sections_by_ordinal.extend(seg.sections)
 
     def _map_segments(self):
         for seg in self.segments:
@@ -133,6 +132,116 @@ class MachO(Backend):
     def _handle_main_load_command(self, entry_point_command):
         # What do I do with stacksize? :x
         self._entry = self.linked_base + entry_point_command.entryoff
+
+    def _handle_dyld_info_command(self, dyld_info_cmd):
+        """
+        Extracts information blobs for rebasing, binding and export
+        """
+        f = self.binary_stream
+
+        def blob_or_None(f,off,size): # helper
+            return self._read(f,off,size) if off != 0 and size != 0 else None
+
+        # Extract data blobs
+        self.rebase_blob = blob_or_None(f, dyld_info_cmd.rebase_off, dyld_info_cmd.rebase_size)
+        self.binding_blob = blob_or_None(f, dyld_info_cmd.bind_off, dyld_info_cmd.bind_size)
+        self.weak_binding_blob = blob_or_None(f, dyld_info_cmd.weak_bind_off, dyld_info_cmd.weak_bind_size)
+        self.lazy_binding_blob = blob_or_None(f, dyld_info_cmd.lazy_bind_off, dyld_info_cmd.lazy_bind_size)
+        self.export_blob = blob_or_None(f, dyld_info_cmd.export_off, dyld_info_cmd.export_size)
+        self._parse_exports()
+        pass
+
+    def _parse_exports(self):
+        """
+        Parses the exports trie
+        """
+        l.debug("Parsing exports")
+        blob = self.export_blob
+        if blob is None:
+            l.debug("Parsing exports done: No exports found")
+            return
+
+        # Note some of these fields are currently not used, keep them in to make used variables explicit
+        index = 0
+        sym_str = b''
+        # index,str
+        nodes_to_do = [(0, b'')]
+        blob_f = BytesIO(blob)  # easier to handle seeking here
+
+        # constants
+        #FLAGS_KIND_MASK = 0x03
+        #FLAGS_KIND_REGULAR = 0x00
+        #FLAGS_KIND_THREAD_LOCAL = 0x01
+        #FLAGS_WEAK_DEFINITION = 0x04
+        FLAGS_REEXPORT = 0x08
+        FLAGS_STUB_AND_RESOLVER = 0x10
+
+        try:
+            while True:
+                index, sym_str = nodes_to_do.pop()
+                l.debug("Processing node %#x %r", index, sym_str)
+                blob_f.seek(index, SEEK_SET)
+                info_len = struct.unpack("B", blob_f.read(1))[0]
+                if info_len > 127:
+                    # special case
+                    blob_f.seek(-1, SEEK_CUR)
+                    tmp = read_uleb(blob, blob_f.tell())  # a bit kludgy
+                    info_len = tmp[0]
+                    blob_f.seek(tmp[1], SEEK_CUR)
+
+                if info_len > 0:
+                    # a symbol is complete
+                    tmp = read_uleb(blob, blob_f.tell())
+                    blob_f.seek(tmp[1], SEEK_CUR)
+                    flags = tmp[0]
+                    if flags & FLAGS_REEXPORT:
+                        # REEXPORT: uleb:lib ordinal, zero-term str
+                        tmp = read_uleb(blob, blob_f.tell())
+                        blob_f.seek(tmp[1], SEEK_CUR)
+                        lib_ordinal = tmp[0]
+                        lib_sym_name = b''
+                        char = blob_f.read(1)
+                        while char != b'\0':
+                            lib_sym_name += char
+                            char = blob_f.read(1)
+                        l.info("Found REEXPORT export %r: %d,%r", sym_str, lib_ordinal, lib_sym_name)
+                        self.exports_by_name[sym_str.decode()] = (flags, lib_ordinal, lib_sym_name.decode())
+                    elif flags & FLAGS_STUB_AND_RESOLVER:
+                        # STUB_AND_RESOLVER: uleb: stub offset, uleb: resovler offset
+                        l.warning("EXPORT: STUB_AND_RESOLVER found")
+                        tmp = read_uleb(blob, blob_f.tell())
+                        blob_f.seek(tmp[1], SEEK_CUR)
+                        stub_offset = tmp[0]
+                        tmp = read_uleb(blob, blob_f.tell())
+                        blob_f.seek(tmp[1], SEEK_CUR)
+                        resolver_offset = tmp[0]
+                        l.info("Found STUB_AND_RESOLVER export %r: %#x,%#x'", sym_str, stub_offset, resolver_offset)
+                        self.exports_by_name[sym_str.decode()] = (flags, stub_offset, resolver_offset)
+                    else:
+                        # normal: offset from mach header
+                        tmp = read_uleb(blob, blob_f.tell())
+                        blob_f.seek(tmp[1], SEEK_CUR)
+                        symbol_offset = tmp[0] + self.segments[1].vaddr
+                        l.info("Found normal export %r: %#x", sym_str, symbol_offset)
+                        self.exports_by_name[sym_str.decode()] = (flags, symbol_offset)
+
+                child_count = struct.unpack("B", blob_f.read(1))[0]
+                for i in range(0, child_count):
+                    child_str = sym_str
+                    char = blob_f.read(1)
+                    while char != b'\0':
+                        child_str += char
+                        char = blob_f.read(1)
+                    tmp = read_uleb(blob, blob_f.tell())
+                    blob_f.seek(tmp[1], SEEK_CUR)
+                    next_node = tmp[0]
+                    l.debug("%d. child: (%#x, %r)", i, next_node, child_str)
+                    nodes_to_do.append((next_node, child_str))
+
+        except IndexError:
+            # List is empty we are done!
+            l.debug("Done parsing exports")
+
 
     def _parse_load_cmds(self):
         has_symbol_table = False
@@ -155,15 +264,21 @@ class MachO(Backend):
                 self.deps.append(load_cmd_trie[2].decode().strip('\x00'))
             elif cmd_name == 'LC_LOAD_DYLIB':
                 self.deps.append(load_cmd_trie[2].decode().strip('\x00'))
+            elif cmd_name == 'LC_DYLD_INFO' or cmd_name == 'LC_DYLD_INFO_ONLY':
+                # These two commands are handled identically in the dyld src code.
+                self._handle_dyld_info_command(load_cmd_trie[1])
             elif cmd_name == 'LC_THREAD': # core file
-                pass
-            elif cmd_name == 'LC_UNIXTHREAD': # LC_UNIXTHREAD should be dead in favor of LC_MAIN
-                pass
+                l.error("Core file support not currently implemented.")
             else:
                 unhandled_load_cmds.add(cmd_name)
                 pass
 
-        l.warning("Not currently handling the following load commands: %s" % ", ".join(unhandled_load_cmds))
+        try:
+            l.warning("Not currently handling the following load commands: %s" % ", ".join(unhandled_load_cmds))
+        except:
+            # .get_cmd_name() returns the integer value of the cmd when it doesn't have a string name for it
+            l.warning("It appears macholib doesn't know about one or more load commands in this macho.")
+            l.warning(unhandled_load_cmds)
 
         seg_addrs = (x.vaddr for x in self.segments if x.segname != '__PAGEZERO')
         self.linked_base = min(seg_addrs)
@@ -326,97 +441,6 @@ class MachO(Backend):
 
     #    self.binding_done=True
 
-    #def _parse_exports(self):
-    #    """
-    #    Parses the exports trie
-    #    """
-    #    l.debug("Parsing exports")
-    #    blob = self.export_blob
-    #    if blob is None:
-    #        l.debug("Parsing exports done: No exports found")
-    #        return
-
-    #    # Note some of these fields are currently not used, keep them in to make used variables explicit
-    #    index = 0
-    #    sym_str = b''
-    #    # index,str
-    #    nodes_to_do = [(0, b'')]
-    #    blob_f = BytesIO(blob)  # easier to handle seeking here
-
-    #    # constants
-    #    #FLAGS_KIND_MASK = 0x03
-    #    #FLAGS_KIND_REGULAR = 0x00
-    #    #FLAGS_KIND_THREAD_LOCAL = 0x01
-    #    #FLAGS_WEAK_DEFINITION = 0x04
-    #    FLAGS_REEXPORT = 0x08
-    #    FLAGS_STUB_AND_RESOLVER = 0x10
-
-    #    try:
-    #        while True:
-    #            index, sym_str = nodes_to_do.pop()
-    #            l.debug("Processing node %#x %r", index, sym_str)
-    #            blob_f.seek(index, SEEK_SET)
-    #            info_len = struct.unpack("B", blob_f.read(1))[0]
-    #            if info_len > 127:
-    #                # special case
-    #                blob_f.seek(-1, SEEK_CUR)
-    #                tmp = read_uleb(blob, blob_f.tell())  # a bit kludgy
-    #                info_len = tmp[0]
-    #                blob_f.seek(tmp[1], SEEK_CUR)
-
-    #            if info_len > 0:
-    #                # a symbol is complete
-    #                tmp = read_uleb(blob, blob_f.tell())
-    #                blob_f.seek(tmp[1], SEEK_CUR)
-    #                flags = tmp[0]
-    #                if flags & FLAGS_REEXPORT:
-    #                    # REEXPORT: uleb:lib ordinal, zero-term str
-    #                    tmp = read_uleb(blob, blob_f.tell())
-    #                    blob_f.seek(tmp[1], SEEK_CUR)
-    #                    lib_ordinal = tmp[0]
-    #                    lib_sym_name = b''
-    #                    char = blob_f.read(1)
-    #                    while char != b'\0':
-    #                        lib_sym_name += char
-    #                        char = blob_f.read(1)
-    #                    l.info("Found REEXPORT export %r: %d,%r", sym_str, lib_ordinal, lib_sym_name)
-    #                    self.exports_by_name[sym_str.decode()] = (flags, lib_ordinal, lib_sym_name.decode())
-    #                elif flags & FLAGS_STUB_AND_RESOLVER:
-    #                    # STUB_AND_RESOLVER: uleb: stub offset, uleb: resovler offset
-    #                    l.warning("EXPORT: STUB_AND_RESOLVER found")
-    #                    tmp = read_uleb(blob, blob_f.tell())
-    #                    blob_f.seek(tmp[1], SEEK_CUR)
-    #                    stub_offset = tmp[0]
-    #                    tmp = read_uleb(blob, blob_f.tell())
-    #                    blob_f.seek(tmp[1], SEEK_CUR)
-    #                    resolver_offset = tmp[0]
-    #                    l.info("Found STUB_AND_RESOLVER export %r: %#x,%#x'", sym_str, stub_offset, resolver_offset)
-    #                    self.exports_by_name[sym_str.decode()] = (flags, stub_offset, resolver_offset)
-    #                else:
-    #                    # normal: offset from mach header
-    #                    tmp = read_uleb(blob, blob_f.tell())
-    #                    blob_f.seek(tmp[1], SEEK_CUR)
-    #                    symbol_offset = tmp[0] + self.segments[1].vaddr
-    #                    l.info("Found normal export %r: %#x", sym_str, symbol_offset)
-    #                    self.exports_by_name[sym_str.decode()] = (flags, symbol_offset)
-
-    #            child_count = struct.unpack("B", blob_f.read(1))[0]
-    #            for i in range(0, child_count):
-    #                child_str = sym_str
-    #                char = blob_f.read(1)
-    #                while char != b'\0':
-    #                    child_str += char
-    #                    char = blob_f.read(1)
-    #                tmp = read_uleb(blob, blob_f.tell())
-    #                blob_f.seek(tmp[1], SEEK_CUR)
-    #                next_node = tmp[0]
-    #                l.debug("%d. child: (%#x, %r)", i, next_node, child_str)
-    #                nodes_to_do.append((next_node, child_str))
-
-    #    except IndexError:
-    #        # List is empty we are done!
-    #        l.debug("Done parsing exports")
-
     def _load_lc_data_in_code(self, f, off):
         l.debug("Parsing data in code")
 
@@ -495,22 +519,6 @@ class MachO(Backend):
         lib_name = self.parse_lc_str(f, offset + name_offset)
         l.debug("Adding library %r", lib_name)
         self.imported_libraries.append(lib_name)
-
-    def _load_dyld_info(self, f, offset):
-        """
-        Extracts information blobs for rebasing, binding and export
-        """
-        (_, _, roff, rsize, boff, bsize, wboff, wbsize, lboff, lbsize, eoff, esize) = self._unpack("12I", f, offset, 48)
-
-        def blob_or_None(f,off,size): # helper
-            return self._read(f,off,size) if off != 0 and size != 0 else None
-
-        # Extract data blobs
-        self.rebase_blob = blob_or_None(f, roff, rsize)
-        self.binding_blob = blob_or_None(f, boff, bsize)
-        self.weak_binding_blob = blob_or_None(f, wboff, wbsize)
-        self.lazy_binding_blob = blob_or_None(f, lboff, lbsize)
-        self.export_blob = blob_or_None(f, eoff, esize)
 
     def get_string(self, start):
         """Loads a string from the string table"""

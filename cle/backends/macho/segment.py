@@ -3,7 +3,7 @@
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
 
 from .. import Region
-
+from .section import MachOSection
 
 class MachOSegment(Region):
     """
@@ -37,7 +37,10 @@ class MachOSegment(Region):
         self.maxprot = macholib_segment.maxprot
 
     def _create_sections(self, macholib_sections):
-        return []
+        sections = []
+        for sect in macholib_sections:
+            sections.append(MachOSection(sect))
+        return sections
 
     def get_section_by_name(self, name):
         """
@@ -51,7 +54,7 @@ class MachOSegment(Region):
         return None
 
     def __repr__(self):
-        return 'no'
+        return '<MachoSegment: %s>' % self.segname
 
     def __getitem__(self, item):
         """
