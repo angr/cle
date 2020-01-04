@@ -108,7 +108,7 @@ class Loader:
         self._extern_size = extern_size
         self._tls_size = tls_size
         self._relocated_objects = set()
-        self._perform_relocations = perform_relocations
+        self.perform_relocations = perform_relocations
 
         # case insensitivity setup
         if sys.platform == 'win32': # TODO: a real check for case insensitive filesystems
@@ -641,7 +641,7 @@ class Loader:
     def _internal_load(self, *args, preloading=False):
         """
         Pass this any number of files or libraries to load. If it can't load any of them for any reason, it will
-        except out. Note that the sematics of ``auto_load_libs`` and ``except_missing_libs`` apply at all times.
+        except out. Note that the semantics of ``auto_load_libs`` and ``except_missing_libs`` apply at all times.
 
         It will return a list of all the objects successfully loaded, which may be smaller than the list you provided
         if any of them were previously loaded.
@@ -701,7 +701,7 @@ class Loader:
         for obj in objects:
             if isinstance(obj, (MetaELF, PE)) and obj.tls_used:
                 self.tls_object.register_object(obj)
-        if self._perform_relocations:
+        if self.perform_relocations:
             for obj in objects:
                 self._relocate_object(obj)
 
