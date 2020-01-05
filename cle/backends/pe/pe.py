@@ -27,12 +27,12 @@ class PE(Backend):
         self.os = 'windows'
         if self.binary is None:
             self._pe = pefile.PE(data=self.binary_stream.read(), fast_load=True)
-            self._parse_pe_imports_exports()
+            self._parse_pe_non_reloc_data_directories()
         elif self.binary in self._pefile_cache: # these objects are not mutated, so they are reusable within a process
             self._pe = self._pefile_cache[self.binary]
         else:
             self._pe = pefile.PE(self.binary, fast_load=True)
-            self._parse_pe_imports_exports()
+            self._parse_pe_non_reloc_data_directories()
             if not self.is_main_bin:
                 # only cache shared libraries, the main binary will not be reused
                 self._pefile_cache[self.binary] = self._pe
@@ -70,7 +70,6 @@ class PE(Backend):
             self._pe.parse_data_directories(directories=(pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_BASERELOC'],))
             self.__register_relocs()
         # parse TLS
-        self._pe.parse_data_directories(directories=(pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_TLS'],))
         self._register_tls()
         # parse sections
         self._register_sections()
@@ -124,11 +123,30 @@ class PE(Backend):
     # Private methods
     #
 
-    def _parse_pe_imports_exports(self):
-        # parse imports
-        self._pe.parse_data_directories(directories=(pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_IMPORT'],))
-        # parse exports
-        self._pe.parse_data_directories(directories=(pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_EXPORT'],))
+    def _parse_pe_non_reloc_data_directories(self):
+        """
+        Parse data directories that is not DIRECTORY_ENTRY_BASERELOC since parsing relocations can take a long time in
+        many PE binaries.
+        """
+
+        directory_names = (
+            'IMAGE_DIRECTORY_ENTRY_EXPORT',
+            'IMAGE_DIRECTORY_ENTRY_IMPORT',
+            'IMAGE_DIRECTORY_ENTRY_RESOURCE',
+            'IMAGE_DIRECTORY_ENTRY_EXCEPTION',
+            'IMAGE_DIRECTORY_ENTRY_SECURITY',
+            'IMAGE_DIRECTORY_ENTRY_DEBUG',
+            'IMAGE_DIRECTORY_ENTRY_COPYRIGHT',
+            'IMAGE_DIRECTORY_ENTRY_GLOBALPTR',
+            'IMAGE_DIRECTORY_ENTRY_TLS',
+            'IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG',
+            'IMAGE_DIRECTORY_ENTRY_IAT',
+            'IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT',
+            'IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR',
+            'IMAGE_DIRECTORY_ENTRY_RESERVED',
+        )
+        directories = tuple(pefile.DIRECTORY_ENTRY[n] for n in directory_names)
+        self._pe.parse_data_directories(directories=directories)
 
     def _get_jmprel(self):
         return self.imports
