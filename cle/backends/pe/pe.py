@@ -65,7 +65,7 @@ class PE(Backend):
         self._symbol_cache = self._exports # same thing
         self._handle_imports()
         self._handle_exports()
-        if self.loader.perform_relocations:
+        if self.loader._perform_relocations:
             # parse base relocs
             self._pe.parse_data_directories(directories=(pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_BASERELOC'],))
             self.__register_relocs()

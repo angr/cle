@@ -108,7 +108,7 @@ class Loader:
         self._extern_size = extern_size
         self._tls_size = tls_size
         self._relocated_objects = set()
-        self.perform_relocations = perform_relocations
+        self._perform_relocations = perform_relocations
 
         # case insensitivity setup
         if sys.platform == 'win32': # TODO: a real check for case insensitive filesystems
@@ -701,7 +701,7 @@ class Loader:
         for obj in objects:
             if isinstance(obj, (MetaELF, PE)) and obj.tls_used:
                 self.tls_object.register_object(obj)
-        if self.perform_relocations:
+        if self._perform_relocations:
             for obj in objects:
                 self._relocate_object(obj)
 
