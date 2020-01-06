@@ -66,15 +66,15 @@ def test_dummy():
 
     expected_memory = {
         # Memory-address=>byte
-        0x100000000: 0xcf,
-        0x1000067dc: 0xfd,
-        0x100006c0c: 0x1f,
-        0x100006c84: 0x31,
-        0x100006d14: 0x76,
-        0x1000076f3: 0x56,
-        0x10000772F: 0x76,
-        0x100007f2b: 0x25,
-        0x100007fac: 0x01,
+        0x000000000: 0xcf,
+        0x0000067dc: 0xfd,
+        0x000006c0c: 0x1f,
+        0x000006c84: 0x31,
+        0x000006d14: 0x76,
+        0x0000076f3: 0x56,
+        0x00000772F: 0x76,
+        0x000007f2b: 0x25,
+        0x000007fac: 0x01,
         # TODO: Test data sections, requires proper parsing and handling of these sections
     }
 
@@ -111,9 +111,8 @@ def test_dummy():
             nose.tools.assert_equal(flags, sec.flags)
 
     # Test memory layout - just a crude approximation by taking samples but sufficient for now
-    #for k, v in expected_memory.items():
-    #    # print hex(k)
-    #    nose.tools.assert_equal(v, macho.memory[k])
+    for k, v in expected_memory.items():
+        nose.tools.assert_equal(v, macho.memory[k])
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
