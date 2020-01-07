@@ -374,6 +374,7 @@ from .macho import MachO
 from .named_region import NamedRegion
 from .java.jar import Jar
 from .java.apk import Apk
+from .xbe import XBE
 
 try:
     from .binja import BinjaBin
