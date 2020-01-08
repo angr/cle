@@ -18,7 +18,7 @@ class Clemory:
     """
     def __init__(self, arch, root=False):
         self._arch = arch
-        self._backers = []  # type: Tuple[int, Union[bytearray, Clemory, List[int]]]
+        self._backers = []  # type: List[Tuple[int, Union[bytearray, Clemory, List[int]]]]
         self._pointer = 0
         self._root = root
 
