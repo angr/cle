@@ -71,6 +71,7 @@ class MachO(Backend):
         arch_ident = self.get_arch_from_header(self._header.header)
         # TODO: add lsb/msb support here properly. self._header.endian is exactly it
         self.set_arch(archinfo.arch_from_id(arch_ident, endness="lsb"))
+        self.struct_byteorder = self._header.endian
                 
         # XXX: Actually populate this...
         self.pic = True  # position independent executable?
@@ -424,22 +425,22 @@ class MachO(Backend):
     #    """Convenience"""
     #    return self._unpack_with_byteorder(fmt, self._read(fp, offset, size))
 
-    #def do_binding(self):
-    #    # Perform binding
+    def do_binding(self):
+        # Perform binding
 
-    #    if self.binding_done:
-    #        l.warning("Binding already done, reset self.binding_done to override if you know what you are doing")
-    #        return
+        if self.binding_done:
+            l.warning("Binding already done, reset self.binding_done to override if you know what you are doing")
+            return
 
-    #    bh = BindingHelper(self)  # TODO: Make this configurable
-    #    bh.do_normal_bind(self.binding_blob)
-    #    bh.do_lazy_bind(self.lazy_binding_blob)
-    #    if self.weak_binding_blob is not None and len(self.weak_binding_blob) > 0:
-    #        l.info("Found weak binding blob. According to current state of knowledge, weak binding "
-    #               "is only sensible if multiple binaries are involved and is thus skipped.")
+        bh = BindingHelper(self)  # TODO: Make this configurable
+        bh.do_normal_bind(self.binding_blob)
+        bh.do_lazy_bind(self.lazy_binding_blob)
+        if self.weak_binding_blob is not None and len(self.weak_binding_blob) > 0:
+            l.info("Found weak binding blob. According to current state of knowledge, weak binding "
+                   "is only sensible if multiple binaries are involved and is thus skipped.")
 
 
-    #    self.binding_done=True
+        self.binding_done=True
 
     def _load_lc_data_in_code(self, f, off):
         l.debug("Parsing data in code")
