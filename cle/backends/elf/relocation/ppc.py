@@ -1,7 +1,6 @@
 import logging
 from . import generic
 from .elfreloc import ELFReloc
-from ....errors import CLEOperationError
 
 l = logging.getLogger(name=__name__)
 arch = 'PPC32'
@@ -102,24 +101,6 @@ class R_PPC_JMP_SLOT(generic.GenericJumpslotReloc):
 
 class R_PPC_RELATIVE(generic.GenericRelativeReloc):
     pass
-
-
-class R_PPC_REL32(ELFReloc):    # pylint: disable=undefined-variable
-    """
-    Relocation Type: 0x1a
-    Calculation: S + A - P
-    Field: word32
-    """
-    @property
-    def value(self):
-        P = self.rebased_addr
-        A = self.addend
-        S = self.resolvedby.rebased_addr
-
-        result = (S + A - P) & PPC_WORD32
-
-        print(self.symbol.name, " relocated as R_PPC_REL32 to: ", hex(result))
-        return result
 
 
 class R_PPC_DTPMOD32(generic.GenericTLSModIdReloc):
