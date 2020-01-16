@@ -14,7 +14,7 @@ def test_empty_segements():
     :return:
     """
     path = os.path.join(test_location, "armel", "efm32gg.elf")
-    cle.Loader(path, rebase_granularity=0x1000)
+    cle.Loader(path, rebase_granularity=0x1000, page_size=1)
     # If we survive this, we're doing OK!
 
 
