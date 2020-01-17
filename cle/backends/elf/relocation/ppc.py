@@ -10,11 +10,51 @@ arch = 'PPC32'
 
 
 # PPC constants/masks to be used in relocations
+PPC_WORD32 = 0xFFFFFFFF
+PPC_WORD30 = 0xFFFFFFFC
 PPC_LOW24 = 0x03FFFFFC
+PPC_LOW14 = 0x0020FFFC
+PPC_HALF16 = 0xFFFF
 PPC_BL_INST = 0x48000001
 
 class R_PPC_ADDR32(generic.GenericAbsoluteAddendReloc):
     pass
+
+
+class R_PPC_ADDR16_LO(ELFReloc):    # pylint: disable=undefined-variable
+    """
+    Relocation Type: 0x4
+    Calculation: #lo(S + A)
+    Field: half16
+    """
+    @property
+    def value(self):
+        A = self.addend
+        S = self.resolvedby.rebased_addr
+
+        result = S + A
+        result = (result & PPC_HALF16)
+
+        print(self.symbol.name, " relocated as R_PPC_ADDR16_LO to: ", hex(result))
+        return result
+
+
+class R_PPC_ADDR16_HA(ELFReloc):    # pylint: disable=undefined-variable
+    """
+    Relocation Type: 0x6
+    Calculation: #ha(S + A)
+    Field: half16
+    """
+    @property
+    def value(self):
+        A = self.addend
+        S = self.resolvedby.rebased_addr
+
+        result = S + A
+        result = (((result >> 16) + (1 if (result & 0x8000) else 0)) & PPC_HALF16)
+
+        print(self.symbol.name, " relocated as R_PPC_ADDR16_HA to: ", hex(result))
+        return result
 
 
 class R_PPC_REL24(ELFReloc):    # pylint: disable=undefined-variable
