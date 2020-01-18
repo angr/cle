@@ -30,6 +30,8 @@ __all__ = ('MachO', 'MachOSection', 'MachOSegment')
 #   fs_base/gs_base is, so user will have to manually indicate
 # In the future, possibly add support for full_init_state, which will just
 #   execute the dyld code; unsure if can bypass dyld trying to load dependencies
+# Enable checking for encrypted machos 
+# Handle the rest of the load cmds
 
 class MachO(Backend):
     """
@@ -61,6 +63,7 @@ class MachO(Backend):
         if not target_arch is None:
             self._header = self.match_target_arch_to_header(target_arch, parsed_macho.headers)
             if not self._header:
+                print(self.binary)
                 # Print out all architectures found?
                 raise CLEError("Couldn't find architecture %s" % target_arch)
         else:
@@ -74,7 +77,7 @@ class MachO(Backend):
         self.struct_byteorder = self._header.endian
                 
         # XXX: Actually populate this...
-        self.pic = True  # position independent executable?
+        self.pic = bool(self._header.header.flags & 0x200000) if self.is_main_bin else True # position independent executable?
         self.flags = None  # binary flags
         self.imported_libraries = ["Self"]  # ordinal 0 = SELF_LIBRARY_ORDINAL
 
@@ -110,7 +113,7 @@ class MachO(Backend):
 
         # File is read, begin populating internal fields
         self._parse_load_cmds()
-        #self._parse_exports()
+        self._parse_exports()
         #self._parse_symbols(binary_file)
         #self._parse_mod_funcs()
 
@@ -149,8 +152,6 @@ class MachO(Backend):
         self.weak_binding_blob = blob_or_None(f, dyld_info_cmd.weak_bind_off, dyld_info_cmd.weak_bind_size)
         self.lazy_binding_blob = blob_or_None(f, dyld_info_cmd.lazy_bind_off, dyld_info_cmd.lazy_bind_size)
         self.export_blob = blob_or_None(f, dyld_info_cmd.export_off, dyld_info_cmd.export_size)
-        self._parse_exports()
-        pass
 
     def _parse_exports(self):
         """
@@ -258,6 +259,7 @@ class MachO(Backend):
                 self._handle_main_load_command(load_cmd_trie[1])
             elif cmd_name == 'LC_FUNCTION_STARTS':
                 # Should use this unless user explicitly turns off
+                # Store this and use it in CFGFast
                 pass
             elif cmd_name == 'LC_SYMTAB':
                 has_symbol_table = True
@@ -313,7 +315,8 @@ class MachO(Backend):
             self.symbols.add(s)
 
     # XXX: Should this be case insensitive?
-    def get_arch_from_header(self, header):
+    @staticmethod
+    def get_arch_from_header(header):
         arch_lookup = {
             # contains all supported architectures. Note that apple deviates from standard ABI, see Apple docs
             # XXX: these are referred to differently in mach/machine.h
@@ -324,16 +327,25 @@ class MachO(Backend):
         }
         return arch_lookup[header.cputype]
 
-    def match_target_arch_to_header(self, target_arch, headers):
+    @staticmethod
+    def match_target_arch_to_header(target_arch, headers):
         for mach_header in headers:
-            if self.get_arch_from_header(mach_header.header) == target_arch:
+            if MachO.get_arch_from_header(mach_header.header) == target_arch:
                 return mach_header
         return None
 
     @classmethod
-    def check_compatibility(cls, spec, obj):
+    def check_compatibility(cls, spec, main_obj):
         with stream_or_path(spec) as stream:
-            return cls.is_compatible(stream)
+            if not cls.is_compatible(stream):
+                return False
+
+        # It's definitely a MachO
+        parsed_macho = MachOLoader.MachO(spec)
+        archs = set(MachO.get_arch_from_header(mach_header.header) for mach_header in parsed_macho.headers)
+        if main_obj.arch.name.lower() in archs:
+            return True
+
         return False
 
     @staticmethod
@@ -599,5 +611,5 @@ class MachO(Backend):
         """
         return self.get_segment_by_name(item)
 
-
 register_backend('mach-o', MachO)
+
