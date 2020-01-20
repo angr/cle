@@ -1,6 +1,7 @@
 import os
 import cle
 import nose
+import logging
 
 test_location = str(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', 'binaries', 'tests'))
 path = os.path.join(test_location, "ppc", "partial.o")
@@ -72,6 +73,7 @@ def test_ppc_addr16_lo_relocation():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     test_ppc_rel24_relocation()
     test_ppc_addr16_ha_relocation()
     test_ppc_addr16_lo_relocation()
