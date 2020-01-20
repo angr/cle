@@ -33,9 +33,6 @@ class R_PPC_ADDR24(ELFReloc):
         S = self.resolvedby.rebased_addr
 
         result = ((S + A) >> 2)
-
-        print("Uh oh, R_PPC_ADDR24 relocations have not been tested. If your results do not look correct, reference the subclass implementation in cle/backends/elf/relocation/ppy.py. Use the skeleton provided to fix the calculation.")
-        print(self.symbol.name, " relocated as R_PPC_ADDR24 to: ", hex(result))
         return result
 
 
@@ -51,9 +48,6 @@ class R_PPC_ADDR16(ELFReloc):
         S = self.resolvedby.rebased_addr
 
         result = S + A
-
-        print("Uh oh, R_PPC_ADDR16 relocations have not been tested. If your results do not look correct, reference the subclass implementation in cle/backends/elf/relocation/ppy.py. Use the skeleton provided to fix the calculation.")
-        print(self.symbol.name, " relocated as R_PPC_ADDR16 to: ", hex(result))
         return result
 
 
@@ -70,8 +64,6 @@ class R_PPC_ADDR16_LO(ELFReloc):    # pylint: disable=undefined-variable
 
         result = S + A
         result = (result & PPC_HALF16)
-
-        print(self.symbol.name, " relocated as R_PPC_ADDR16_LO to: ", hex(result))
         return result
 
 
@@ -88,9 +80,6 @@ class R_PPC_ADDR16_HI(ELFReloc):
 
         result = (S + A) >> 16
         result = (result & PPC_HALF16)
-
-        print("Uh oh, R_PPC_ADDR16_HI relocations have not been tested. If your results do not look correct, reference the subclass implementation in cle/backends/elf/relocation/ppy.py. Use the skeleton provided to fix the calculation.")
-        print(self.symbol.name, " relocated as R_PPC_ADDR16_HI to: ", hex(result))
         return result
 
 
@@ -107,8 +96,6 @@ class R_PPC_ADDR16_HA(ELFReloc):    # pylint: disable=undefined-variable
 
         result = S + A
         result = (((result >> 16) + (1 if (result & 0x8000) else 0)) & PPC_HALF16)
-
-        print(self.symbol.name, " relocated as R_PPC_ADDR16_HA to: ", hex(result))
         return result
 
 
@@ -124,9 +111,6 @@ class R_PPC_ADDR14(ELFReloc):
         S = self.resolvedby.rebased_addr
 
         result = (S + A) >> 2
-
-        print("Uh oh, R_PPC_ADDR14 relocations have not been tested. If your results do not look correct, reference the subclass implementation in cle/backends/elf/relocation/ppy.py. Use the skeleton provided to fix the calculation.")
-        print(self.symbol.name, " relocated as R_PPC_ADDR14 to: ", hex(result))
         return result
 
 
@@ -142,9 +126,6 @@ class R_PPC_ADDR14_BRTAKEN(ELFReloc):
         S = self.resolvedby.rebased_addr
 
         result = (S + A) >> 2
-
-        print("Uh oh, R_PPC_ADDR14_BRTAKEN relocations have not been tested. If your results do not look correct, reference the subclass implementation in cle/backends/elf/relocation/ppy.py. Use the skeleton provided to fix the calculation.")
-        print(self.symbol.name, " relocated as R_PPC_ADDR14_BRTAKEN to: ", hex(result))
         return result
 
 
@@ -160,9 +141,6 @@ class R_PPC_ADDR14_BRNTAKEN(ELFReloc):
         S = self.resolvedby.rebased_addr
 
         result = (S + A) >> 2
-
-        print("Uh oh, R_PPC_ADDR14_BRNTAKEN relocations have not been tested. If your results do not look correct, reference the subclass implementation in cle/backends/elf/relocation/ppy.py. Use the skeleton provided to fix the calculation.")
-        print(self.symbol.name, " relocated as R_PPC_ADDR14_BRNTAKEN to: ", hex(result))
         return result
 
 
@@ -192,7 +170,6 @@ class R_PPC_REL24(ELFReloc):    # pylint: disable=undefined-variable
         result = (result << 2) & PPC_LOW24
         result = (A & ~PPC_LOW24) | result
         result = result | PPC_BL_INST
-        print(self.symbol.name, " instruction modified as R_PPC_REL24 to: ", hex(result))
         return result
 
 
@@ -211,9 +188,6 @@ class R_PPC_REL14(ELFReloc):
         result = (S + A - P) >> 2
         result = (result << 2) & PPC_LOW14
         result = (A & ~PPC_LOW14) | result
-
-        print("Uh oh, R_PPC_REL14 relocations have not been tested. If your results do not look correct, reference the subclass implementation in cle/backends/elf/relocation/ppy.py. Use the skeleton provided to fix the calculation.")
-        print(self.symbol.name, " relocated as R_PPC_REL14 to: ", hex(result))
         return result
 
 
@@ -232,9 +206,6 @@ class R_PPC_REL14_BRTAKEN(ELFReloc):
         result = (S + A - P) >> 2
         result = (result << 2) & PPC_LOW14
         result = (A & ~PPC_LOW14) | result
-
-        print("Uh oh, R_PPC_REL14_BRTAKEN relocations have not been tested. If your results do not look correct, reference the subclass implementation in cle/backends/elf/relocation/ppy.py. Use the skeleton provided to fix the calculation.")
-        print(self.symbol.name, " relocated as R_PPC_REL14_BRTAKEN to: ", hex(result))
         return result
 
 
@@ -253,9 +224,6 @@ class R_PPC_REL14_BRNTAKEN(ELFReloc):
         result = (S + A - P) >> 2
         result = (result << 2) & PPC_LOW14
         result = (A & ~PPC_LOW14) | result
-
-        print("Uh oh, R_PPC_ADDR14_BRNTAKEN relocations have not been tested. If your results do not look correct, reference the subclass implementation in cle/backends/elf/relocation/ppy.py. Use the skeleton provided to fix the calculation.")
-        print(self.symbol.name, " relocated as R_PPC_REL14_BRNTAKEN to: ", hex(result))
         return result
 
 
@@ -290,9 +258,6 @@ class R_PPC_UADDR32(ELFReloc):
         S = self.resolvedby.rebased_addr
 
         result = S + A
-
-        print("Uh oh, R_PPC_UADDR32 relocations have not been tested. If your results do not look correct, reference the subclass implementation in cle/backends/elf/relocation/ppy.py. Use the skeleton provided to fix the calculation.")
-        print(self.symbol.name, " relocated as R_PPC_UADDR32 to: ", hex(result))
         return result
 
 
@@ -308,9 +273,6 @@ class R_PPC_UADDR16(ELFReloc):
         S = self.resolvedby.rebased_addr
 
         result = S + A
-
-        print("Uh oh, R_PPC_UADDR16 relocations have not been tested. If your results do not look correct, reference the subclass implementation in cle/backends/elf/relocation/ppy.py. Use the skeleton provided to fix the calculation.")
-        print(self.symbol.name, " relocated as R_PPC_UADDR16 to: ", hex(result))
         return result
 
 
@@ -327,8 +289,6 @@ class R_PPC_REL32(ELFReloc):    # pylint: disable=undefined-variable
         S = self.resolvedby.rebased_addr
 
         result = (S + A - P) & PPC_WORD32
-
-        print(self.symbol.name, " relocated as R_PPC_REL32 to: ", hex(result))
         return result
 
 
@@ -344,9 +304,6 @@ class R_PPC_SECTOFF(ELFReloc):
         A = self.addend
 
         result = R + A
-
-        print("Uh oh, R_PPC_SECTOFF relocations have not been tested. If your results do not look correct, reference the subclass implementation in cle/backends/elf/relocation/ppy.py. Use the skeleton provided to fix the calculation.")
-        print(self.symbol.name, " relocated as R_PPC_SECTOFF to: ", hex(result))
         return result
 
 
@@ -363,9 +320,6 @@ class R_PPC_SECTOFF_LO(ELFReloc):
 
         result = R + A
         result = (result & PPC_HALF16 )
-
-        print("Uh oh, R_PPC_SECTOFF_LO relocations have not been tested. If your results do not look correct, reference the subclass implementation in cle/backends/elf/relocation/ppy.py. Use the skeleton provided to fix the calculation.")
-        print(self.symbol.name, " relocated as R_PPC_SECTOFF_LO to: ", hex(result))
         return result
 
 
@@ -382,9 +336,6 @@ class R_PPC_SECTOFF_HI(ELFReloc):
 
         result = (R + A) >> 16
         result = (result & PPC_HALF16)
-
-        print("Uh oh, R_PPC_SECTOFF_HI relocations have not been tested. If your results do not look correct, reference the subclass implementation in cle/backends/elf/relocation/ppy.py. Use the skeleton provided to fix the calculation.")
-        print(self.symbol.name, " relocated as R_PPC_SECTOFF_LO to: ", hex(result))
         return result
 
 
@@ -401,9 +352,6 @@ class R_PPC_SECTOFF_HA(ELFReloc):
 
         result = R + A
         result = (((result >> 16) + (1 if (result & 0x8000) else 0)) & PPC_HALF16)
-
-        print("Uh oh, R_PPC_SECTOFF_HA relocations have not been tested. If your results do not look correct, reference the subclass implementation in cle/backends/elf/relocation/ppy.py. Use the skeleton provided to fix the calculation.")
-        print(self.symbol.name, " relocated as R_PPC_SECTOFF_HA to: ", hex(result))
         return result
 
 
@@ -420,9 +368,6 @@ class R_PPC_ADDR30(ELFReloc):
         P = self.rebased_addr
 
         result = (S + A - P) >> 2
-
-        print("Uh oh, R_PPC_ADDR30 relocations have not been tested. If your results do not look correct, reference the subclass implementation in cle/backends/elf/relocation/ppy.py. Use the skeleton provided to fix the calculation.")
-        print(self.symbol.name, " relocated as R_PPC_ADDR30 to: ", hex(result))
         return result
 
 
