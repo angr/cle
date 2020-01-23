@@ -5,14 +5,25 @@ import cle
 import nose
 import logging
 
-test_location = str(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', 'binaries', 'tests'))
-path = os.path.join(test_location, "ppc", "partial.o")
-l = cle.Loader(path)
-relocations = l.main_object.relocs
-ppc_backend = cle.backends.elf.relocation.ppc
+
+def setup():
+    """
+    Setup the test.
+    :return:
+            l: the loader
+            relocations: a list of all relocations
+            ppc_backend: the backend to be used in searches
+    """
+    test_location = str(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', 'binaries', 'tests'))
+    path = os.path.join(test_location, "ppc", "partial.o")
+    l = cle.Loader(path)
+    relocations = l.main_object.relocs
+    ppc_backend = cle.backends.elf.relocation.ppc
+
+    return l, relocations, ppc_backend
 
 
-def test_ppc_rel24_relocation():
+def test_ppc_rel24_relocation(l, relocations, ppc_backend):
     """
     Test R_PPC_REL24 relocations on a PowerPC object file.
     :return:
@@ -38,7 +49,7 @@ def test_ppc_rel24_relocation():
     nose.tools.assert_equal(found_symbol, True)
 
 
-def test_ppc_addr16_ha_relocation():
+def test_ppc_addr16_ha_relocation(relocations, ppc_backend):
     """
     Test R_PPC_ADDR16_HA relocations on a PowerPC object file.
     :return:
@@ -56,7 +67,7 @@ def test_ppc_addr16_ha_relocation():
     nose.tools.assert_equal(found_symbol, True)
 
 
-def test_ppc_addr16_lo_relocation():
+def test_ppc_addr16_lo_relocation(relocations, ppc_backend):
     """
     Test R_PPC_ADDR16_LO relocations on a PowerPC object file.
     :return:
@@ -76,6 +87,8 @@ def test_ppc_addr16_lo_relocation():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    test_ppc_rel24_relocation()
-    test_ppc_addr16_ha_relocation()
-    test_ppc_addr16_lo_relocation()
+    ld, relocs, backend = setup()
+
+    test_ppc_rel24_relocation(ld, relocs, backend)
+    test_ppc_addr16_ha_relocation(relocs, backend)
+    test_ppc_addr16_lo_relocation(relocs, backend)
