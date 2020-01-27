@@ -448,7 +448,7 @@ class ELF(MetaELF):
                         entry.header['address_range'],
                         FunctionHintSource.EH_FRAME,
                     ))
-        except DWARFError as ex:
+        except DWARFError:
             l.warning("An exception occurred in pyelftools when loading FDE information.",
                       exc_info=True)
 
