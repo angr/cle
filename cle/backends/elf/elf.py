@@ -11,8 +11,7 @@ from .symbol import ELFSymbol, Symbol, SymbolType
 from .regions import ELFSection, ELFSegment
 from .hashtable import ELFHashTable, GNUHashTable
 from .metaelf import MetaELF, maybedecode
-from .dwarf import FDE
-from .. import register_backend
+from .. import register_backend, FunctionHint, FunctionHintSource
 from .relocation import get_relocation
 from .relocation.generic import MipsGlobalReloc, MipsLocalReloc
 from ...patched_stream import PatchedStream
@@ -132,7 +131,7 @@ class ELF(MetaELF):
             # load DWARF information
             dwarf = self.reader.get_dwarf_info()
             if dwarf.has_EH_CFI():
-                self.fdes = self._load_fdes(dwarf)
+                self._load_function_hints_from_fde(dwarf)
 
         # call the methods defined by MetaELF
         self._ppc64_abiv1_entry_fix()
@@ -423,27 +422,22 @@ class ELF(MetaELF):
 
         return RelocClass(self, symbol, address, addend)
 
-    def _load_fdes(self, dwarf):
+    def _load_function_hints_from_fde(self, dwarf):
         """
         Load frame description entries out of the .eh_frame section. These entries include function addresses and can be
         used to improve CFG recovery.
 
         :param dwarf:   The DWARF info object from pyelftools.
-        :return:    A list of frame description entries.
-        :rtype:     list
+        :return:        None
         """
-
-        fdes = [ ]
 
         for entry in dwarf.EH_CFI_entries():
             if type(entry) is callframe.FDE:
-                fde = FDE(entry.header['length'],
-                          entry.header['initial_location'],
-                          entry.header['address_range'],
-                          )
-                fdes.append(fde)
-
-        return fdes
+                self.function_hints.append(FunctionHint(
+                    entry.header['initial_location'],
+                    entry.header['address_range'],
+                    FunctionHintSource.EH_FRAME,
+                ))
 
     #
     # Private Methods... really. Calling these out of context

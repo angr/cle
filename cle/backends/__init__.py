@@ -13,6 +13,34 @@ from ..errors import CLEOperationError, CLEError
 l = logging.getLogger(name=__name__)
 
 
+class FunctionHintSource:
+    """
+    Enums that describe the source of function hints.
+    """
+    EH_FRAME = 0
+
+
+class FunctionHint:
+    """
+    Describes a function hint.
+
+    :ivar int addr:     Address of the function.
+    :ivar int size:     Size of the function.
+    :ivar source:       Source of this hint.
+    :vartype source:    int
+    """
+
+    __slots__ = ('addr', 'size', 'source')
+
+    def __init__(self, addr, size, source):
+        self.addr = addr
+        self.size = size
+        self.source = source
+
+    def __repr__(self):
+        return "<FuncHint@%#x, %d bytes>" % (self.addr, self.size)
+
+
 class Backend:
     """
     Main base class for CLE binary objects.
@@ -126,6 +154,8 @@ class Backend:
         self.tls_data_start = None
         self.tls_data_size = None
 
+        # Hints
+        self.function_hints = [ ]  # they should be rebased when .rebase() is called
 
         # Custom options
         self._custom_entry_point = entry_point
@@ -219,6 +249,9 @@ class Backend:
             self.sections._rebase(self.image_base_delta)
         if self.segments and self.sections is not self.segments:
             self.segments._rebase(self.image_base_delta)
+
+        for hint in self.function_hints:
+            hint.addr = hint.addr + self.image_base_delta
 
     def contains_addr(self, addr):
         """
