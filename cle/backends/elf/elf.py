@@ -4,13 +4,15 @@ import logging
 import archinfo
 import elftools
 from elftools.elf import elffile, sections
+from elftools.dwarf import callframe
+from elftools.common.exceptions import ELFParseError, DWARFError
 from collections import OrderedDict, defaultdict
 
 from .symbol import ELFSymbol, Symbol, SymbolType
 from .regions import ELFSection, ELFSegment
 from .hashtable import ELFHashTable, GNUHashTable
 from .metaelf import MetaELF, maybedecode
-from .. import register_backend
+from .. import register_backend, FunctionHint, FunctionHintSource
 from .relocation import get_relocation
 from .relocation.generic import MipsGlobalReloc, MipsLocalReloc
 from ...patched_stream import PatchedStream
@@ -94,6 +96,14 @@ class ELF(MetaELF):
         self.relocs = []
         self.jmprel = OrderedDict()
 
+        #
+        # DWARF data
+        #
+        self.has_dwarf_info = bool(self.reader.has_dwarf_info())
+
+        # .eh_frame
+        self.fdes = [ ] # Frame description entry. All addresses are rebased.
+
         self._entry = self.reader.header.e_entry
         self.is_relocatable = self.reader.header.e_type == 'ET_REL'
         self.pic = self.pic or self.reader.header.e_type in ('ET_REL', 'ET_DYN')
@@ -118,13 +128,27 @@ class ELF(MetaELF):
             self._desperate_for_symbols = True
             self.symbols.update(self._symbol_cache.values())
 
+        if self.has_dwarf_info:
+            # load DWARF information
+            try:
+                dwarf = self.reader.get_dwarf_info()
+            except ELFParseError:
+                l.warning("An exception occurred in pyelftools when loading the DWARF information%s. "
+                          "Marking DWARF as not available for this binary.",
+                          (" on %s" % binary) if isinstance(binary, str) else "",
+                          exc_info=True)
+                dwarf = None
+                self.has_dwarf_info = False
+
+            if dwarf and dwarf.has_EH_CFI():
+                self._load_function_hints_from_fde(dwarf)
+
         # call the methods defined by MetaELF
         self._ppc64_abiv1_entry_fix()
         self._load_plt()
 
         for offset, patch in patch_undo:
             self.memory.store(AT.from_lva(self.min_addr + offset, self).to_rva(), patch)
-
 
 
     #
@@ -287,6 +311,13 @@ class ELF(MetaELF):
         else:
             raise CLEError("Bad symbol identifier: %r" % (symid,))
 
+    def rebase(self):
+        super().rebase()
+
+        # rebase frame description entries
+        for fde in self.fdes:
+            fde.pc_begin = fde.pc_begin + self.image_base_delta
+
     #
     # Private Methods
     #
@@ -399,6 +430,27 @@ class ELF(MetaELF):
             address += dest_section.remap_offset
 
         return RelocClass(self, symbol, address, addend)
+
+    def _load_function_hints_from_fde(self, dwarf):
+        """
+        Load frame description entries out of the .eh_frame section. These entries include function addresses and can be
+        used to improve CFG recovery.
+
+        :param dwarf:   The DWARF info object from pyelftools.
+        :return:        None
+        """
+
+        try:
+            for entry in dwarf.EH_CFI_entries():
+                if type(entry) is callframe.FDE:
+                    self.function_hints.append(FunctionHint(
+                        entry.header['initial_location'],
+                        entry.header['address_range'],
+                        FunctionHintSource.EH_FRAME,
+                    ))
+        except DWARFError:
+            l.warning("An exception occurred in pyelftools when loading FDE information.",
+                      exc_info=True)
 
     #
     # Private Methods... really. Calling these out of context
