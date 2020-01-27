@@ -5,6 +5,7 @@ import archinfo
 import elftools
 from elftools.elf import elffile, sections
 from elftools.dwarf import callframe
+from elftools.common.exceptions import ELFParseError, DWARFError
 from collections import OrderedDict, defaultdict
 
 from .symbol import ELFSymbol, Symbol, SymbolType
@@ -129,8 +130,17 @@ class ELF(MetaELF):
 
         if self.has_dwarf_info:
             # load DWARF information
-            dwarf = self.reader.get_dwarf_info()
-            if dwarf.has_EH_CFI():
+            try:
+                dwarf = self.reader.get_dwarf_info()
+            except ELFParseError:
+                l.warning("An exception occurred in pyelftools when loading the DWARF information%s. "
+                          "Marking DWARF as not available for this binary.",
+                          (" on %s" % binary) if isinstance(binary, str) else "",
+                          exc_info=True)
+                dwarf = None
+                self.has_dwarf_info = False
+
+            if dwarf and dwarf.has_EH_CFI():
                 self._load_function_hints_from_fde(dwarf)
 
         # call the methods defined by MetaELF
@@ -139,7 +149,6 @@ class ELF(MetaELF):
 
         for offset, patch in patch_undo:
             self.memory.store(AT.from_lva(self.min_addr + offset, self).to_rva(), patch)
-
 
 
     #
@@ -431,13 +440,17 @@ class ELF(MetaELF):
         :return:        None
         """
 
-        for entry in dwarf.EH_CFI_entries():
-            if type(entry) is callframe.FDE:
-                self.function_hints.append(FunctionHint(
-                    entry.header['initial_location'],
-                    entry.header['address_range'],
-                    FunctionHintSource.EH_FRAME,
-                ))
+        try:
+            for entry in dwarf.EH_CFI_entries():
+                if type(entry) is callframe.FDE:
+                    self.function_hints.append(FunctionHint(
+                        entry.header['initial_location'],
+                        entry.header['address_range'],
+                        FunctionHintSource.EH_FRAME,
+                    ))
+        except DWARFError as ex:
+            l.warning("An exception occurred in pyelftools when loading FDE information.",
+                      exc_info=True)
 
     #
     # Private Methods... really. Calling these out of context
