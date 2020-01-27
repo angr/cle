@@ -4,12 +4,14 @@ import logging
 import archinfo
 import elftools
 from elftools.elf import elffile, sections
+from elftools.dwarf import callframe
 from collections import OrderedDict, defaultdict
 
 from .symbol import ELFSymbol, Symbol, SymbolType
 from .regions import ELFSection, ELFSegment
 from .hashtable import ELFHashTable, GNUHashTable
 from .metaelf import MetaELF, maybedecode
+from .dwarf import FDE
 from .. import register_backend
 from .relocation import get_relocation
 from .relocation.generic import MipsGlobalReloc, MipsLocalReloc
@@ -94,6 +96,14 @@ class ELF(MetaELF):
         self.relocs = []
         self.jmprel = OrderedDict()
 
+        #
+        # DWARF data
+        #
+        self.has_dwarf_info = bool(self.reader.has_dwarf_info())
+
+        # .eh_frame
+        self.fdes = [ ] # Frame description entry. All addresses are rebased.
+
         self._entry = self.reader.header.e_entry
         self.is_relocatable = self.reader.header.e_type == 'ET_REL'
         self.pic = self.pic or self.reader.header.e_type in ('ET_REL', 'ET_DYN')
@@ -117,6 +127,12 @@ class ELF(MetaELF):
         if not self.symbols:
             self._desperate_for_symbols = True
             self.symbols.update(self._symbol_cache.values())
+
+        if self.has_dwarf_info:
+            # load DWARF information
+            dwarf = self.reader.get_dwarf_info()
+            if dwarf.has_EH_CFI():
+                self.fdes = self._load_fdes(dwarf)
 
         # call the methods defined by MetaELF
         self._ppc64_abiv1_entry_fix()
@@ -287,6 +303,13 @@ class ELF(MetaELF):
         else:
             raise CLEError("Bad symbol identifier: %r" % (symid,))
 
+    def rebase(self):
+        super().rebase()
+
+        # rebase frame description entries
+        for fde in self.fdes:
+            fde.pc_begin = fde.pc_begin + self.image_base_delta
+
     #
     # Private Methods
     #
@@ -399,6 +422,28 @@ class ELF(MetaELF):
             address += dest_section.remap_offset
 
         return RelocClass(self, symbol, address, addend)
+
+    def _load_fdes(self, dwarf):
+        """
+        Load frame description entries out of the .eh_frame section. These entries include function addresses and can be
+        used to improve CFG recovery.
+
+        :param dwarf:   The DWARF info object from pyelftools.
+        :return:    A list of frame description entries.
+        :rtype:     list
+        """
+
+        fdes = [ ]
+
+        for entry in dwarf.EH_CFI_entries():
+            if type(entry) is callframe.FDE:
+                fde = FDE(entry.header['length'],
+                          entry.header['initial_location'],
+                          entry.header['address_range'],
+                          )
+                fdes.append(fde)
+
+        return fdes
 
     #
     # Private Methods... really. Calling these out of context
