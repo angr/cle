@@ -83,6 +83,16 @@ class Regions(object):
         if self._is_region_mapped(region):
             key_bisect_insort_left(self._sorted_list, region, keyfunc=lambda r: r.vaddr)
 
+    def remove(self, region):
+        """
+        Remove an existing Region instance from the list.
+
+        :param Region region: The region to remove.
+        """
+        if self._is_region_mapped(region):
+            self._sorted_list.remove(region)
+        self._list.remove(region)
+
     def find_region_containing(self, addr):
         """
         Find the region that contains a specific address. Returns None if none of the regions covers the address.

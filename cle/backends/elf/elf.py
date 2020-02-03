@@ -1,3 +1,4 @@
+import copy
 import os
 import struct
 import logging
@@ -536,6 +537,8 @@ class ELF(MetaELF):
         for seg in type_to_seg_mapping['PT_GNU_STACK']:
             self.execstack = bool(seg.header.p_flags & 1)
 
+        for seg in type_to_seg_mapping['PT_GNU_RELRO']:
+            self.__register_relro(seg)
 
     def __register_dyn(self, seg_readelf):
         """
@@ -753,6 +756,45 @@ class ELF(MetaELF):
         self.tls_block_size = seg_readelf.header.p_memsz
         self.tls_data_size = seg_readelf.header.p_filesz
         self.tls_data_start = AT.from_lva(seg_readelf.header.p_vaddr, self).to_rva()
+
+    def __register_relro(self, segment_relro):
+        segment_relro = ELFSegment(segment_relro)
+        assert (not segment_relro.is_writable), "Expected all relro segments to be non-writable"
+
+        def ___segments_overlap(seg1, seg2):
+            # Re-arrange so seg1 starts first
+            seg1, seg2 = (seg1, seg2) if seg1.min_addr < seg2.min_addr else (seg2, seg1)
+            # seg1 and seg2 overlap if seg2 starts before seg1 ends
+            return seg2.min_addr <= seg1.max_addr
+
+        overlapping_segments = [seg for seg in self.segments if ___segments_overlap(segment_relro, seg)]
+
+        if len(overlapping_segments) == 0:
+            l.warning("RELRO segment does not overlap with any loaded segment.")
+
+        for overlapping_segment in overlapping_segments:
+            # We will split the overlapping segment into two pieces:
+            # one for the segment below the RELRO segment, and one for
+            # above.
+            segment_below = copy.deepcopy(overlapping_segment)
+            segment_below.memsize = segment_relro.min_addr - overlapping_segment.min_addr
+            segment_below.filesize = max(segment_below.filesize, segment_below.memsize)
+
+            segment_above = copy.deepcopy(overlapping_segment)
+            segment_above.vaddr = segment_relro.max_addr + 1
+            segment_above.memsize = overlapping_segment.max_addr - segment_above.vaddr + 1
+            segment_above.filesize = max(0, segment_above.filesize - segment_relro.memsize - segment_below.memsize)
+            segment_above.offset = segment_above.offset + segment_below.memsize + segment_relro.memsize
+
+            split_segments = [segment_below, segment_relro, segment_above]
+            split_segments = [seg for seg in split_segments if seg.memsize > 0]
+
+            # Remove the original segment
+            self.segments.remove(overlapping_segment)
+
+            # Add the new ones
+            for seg in split_segments:
+                self.segments.append(seg)
 
     def __register_sections(self):
         new_addr = 0
