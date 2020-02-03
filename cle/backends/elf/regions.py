@@ -8,8 +8,9 @@ class ELFSegment(Segment):
     """
     Represents a segment for the ELF format.
     """
-    def __init__(self, readelf_seg):
+    def __init__(self, readelf_seg, relro=False):
         self.flags = readelf_seg.header.p_flags
+        self.relro = relro
         super(ELFSegment, self).__init__(readelf_seg.header.p_offset,
                                          readelf_seg.header.p_vaddr,
                                          readelf_seg.header.p_filesz,
@@ -27,6 +28,9 @@ class ELFSegment(Segment):
     def is_executable(self):
         return self.flags & 1 != 0
 
+    @property
+    def is_relro(self):
+        return self.relro
 
 class ELFSection(Section):
     SHF_WRITE = 0x1
