@@ -758,7 +758,7 @@ class ELF(MetaELF):
         self.tls_data_start = AT.from_lva(seg_readelf.header.p_vaddr, self).to_rva()
 
     def __register_relro(self, segment_relro):
-        segment_relro = ELFSegment(segment_relro)
+        segment_relro = ELFSegment(segment_relro, relro=True)
         assert (not segment_relro.is_writable), "Expected all relro segments to be non-writable"
 
         def ___segments_overlap(seg1, seg2):
