@@ -759,7 +759,6 @@ class ELF(MetaELF):
 
     def __register_relro(self, segment_relro):
         segment_relro = ELFSegment(segment_relro, relro=True)
-        assert (not segment_relro.is_writable), "Expected all relro segments to be non-writable"
 
         def ___segments_overlap(seg1, seg2):
             # Re-arrange so seg1 starts first
@@ -770,7 +769,15 @@ class ELF(MetaELF):
         overlapping_segments = [seg for seg in self.segments if ___segments_overlap(segment_relro, seg)]
 
         if len(overlapping_segments) == 0:
-            l.warning("RELRO segment does not overlap with any loaded segment.")
+            l.error("RELRO segment does not overlap with any loaded segment.")
+            return
+
+        if len(overlapping_segments) > 1:
+            # I don't think this ever happens.  If it does, weshould
+            # probably also split the RELRO segment so that each one
+            # has the right permissions in case the two overlapping
+            # segments have different permissions.
+            l.warning("RELRO segment overlaps multiple segments.")
 
         for overlapping_segment in overlapping_segments:
             # We will split the overlapping segment into two pieces:
@@ -795,6 +802,11 @@ class ELF(MetaELF):
             # Add the new ones
             for seg in split_segments:
                 self.segments.append(seg)
+
+        # Add the actual relro segment, and mark it as always
+        # read-only.  We use the flags of the overlapping original
+        # segment.
+        segment_relro.flags = overlapping_segments[0].flags & ~2
 
     def __register_sections(self):
         new_addr = 0
