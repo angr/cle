@@ -783,11 +783,11 @@ class ELF(MetaELF):
             # We will split the overlapping segment into two pieces:
             # one for the segment below the RELRO segment, and one for
             # above.
-            segment_below = copy.deepcopy(overlapping_segment)
+            segment_below = copy.copy(overlapping_segment)
             segment_below.memsize = segment_relro.min_addr - overlapping_segment.min_addr
             segment_below.filesize = max(segment_below.filesize, segment_below.memsize)
 
-            segment_above = copy.deepcopy(overlapping_segment)
+            segment_above = copy.copy(overlapping_segment)
             segment_above.vaddr = segment_relro.max_addr + 1
             segment_above.memsize = overlapping_segment.max_addr - segment_above.vaddr + 1
             segment_above.filesize = max(0, segment_above.filesize - segment_relro.memsize - segment_below.memsize)
