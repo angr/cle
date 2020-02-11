@@ -14,8 +14,8 @@ def test_basic_named_region():
     # Standard CortexM regions
     mmio = NamedRegion("mmio", 0x40000000, 0x50000000)
     sys = NamedRegion("sys", 0xe000e000, 0xe0010000)
-    l.add_object(mmio)
-    l.add_object(sys)
+    l.dynamic_load(mmio)
+    l.dynamic_load(sys)
 
     # In order to ensure static analysis works, we must be able to ask
     # CLE what owns these addresses and get a valid answer.

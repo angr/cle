@@ -79,13 +79,16 @@ class Loader:
                  main_opts=None, lib_opts=None, ld_path=(), use_system_libs=True,
                  ignore_import_version_numbers=True, case_insensitive=False, rebase_granularity=0x1000000,
                  except_missing_libs=False, aslr=False, perform_relocations=True,
-                 page_size=0x1, extern_size=None, tls_size=None, preload_libs=(), arch=None):
+                 page_size=0x1, extern_size=None, preload_libs=(), arch=None):
         if hasattr(main_binary, 'seek') and hasattr(main_binary, 'read'):
             self._main_binary_path = None
             self._main_binary_stream = main_binary
         else:
             self._main_binary_path = os.path.realpath(str(main_binary))
             self._main_binary_stream = None
+
+        # whether we are presently in the middle of a load cycle
+        self._juggling = False
 
         # auto_load_libs doesn't make any sense if we have a concrete target.
         if concrete_target:
@@ -104,7 +107,6 @@ class Loader:
         self._rebase_granularity = rebase_granularity
         self._except_missing_libs = except_missing_libs
         self._extern_size = extern_size
-        self._tls_size = tls_size
         self._relocated_objects = set()
         self._perform_relocations = perform_relocations
 
@@ -120,7 +122,7 @@ class Loader:
         self.page_size = page_size
         self.memory = None # type: Clemory
         self.main_object = None # type: Backend
-        self._tls_object = None # type: TLSObject
+        self.tls_objects = [] # type: List[TLSObject]
         self._kernel_object = None # type: KernelObject
         self._extern_object = None # type: ExternObject
         self.shared_objects = OrderedDict()
@@ -200,6 +202,14 @@ class Loader:
         Return the extern object used to provide addresses to unresolved symbols and angr internals.
 
         Accessing this property will load this object into memory if it was not previously present.
+
+        proposed model for how multiple extern objects should work:
+        1) extern objects are a linked list. the one in loader._extern_object is the head of the list
+        2) each round of explicit loads generates a new extern object if it has unresolved dependencies. this object
+           has exactly the size necessary to hold all its exports.
+        3) All requests for size are passed down the chain until they reach an object which has the space to service it
+           or an object which has not yet been mapped. If all objects have been mapped and are full, a new extern object
+           is mapped with a fixed size.
         """
         if self._extern_object is None:
             if self._extern_size is None:
@@ -210,7 +220,7 @@ class Loader:
                 else:
                     self._extern_size = 0x80000
             self._extern_object = ExternObject(self, map_size=self._extern_size)
-            self._map_object(self._extern_object)
+            self._internal_load(self._extern_object)
         return self._extern_object
 
     @property
@@ -224,20 +234,6 @@ class Loader:
             self._kernel_object = KernelObject(self)
             self._map_object(self._kernel_object)
         return self._kernel_object
-
-    @property
-    def tls_object(self):
-        """
-        Return the object used to provide addresses for thread-local storage.
-
-        Accessing this property will load this object into memory if it was not previously present.
-        """
-        if self._tls_object is None:
-            if isinstance(self.main_object, MetaELF):
-                self._tls_object = ELFTLSObject(self)
-            elif isinstance(self.main_object, PE):
-                self._tls_object = PETLSObject(self)
-        return self._tls_object
 
     @property
     def all_elf_objects(self):
@@ -314,6 +310,12 @@ class Loader:
         """
         If the given library specification has been loaded, return its object, otherwise return None.
         """
+        if isinstance(spec, Backend):
+            for obj in self.all_objects:
+                if obj is spec:
+                    return obj
+            return None
+
         if self._case_insensitive:
             spec = spec.lower()
         extra_idents = {}
@@ -589,16 +591,6 @@ class Loader:
             l.warning("Dynamic load failed: %r", e)
             return None
 
-    def add_object(self, obj):
-        """
-        If you've constructed your own Backend-subclass object and want to add it directly to the loader, use this.
-        """
-        self._register_object(obj)
-        self._map_object(obj)
-        if isinstance(obj, (MetaELF, PE)) and obj.tls_used:
-            self.tls_object.register_object(obj)
-        self._relocate_object(obj)
-
     def get_loader_symbolic_constraints(self):
         """
         Do not use this method.
@@ -639,7 +631,18 @@ class Loader:
         ``preloading`` as a list of identifiers which should be considered preloaded. Note that the identifiers will
         be compared using object identity.
         """
+        # ideal loading pipeline:
+        # - load everything, independently and recursively until dependencies are satisfied
+        # - resolve symbol-based dependencies
+        # - layout address space, including (as a prerequisite) coming up with the layout for tls and externs
+        # - map everything into memory
+        # - perform relocations
+
+        # STEP 1
+        # Load everything. for each binary, load it in isolation so we end up with a Backend instance.
+        # If auto_load_libs is on, do this iteratively until all dependencies is satisfied
         objects = []
+        preload_objects = []
         dependencies = []
         cached_failures = set() # this assumes that the load path is global and immutable by the time we enter this func
 
@@ -648,15 +651,16 @@ class Loader:
             if self.find_object(main_spec, extra_objects=objects) is not None:
                 l.info("Skipping load request %s - already loaded", main_spec)
                 continue
-            main_obj = self._load_object_isolated(main_spec)
-            objects.append(main_obj)
-            dependencies.extend(main_obj.deps)
+            obj = self._load_object_isolated(main_spec)
+            objects.append(obj)
+            dependencies.extend(obj.deps)
 
             if self.main_object is None:
-                self.main_object = main_obj
+                self.main_object = obj
                 self.memory = Clemory(self.main_object.arch, root=True)
             elif is_preloading:
-                self.preload_libs.append(main_obj)
+                self.preload_libs.append(obj)
+                preload_objects.append(obj)
 
         while self._auto_load_libs and dependencies:
             dep_spec = dependencies.pop(0)
@@ -681,41 +685,96 @@ class Loader:
             objects.append(dep_obj)
             dependencies.extend(dep_obj.deps)
 
+        # STEP 1.5
+        # produce dependency-ordered list of objects and soname map
+
+        ordered_objects = []
+        soname_mapping = OrderedDict((obj.provides, obj) for obj in objects if obj.provides)
+        seen = set()
+        def visit(obj):
+            if id(obj) in seen:
+                return
+            seen.add(id(obj))
+
+            dep_objs = [soname_mapping[dep_name] for dep_name in obj.deps if dep_name in soname_mapping]
+            for dep_obj in dep_objs:
+                visit(dep_obj)
+
+            ordered_objects.append(obj)
+
+        for obj in preload_objects + objects:
+            visit(obj)
+
+        # STEP 2
+        # Resolve symbol dependencies. Create unmapped extern and TLS objects, which may not be used
+        # after this step, everything should have the appropriate references to each other and all the extra
+        # objects should have all the space they need allocated
+
+        extern_obj = ExternObject(self)
+        if isinstance(self.main_object, MetaELF):
+            tls_obj = ELFTLSObject(self)
+        elif isinstance(self.main_object, PE):
+            tls_obj = PETLSObject(self)
+        else:
+            tls_obj = TLSObject(self)
+
+        # link everything
+        if self._perform_relocations:
+            for obj in ordered_objects:
+                l.info("Linking %s", obj.binary)
+                for reloc in obj.relocs:
+                    dep_objs = [soname_mapping[dep_name] for dep_name in obj.deps if dep_name in soname_mapping]
+                    main_objs = [self.main_object] if self.main_object is not obj else []
+                    reloc.resolve_symbol(main_objs + preload_objects + dep_objs + [obj], extern_object=extern_obj)
+
+        # if the extern object was used, add it to the list of objects we're mapping
+        # also add it to the linked list of extern objects
+        if extern_obj.map_size:
+            objects.append(extern_obj)
+            ordered_objects.insert(0, extern_obj)
+            extern_obj._next_object = self._extern_object
+            self._extern_object = extern_obj
+
+        # tls registration
         for obj in objects:
-            self._register_object(obj)
+            if obj.tls_used:
+                tls_obj.register_object(obj)
+
+        # STEP 3
+        # Map everything to memory
         for obj in objects:
             self._map_object(obj)
-        for obj in objects:
-            if isinstance(obj, (MetaELF, PE)) and obj.tls_used:
-                self.tls_object.register_object(obj)
-        if self._perform_relocations:
-            for obj in objects:
-                self._relocate_object(obj)
 
-        if self._tls_object:
-            self._tls_object.finalize_layout()
-            if not self._tls_object._is_mapped:
-                self._map_object(self._tls_object)
+        # STEP 4
+        # Perform relocations
+        if self._perform_relocations:
+            for obj in ordered_objects:
+                for reloc in obj.relocs:
+                    if reloc.resolved:
+                        reloc.relocate()
+
+        # STEP 5
+        # Map TLS everything
+        if tls_obj.modules:
+            tls_obj.finalize_layout()
+            tls_obj.map_modules()
+            self._map_object(tls_obj)
+            for reloc in tls_obj.relocs:
+                if reloc.resolved:
+                    reloc.relocate()
+            self.tls_objects.append(tls_obj)
+
+        # Step 6
+        # Insert each object into the appropriate mappings for lookup by name
         for obj in objects:
-            if isinstance(obj, (MetaELF, PE)) and obj.tls_used:
-                self.tls_object.map_object(obj)
-        if self._extern_object and self._extern_object.tls_used and not self._extern_object._tls_mapped:
-            # this entire scheme will break when we do dynamic loading. you have been warned, me.
-            self.tls_object.map_object(self._extern_object)
-            self._extern_object._tls_mapped = True
+            self.requested_names.update(obj.deps)
+            for ident in self._possible_idents(obj):
+                self._satisfied_deps[ident] = obj
+
+            if obj.provides is not None:
+                self.shared_objects[obj.provides] = obj
 
         return objects
-
-    def _register_object(self, obj):
-        """
-        Insert this object's clerical information into the loader
-        """
-        self.requested_names.update(obj.deps)
-        for ident in self._possible_idents(obj):
-            self._satisfied_deps[ident] = obj
-
-        if obj.provides is not None:
-            self.shared_objects[obj.provides] = obj
 
     def _load_object_isolated(self, spec):
         """
@@ -780,8 +839,8 @@ class Loader:
         else:
             if obj._custom_base_addr is not None and not isinstance(obj, Blob):
                 l.warning("%s: base_addr was specified but the object is not PIC. "
-                    "specify force_rebase=True to override",
-                            os.path.basename(obj.binary) if obj.binary is not None else obj.binary_stream)
+                          "specify force_rebase=True to override",
+                          os.path.basename(obj.binary) if obj.binary is not None else obj.binary_stream)
             base_addr = obj.linked_base
             if not self._is_range_free(obj.linked_base, obj_size):
                 raise CLEError("Position-DEPENDENT object %s cannot be loaded at %#x"% (obj.binary, base_addr))
@@ -792,28 +851,8 @@ class Loader:
         if obj.has_memory:
             l.info("Mapping %s at %#x", obj.binary, base_addr)
             self.memory.add_backer(base_addr, obj.memory)
-        key_bisect_insort_left(self.all_objects, obj, keyfunc=lambda o: o.min_addr)
         obj._is_mapped = True
-
-    def _relocate_object(self, obj):
-        """
-        Perform the relocations for ``obj``, making sure its dependencies are relocated first
-        """
-        if id(obj) in self._relocated_objects:
-            return
-        self._relocated_objects.add(id(obj))
-
-        for f in self.preload_libs:
-            self._relocate_object(f)
-
-        dep_objs = [self.shared_objects[dep_name] for dep_name in obj.deps if dep_name in self.shared_objects]
-        for dep_obj in dep_objs:
-            self._relocate_object(dep_obj)
-
-        l.info("Relocating %s", obj.binary)
-        for reloc in obj.relocs:
-            if not reloc.resolved:
-                reloc.relocate(([self.main_object] if self.main_object is not obj else []) + self.preload_libs + dep_objs + [obj])
+        key_bisect_insort_left(self.all_objects, obj, keyfunc=lambda o: o.min_addr)
 
     # Address space management
 

@@ -12,26 +12,26 @@ class PEReloc(Relocation):
         if self.resolvewith is not None:
             self.resolvewith = self.resolvewith.lower()
 
-    def resolve_symbol(self, solist, bypass_compatibility=False, thumb=False):
+    def resolve_symbol(self, solist, bypass_compatibility=False, extern_object=None, **kwargs):
         if not bypass_compatibility:
             solist = [x for x in solist if self.resolvewith == x.provides]
-        out = super(PEReloc, self).resolve_symbol(solist)
+        super(PEReloc, self).resolve_symbol(solist, bypass_compatibility=bypass_compatibility, extern_object=extern_object, **kwargs)
 
-        if not out:
-            return False
+        if self.resolvedby is None:
+            return
 
+        # handle symbol forwarders
         newsym = self.resolvedby.resolve_forwarder()
         if newsym is None:
-            new_symbol = self.owner.loader.extern_object.make_extern(self.symbol.name, sym_type=self.symbol.type)
+            new_symbol = extern_object.make_extern(self.symbol.name, sym_type=self.symbol.type)
             self.resolvedby.resolvedby = new_symbol
             self.resolve(new_symbol)
-            return True
+            return
 
         self.resolvedby = newsym
         self.symbol.resolvedby = newsym
-        return True
 
-    def relocate(self, solist, bypass_compatibility=False):
+    def relocate(self):
         if self.symbol is None:  # relocation described in the DIRECTORY_ENTRY_BASERELOC table
             value = self.value
             if value is None:
@@ -39,7 +39,7 @@ class PEReloc(Relocation):
                 return
             self.owner.memory.store(self.relative_addr, value)
         else:
-            return super(PEReloc, self).relocate(solist, bypass_compatibility)
+            super().relocate()
 
     @property
     def value(self):

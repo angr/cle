@@ -8,10 +8,7 @@ l = logging.getLogger(name=__name__)
 arch = 'PPC64'
 
 class R_PPC64_JMP_SLOT(ELFReloc):
-    def relocate(self, solist, bypass_compatibility=False):
-        if not self.resolve_symbol(solist, bypass_compatibility):
-            return False
-
+    def relocate(self):
         if self.owner.is_ppc64_abiv1:
             # R_PPC64_JMP_SLOT
             # http://osxr.org/glibc/source/sysdeps/powerpc/powerpc64/dl-machine.h?v=glibc-2.15#0405

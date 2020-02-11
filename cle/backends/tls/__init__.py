@@ -42,15 +42,12 @@ class TLSObject(Backend):
             raise CLEError("Trying to refinalize the TLS layout with more data. Are you trying to do dynamic loading with TLS? Report this as a bug")
 
         self._finalized_modules = len(self.modules)
-    def map_object(self, obj):
-        # Grab the init images and map them into memory
-        data = obj.memory.load(obj.tls_data_start, obj.tls_data_size).ljust(obj.tls_block_size, b'\0')
-        self.memory.add_backer(self.tp_offset + obj.tls_block_offset, data)
 
-    def rebase(self):
-        # this isn't the dependency of anything so we need to run our relocations ourselves
-        for reloc in self.relocs:
-            reloc.relocate()
+    def map_modules(self):
+        # Grab the init images and map them into memory
+        for obj in self.modules:
+            data = obj.memory.load(obj.tls_data_start, obj.tls_data_size).ljust(obj.tls_block_size, b'\0')
+            self.memory.add_backer(self.tp_offset + obj.tls_block_offset, data)
 
 class InternalTLSRelocation(object):
     def __init__(self, val, offset, owner):
@@ -58,6 +55,7 @@ class InternalTLSRelocation(object):
         self.offset = offset
         self.owner = owner
         self.symbol = None
+        self.resolved = True
 
     def relocate(self):
         self.owner.memory.pack_word(self.offset, self.val + self.owner.mapped_base)

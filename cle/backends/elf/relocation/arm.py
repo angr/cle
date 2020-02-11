@@ -243,10 +243,9 @@ class R_ARM_THM_CALL(ELFReloc):
         super(R_ARM_THM_CALL, self).__init__(*args, **kwargs)
         self._insn_bytes = None
 
-    def resolve_symbol(self, solist, bypass_compatibility=False, thumb=False):
-        return super(R_ARM_THM_CALL, self).resolve_symbol(solist,
-                                                          bypass_compatibility=bypass_compatibility,
-                                                          thumb=True)
+    def resolve_symbol(self, solist, **kwargs):
+        kwargs['thumb'] = True
+        super().resolve_symbol(solist, **kwargs)
 
     @property
     def value(self):
