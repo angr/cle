@@ -51,7 +51,7 @@ class ELFThreadManager(ThreadManager):
 
 class ELFTLSObject(TLSObject):
     def __init__(self, thread_manager: ELFThreadManager):
-        super().__init__('cle##tls', loader=thread_manager.loader)
+        super().__init__('cle##tls', loader=thread_manager.loader, arch=thread_manager.arch)
         self.tcb_offset: int = None
         self.dtv_offset: int = None
         self.tp_offset: int = None

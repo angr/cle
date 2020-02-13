@@ -53,9 +53,7 @@ class InternalTLSRelocation(Relocation):
         return self.val + self.owner.mapped_base
 
 class TLSObject(Backend):
-    def __init__(self, *args, loader=None, **kwargs):
-        kwargs['arch'] = loader.all_elf_objects[0].arch  # gdi soot
-        super().__init__(*args, loader=loader, **kwargs)
+    pass
 
 from .elf_tls import ELFThreadManager
 from .pe_tls import PEThreadManager
