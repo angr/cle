@@ -1,8 +1,7 @@
-
 import logging
 
 from ....address_translator import AT
-from ....errors import CLEOperationError
+from ....errors import CLEOperationError, CLEInvalidBinaryError
 from ... import SymbolType
 from .elfreloc import ELFReloc
 
@@ -29,6 +28,9 @@ class GenericTLSOffsetReloc(ELFReloc):
             obj = self.owner
         else:
             obj = self.resolvedby.owner
+
+        if obj.tls_block_offset is None:
+            raise CLEInvalidBinaryError("Illegal relocation - dynamically loaded object using static TLS")
 
         self.owner.memory.pack_word(
             self.relative_addr,

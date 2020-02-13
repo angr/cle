@@ -1,6 +1,18 @@
-from . import TLSObject, InternalTLSRelocation
+from . import InternalTLSRelocation, ThreadManager, TLSObject
 from ...address_translator import AT
-from ...errors import CLEError
+
+class PEThreadManager(ThreadManager):
+    def register_object(self, obj):
+        if not super().register_object(obj):
+            return False
+
+        # The PE TLS header says to write its index into a given address
+        obj.memory.pack_word(AT.from_lva(obj.tls_index_address, obj).to_rva(), obj.tls_module_id)
+        return True
+
+    @property
+    def _thread_cls(self):
+        return PETLSObject
 
 class PETLSObject(TLSObject):
     """
@@ -53,29 +65,24 @@ class PETLSObject(TLSObject):
     TLS array to get the start address of the TLS data.
     """
 
-    def __init__(self, loader, max_modules=256):
-        super(PETLSObject, self).__init__(loader, max_modules=max_modules)
+    def __init__(self, thread_manager: PEThreadManager):
+        super(PETLSObject, self).__init__('cle##tls', loader=thread_manager.loader)
+
+        self.used_modules = len(thread_manager.modules)
+        self.data_start = self.arch.bytes*thread_manager.max_modules
         self.used_data = 0
-        self.data_start = self.arch.bytes*max_modules
-
         self.memory.add_backer(0, bytes(self.data_start))
+        self.pic = True
 
-    def register_object(self, obj):
-        if not obj.tls_used:
-            return
+        for obj in thread_manager.modules:
+            image = thread_manager.initialization_image(obj)
+            image_offset = self.data_start + self.used_data
+            index_offset = obj.tls_module_id * self.arch.bytes
 
-        super(PETLSObject, self).register_object(obj)
-
-        data_start = self.data_start + self.used_data
-        obj.tls_block_offset = data_start
-        self.used_data += obj.tls_block_size
-
-        # The PE TLS header says to write its index into a given address
-        obj.memory.pack_word(AT.from_lva(obj.tls_index_address, obj).to_rva(), obj.tls_module_id)
-
-        # Write the address of the data start into the array
-        self.memory.pack_word(obj.tls_module_id*self.arch.bytes, AT.from_rva(data_start, self).to_mva())
-        self.relocs.append(InternalTLSRelocation(data_start, obj.tls_module_id*self.arch.bytes, self))
+            self.memory.pack_word(index_offset, image_offset)
+            self.relocs.append(InternalTLSRelocation(image_offset, index_offset, self))
+            self.memory.add_backer(image_offset, image)
+            self.used_data += len(image)
 
     def get_tls_data_addr(self, tls_idx):
         """
@@ -89,7 +96,7 @@ class PETLSObject(TLSObject):
             array) to get the address of the TLS data area for the given
             program and module.
         """
-        if 0 <= tls_idx < self.next_module_id:
+        if 0 <= tls_idx < self.used_modules:
             return self.memory.unpack_word(tls_idx * self.arch.bytes)
         else:
             raise IndexError('TLS index out of range')
@@ -107,3 +114,4 @@ class PETLSObject(TLSObject):
     @property
     def user_thread_pointer(self):
         return self.mapped_base
+

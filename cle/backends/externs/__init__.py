@@ -135,15 +135,14 @@ class ExternObject(Backend):
         if not self._is_mapped:
             raise CLEError("Can't allocate with extern object before it is mapped")
 
-        result = self._allocate(size=size, alignment=alignment, thumb=thumb, tls=tls) + (0 if tls else self.mapped_base)
-        if result is not None:
-            return result
-
-        if self._next_object is None:
-            # we're at the end of the line. make a new extern object
-            # this should only be hit if we're doing this outside a loading pass
-            self._make_new_externs(size, alignment, tls)
-        return self._next_object.allocate(size=size, alignment=alignment, thumb=thumb, tls=tls)
+        result = self._allocate(size=size, alignment=alignment, thumb=thumb, tls=tls)
+        if result is None:
+            if self._next_object is None:
+                # we're at the end of the line. make a new extern object
+                # this should only be hit if we're doing this outside a loading pass
+                self._make_new_externs(size, alignment, tls)
+            result = self._next_object.allocate(size=size, alignment=alignment, thumb=thumb, tls=tls)
+        return result + (0 if tls else self.mapped_base)
 
     def _make_new_externs(self, size, alignment, tls):
         self._next_object = ExternObject(self.loader, map_size=max(size + alignment, 0x8000) if not tls else 0x8000, tls_size=max(size + alignment, 0x1000) if tls else 0x1000)

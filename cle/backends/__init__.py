@@ -146,16 +146,17 @@ class Backend:
         self.pic = force_rebase
         self.execstack = False
 
-        # tls info
+        # tls info set by backend to communicate with thread manager
         self.tls_used = False
-        self.tls_module_id = None
-        self.tls_block_offset = None
         self.tls_block_size = None
-        self.tls_data_start = None
         self.tls_data_size = None
+        self.tls_data_start = None
+        # tls info set by thread manager
+        self.tls_module_id = None
+        #self.tls_block_offset = None  # this is an ELF-only attribute
 
         # Hints
-        self.function_hints = [ ]  # they should be rebased when .rebase() is called
+        self.function_hints = []  # they should be rebased when .rebase() is called
 
         # Custom options
         self._custom_entry_point = entry_point
@@ -169,6 +170,8 @@ class Backend:
         # cached max_addr
         self._max_addr = None
 
+        if arch is None and loader is not None and loader.main_object is not None:
+            arch = loader.main_object.arch
         if arch is None:
             self.arch = None
         elif isinstance(arch, str):

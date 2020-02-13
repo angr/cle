@@ -104,6 +104,7 @@ def test_dll():
 def test_tls():
     exe = os.path.join(TEST_BASE, 'tests', 'x86', 'windows', 'TLS.exe')
     ld = cle.Loader(exe, auto_load_libs=False)
+    tls = ld.tls.new_thread()
 
     nose.tools.assert_true(ld.main_object.tls_used)
     nose.tools.assert_equals(ld.main_object.tls_data_start, 0x1b000)
@@ -112,9 +113,8 @@ def test_tls():
     nose.tools.assert_equals(ld.main_object.tls_callbacks, [0x411302])
     nose.tools.assert_equals(ld.main_object.tls_block_size, ld.main_object.tls_data_size)
 
-    tls = ld.tls_objects[0]
     nose.tools.assert_is_not_none(tls)
-    nose.tools.assert_equals(len(tls.modules), 1)
+    nose.tools.assert_equals(len(ld.tls.modules), 1)
     nose.tools.assert_equals(tls.get_tls_data_addr(0), tls.memory.unpack_word(0))
     nose.tools.assert_raises(IndexError, tls.get_tls_data_addr, 1)
 

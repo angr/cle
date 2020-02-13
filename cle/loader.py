@@ -122,7 +122,7 @@ class Loader:
         self.page_size = page_size
         self.memory = None # type: Clemory
         self.main_object = None # type: Backend
-        self.tls_objects = [] # type: List[TLSObject]
+        self.tls = None # type: ThreadManager
         self._kernel_object = None # type: KernelObject
         self._extern_object = None # type: ExternObject
         self.shared_objects = OrderedDict()
@@ -656,8 +656,16 @@ class Loader:
             dependencies.extend(obj.deps)
 
             if self.main_object is None:
+                # this is technically the first place we can start to initialize things based on platform
                 self.main_object = obj
                 self.memory = Clemory(self.main_object.arch, root=True)
+                if isinstance(self.main_object, MetaELF):
+                    self.tls = ELFThreadManager(self)
+                elif isinstance(self.main_object, PE):
+                    self.tls = PEThreadManager(self)
+                else:
+                    self.tls = ThreadManager(self)
+
             elif is_preloading:
                 self.preload_libs.append(obj)
                 preload_objects.append(obj)
@@ -706,25 +714,23 @@ class Loader:
             visit(obj)
 
         # STEP 2
-        # Resolve symbol dependencies. Create unmapped extern and TLS objects, which may not be used
-        # after this step, everything should have the appropriate references to each other and all the extra
-        # objects should have all the space they need allocated
+        # Resolve symbol dependencies. Create an unmapped extern object, which may not be used
+        # after this step, everything should have the appropriate references to each other and the extern
+        # object should have all the space it needs allocated
 
         extern_obj = ExternObject(self)
-        if isinstance(self.main_object, MetaELF):
-            tls_obj = ELFTLSObject(self)
-        elif isinstance(self.main_object, PE):
-            tls_obj = PETLSObject(self)
-        else:
-            tls_obj = TLSObject(self)
+
+        # tls registration
+        for obj in objects:
+            self.tls.register_object(obj)
 
         # link everything
         if self._perform_relocations:
             for obj in ordered_objects:
                 l.info("Linking %s", obj.binary)
+                dep_objs = [soname_mapping[dep_name] for dep_name in obj.deps if dep_name in soname_mapping]
+                main_objs = [self.main_object] if self.main_object is not obj else []
                 for reloc in obj.relocs:
-                    dep_objs = [soname_mapping[dep_name] for dep_name in obj.deps if dep_name in soname_mapping]
-                    main_objs = [self.main_object] if self.main_object is not obj else []
                     reloc.resolve_symbol(main_objs + preload_objects + dep_objs + [obj], extern_object=extern_obj)
 
         # if the extern object was used, add it to the list of objects we're mapping
@@ -734,11 +740,6 @@ class Loader:
             ordered_objects.insert(0, extern_obj)
             extern_obj._next_object = self._extern_object
             self._extern_object = extern_obj
-
-        # tls registration
-        for obj in objects:
-            if obj.tls_used:
-                tls_obj.register_object(obj)
 
         # STEP 3
         # Map everything to memory
@@ -753,18 +754,7 @@ class Loader:
                     if reloc.resolved:
                         reloc.relocate()
 
-        # STEP 5
-        # Map TLS everything
-        if tls_obj.modules:
-            tls_obj.finalize_layout()
-            tls_obj.map_modules()
-            self._map_object(tls_obj)
-            for reloc in tls_obj.relocs:
-                if reloc.resolved:
-                    reloc.relocate()
-            self.tls_objects.append(tls_obj)
-
-        # Step 6
+        # Step 5
         # Insert each object into the appropriate mappings for lookup by name
         for obj in objects:
             self.requested_names.update(obj.deps)
@@ -1102,6 +1092,6 @@ class Loader:
 from .errors import CLEError, CLEFileNotFoundError, CLECompatibilityError, CLEOperationError
 from .memory import Clemory
 from .backends import MetaELF, ELF, PE, Blob, ALL_BACKENDS, Backend
-from .backends.tls import PETLSObject, ELFTLSObject, TLSObject
+from .backends.tls import ThreadManager, ELFThreadManager, PEThreadManager
 from .backends.externs import ExternObject, KernelObject
 from .utils import stream_or_path

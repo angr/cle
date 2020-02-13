@@ -5,6 +5,8 @@ l=logging.getLogger(name=__name__)
 
 # Reference: https://msdn.microsoft.com/en-us/library/ms809762.aspx
 class PEReloc(Relocation):
+    AUTO_HANDLE_NONE = True
+
     def __init__(self, owner, symbol, addr, resolvewith=None):   # pylint: disable=unused-argument
         super(PEReloc, self).__init__(owner, symbol, addr)
 

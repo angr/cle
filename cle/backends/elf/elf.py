@@ -93,6 +93,7 @@ class ELF(MetaELF):
         self._desperate_for_symbols = False
         self.imports = {}
         self.resolved_imports = []
+        self.tls_block_offset = None  # this is an ELF-only attribute
 
         self.relocs = []
         self.jmprel = OrderedDict()
