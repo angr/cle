@@ -51,7 +51,7 @@ class ExternObject(Backend):
         self.tls_next_addr = 0
         self._tls_mapped = False
 
-    def rebase(self):
+    def rebase(self, new_base):
         if self._is_mapped:
             return
 
@@ -63,7 +63,7 @@ class ExternObject(Backend):
 
         self.memory.add_backer(0, bytes(backer))
         self.segments.append(ExternSegment(self.map_size))
-        super().rebase()
+        super().rebase(new_base)
 
     def make_extern(self, name, size=0, alignment=None, thumb=False, sym_type=SymbolType.TYPE_FUNCTION, libname=None) -> Symbol:
         try:

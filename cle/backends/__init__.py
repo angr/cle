@@ -170,8 +170,6 @@ class Backend:
         # cached max_addr
         self._max_addr = None
 
-        if arch is None and loader is not None and loader.main_object is not None:
-            arch = loader.main_object.arch
         if arch is None:
             self.arch = None
         elif isinstance(arch, str):
@@ -241,12 +239,15 @@ class Backend:
         l.critical("Deprecation warning: symbols_by_addr is deprecated - use loader.find_symbol() for lookup and .symbols for enumeration")
         return {s.rebased_addr: s for s in self.symbols}
 
-    def rebase(self):
+    def rebase(self, new_base):
         """
         Rebase backend's regions to the new base where they were mapped by the loader
         """
         if self._is_mapped:
+            # we could rebase an object twice if we really wanted... no need though, right?
             raise CLEOperationError("Image already rebased from %#x to %#x" % (self.linked_base, self.mapped_base))
+
+        self.mapped_base = new_base
 
         if self.sections:
             self.sections._rebase(self.image_base_delta)
@@ -255,6 +256,18 @@ class Backend:
 
         for hint in self.function_hints:
             hint.addr = hint.addr + self.image_base_delta
+
+    def relocate(self):
+        """
+        Apply all resolved relocations to memory.
+
+        The meaning of "resolved relocations" is somewhat subtle - there is a linking step which attempts to resolve
+        each relocation, currently only present in the main internal loading function since the calculation of which
+        objects should be available
+        """
+        for reloc in self.relocs:
+            if reloc.resolved:
+                reloc.relocate()
 
     def contains_addr(self, addr):
         """
@@ -410,6 +423,7 @@ from .macho import MachO
 from .named_region import NamedRegion
 from .java.jar import Jar
 from .java.apk import Apk
+from .java.soot import Soot
 from .xbe import XBE
 
 try:

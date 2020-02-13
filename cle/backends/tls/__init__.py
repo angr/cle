@@ -8,9 +8,9 @@ class ThreadManager:
 
     Most of the heavy lifting will be handled in a subclass
     """
-    def __init__(self, loader, max_modules=256):
+    def __init__(self, loader, arch, max_modules=256):
         self.loader = loader
-        self.arch = self.loader.main_object.arch
+        self.arch = arch
         self.max_modules = max_modules
         self.modules = []
         self.threads = []
@@ -53,7 +53,9 @@ class InternalTLSRelocation(Relocation):
         return self.val + self.owner.mapped_base
 
 class TLSObject(Backend):
-    pass
+    def __init__(self, *args, loader=None, **kwargs):
+        kwargs['arch'] = loader.all_elf_objects[0].arch  # gdi soot
+        super().__init__(*args, loader=loader, **kwargs)
 
 from .elf_tls import ELFThreadManager
 from .pe_tls import PEThreadManager

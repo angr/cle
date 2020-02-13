@@ -313,8 +313,8 @@ class ELF(MetaELF):
         else:
             raise CLEError("Bad symbol identifier: %r" % (symid,))
 
-    def rebase(self):
-        super().rebase()
+    def rebase(self, new_base):
+        super().rebase(new_base)
 
         # rebase frame description entries
         for fde in self.fdes:

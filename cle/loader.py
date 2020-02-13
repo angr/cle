@@ -658,40 +658,47 @@ class Loader:
             if self.main_object is None:
                 # this is technically the first place we can start to initialize things based on platform
                 self.main_object = obj
-                self.memory = Clemory(self.main_object.arch, root=True)
-                if isinstance(self.main_object, MetaELF):
-                    self.tls = ELFThreadManager(self)
-                elif isinstance(self.main_object, PE):
-                    self.tls = PEThreadManager(self)
+                self.memory = Clemory(obj.arch, root=True)
+                if isinstance(obj, MetaELF):
+                    self.tls = ELFThreadManager(self, obj.arch)
+                elif isinstance(obj, PE):
+                    self.tls = PEThreadManager(self, obj.arch)
                 else:
-                    self.tls = ThreadManager(self)
+                    self.tls = ThreadManager(self, obj.arch)
 
             elif is_preloading:
                 self.preload_libs.append(obj)
                 preload_objects.append(obj)
 
+
         while self._auto_load_libs and dependencies:
-            dep_spec = dependencies.pop(0)
-            if dep_spec in cached_failures:
-                l.debug("Skipping implicit dependency %s - cached failure", dep_spec)
+            spec = dependencies.pop(0)
+            if spec in cached_failures:
+                l.debug("Skipping implicit dependency %s - cached failure", spec)
                 continue
-            if self.find_object(dep_spec, extra_objects=objects) is not None:
-                l.debug("Skipping implicit dependency %s - already loaded", dep_spec)
+            if self.find_object(spec, extra_objects=objects) is not None:
+                l.debug("Skipping implicit dependency %s - already loaded", spec)
                 continue
 
             try:
-                l.info("Loading %s...", dep_spec)
-                dep_obj = self._load_object_isolated(dep_spec)  # loading dependencies
+                l.info("Loading %s...", spec)
+                obj = self._load_object_isolated(spec)  # loading dependencies
             except CLEFileNotFoundError:
                 l.info("... not found")
-                cached_failures.add(dep_spec)
+                cached_failures.add(spec)
                 if self._except_missing_libs:
                     raise
                 else:
                     continue
 
-            objects.append(dep_obj)
-            dependencies.extend(dep_obj.deps)
+            objects.append(obj)
+            dependencies.extend(obj.deps)
+
+            if type(self.tls) is ThreadManager:   # ... java
+                if isinstance(obj, MetaELF):
+                    self.tls = ELFThreadManager(self, obj.arch)
+                elif isinstance(obj, PE):
+                    self.tls = PEThreadManager(self, obj.arch)
 
         # STEP 1.5
         # produce dependency-ordered list of objects and soname map
@@ -750,9 +757,7 @@ class Loader:
         # Perform relocations
         if self._perform_relocations:
             for obj in ordered_objects:
-                for reloc in obj.relocs:
-                    if reloc.resolved:
-                        reloc.relocate()
+                obj.relocate()
 
         # Step 5
         # Insert each object into the appropriate mappings for lookup by name
@@ -824,8 +829,7 @@ class Loader:
                           "It is being loaded with a base address of 0x400000.")
                 base_addr = 0x400000
 
-            obj.mapped_base = base_addr
-            obj.rebase()
+            obj.rebase(base_addr)
         else:
             if obj._custom_base_addr is not None and not isinstance(obj, Blob):
                 l.warning("%s: base_addr was specified but the object is not PIC. "
@@ -1091,7 +1095,7 @@ class Loader:
 
 from .errors import CLEError, CLEFileNotFoundError, CLECompatibilityError, CLEOperationError
 from .memory import Clemory
-from .backends import MetaELF, ELF, PE, Blob, ALL_BACKENDS, Backend
-from .backends.tls import ThreadManager, ELFThreadManager, PEThreadManager
+from .backends import MetaELF, ELF, PE, Soot, Blob, ALL_BACKENDS, Backend
+from .backends.tls import ThreadManager, ELFThreadManager, PEThreadManager, TLSObject
 from .backends.externs import ExternObject, KernelObject
 from .utils import stream_or_path
