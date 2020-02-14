@@ -204,12 +204,13 @@ class Loader:
         Accessing this property will load this object into memory if it was not previously present.
 
         proposed model for how multiple extern objects should work:
-        1) extern objects are a linked list. the one in loader._extern_object is the head of the list
-        2) each round of explicit loads generates a new extern object if it has unresolved dependencies. this object
-           has exactly the size necessary to hold all its exports.
-        3) All requests for size are passed down the chain until they reach an object which has the space to service it
-           or an object which has not yet been mapped. If all objects have been mapped and are full, a new extern object
-           is mapped with a fixed size.
+
+            1) extern objects are a linked list. the one in loader._extern_object is the head of the list
+            2) each round of explicit loads generates a new extern object if it has unresolved dependencies. this object
+               has exactly the size necessary to hold all its exports.
+            3) All requests for size are passed down the chain until they reach an object which has the space to service it
+               or an object which has not yet been mapped. If all objects have been mapped and are full, a new extern object
+               is mapped with a fixed size.
         """
         if self._extern_object is None:
             if self._extern_size is None:
