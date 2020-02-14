@@ -94,6 +94,11 @@ class ExternObject(Backend):
             toc_symbol = self.make_extern(name, size=0x18, alignment=8, sym_type=SymbolType.TYPE_OBJECT)
             name += '#func'
 
+        if size == 0 and sym_type in (SymbolType.TYPE_NONE, SymbolType.TYPE_OBJECT, SymbolType.TYPE_TLS_OBJECT):
+            l.warning("Symbol was allocated without a known size; emulation may fail if it is used non-opaquely: %s", name)
+            self._warned_data_import = True
+            real_size = 8
+
         local_addr = self._allocate(real_size, alignment=alignment, thumb=thumb, tls=tls)
         if local_addr is None:
             if self._next_object is None:
@@ -210,10 +215,6 @@ class ExternObject(Backend):
                 self._delayed_writes.append(symbol)
                 for reloc in relocs:
                     reloc.relocate()
-
-        if symbol.size == 0 and symbol.type in (SymbolType.TYPE_OBJECT, SymbolType.TYPE_TLS_OBJECT):
-            l.warning("Symbol was allocated without a known size; emulation will fail if it is used non-opaquely: %s", symbol.name)
-            self._warned_data_import = True
 
 
 class KernelObject(Backend):
