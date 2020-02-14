@@ -1,7 +1,8 @@
-
 import os
 import cle
-from nose.tools import assert_true
+import pyvex
+import struct
+from nose.tools import assert_equal
 
 
 test_location = str(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', 'binaries', 'tests'))
@@ -31,12 +32,11 @@ def test_thumb_object():
     for r in l.main_object.relocs:
         if r.__class__ == cle.backends.elf.relocation.arm.R_ARM_THM_JUMP24:
             if r.symbol.name == 'HAL_I2C_ER_IRQHandler':
-                if r.value == 0xbff7f000:
-                    break
+                irsb = pyvex.lift(struct.pack('<I', r.value), r.rebased_addr + 1, l.main_object.arch, bytes_offset=1)
+                assert_equal(irsb.default_exit_target, r.resolvedby.rebased_addr)
+                break
     else:
-        # We missed it
-        assert_true(r.value == 0xbff7f000)
-
+        assert False, "Could not find JUMP24 relocation for HAL_I2C_ER_IRQHandler"
 
 if __name__ == "__main__":
     test_thumb_object()
