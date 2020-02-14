@@ -1,54 +1,59 @@
-from .. import Backend
-from ...memory import Clemory
+from ..relocation import Relocation
 from ...errors import CLEError
+from .. import Backend
 
-class TLSObject(Backend):
+class ThreadManager:
     """
-    CLE implements thread-local storage by treating the TLS region as another object to be loaded. Because of the
-    complex interactions between TLS and all the other objects that can be loaded into memory, each TLS object will
-    perform some basic initialization when instantiated, and then once all other objects have been loaded,
-    ``map_object()`` is called to actually put each object's image into memory.
+    This class tracks what data is thread-local and can generate thread initialization images
+
+    Most of the heavy lifting will be handled in a subclass
     """
-    def __init__(self, loader, max_modules=256):
-        super(TLSObject, self).__init__('cle##tls', loader=loader)
-        self.arch = self.loader.main_object.arch
-        self.memory = Clemory(self.arch)
-        self.modules = []
-        self.pic = True
-        self.next_module_id = 0
-        self.tp_offset = 0
+    def __init__(self, loader, arch, max_modules=256):
+        self.loader = loader
+        self.arch = arch
         self.max_modules = max_modules
+        self.modules = []
+        self.threads = []
 
     def register_object(self, obj):
-        """
-        Assign some thread-local identifiers to the module (object). Do the heavy lifting in a subclass.
-        """
+        if not obj.tls_used:
+            return False
         if len(self.modules) >= self.max_modules:
             raise CLEError("Too many loaded modules for TLS to handle... file this as a bug")
-        obj.tls_module_id = self.next_module_id
-        self.next_module_id += 1
+        obj.tls_module_id = len(self.modules)
 
         self.modules.append(obj)
+        return True
 
-    def map_object(self, obj):
-        # Grab the init images and map them into memory
-        data = obj.memory.load(obj.tls_data_start, obj.tls_data_size).ljust(obj.tls_block_size, b'\0')
-        self.memory.add_backer(self.tp_offset + obj.tls_block_offset, data)
+    @staticmethod
+    def initialization_image(obj):
+        return obj.memory.load(obj.tls_data_start, obj.tls_data_size).ljust(obj.tls_block_size, b'\0')
 
-    def rebase(self):
-        # this isn't the dependency of anything so we need to run our relocations ourselves
-        for reloc in self.relocs:
-            reloc.relocate()
+    def new_thread(self, insert=True):
+        thread = self._thread_cls(self)
+        if insert:
+            self.loader._internal_load(thread)
+            self.threads.append(thread)
+        return thread
 
-class InternalTLSRelocation(object):
+    @property
+    def _thread_cls(self):
+        raise NotImplementedError("This platform doesn't have an implementation of thread-local storage")
+
+
+class InternalTLSRelocation(Relocation):
+    AUTO_HANDLE_NONE = True
+
     def __init__(self, val, offset, owner):
+        super().__init__(owner, None, offset)
         self.val = val
-        self.offset = offset
-        self.owner = owner
-        self.symbol = None
 
-    def relocate(self):
-        self.owner.memory.pack_word(self.offset, self.val + self.owner.mapped_base)
+    @property
+    def value(self):
+        return self.val + self.owner.mapped_base
 
-from .elf_tls import ELFTLSObject
-from .pe_tls import PETLSObject
+class TLSObject(Backend):
+    pass
+
+from .elf_tls import ELFThreadManager
+from .pe_tls import PEThreadManager

@@ -24,10 +24,8 @@ def test_overlap():
     obj1 = MockBackend(0x8047000, 0x2000, arch=ld.main_object.arch)
     obj2 = MockBackend(0x8047000, 0x1000, arch=ld.main_object.arch)
 
-    ld._register_object(obj1)
-    ld._register_object(obj2)
-    ld._map_object(obj1)
-    ld._map_object(obj2)
+    ld.dynamic_load(obj1)
+    ld.dynamic_load(obj2)
 
     nose.tools.assert_equal(obj2.mapped_base, 0x8047000)
     nose.tools.assert_greater(obj1.mapped_base, 0x8048000)

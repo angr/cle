@@ -93,6 +93,7 @@ class ELF(MetaELF):
         self._desperate_for_symbols = False
         self.imports = {}
         self.resolved_imports = []
+        self.tls_block_offset = None  # this is an ELF-only attribute
 
         self.relocs = []
         self.jmprel = OrderedDict()
@@ -312,8 +313,8 @@ class ELF(MetaELF):
         else:
             raise CLEError("Bad symbol identifier: %r" % (symid,))
 
-    def rebase(self):
-        super().rebase()
+    def rebase(self, new_base):
+        super().rebase(new_base)
 
         # rebase frame description entries
         for fde in self.fdes:

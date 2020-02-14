@@ -1,7 +1,16 @@
-import struct
+"""
+This module is used when parsing the Thread Local Storage of an ELF binary. It heavily uses the TLSArchInfo
+namedtuple from archinfo.
 
-from ...errors import CLEError
-from . import TLSObject, InternalTLSRelocation
+ELF TLS is implemented based on the following documents:
+
+    - https://www.uclibc.org/docs/tls.pdf
+    - https://www.uclibc.org/docs/tls-ppc.txt
+    - https://www.uclibc.org/docs/tls-ppc64.txt
+    - https://www.linux-mips.org/wiki/NPTL
+"""
+
+from . import InternalTLSRelocation, ThreadManager, TLSObject
 
 TLS_BLOCK_ALIGN = 0x10
 TLS_TOTAL_HEAD_SIZE = 0x4000
@@ -10,95 +19,86 @@ TLS_HEAD_ALIGN = 0x10000
 def roundup(val, to=TLS_BLOCK_ALIGN):
     return val - 1 + (to - ((val - 1) % to))
 
+class ELFThreadManager(ThreadManager):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.used_data = 0
+
+    def register_object(self, obj):
+        if not super().register_object(obj):
+            return False
+
+        # only track tls_block_offset for modules registered before the first thread
+        # ??? is this right
+        if not self.threads:
+            # tls_block_offset has these semantics: the thread pointer plus the block offset equals the address of the
+            # module's TLS data in memory
+            if self.arch.elf_tls.variant == 1:
+                obj.tls_block_offset = self.used_data
+            else:
+                obj.tls_block_offset = -self.used_data - roundup(obj.tls_block_size)
+
+            self.used_data += roundup(obj.tls_block_size)
+        return True
+
+    @property
+    def _thread_cls(self):
+        if self.arch.elf_tls.variant == 1:
+            return ELFTLSObjectV1
+        else:
+            return ELFTLSObjectV2
+
 
 class ELFTLSObject(TLSObject):
-    """
-    This class is used when parsing the Thread Local Storage of an ELF binary. It heavily uses the TLSArchInfo
-    namedtuple from archinfo.
+    def __init__(self, thread_manager: ELFThreadManager):
+        super().__init__('cle##tls', loader=thread_manager.loader, arch=thread_manager.arch)
+        self.tcb_offset: int = None
+        self.dtv_offset: int = None
+        self.tp_offset: int = None
+        self.head_offset: int = None
+        self._max_addr: int = None
+        self.tlsoffsets = [obj.tls_block_offset for obj in thread_manager.modules]
+        self.pic = True
 
-    ELF TLS is implemented based on the following documents:
+        self._calculate_pointers(thread_manager.used_data, thread_manager.max_modules)
 
-        - https://www.uclibc.org/docs/tls.pdf
-        - https://www.uclibc.org/docs/tls-ppc.txt
-        - https://www.uclibc.org/docs/tls-ppc64.txt
-        - https://www.linux-mips.org/wiki/NPTL
-    """
-    def __init__(self, loader, max_data=0x8000, max_modules=256):
-        super(ELFTLSObject, self).__init__(loader, max_modules=max_modules)
-        self.next_module_id = 1
-        self.total_blocks_size = 0
-        self.max_data = max_data
-        self.modules = []
-        self._max_addr = 0
+        # add backer for header
+        self.memory.add_backer(self.head_offset, bytes(TLS_TOTAL_HEAD_SIZE))
 
-        if self.arch.elf_tls.variant == 1:
-            # variant 1: memory is laid out like so:
-            # [header][module data][dtv]
-            #         ^ thread pointer
-            self.tcb_offset = TLS_TOTAL_HEAD_SIZE - self.arch.elf_tls.tcbhead_size
-            self.tp_offset = TLS_TOTAL_HEAD_SIZE    # CRITICAL DIFFERENCE FROM THE DOC - variant 1 seems to expect the thread pointer points to the end of the TCB
-            self.dtv_offset = TLS_TOTAL_HEAD_SIZE + self.max_data + 2*self.arch.bytes
-            self._max_addr = self.dtv_offset + 2*self.arch.bytes*max_modules
-            self.memory.add_backer(0, bytes(TLS_TOTAL_HEAD_SIZE))
-        else:
-            # variant 2: memory is laid out like so:
-            # [module data][header][dtv]
-            #              ^ thread pointer
-            self.tcb_offset = roundup(self.max_data, TLS_HEAD_ALIGN)
-            self.tp_offset = roundup(self.max_data, TLS_HEAD_ALIGN)
-            self.dtv_offset = self.tp_offset + TLS_TOTAL_HEAD_SIZE + 2*self.arch.bytes
-            self._max_addr = self.dtv_offset + 2*self.arch.bytes*max_modules
-            self.memory.add_backer(self.tp_offset, bytes(TLS_TOTAL_HEAD_SIZE))
-
-        self.memory.add_backer(self.dtv_offset - 2*self.arch.bytes, bytes(2*self.arch.bytes*max_modules + 2*self.arch.bytes))
+        # add backer for dtv
+        self.memory.add_backer(self.dtv_offset - 2*self.arch.bytes, bytes(2*self.arch.bytes*thread_manager.max_modules + 2*self.arch.bytes))
 
         # Set the appropriate pointers in the tcbhead
         for off in self.arch.elf_tls.head_offsets:
-            self.drop_int(self.tp_offset, off + self.tcb_offset, True)
+            self._drop_int(off + self.tcb_offset, self.tp_offset, True)
         for off in self.arch.elf_tls.dtv_offsets:
-            self.drop_int(self.dtv_offset, off + self.tcb_offset, True)
+            self._drop_int(off + self.tcb_offset, self.dtv_offset, True)
         for off in self.arch.elf_tls.pthread_offsets:
-            self.drop_int(self.tp_offset, off + self.tcb_offset, True)     # ?????
-
-        # at dtv[-1] there's capacity, at dtv[0] there's count (technically generation number?)
-        self.drop_int(self.max_modules-1, self.dtv_offset - 2*self.arch.bytes)
-        self.drop_int(0, self.dtv_offset)
-
-    def drop(self, string, offset):
-        for i, c in enumerate(string):
-            self.memory[i + offset] = c
-
-    def drop_int(self, num, offset, needs_relocation=False):
-        if needs_relocation:
-            self.relocs.append(InternalTLSRelocation(num, offset, self))
-            num += self.mapped_base
-
-        self.drop(struct.pack(self.arch.struct_fmt(), num), offset)
-
-    def register_object(self, obj):
-        if not obj.tls_used:
-            return
-
-        super(ELFTLSObject, self).register_object(obj)
-
-        # tls_block_offset has these semantics: the thread pointer plus the block offset equals the address of the
-        # module's TLS data in memory
-        if self.arch.elf_tls.variant == 1:
-            obj.tls_block_offset = self.total_blocks_size
-        else:
-            obj.tls_block_offset = -self.total_blocks_size - roundup(obj.tls_block_size)
-
-        self.total_blocks_size += roundup(obj.tls_block_size)
-        if self.total_blocks_size > self.max_data:
-            raise CLEError("Too much TLS data to handle... file this as a bug")
-
-        # update dtv size
-        self.drop_int(len(self.modules), self.dtv_offset)
+            self._drop_int(off + self.tcb_offset, self.tp_offset, True)  # ?????
 
         # Set up the DTV
-        dtv_entry_offset = self.dtv_offset + 2*self.arch.bytes*obj.tls_module_id
-        self.drop_int(self.tp_offset + obj.tls_block_offset + self.arch.elf_tls.dtv_entry_offset, dtv_entry_offset, True)
-        self.drop_int(1, dtv_entry_offset + self.arch.bytes)
+        # at dtv[-1] there's capacity, at dtv[0] there's count (technically generation number?)
+        self._drop_int(self.dtv_offset - 2 * self.arch.bytes, thread_manager.max_modules - 1)
+        self._drop_int(self.dtv_offset, len(thread_manager.modules))
+
+        # set up each module
+        for obj in thread_manager.modules:
+            # dtv entry
+            dtv_entry_offset = self.dtv_offset + 2*self.arch.bytes*obj.tls_module_id
+            self._drop_int(dtv_entry_offset, self.tp_offset + obj.tls_block_offset + self.arch.elf_tls.dtv_entry_offset, True)
+            self._drop_int(dtv_entry_offset + self.arch.bytes, 1)
+
+            # initialization image
+            image = thread_manager.initialization_image(obj)
+            self.memory.add_backer(self.tp_offset + obj.tls_block_offset, image)
+
+    def _calculate_pointers(self, used_data, max_modules):
+        raise NotImplementedError
+
+    def _drop_int(self, offset, num, needs_relocation=False):
+        if needs_relocation:
+            self.relocs.append(InternalTLSRelocation(num, offset, self))
+        self.memory.pack_word(offset, num)
 
     @property
     def thread_pointer(self):
@@ -122,4 +122,26 @@ class ELFTLSObject(TLSObject):
         """
         basically ``__tls_get_addr``.
         """
-        return self.user_thread_pointer + self.modules[module_id-1].tls_block_offset + offset
+        return self.memory.unpack_word(self.dtv_offset + module_id * self.arch.bytes) + offset
+
+class ELFTLSObjectV1(ELFTLSObject):
+    # variant 1: memory is laid out like so:
+    # [header][module data]
+    #         ^ thread pointer
+    def _calculate_pointers(self, used_data, max_modules):
+        self.tcb_offset = TLS_TOTAL_HEAD_SIZE - self.arch.elf_tls.tcbhead_size
+        self.tp_offset = TLS_TOTAL_HEAD_SIZE    # CRITICAL DIFFERENCE FROM THE DOC - variant 1 seems to expect the thread pointer points to the end of the TCB
+        self.dtv_offset = TLS_TOTAL_HEAD_SIZE + used_data + 2 * self.arch.bytes
+        self.head_offset = 0                    # ^^ that's the point of this field
+        self._max_addr = self.dtv_offset + 2*self.arch.bytes*max_modules
+
+class ELFTLSObjectV2(ELFTLSObject):
+    # variant 2: memory is laid out like so:
+    # [module data][header]
+    #              ^ thread pointer
+    def _calculate_pointers(self, used_data, max_modules):
+        self.tcb_offset = roundup(used_data, TLS_HEAD_ALIGN)
+        self.tp_offset = roundup(used_data, TLS_HEAD_ALIGN)
+        self.dtv_offset = self.tp_offset + TLS_TOTAL_HEAD_SIZE + 2*self.arch.bytes
+        self.head_offset = self.tp_offset
+        self._max_addr = self.dtv_offset + 2*self.arch.bytes*max_modules

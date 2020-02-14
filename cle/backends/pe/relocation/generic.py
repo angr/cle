@@ -13,7 +13,8 @@ class DllImport(PEReloc):
     pass
 
 class IMAGE_REL_BASED_ABSOLUTE(PEReloc):
-    pass
+    def relocate(self):
+        pass
 
 class IMAGE_REL_BASED_HIGHADJ(PEReloc):
     def __init__(self, owner, addr, next_rva):

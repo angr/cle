@@ -1,7 +1,8 @@
 import logging
 
 from . import Backend
-from .symbol import Symbol
+from ..errors import CLEInvalidBinaryError
+from .symbol import Symbol, SymbolType
 from ..address_translator import AT
 
 l = logging.getLogger(name=__name__)
@@ -30,14 +31,20 @@ class Relocation:
         if self.symbol is not None and self.symbol.is_import:
             self.owner.imports[self.symbol.name] = self
 
-    def resolve_symbol(self, solist, bypass_compatibility=False, thumb=False): # pylint: disable=unused-argument
+    AUTO_HANDLE_NONE = False
+
+    def resolve_symbol(self, solist, thumb=False, extern_object=None, **kwargs): # pylint: disable=unused-argument
         if self.resolved:
-            return True
+            return
+
+        if (self.symbol is None or self.symbol.type == SymbolType.TYPE_NONE) and self.AUTO_HANDLE_NONE:
+            self.resolve(None)
+            return
 
         if self.symbol.is_static or self.symbol.is_local:
             # A static or local symbol should only be resolved by itself.
             self.resolve(self.symbol)
-            return True
+            return
 
         weak_result = None
         for so in solist:
@@ -45,7 +52,7 @@ class Relocation:
             if symbol is not None and symbol.is_export:
                 if not symbol.is_weak:
                     self.resolve(symbol)
-                    return True
+                    return
                 elif weak_result is None:
                     weak_result = symbol
             # TODO: Was this check obsolted by the addition of is_static?
@@ -53,20 +60,19 @@ class Relocation:
             elif symbol is not None and not symbol.is_import and so is self.owner:
                 if not symbol.is_weak:
                     self.resolve(symbol)
-                    return True
+                    return
                 elif weak_result is None:
                     weak_result = symbol
 
         if weak_result is not None:
             self.resolve(weak_result)
-            return True
+            return
 
         if self.symbol.is_weak:
-            return False
+            return
 
-        new_symbol = self.owner.loader.extern_object.make_extern(self.symbol.name, sym_type=self.symbol._type, thumb=thumb)
+        new_symbol = extern_object.make_extern(self.symbol.name, sym_type=self.symbol._type, thumb=thumb)
         self.resolve(new_symbol)
-        return True
 
     def resolve(self, obj):
         self.resolvedby = obj
@@ -75,6 +81,9 @@ class Relocation:
             if obj is not None:
                 l.debug('%s from %s resolved by %s from %s at %#x', self.symbol.name, self.owner.provides, obj.name, obj.owner.provides, obj.rebased_addr)
             self.symbol.resolve(obj)
+        else:
+            if not self.AUTO_HANDLE_NONE:
+                raise TypeError("Programming error: resolving symbol with None but does not have CAN_HANDLE_NONE set")
 
     @property
     def rebased_addr(self):
@@ -96,16 +105,14 @@ class Relocation:
         l.error('Value property of Relocation must be overridden by subclass!')
         return 0
 
-    def relocate(self, solist, bypass_compatibility=False):
+    def relocate(self):
         """
         Applies this relocation. Will make changes to the memory object of the
         object it came from.
 
         This implementation is a generic version that can be overridden in subclasses.
-
-        :param solist:       A list of objects from which to resolve symbols.
         """
-        if not self.resolve_symbol(solist, bypass_compatibility):
+        if not self.resolved:
             return False
 
         self.owner.memory.pack_word(self.dest_addr, self.value)
