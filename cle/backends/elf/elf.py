@@ -6,7 +6,7 @@ import archinfo
 import elftools
 from elftools.elf import elffile, sections
 from elftools.dwarf import callframe
-from elftools.common.exceptions import ELFParseError, DWARFError
+from elftools.common.exceptions import ELFError, DWARFError
 from collections import OrderedDict, defaultdict
 
 from .symbol import ELFSymbol, Symbol, SymbolType
@@ -130,11 +130,11 @@ class ELF(MetaELF):
             self._desperate_for_symbols = True
             self.symbols.update(self._symbol_cache.values())
 
-        if self.has_dwarf_info:
+        if self.has_dwarf_info and self.loader._load_debug_info:
             # load DWARF information
             try:
                 dwarf = self.reader.get_dwarf_info()
-            except ELFParseError:
+            except ELFError:
                 l.warning("An exception occurred in pyelftools when loading the DWARF information%s. "
                           "Marking DWARF as not available for this binary.",
                           (" on %s" % binary) if isinstance(binary, str) else "",

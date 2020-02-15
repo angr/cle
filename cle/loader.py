@@ -76,7 +76,7 @@ class Loader:
                  force_load_libs=(), skip_libs=(),
                  main_opts=None, lib_opts=None, ld_path=(), use_system_libs=True,
                  ignore_import_version_numbers=True, case_insensitive=False, rebase_granularity=0x100000,
-                 except_missing_libs=False, aslr=False, perform_relocations=True,
+                 except_missing_libs=False, aslr=False, perform_relocations=True, load_debug_info=True,
                  page_size=0x1, preload_libs=(), arch=None):
         if hasattr(main_binary, 'seek') and hasattr(main_binary, 'read'):
             self._main_binary_path = None
@@ -93,6 +93,7 @@ class Loader:
             auto_load_libs = False
 
         self._auto_load_libs = auto_load_libs
+        self._load_debug_info = load_debug_info
         self._satisfied_deps = dict((x, False) for x in skip_libs)
         self._main_opts = {} if main_opts is None else main_opts
         self._lib_opts = {} if lib_opts is None else lib_opts
