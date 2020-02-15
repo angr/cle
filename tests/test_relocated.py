@@ -5,7 +5,7 @@ import os
 def test_relocated():
     filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../binaries/tests/i386/fauxware')
     shared = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../binaries/tests/i386/prelinked')
-    ld = cle.Loader(filename, ld_path=[shared])
+    ld = cle.Loader(filename, ld_path=[shared], rebase_granularity=0x1000000)
     nose.tools.assert_equal(ld.main_object.mapped_base, 0x8048000)
     nose.tools.assert_sequence_equal(
         [x.mapped_base for x in ld.all_elf_objects],
