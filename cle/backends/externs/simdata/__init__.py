@@ -61,7 +61,7 @@ def register(simdata_cls):
 def lookup(name, libname):
     weak_option = None
     for simdata_cls in registered_data[name]:
-        if simdata_cls.libname == libname:
+        if type(libname) is type(simdata_cls.libname) is str and simdata_cls.libname.startswith(libname):
             return simdata_cls
         elif simdata_cls is None or libname is None:
             weak_option = simdata_cls
