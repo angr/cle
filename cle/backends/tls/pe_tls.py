@@ -7,7 +7,8 @@ class PEThreadManager(ThreadManager):
             return False
 
         # The PE TLS header says to write its index into a given address
-        obj.memory.pack_word(AT.from_lva(obj.tls_index_address, obj).to_rva(), obj.tls_module_id)
+        if hasattr(obj, 'tls_index_address'):
+            obj.memory.pack_word(AT.from_lva(obj.tls_index_address, obj).to_rva(), obj.tls_module_id)
         return True
 
     @property
