@@ -47,19 +47,33 @@ class ExternObject(Backend):
         self._warned_data_import = False
 
         self.tls_data_size = tls_size
-        self.tls_block_size = tls_size
         self.tls_next_addr = 0
         self._tls_mapped = False
+
+    def _finalize_tls(self):
+        if self._is_mapped or self._tls_mapped:
+            raise Exception("programming error")
+
+        if self.tls_data_size != 0:
+            self.tls_used = True
+            self.tls_data_start = self._allocate(self.tls_data_size, alignment=0x10)
+            self.tls_block_size = self.tls_data_size
+            self._tls_mapped = True
 
     def rebase(self, new_base):
         if self._is_mapped:
             return
 
+        if not self._tls_mapped:
+            self._finalize_tls()
+
         backer = bytearray(self.map_size)
         for simdata in self._delayed_writes:
             value = simdata.value()
-            # TODO: is this right for tls?
-            backer[simdata.relative_addr:simdata.relative_addr+len(value)] = value
+            start_addr = simdata.relative_addr
+            if simdata.type == SymbolType.TYPE_TLS_OBJECT:
+                start_addr += self.tls_data_size
+            backer[start_addr:start_addr+len(value)] = value
 
         self.memory.add_backer(0, bytes(backer))
         self.segments.append(ExternSegment(self.map_size))
@@ -151,13 +165,11 @@ class ExternObject(Backend):
 
     def _make_new_externs(self, size, alignment, tls):
         self._next_object = ExternObject(self.loader, map_size=max(size + alignment, 0x8000) if not tls else 0x8000, tls_size=max(size + alignment, 0x1000) if tls else 0x1000)
+        self._next_object._finalize_tls()
         self.loader._internal_load(self._next_object)
 
     def _allocate(self, size=1, alignment=8, thumb=False, tls=False):
         if tls:
-            if not self.tls_used:
-                self.tls_data_start = self.allocate(self.tls_data_size) - self.mapped_base
-                self.tls_used = True
             start = self.tls_next_addr
             limit = self.tls_data_size
         else:
@@ -210,11 +222,15 @@ class ExternObject(Backend):
 
             if self._is_mapped:
                 # TODO: is this right for tls?
-                self.memory.store(symbol.relative_addr, symbol.value())
-            else:
-                self._delayed_writes.append(symbol)
+                if symbol.type == SymbolType.TYPE_TLS_OBJECT:
+                    self.memory.store(self.tls_block_size, symbol.value())
+                else:
+                    self.memory.store(symbol.relative_addr, symbol.value())
+
                 for reloc in relocs:
                     reloc.relocate()
+            else:
+                self._delayed_writes.append(symbol)
 
 
 class KernelObject(Backend):

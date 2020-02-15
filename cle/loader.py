@@ -749,6 +749,9 @@ class Loader:
             extern_obj._next_object = self._extern_object
             self._extern_object = extern_obj
 
+            extern_obj._finalize_tls()
+            self.tls.register_object(extern_obj)
+
         # STEP 3
         # Map everything to memory
         for obj in objects:
