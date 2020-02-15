@@ -53,8 +53,6 @@ class Loader:
                                 in a non-paged environment.
     :param preload_libs:        Similar to `force_load_libs` but will provide for symbol resolution, with precedence
                                 over any dependencies.
-    :param extern_size:         How much space to allocate for externs. Default 0x8000, or 0x80000 for 64-bit
-                                architectures.
     :ivar memory:               The loaded, rebased, and relocated memory of the program.
     :vartype memory:            cle.memory.Clemory
     :ivar main_object:          The object representing the main binary (i.e., the executable).
@@ -79,7 +77,7 @@ class Loader:
                  main_opts=None, lib_opts=None, ld_path=(), use_system_libs=True,
                  ignore_import_version_numbers=True, case_insensitive=False, rebase_granularity=0x1000000,
                  except_missing_libs=False, aslr=False, perform_relocations=True,
-                 page_size=0x1, extern_size=None, preload_libs=(), arch=None):
+                 page_size=0x1, preload_libs=(), arch=None):
         if hasattr(main_binary, 'seek') and hasattr(main_binary, 'read'):
             self._main_binary_path = None
             self._main_binary_stream = main_binary
@@ -106,7 +104,6 @@ class Loader:
         self._case_insensitive = case_insensitive
         self._rebase_granularity = rebase_granularity
         self._except_missing_libs = except_missing_libs
-        self._extern_size = extern_size
         self._relocated_objects = set()
         self._perform_relocations = perform_relocations
 
@@ -213,14 +210,13 @@ class Loader:
                is mapped with a fixed size.
         """
         if self._extern_object is None:
-            if self._extern_size is None:
-                if self.main_object.arch.bits < 32:
-                    self._extern_size = 0x200
-                elif self.main_object.arch.bits == 32:
-                    self._extern_size = 0x8000
-                else:
-                    self._extern_size = 0x80000
-            self._extern_object = ExternObject(self, map_size=self._extern_size)
+            if self.main_object.arch.bits < 32:
+                extern_size = 0x200
+            elif self.main_object.arch.bits == 32:
+                extern_size = 0x8000
+            else:
+                extern_size = 0x80000
+            self._extern_object = ExternObject(self, map_size=extern_size)
             self._internal_load(self._extern_object)
         return self._extern_object
 
