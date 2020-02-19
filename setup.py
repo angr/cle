@@ -22,7 +22,5 @@ setup(
         'pyvex==8.20.1.7',
         'pefile',
         'sortedcontainers>=2.0',
-        'minidump==0.0.10',
-        'pyxbe==0.0.2',
     ]
 )

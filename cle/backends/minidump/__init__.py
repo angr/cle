@@ -2,8 +2,12 @@ import archinfo
 import ntpath
 import struct
 
-from minidump import minidumpfile
-from minidump.streams import SystemInfoStream
+try:
+    from minidump import minidumpfile
+    from minidump.streams import SystemInfoStream
+except ImportError:
+    minidumpfile = None
+    SystemInfoStream = None
 
 from .. import register_backend, Backend
 from ..region import Section
@@ -19,6 +23,8 @@ class MinidumpMissingStreamError(Exception):
 class Minidump(Backend):
     is_default = True
     def __init__(self, *args, **kwargs):
+        if minidumpfile is None:
+            raise CLEError("Run `pip install minidump==0.0.10` to support loading minidump files")
         super(Minidump, self).__init__(*args, **kwargs)
         self.os = 'windows'
         self.supports_nx = True

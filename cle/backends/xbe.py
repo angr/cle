@@ -1,6 +1,9 @@
 import logging
 
-from xbe import Xbe
+try:
+    from xbe import Xbe
+except ImportError:
+    Xbe = None
 
 import archinfo
 
@@ -58,6 +61,8 @@ class XBE(Backend):
     is_default = True
 
     def __init__(self, path, **kwargs):
+        if Xbe is None:
+            raise CLEError("Run `pip install pyxbe==0.0.2` to support loading XBE files")
         super().__init__(path, **kwargs)
         self.set_arch(archinfo.arch_from_id('x86'))
 
