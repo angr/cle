@@ -22,5 +22,9 @@ setup(
         'pyvex==8.20.1.7',
         'pefile',
         'sortedcontainers>=2.0',
-    ]
+    ],
+    extras_require={
+        "minidump": ["minidump==0.0.10"],
+        "xbe": ["pyxbe==0.0.2"],
+    }
 )
