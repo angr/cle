@@ -11,7 +11,7 @@ l = logging.getLogger(name=__name__)
 # TODO: yall know struct.unpack_from exists, right? maybe even bitstream?
 
 
-class CoreNote(object):
+class CoreNote:
     """
     This class is used when parsing the NOTES section of a core file.
     """
