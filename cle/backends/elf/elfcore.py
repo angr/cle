@@ -194,5 +194,6 @@ class ELFCore(ELF):
 
         pos += nreg * arch_bytes
         result['pr_fpvalid'] = struct.unpack("<I", prstatus.desc[pos:pos+4])[0]
+        return result
 
 register_backend('elfcore', ELFCore)
