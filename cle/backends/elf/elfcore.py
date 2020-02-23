@@ -8,6 +8,8 @@ from ...errors import CLEError, CLECompatibilityError
 
 l = logging.getLogger(name=__name__)
 
+# TODO: yall know struct.unpack_from exists, right? maybe even bitstream?
+
 
 class CoreNote(object):
     """
@@ -45,36 +47,9 @@ class ELFCore(ELF):
         super(ELFCore, self).__init__(binary, **kwargs)
 
         self.notes = []
-
-        # siginfo
-        self.si_signo = None
-        self.si_code = None
-        self.si_errno = None
-
-        # prstatus
-        self.pr_cursig = None
-        self.pr_sigpend = None
-        self.pr_sighold = None
-
-        self.pr_pid = None
-        self.pr_ppid = None
-        self.pr_pgrp = None
-        self.pr_sid = None
-
-        self.pr_utime_usec = None
-        self.pr_stime_usec = None
-        self.pr_cutime_usec = None
-        self.pr_cstime_usec = None
-
-        self._registers = None
-
-        self.pr_fpvalid = None
+        self.prstatuses = []
 
         self.__extract_note_info()
-
-        if not self.pr_fpvalid is None and (self.arch.name == 'X86' or self.arch.name == 'AMD64'):
-            if not bool(self.pr_fpvalid):
-                l.warning("No SSE registers could be loaded from core file")
 
     @staticmethod
     def is_compatible(stream):
@@ -89,10 +64,12 @@ class ELFCore(ELF):
 
     @property
     def threads(self):
-        return [0]
+        return list(range(len(self.prstatuses)))
 
     def thread_registers(self, thread=None):
-        return self._registers
+        if thread is None:
+            thread = 0
+        return self.prstatuses[thread]['registers']
 
     def __extract_note_info(self):
         """
@@ -128,12 +105,7 @@ class ELFCore(ELF):
             note_pos += n_size
 
         # prstatus
-        prstatus = [x for x in self.notes if x.n_type == 'NT_PRSTATUS']
-        if len(prstatus) > 1:
-            raise CLEError("Multiple occurences of NT_PRSTATUS notes in core file")
-        prstatus = prstatus[0]
-
-        self.__parse_prstatus(prstatus)
+        self.prstatuses = [self.__parse_prstatus(x) for x in self.notes if x.n_type == 'NT_PRSTATUS']
 
     def __parse_prstatus(self, prstatus):
         """
@@ -145,11 +117,11 @@ class ELFCore(ELF):
 
         # TODO: support all architectures angr supports
 
-        # extract siginfo from prstatus
-        self.si_signo, self.si_code, self.si_errno = struct.unpack("<3I", prstatus.desc[:12])
+        result = {}
+        result['si_signo'], result['si_code'], result['si_errno'] = struct.unpack("<3I", prstatus.desc[:12])
 
         # this field is a short, but it's padded to an int
-        self.pr_cursig = struct.unpack("<I", prstatus.desc[12:16])[0]
+        result['pr_cursig'] = struct.unpack("<I", prstatus.desc[12:16])[0]
 
         arch_bytes = self.arch.bytes
         if arch_bytes == 4:
@@ -159,27 +131,27 @@ class ELFCore(ELF):
         else:
             raise CLEError("Architecture must have a bitwidth of either 64 or 32")
 
-        self.pr_sigpend, self.pr_sighold = struct.unpack("<" + (fmt * 2), prstatus.desc[16:16+(2*arch_bytes)])
+        result['pr_sigpend'], result['pr_sighold'] = struct.unpack("<" + (fmt * 2), prstatus.desc[16:16+(2*arch_bytes)])
 
         attrs = struct.unpack("<IIII", prstatus.desc[16+(2*arch_bytes):16+(2*arch_bytes)+(4*4)])
-        self.pr_pid, self.pr_ppid, self.pr_pgrp, self.pr_sid = attrs
+        result['pr_pid'], result['pr_ppid'], result['pr_pgrp'], result['pr_sid'] = attrs
 
         # parse out the 4 timevals
         pos = 16+(2*arch_bytes)+(4*4)
         usec = struct.unpack("<" + fmt, prstatus.desc[pos:pos+arch_bytes])[0] * 1000
-        self.pr_utime_usec = struct.unpack("<" + fmt, prstatus.desc[pos+arch_bytes:pos+arch_bytes*2])[0] + usec
+        result['pr_utime_usec'] = struct.unpack("<" + fmt, prstatus.desc[pos+arch_bytes:pos+arch_bytes*2])[0] + usec
 
         pos += arch_bytes * 2
         usec = struct.unpack("<" + fmt, prstatus.desc[pos:pos+arch_bytes])[0] * 1000
-        self.pr_stime_usec = struct.unpack("<" + fmt, prstatus.desc[pos+arch_bytes:pos+arch_bytes*2])[0] + usec
+        result['pr_stime_usec'] = struct.unpack("<" + fmt, prstatus.desc[pos+arch_bytes:pos+arch_bytes*2])[0] + usec
 
         pos += arch_bytes * 2
         usec = struct.unpack("<" + fmt, prstatus.desc[pos:pos+arch_bytes])[0] * 1000
-        self.pr_cutime_usec = struct.unpack("<" + fmt, prstatus.desc[pos+arch_bytes:pos+arch_bytes*2])[0] + usec
+        result['pr_cutime_usec'] = struct.unpack("<" + fmt, prstatus.desc[pos+arch_bytes:pos+arch_bytes*2])[0] + usec
 
         pos += arch_bytes * 2
         usec = struct.unpack("<" + fmt, prstatus.desc[pos:pos+arch_bytes])[0] * 1000
-        self.pr_cstime_usec = struct.unpack("<" + fmt, prstatus.desc[pos+arch_bytes:pos+arch_bytes*2])[0] + usec
+        result['pr_cstime_usec'] = struct.unpack("<" + fmt, prstatus.desc[pos+arch_bytes:pos+arch_bytes*2])[0] + usec
 
         pos += arch_bytes * 2
 
@@ -217,10 +189,10 @@ class ELFCore(ELF):
         regvals = []
         for idx in range(pos, pos+nreg*arch_bytes, arch_bytes):
             regvals.append(struct.unpack("<" + fmt, prstatus.desc[idx:idx+arch_bytes])[0])
-        self._registers = dict(zip(rnames, regvals))
-        del self._registers['xxx']
+        result['registers'] = dict(zip(rnames, regvals))
+        del result['registers']['xxx']
 
         pos += nreg * arch_bytes
-        self.pr_fpvalid = struct.unpack("<I", prstatus.desc[pos:pos+4])[0]
+        result['pr_fpvalid'] = struct.unpack("<I", prstatus.desc[pos:pos+4])[0]
 
 register_backend('elfcore', ELFCore)
