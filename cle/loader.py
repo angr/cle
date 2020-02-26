@@ -657,7 +657,9 @@ class Loader:
                 # this is technically the first place we can start to initialize things based on platform
                 self.main_object = obj
                 self.memory = Clemory(obj.arch, root=True)
-                if isinstance(obj, MetaELF):
+                if isinstance(obj, ELFCore):
+                    self.tls = ELFCoreThreadManager(self, obj.arch)
+                elif isinstance(obj, MetaELF):
                     self.tls = ELFThreadManager(self, obj.arch)
                 elif isinstance(obj, PE):
                     self.tls = PEThreadManager(self, obj.arch)
@@ -1096,7 +1098,7 @@ class Loader:
 
 from .errors import CLEError, CLEFileNotFoundError, CLECompatibilityError, CLEOperationError
 from .memory import Clemory
-from .backends import MetaELF, ELF, PE, Soot, Blob, ALL_BACKENDS, Backend
-from .backends.tls import ThreadManager, ELFThreadManager, PEThreadManager, TLSObject
+from .backends import MetaELF, ELF, PE, ELFCore, Blob, ALL_BACKENDS, Backend
+from .backends.tls import ThreadManager, ELFThreadManager, PEThreadManager, ELFCoreThreadManager, TLSObject
 from .backends.externs import ExternObject, KernelObject
 from .utils import stream_or_path

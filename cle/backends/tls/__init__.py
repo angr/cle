@@ -56,4 +56,5 @@ class TLSObject(Backend):
     pass
 
 from .elf_tls import ELFThreadManager
+from .elfcore_tls import ELFCoreThreadManager
 from .pe_tls import PEThreadManager
