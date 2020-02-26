@@ -101,12 +101,17 @@ class ELFCore(ELF):
         if not self._threads:
             l.warning("Could not find thread info, cannot initialize registers")
         elif self.arch.name == 'X86' and 'segments' not in self._threads[0]:
-            l.warning("This core dump does not contain TLS information. threads will be matched to TLS regions via heuristics")
-            pointer_rand = self.auxv['AT_RANDOM'][4:8]
-            all_locations = [addr - 0x18 for addr in self.__dummy_clemory.find(pointer_rand) if self.__dummy_clemory.unpack_word(addr - 0x18) == addr - 0x18]
-            # the heuristic is that generally threads are allocated with descending tls addresses
-            for thread, loc in zip(self._threads, reversed(all_locations)):
-                thread['segments'] = {thread['registers']['gs'] >> 3: (loc, 0xfffff, 0x51)}
+            if 'AT_RANDOM' in self.auxv:
+                l.warning("This core dump does not contain TLS information. threads will be matched to TLS regions via heuristics")
+                pointer_rand = self.auxv['AT_RANDOM'][4:8]
+                all_locations = [addr - 0x18 for addr in self.__dummy_clemory.find(pointer_rand) if self.__dummy_clemory.unpack_word(addr - 0x18) == addr - 0x18]
+                # the heuristic is that generally threads are allocated with descending tls addresses
+                for thread, loc in zip(self._threads, reversed(all_locations)):
+                    thread['segments'] = {thread['registers']['gs'] >> 3: (loc, 0xfffff, 0x51)}
+            else:
+                l.warning("This core dump does not contain TLS or auxv information. TLS information will be wrong.")
+                for thread in self._threads:
+                    thread['segments'] = {thread['registers']['gs'] >> 3: (0, 0xffffffff, 0x51)}
 
     @property
     def __dummy_clemory(self):
