@@ -18,6 +18,7 @@ class FunctionHintSource:
     Enums that describe the source of function hints.
     """
     EH_FRAME = 0
+    EXTERNAL_EH_FRAME = 1
 
 
 class FunctionHint:
