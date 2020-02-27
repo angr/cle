@@ -32,7 +32,7 @@ class ELF(MetaELF):
     """
     is_default = True  # Tell CLE to automatically consider using the ELF backend
 
-    def __init__(self, binary, addend=None, inhibit_close=False, **kwargs):
+    def __init__(self, binary, addend=None, inhibit_close=False, debug_symbols=None, **kwargs):
         super(ELF, self).__init__(binary, **kwargs)
         patch_undo = []
         try:
@@ -102,6 +102,7 @@ class ELF(MetaELF):
         # DWARF data
         #
         self.has_dwarf_info = bool(self.reader.has_dwarf_info())
+        self.build_id = None
 
         # .eh_frame
         self.fdes = [ ] # Frame description entry. All addresses are rebased.
@@ -143,7 +144,14 @@ class ELF(MetaELF):
                 self.has_dwarf_info = False
 
             if dwarf and dwarf.has_EH_CFI():
-                self._load_function_hints_from_fde(dwarf)
+                self._load_function_hints_from_fde(dwarf, FunctionHintSource.EH_FRAME)
+
+        if debug_symbols:
+            self.__process_debug_file(debug_symbols)
+        elif self.loader._load_debug_info and self.build_id:
+            debug_filename = '/usr/lib/debug/.build-id/%s/%s.debug' % (self.build_id[:2], self.build_id[2:])
+            if os.path.isfile(debug_filename):
+                self.__process_debug_file(debug_filename)
 
         # call the methods defined by MetaELF
         self._ppc64_abiv1_entry_fix()
@@ -436,7 +444,7 @@ class ELF(MetaELF):
 
         return RelocClass(self, symbol, address, addend)
 
-    def _load_function_hints_from_fde(self, dwarf):
+    def _load_function_hints_from_fde(self, dwarf, source):
         """
         Load frame description entries out of the .eh_frame section. These entries include function addresses and can be
         used to improve CFG recovery.
@@ -451,7 +459,7 @@ class ELF(MetaELF):
                     self.function_hints.append(FunctionHint(
                         entry.header['initial_location'],
                         entry.header['address_range'],
-                        FunctionHintSource.EH_FRAME,
+                        source,
                     ))
         except (DWARFError, ValueError):
             l.warning("An exception occurred in pyelftools when loading FDE information.",
@@ -855,6 +863,16 @@ class ELF(MetaELF):
                     else: #elif section.type == 'SHT_PROGBITS':
                         self.memory.add_backer(AT.from_lva(section.vaddr, self).to_rva(), sec_readelf.data())
 
+            if sec_readelf.header.sh_type == 'SHT_NOTE':
+                self.__register_notes(sec_readelf)
+
+    def __register_notes(self, sec_readelf):
+        for note in sec_readelf.iter_notes():
+            if note.n_type == 'NT_GNU_BUILD_ID' and note.n_name == 'GNU':
+                if self.build_id is not None and self.build_id != note.n_desc:
+                    l.error("Mismatched build IDs present")
+                self.build_id = note.n_desc
+
     def __register_section_symbols(self, sec_re):
         for sym_re in sec_re.iter_symbols():
             self.symbols.add(self.get_symbol(sym_re))
@@ -892,5 +910,29 @@ class ELF(MetaELF):
 
     def _offset_to_rva(self, offset):
         return AT.from_mva(self.offset_to_addr(offset), self).to_rva()
+
+    def __process_debug_file(self, filename):
+        with open(filename, 'rb') as fp:
+            elf = elffile.ELFFile(fp)
+            for sec_readelf in elf.iter_sections():
+                if isinstance(sec_readelf, elffile.SymbolTableSection):
+                    self.__register_section_symbols(sec_readelf)
+                elif sec_readelf.header.sh_type == 'SHT_NOTE':
+                    self.__register_notes(sec_readelf)
+
+            #has_dwarf_info = bool(elf.has_dwarf_info())
+            #if has_dwarf_info:
+            #    try:
+            #        dwarf = self.reader.get_dwarf_info()
+            #    except ELFError:
+            #        l.warning("An exception occurred in pyelftools when loading the DWARF information on %s.", filename,
+            #                  exc_info=True)
+            #        dwarf = None
+
+                # debug symbols don't have eh_frame ever from what I can tell
+                #if dwarf and dwarf.has_EH_CFI():
+                #    self._load_function_hints_from_fde(dwarf, FunctionHintSource.EXTERNAL_EH_FRAME)
+
+
 
 register_backend('elf', ELF)
