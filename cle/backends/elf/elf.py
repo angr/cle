@@ -160,7 +160,7 @@ class ELF(MetaELF):
         for offset, patch in patch_undo:
             self.memory.store(AT.from_lva(self.min_addr + offset, self).to_rva(), patch)
 
-        if not inhibit_close:
+        if not inhibit_close and self.binary is not None:
             self.binary_stream.close()
 
 
