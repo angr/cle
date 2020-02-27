@@ -492,6 +492,7 @@ class ELF(MetaELF):
         self.reader = elffile.ELFFile(self.binary_stream)
         if self._dynamic and 'DT_STRTAB' in self._dynamic:
             self.strtab = next(x for x in self.reader.iter_segments() if x.header.p_type == 'PT_DYNAMIC')._get_stringtable()
+            self.__neuter_streams(self.strtab)
             if 'DT_SYMTAB' in self._dynamic and 'DT_SYMENT' in self._dynamic:
                 fakesymtabheader = {
                     'sh_offset': AT.from_lva(self._dynamic['DT_SYMTAB'], self).to_rva(),
@@ -515,6 +516,8 @@ class ELF(MetaELF):
                             self.memory,
                             AT.from_lva(self._dynamic['DT_HASH'], self).to_rva(),
                             self.arch)
+
+        self.binary_stream.close()
 
     def __register_segments(self):
         self.linking = 'static'
