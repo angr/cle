@@ -688,8 +688,7 @@ class Loader:
                 cached_failures.add(spec)
                 if self._except_missing_libs:
                     raise
-                else:
-                    continue
+                continue
 
             objects.append(obj)
             dependencies.extend(obj.deps)

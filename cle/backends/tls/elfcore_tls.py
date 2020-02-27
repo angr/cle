@@ -4,7 +4,7 @@ import logging
 l = logging.getLogger(__name__)
 
 class ELFCoreThreadManager:
-    def __init__(self, loader, arch, **kwargs):
+    def __init__(self, loader, arch, **kwargs):  # pylint: disable=unused-argument
         self.loader = loader
         self.arch = arch
         self.threads = [ELFCoreThread(loader, arch, threadinfo) for threadinfo in loader.main_object._threads]
@@ -12,7 +12,7 @@ class ELFCoreThreadManager:
             l.warning("TLS for coredumps won't be right for this arch - idk how to do it")
         self.modules = []  # ???
 
-    def new_thread(self, insert=False):
+    def new_thread(self, insert=False): # pylint: disable=no-self-use
         raise TypeError("Cannot create new threads from a core file... for now")
 
     def register_object(self, obj):

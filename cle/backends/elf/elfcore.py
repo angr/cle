@@ -33,7 +33,6 @@ class CoreNote:
             self.n_type = CoreNote.n_type_lookup[n_type]
         self.name = name
         self.desc = desc
-        self.filename_lookup = []
 
     def __repr__(self):
         return "<Note %s %s %#x>" % (self.name, self.n_type, len(self.desc))
@@ -48,7 +47,7 @@ class ELFCore(ELF):
     def __init__(self, binary, inhibit_close=False, **kwargs):
         super(ELFCore, self).__init__(binary, inhibit_close=True, **kwargs)
 
-        self.notes = []
+        self.filename_lookup = []
         self.__current_thread = None
         self._threads = []
         self.auxv = {}
@@ -236,9 +235,8 @@ class ELFCore(ELF):
                     byte = self.__dummy_clemory[pos]
                     if byte == 0:
                         break
-                    else:
-                        value.append(byte)
-                        pos += 1
+                    value.append(byte)
+                    pos += 1
                 value = bytes(value)
 
             self.auxv[code_str] = value
