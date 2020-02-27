@@ -32,7 +32,7 @@ class ELF(MetaELF):
     """
     is_default = True  # Tell CLE to automatically consider using the ELF backend
 
-    def __init__(self, binary, addend=None, **kwargs):
+    def __init__(self, binary, addend=None, inhibit_close=False, **kwargs):
         super(ELF, self).__init__(binary, **kwargs)
         patch_undo = []
         try:
@@ -152,7 +152,8 @@ class ELF(MetaELF):
         for offset, patch in patch_undo:
             self.memory.store(AT.from_lva(self.min_addr + offset, self).to_rva(), patch)
 
-        self.binary_stream.close()
+        if not inhibit_close:
+            self.binary_stream.close()
 
 
     #

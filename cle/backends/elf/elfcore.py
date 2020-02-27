@@ -45,8 +45,8 @@ class ELFCore(ELF):
     """
     is_default = True # Tell CLE to automatically consider using the ELFCore backend
 
-    def __init__(self, binary, **kwargs):
-        super(ELFCore, self).__init__(binary, **kwargs)
+    def __init__(self, binary, inhibit_close=False, **kwargs):
+        super(ELFCore, self).__init__(binary, inhibit_close=True, **kwargs)
 
         self.notes = []
         self.__current_thread = None
@@ -54,6 +54,9 @@ class ELFCore(ELF):
         self.auxv = {}
 
         self.__extract_note_info()
+
+        if not inhibit_close:
+            self.binary_stream.close()
 
     @staticmethod
     def is_compatible(stream):
