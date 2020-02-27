@@ -68,9 +68,9 @@ def test_local_symbol_reloc():
             reloc_abs = r
 
     nose.tools.assert_is_not_none(reloc_abs_nc)
-    nose.tools.assert_equals(data_vaddr, reloc_abs_nc.resolvedby.rebased_addr)
+    nose.tools.assert_equal(data_vaddr, reloc_abs_nc.resolvedby.rebased_addr)
     nose.tools.assert_is_not_none(reloc_abs)
-    nose.tools.assert_equals(data_vaddr, reloc_abs.resolvedby.rebased_addr)
+    nose.tools.assert_equal(data_vaddr, reloc_abs.resolvedby.rebased_addr)
 
 if __name__ == '__main__':
     test_relocated()

@@ -13,8 +13,8 @@ def test_exe():
     exe = os.path.join(TEST_BASE, 'tests', 'x86', 'windows', 'TLS.exe')
     ld = cle.Loader(exe, auto_load_libs=False)
     nose.tools.assert_true(isinstance(ld.main_object,cle.PE))
-    nose.tools.assert_equals(ld.main_object.os, 'windows')
-    nose.tools.assert_equals(sorted([sec.name for sec in ld.main_object.sections]),
+    nose.tools.assert_equal(ld.main_object.os, 'windows')
+    nose.tools.assert_equal(sorted([sec.name for sec in ld.main_object.sections]),
                              sorted(['.textbss',
                                      '.text\x00\x00\x00',
                                      '.rdata\x00\x00',
@@ -25,11 +25,11 @@ def test_exe():
                                      '.00cfg\x00\x00',
                                      '.rsrc\x00\x00\x00']))
     nose.tools.assert_is(ld.main_object.segments, ld.main_object.sections)
-    nose.tools.assert_equals(sorted(ld.main_object.deps),
+    nose.tools.assert_equal(sorted(ld.main_object.deps),
                              sorted(['kernel32.dll',
                                      'vcruntime140d.dll',
                                      'ucrtbased.dll']))
-    nose.tools.assert_equals(sorted(ld.main_object.imports),
+    nose.tools.assert_equal(sorted(ld.main_object.imports),
                              sorted(['_configure_narrow_argv',
                                      'GetLastError',
                                      'HeapFree',
@@ -107,15 +107,15 @@ def test_tls():
     tls = ld.tls.new_thread()
 
     nose.tools.assert_true(ld.main_object.tls_used)
-    nose.tools.assert_equals(ld.main_object.tls_data_start, 0x1b000)
-    nose.tools.assert_equals(ld.main_object.tls_data_size, 520)
-    nose.tools.assert_equals(ld.main_object.tls_index_address, 0x41913C)
-    nose.tools.assert_equals(ld.main_object.tls_callbacks, [0x411302])
-    nose.tools.assert_equals(ld.main_object.tls_block_size, ld.main_object.tls_data_size)
+    nose.tools.assert_equal(ld.main_object.tls_data_start, 0x1b000)
+    nose.tools.assert_equal(ld.main_object.tls_data_size, 520)
+    nose.tools.assert_equal(ld.main_object.tls_index_address, 0x41913C)
+    nose.tools.assert_equal(ld.main_object.tls_callbacks, [0x411302])
+    nose.tools.assert_equal(ld.main_object.tls_block_size, ld.main_object.tls_data_size)
 
     nose.tools.assert_is_not_none(tls)
-    nose.tools.assert_equals(len(ld.tls.modules), 1)
-    nose.tools.assert_equals(tls.get_tls_data_addr(0), tls.memory.unpack_word(0))
+    nose.tools.assert_equal(len(ld.tls.modules), 1)
+    nose.tools.assert_equal(tls.get_tls_data_addr(0), tls.memory.unpack_word(0))
     nose.tools.assert_raises(IndexError, tls.get_tls_data_addr, 1)
 
 if __name__ == '__main__':
