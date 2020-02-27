@@ -1,12 +1,10 @@
-import binascii
-
 from ...address_translator import AT
 from .. import register_backend
 from ..elf import ELF
 from ...patched_stream import PatchedStream
 
-ELF_HEADER = binascii.unhexlify("7f45 4c46 0101 0100 0000 0000 0000 0000".replace(" ", ""))
-CGC_HEADER = binascii.unhexlify("7f43 4743 0101 0143 014d 6572 696e 6f00".replace(" ", ""))
+ELF_HEADER = bytes.fromhex("7f454c46010101000000000000000000")
+CGC_HEADER = bytes.fromhex("7f43474301010143014d6572696e6f00")
 
 
 class CGC(ELF):
@@ -33,7 +31,7 @@ class CGC(ELF):
     @staticmethod
     def is_compatible(stream):
         stream.seek(0)
-        identstring = stream.read(0x1000)
+        identstring = stream.read(4)
         stream.seek(0)
         if identstring.startswith(b'\x7fCGC'):
             return True
