@@ -1,25 +1,144 @@
-
 import bisect
 import struct
 from typing import Tuple, Union, List
 
-__all__ = ('Clemory',)
+__all__ = ('ClemoryBase', 'Clemory', 'ClemoryView')
 
+class ClemoryBase:
+    __slots__ = ('_arch', '_pointer')
+    def __init__(self, arch):
+        self._arch = arch
+        self._pointer = 0
 
-class Clemory:
+    def __getitem__(self, k):
+        raise NotImplementedError
 
-    __slots__ = ('_arch', '_backers', '_pointer', '_root',
-                 'consecutive', 'min_addr', 'max_addr', 'concrete_target' )
+    def __setitem__(self, k, v):
+        raise NotImplementedError
 
+    def __contains__(self, k):
+        raise NotImplementedError
+
+    def load(self, addr, n):
+        raise NotImplementedError
+
+    def store(self, addr, data):
+        raise NotImplementedError
+
+    def backers(self, addr=0):
+        raise NotImplementedError
+
+    def find(self, data, start=None, end=None):
+        raise NotImplementedError
+
+    def unpack(self, addr, fmt):
+        """
+        Use the ``struct`` module to unpack the data at address `addr` with the format `fmt`.
+        """
+
+        try:
+            start, backer = next(self.backers(addr))
+        except StopIteration:
+            raise KeyError(addr)
+
+        if start > addr:
+            raise KeyError(addr)
+
+        try:
+            return struct.unpack_from(fmt, backer, addr - start)
+        except struct.error as e:
+            if len(backer) - (addr - start) >= struct.calcsize(fmt):
+                raise e
+            raise KeyError(addr)
+
+    def unpack_word(self, addr, size=None, signed=False, endness=None):
+        """
+        Use the ``struct`` module to unpack a single integer from the address `addr`.
+
+        You may override any of the attributes of the word being extracted:
+
+        :param int size:    The size in bytes to pack/unpack. Defaults to wordsize (e.g. 4 bytes on
+                            a 32 bit architecture)
+        :param bool signed: Whether the data should be extracted signed/unsigned. Default unsigned
+        :param archinfo.Endness endness: The endian to use in packing/unpacking. Defaults to memory endness
+        """
+        return self.unpack(addr, self._arch.struct_fmt(size=size, signed=signed, endness=endness))[0]
+
+    def pack(self, addr, fmt, *data):
+        """
+        Use the ``struct`` module to pack `data` into memory at address `addr` with the format `fmt`.
+        """
+
+        try:
+            start, backer = next(self.backers(addr))
+        except StopIteration:
+            raise KeyError(addr)
+
+        if start > addr:
+            raise KeyError(addr)
+
+        try:
+            return struct.pack_into(fmt, backer, addr - start, *data)
+        except struct.error as e:
+            if len(backer) - (addr - start) >= struct.calcsize(fmt):
+                raise e
+            raise KeyError(addr)
+
+    def pack_word(self, addr, data, size=None, signed=False, endness=None):
+        """
+        Use the ``struct`` module to pack a single integer `data` into memory at the address `addr`.
+
+        You may override any of the attributes of the word being packed:
+
+        :param int size:    The size in bytes to pack/unpack. Defaults to wordsize (e.g. 4 bytes on
+                            a 32 bit architecture)
+        :param bool signed: Whether the data should be extracted signed/unsigned. Default unsigned
+        :param archinfo.Endness endness: The endian to use in packing/unpacking. Defaults to memory endness
+        """
+        if not signed:
+            data &= (1 << (size*8 if size is not None else self._arch.bits)) - 1
+        return self.pack(addr, self._arch.struct_fmt(size=size, signed=signed, endness=endness), data)
+
+    def read(self, nbytes):
+        """
+        The stream-like function that reads up to a number of bytes starting from the current
+        position and updates the current position. Use with :func:`seek`.
+
+        Up to `nbytes` bytes will be read, halting at the beginning of the first unmapped region
+        encountered.
+        """
+
+        try:
+            out = self.load(self._pointer, nbytes)
+        except KeyError:
+            return b''
+        else:
+            self._pointer += len(out)
+            return out
+
+    def seek(self, value):
+        """
+        The stream-like function that sets the "file's" current position. Use with :func:`read()`.
+
+        :param value:        The position to seek to.
+        """
+        self._pointer = value
+
+    def tell(self):
+        return self._pointer
+
+class Clemory(ClemoryBase):
     """
     An object representing a memory space.
 
     Accesses can be made with [index] notation.
     """
+
+    __slots__ = ('_backers', '_root', 'consecutive', 'min_addr', 'max_addr', 'concrete_target' )
+
     def __init__(self, arch, root=False):
-        self._arch = arch
+        super().__init__(arch)
         self._backers = []  # type: List[Tuple[int, Union[bytearray, Clemory, List[int]]]]
-        self._pointer = 0
         self._root = root
 
         self.consecutive = True
@@ -89,7 +208,6 @@ class Clemory:
                     yield start + x
 
     def __getitem__(self, k):
-
         # concrete memory read
         if self.is_concrete_target_set():
             # l.debug("invoked get_byte %x" % (k))
@@ -241,106 +359,6 @@ class Clemory:
         if data:
             raise KeyError(addr)
 
-    def unpack(self, addr, fmt):
-        """
-        Use the ``struct`` module to unpack the data at address `addr` with the format `fmt`.
-        """
-
-        try:
-            start, backer = next(self.backers(addr))
-        except StopIteration:
-            raise KeyError(addr)
-
-        if start > addr:
-            raise KeyError(addr)
-
-        try:
-            return struct.unpack_from(fmt, backer, addr - start)
-        except struct.error as e:
-            if len(backer) - (addr - start) >= struct.calcsize(fmt):
-                raise e
-            raise KeyError(addr)
-
-    def unpack_word(self, addr, size=None, signed=False, endness=None):
-        """
-        Use the ``struct`` module to unpack a single integer from the address `addr`.
-
-        You may override any of the attributes of the word being extracted:
-
-        :param int size:    The size in bytes to pack/unpack. Defaults to wordsize (e.g. 4 bytes on
-                            a 32 bit architecture)
-        :param bool signed: Whether the data should be extracted signed/unsigned. Default unsigned
-        :param str archinfo.Endness: The endian to use in packing/unpacking. Defaults to memory endness
-        """
-        return self.unpack(addr, self._arch.struct_fmt(size=size, signed=signed, endness=endness))[0]
-
-    def pack(self, addr, fmt, *data):
-        """
-        Use the ``struct`` module to pack `data` into memory at address `addr` with the format `fmt`.
-        """
-
-        try:
-            start, backer = next(self.backers(addr))
-        except StopIteration:
-            raise KeyError(addr)
-
-        if start > addr:
-            raise KeyError(addr)
-
-        try:
-            return struct.pack_into(fmt, backer, addr - start, *data)
-        except struct.error as e:
-            if len(backer) - (addr - start) >= struct.calcsize(fmt):
-                raise e
-            raise KeyError(addr)
-
-    def pack_word(self, addr, data, size=None, signed=False, endness=None):
-        """
-        Use the ``struct`` module to pack a single integer `data` into memory at the address `addr`.
-
-        You may override any of the attributes of the word being packed:
-
-        :param int size:    The size in bytes to pack/unpack. Defaults to wordsize (e.g. 4 bytes on
-                            a 32 bit architecture)
-        :param bool signed: Whether the data should be extracted signed/unsigned. Default unsigned
-        :param str archinfo.Endness: The endian to use in packing/unpacking. Defaults to memory endness
-        """
-        if not signed:
-            data &= (1 << (size*8 if size is not None else self._arch.bits)) - 1
-        return self.pack(addr, self._arch.struct_fmt(size=size, signed=signed, endness=endness), data)
-
-    def read(self, nbytes):
-        """
-        The stream-like function that reads up to a number of bytes starting from the current
-        position and updates the current position. Use with :func:`seek`.
-
-        Up to `nbytes` bytes will be read, halting at the beginning of the first unmapped region
-        encountered.
-        """
-
-        if self.is_concrete_target_set():
-            # l.debug("invoked read %x" % (nbytes))
-            return self.concrete_target.read_memory(self._pointer, nbytes)
-
-        try:
-            out = self.load(self._pointer, nbytes)
-        except KeyError:
-            return b''
-        else:
-            self._pointer += len(out)
-            return out
-
-    def seek(self, value):
-        """
-        The stream-like function that sets the "file's" current position. Use with :func:`read()`.
-
-        :param value:        The position to seek to.
-        """
-        self._pointer = value
-
-    def tell(self):
-        return self._pointer
-
     def find(self, data, search_min=None, search_max=None):
         """
         Find all occurances of a bytestring in memory.
@@ -414,3 +432,85 @@ class Clemory:
         self.consecutive = is_consecutive
         self.min_addr = min_addr
         self.max_addr = max_addr
+
+
+class ClemoryView(ClemoryBase):
+    def __init__(self, backer, start, end, offset=0):
+        """
+        A Clemory which presents a subset of another Clemory as an address space
+
+        :param backer:  The parent clemory to use
+        :param start:   The address in the parent to start at
+        :param end:     The address in the parent to end at (exclusive)
+        :param offset:  Where the address space should start in this Clemory. Default 0.
+        """
+        super().__init__(backer._arch)
+        self._backer = backer
+        self._start = start
+        self._end = end
+        self._offset = offset
+        self._endoffset = offset + (end - start)
+        self._rebase = self._start - self._offset
+
+    def __getitem__(self, k):
+        if not self._offset <= k < self._endoffset:
+            raise KeyError(k)
+        return self._backer[k + self._rebase]
+
+    def __setitem__(self, k, v):
+        if not self._offset <= k < self._endoffset:
+            raise KeyError(k)
+        return self._backer[k + self._rebase]
+
+    def __contains__(self, k):
+        if not self._offset <= k < self._endoffset:
+            raise KeyError(k)
+        return k + self._rebase in self._backer
+
+    def backers(self, addr=0):
+        for addr, backer in self._backer.backers(addr + self._rebase):
+            taddr = addr - self._rebase
+            if self._offset <= taddr < self._endoffset and self._offset <= taddr + len(backer) - 1 < self._endoffset:
+                yield taddr, backer
+            elif taddr >= self._endoffset or taddr + len(backer) - 1 < self._offset:
+                continue
+            else:
+                # clamp it via a memoryview
+                view = memoryview(backer)
+                if taddr + len(backer) - 1 >= self._endoffset:
+                    clamp_end = len(backer) - self._endoffset + taddr
+                else:
+                    clamp_end = len(backer)
+
+                if taddr < self._offset:
+                    clamp_start = self._offset - taddr
+                else:
+                    clamp_start = 0
+
+                yield taddr, view[clamp_start:clamp_end]
+
+    def load(self, addr, n):
+        if n == 0:
+            return b''
+        if not self._offset <= addr < self._endoffset:
+            raise KeyError(addr)
+        if not self._offset <= addr + n - 1 < self._endoffset:
+            raise KeyError(addr + n - 1)
+        return self._backer.load(addr + self._rebase, n)
+
+    def store(self, addr, data):
+        if not data:
+            return
+        if not self._offset <= addr < self._endoffset:
+            raise KeyError(addr)
+        if not self._offset <= addr + len(data) - 1 < self._endoffset:
+            raise KeyError(addr + len(data) - 1)
+        return self._backer.store(addr + self._rebase, data)
+
+    def find(self, data, start=None, end=None):
+        if start is None or start < self._start:
+            start = self._start
+        if end is None or end > self._end:
+            end = self._end
+        return self._backer.find(data, start=start + self._rebase, end=end + self._rebase)
+
