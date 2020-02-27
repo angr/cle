@@ -13,9 +13,9 @@ def test_xbe():
     xbe = os.path.join(TEST_BASE, 'tests', 'x86', 'xbox', 'triangle.xbe')
     ld = cle.Loader(xbe, auto_load_libs=False)
     nose.tools.assert_true(isinstance(ld.main_object,cle.XBE))
-    nose.tools.assert_equals(ld.main_object.os, 'xbox')
-    nose.tools.assert_equals(ld.main_object.mapped_base, 0x10000)
-    nose.tools.assert_equals(sorted([sec.name for sec in ld.main_object.sections]),
+    nose.tools.assert_equal(ld.main_object.os, 'xbox')
+    nose.tools.assert_equal(ld.main_object.mapped_base, 0x10000)
+    nose.tools.assert_equal(sorted([sec.name for sec in ld.main_object.sections]),
                              sorted(['.rdata',
                                      '.bss',
                                      '.data',
