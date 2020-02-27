@@ -28,7 +28,7 @@ class ClemoryBase:
     def backers(self, addr=0):
         raise NotImplementedError
 
-    def find(self, data, start=None, end=None):
+    def find(self, data, search_min=None, search_max=None):
         raise NotImplementedError
 
     def unpack(self, addr, fmt):
@@ -468,8 +468,8 @@ class ClemoryView(ClemoryBase):
         return k + self._rebase in self._backer
 
     def backers(self, addr=0):
-        for addr, backer in self._backer.backers(addr + self._rebase):
-            taddr = addr - self._rebase
+        for oaddr, backer in self._backer.backers(addr=addr + self._rebase):
+            taddr = oaddr - self._rebase
             if self._offset <= taddr < self._endoffset and self._offset <= taddr + len(backer) - 1 < self._endoffset:
                 yield taddr, backer
             elif taddr >= self._endoffset or taddr + len(backer) - 1 < self._offset:
@@ -505,12 +505,11 @@ class ClemoryView(ClemoryBase):
             raise KeyError(addr)
         if not self._offset <= addr + len(data) - 1 < self._endoffset:
             raise KeyError(addr + len(data) - 1)
-        return self._backer.store(addr + self._rebase, data)
+        self._backer.store(addr + self._rebase, data)
 
-    def find(self, data, start=None, end=None):
-        if start is None or start < self._start:
-            start = self._start
-        if end is None or end > self._end:
-            end = self._end
-        return self._backer.find(data, start=start + self._rebase, end=end + self._rebase)
-
+    def find(self, data, search_min=None, search_max=None):
+        if search_min is None or search_min < self._start:
+            search_min = self._start
+        if search_max is None or search_max > self._end:
+            search_max = self._end
+        return self._backer.find(data, search_min=search_min + self._rebase, search_max=search_max + self._rebase)
