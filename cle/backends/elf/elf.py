@@ -152,6 +152,8 @@ class ELF(MetaELF):
         for offset, patch in patch_undo:
             self.memory.store(AT.from_lva(self.min_addr + offset, self).to_rva(), patch)
 
+        self.binary_stream.close()
+
 
     #
     # Properties and Public Methods
@@ -563,8 +565,10 @@ class ELF(MetaELF):
         self.extra_load_path = self.__parse_rpath(runpath, rpath)
 
         self.strtab = seg_readelf._get_stringtable()
+        self.__neuter_streams(self.strtab)
 
         # To extract symbols from binaries without section headers, we need to hack into pyelftools.
+        # TODO: pyelftools is less bad than it used to be. how much of this can go away?
         # None of the following things make sense without a string table or a symbol table
         if 'DT_STRTAB' in self._dynamic and 'DT_SYMTAB' in self._dynamic and 'DT_SYMENT' in self._dynamic:
                 # Construct our own symbol table to hack around pyreadelf assuming section headers are around
@@ -578,7 +582,7 @@ class ELF(MetaELF):
                 self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.reader, self.strtab)
                 self.dynsym.stream = self.memory
 
-                # set up the hash table, prefering the gnu hash section to the old hash section
+                # set up the hash table, preferring the gnu hash section to the old hash section
                 # the hash table lets you get any symbol given its name
                 if 'DT_GNU_HASH' in self._dynamic:
                     self.hashtable = GNUHashTable(
@@ -871,5 +875,18 @@ class ELF(MetaELF):
             self.relocs.append(reloc)
             self.jmprel[symbol.name] = reloc
         return True
+
+    def __neuter_streams(self, obj):
+        if isinstance(obj, elftools.elf.dynamic._DynamicStringTable):
+           obj._stream = self.memory
+           obj._table_offset = self._offset_to_rva(obj._table_offset)
+        elif isinstance(obj, elftools.elf.sections.Section):
+            obj.stream = self.memory
+            obj.header.sh_offset = self._offset_to_rva(obj.header.sh_offset)
+        else:
+            raise TypeError("Can't convert %r" % type(obj))
+
+    def _offset_to_rva(self, offset):
+        return AT.from_mva(self.offset_to_addr(offset), self).to_rva()
 
 register_backend('elf', ELF)
