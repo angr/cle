@@ -55,7 +55,7 @@ class ELFCore(ELF):
 
         self.__extract_note_info()
 
-        if not inhibit_close:
+        if not inhibit_close and self.binary is not None:
             self.binary_stream.close()
 
     @staticmethod
