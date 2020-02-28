@@ -18,8 +18,8 @@ class ELFCore(ELF):
     """
     is_default = True # Tell CLE to automatically consider using the ELFCore backend
 
-    def __init__(self, binary, **kwargs):
-        super(ELFCore, self).__init__(binary, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super(ELFCore, self).__init__(*args, **kwargs)
 
         self.filename_lookup = []
         self.__current_thread = None
