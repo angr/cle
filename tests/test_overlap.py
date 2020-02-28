@@ -5,7 +5,7 @@ import os
 
 class MockBackend(cle.backends.Backend):
     def __init__(self, linked_base, size, **kwargs):
-        super(MockBackend, self).__init__('/dev/zero', None, **kwargs)
+        super().__init__('/dev/zero', None, **kwargs)
         self.mapped_base = self.linked_base = linked_base
         self.size = size
         self.pic = True

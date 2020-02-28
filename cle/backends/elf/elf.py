@@ -33,7 +33,7 @@ class ELF(MetaELF):
     is_default = True  # Tell CLE to automatically consider using the ELF backend
 
     def __init__(self, *args, addend=None, debug_symbols=None, **kwargs):
-        super(ELF, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         patch_undo = []
         try:
             self._reader = elffile.ELFFile(self._binary_stream)

@@ -28,7 +28,7 @@ class AbstractMachOSymbol(Symbol):
     """
 
     def __init__(self, owner, name, relative_addr, size, sym_type):
-        super(AbstractMachOSymbol,self).__init__(owner,name,relative_addr,size,sym_type)
+        super().__init__(owner,name,relative_addr,size,sym_type)
 
         # additional properties
         self.bind_xrefs = []  # XREFs discovered during binding of the symbol
@@ -76,7 +76,7 @@ class SymbolTableSymbol(AbstractMachOSymbol):
         # now we may call super
         # however we cannot access any properties yet that would touch superclass-initialized attributes
         # so we have to repeat some work
-        super(SymbolTableSymbol, self).__init__(owner,
+        super().__init__(owner,
                owner.get_string(n_strx).decode('utf-8') if n_strx != 0 else "",
                 self.value,
                 owner.arch.bytes,
@@ -243,7 +243,7 @@ class BindingSymbol(AbstractMachOSymbol):
         # now we may call super
         # however we cannot access any properties yet that would touch superclass-initialized attributes
         # so we have to repeat some work
-        super(BindingSymbol, self).__init__(owner,
+        super().__init__(owner,
                                                 name,
                                                 0,
                                                 owner.arch.bytes,

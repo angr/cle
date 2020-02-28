@@ -15,7 +15,7 @@ l = logging.getLogger(name=__name__)
 
 class XBESection(Section):
     def __init__(self, name, file_offset, file_size, virtual_addr, virtual_size, xbe_sec):
-        super(XBESection, self).__init__(name, file_offset, virtual_addr, virtual_size)
+        super().__init__(name, file_offset, virtual_addr, virtual_size)
         self.filesize = file_size
         self._xbe_sec = xbe_sec
 

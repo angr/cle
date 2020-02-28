@@ -17,7 +17,7 @@ class CGC(ELF):
 
     def __init__(self, binary, binary_stream, *args, **kwargs):
         binary_stream = PatchedStream(binary_stream, [(0, ELF_HEADER)])
-        super(CGC, self).__init__(binary, binary_stream, *args, **kwargs)
+        super().__init__(binary, binary_stream, *args, **kwargs)
         self.memory.store(AT.from_raw(0, self).to_rva(), CGC_HEADER)  # repair the CGC header
         self.os = 'cgc'
         self.execstack = True  # the stack is always executable in CGC
@@ -33,7 +33,7 @@ class CGC(ELF):
 
     def _load_segment(self, seg):
         if seg.header.p_memsz > 0:
-            super(CGC, self)._load_segment(seg)
+            super()._load_segment(seg)
 
     supported_filetypes = ['cgc']
 

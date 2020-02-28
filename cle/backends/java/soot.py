@@ -37,7 +37,7 @@ class Soot(Backend):
         if kwargs.get('has_memory', False):
             raise CLEError('The parameter "has_memory" must be False for Soot backend.')
 
-        super(Soot, self).__init__(*args, has_memory=False, **kwargs)
+        super().__init__(*args, has_memory=False, **kwargs)
         if self.binary is None:
             raise ValueError("Cannot use the Soot backend loading from a stream")
 

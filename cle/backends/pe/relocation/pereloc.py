@@ -8,7 +8,7 @@ class PEReloc(Relocation):
     AUTO_HANDLE_NONE = True
 
     def __init__(self, owner, symbol, addr, resolvewith=None):   # pylint: disable=unused-argument
-        super(PEReloc, self).__init__(owner, symbol, addr)
+        super().__init__(owner, symbol, addr)
 
         self.resolvewith = resolvewith
         if self.resolvewith is not None:
@@ -17,7 +17,7 @@ class PEReloc(Relocation):
     def resolve_symbol(self, solist, bypass_compatibility=False, extern_object=None, **kwargs):
         if not bypass_compatibility:
             solist = [x for x in solist if self.resolvewith == x.provides]
-        super(PEReloc, self).resolve_symbol(solist, bypass_compatibility=bypass_compatibility, extern_object=extern_object, **kwargs)
+        super().resolve_symbol(solist, bypass_compatibility=bypass_compatibility, extern_object=extern_object, **kwargs)
 
         if self.resolvedby is None:
             return

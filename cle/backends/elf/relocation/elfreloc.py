@@ -6,7 +6,7 @@ l = logging.getLogger(name=__name__)
 
 class ELFReloc(Relocation):
     def __init__(self, owner, symbol, relative_addr, addend=None):
-        super(ELFReloc, self).__init__(owner, symbol, relative_addr)
+        super().__init__(owner, symbol, relative_addr)
 
         if addend is not None:
             self.is_rela = True

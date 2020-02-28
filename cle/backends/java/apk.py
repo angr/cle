@@ -64,7 +64,7 @@ class Apk(Soot):
                 l.error("Install pyaxmlparser to identify APK entry point.")
 
         # the actual lifting is done by the Soot superclass
-        super(Apk, self).__init__(apk_path, binary_stream,
+        super().__init__(apk_path, binary_stream,
                                   input_format='apk',
                                   android_sdk=android_sdk,
                                   entry_point=entry_point,

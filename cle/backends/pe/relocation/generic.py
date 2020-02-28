@@ -18,7 +18,7 @@ class IMAGE_REL_BASED_ABSOLUTE(PEReloc):
 
 class IMAGE_REL_BASED_HIGHADJ(PEReloc):
     def __init__(self, owner, addr, next_rva):
-        super(IMAGE_REL_BASED_HIGHADJ, self).__init__(owner, None, addr)
+        super().__init__(owner, None, addr)
         self.next_rva = next_rva
     @property
     def value(self):

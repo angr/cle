@@ -24,7 +24,7 @@ class MetaELF(Backend):
     A base class that implements functions used by all backends that can load an ELF.
     """
     def __init__(self, *args, **kwargs):
-        super(MetaELF, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         tmp_reader = elftools.elf.elffile.ELFFile(self._binary_stream)
         self.os = describe_ei_osabi(tmp_reader.header.e_ident.EI_OSABI)
         self.elfflags = tmp_reader.header.e_flags

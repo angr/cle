@@ -40,11 +40,11 @@ class ELFSymbol(Symbol):
         if owner.is_relocatable and isinstance(sec_ndx, int):
             value += owner.sections[sec_ndx].remap_offset
 
-        super(ELFSymbol, self).__init__(owner,
-                                        maybedecode(symb.name),
-                                        AT.from_lva(value, owner).to_rva(),
-                                        symb.entry.st_size,
-                                        self.type)
+        super().__init__(owner,
+                         maybedecode(symb.name),
+                         AT.from_lva(value, owner).to_rva(),
+                         symb.entry.st_size,
+                         self.type)
 
         self.binding = symb.entry.st_info.bind
         self.is_hidden = symb.entry['st_other']['visibility'] == 'STV_HIDDEN'

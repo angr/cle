@@ -39,7 +39,7 @@ class Jar(Soot):
                 entry_point = main_class + "." + "main"
 
         # the actual lifting is done by the Soot superclass
-        super(Jar, self).__init__(jar_path, binary_stream,
+        super().__init__(jar_path, binary_stream,
                                   input_format='jar',
                                   entry_point=entry_point,
                                   entry_point_params=entry_point_params,

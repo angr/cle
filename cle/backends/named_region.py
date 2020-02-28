@@ -32,7 +32,7 @@ class NamedRegion(Backend):
         :param kwargs:
         """
         self.name = name
-        super(NamedRegion, self).__init__(name, None, **kwargs)
+        super().__init__(name, None, **kwargs)
         self._min_addr = start
         self.linked_base = start
         self._max_addr = end

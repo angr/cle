@@ -19,7 +19,7 @@ class ELFCore(ELF):
     is_default = True # Tell CLE to automatically consider using the ELFCore backend
 
     def __init__(self, *args, **kwargs):
-        super(ELFCore, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.filename_lookup = []
         self.__current_thread = None
@@ -255,7 +255,5 @@ auxv_codes = {
  0x2d: 'AT_L2_CACHEGEOMETRY',
  0x2e: 'AT_L3_CACHESIZE',
  0x2f: 'AT_L3_CACHEGEOMETRY'}
-
-
 
 register_backend('elfcore', ELFCore)

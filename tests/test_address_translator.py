@@ -6,7 +6,7 @@ from cle.address_translator import AT
 
 class MockBackend(cle.Backend):
     def __init__(self, linked_base, mapped_base, *nargs, **kwargs):
-        super(MockBackend, self).__init__("/dev/zero", None, *nargs, **kwargs)
+        super().__init__("/dev/zero", None, *nargs, **kwargs)
         regions = [
             cle.Region(0x000000, 0x8048000, 0x1b2d30, 0x1b2d30),
             cle.Region(0x1b3260, 0x81fc260, 0x002c74, 0x0057bc)
