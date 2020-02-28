@@ -140,11 +140,7 @@ class Loader:
     # Basic functions and properties
 
     def close(self):
-        """
-        Release any resources held by this loader.
-        """
-        for obj in self.all_objects:
-            obj.close()
+        l.warning("You don't need to close the loader anymore :)")
 
     def __repr__(self):
         if self._main_binary_stream is None:
@@ -782,36 +778,46 @@ class Loader:
         if isinstance(spec, Backend):
             return spec
         elif hasattr(spec, 'read') and hasattr(spec, 'seek'):
-            full_spec = spec
+            binary_stream = spec
+            binary = None
+            close = False
         elif type(spec) in (bytes, str):
-            full_spec = self._search_load_path(spec) # this is allowed to cheat and do partial static loading
-            l.debug("... using full path %s", full_spec)
+            binary = self._search_load_path(spec) # this is allowed to cheat and do partial static loading
+            l.debug("... using full path %s", binary)
+            binary_stream = open(binary, 'rb')
+            close = True
         else:
             raise CLEError("Bad library specification: %s" % spec)
 
-        # STEP 2: collect options
-        if self.main_object is None:
-            options = self._main_opts
-        else:
-            for ident in self._possible_idents(full_spec): # also allowed to cheat
-                if ident in self._lib_opts:
-                    options = self._lib_opts[ident]
-                    break
+        try:
+            # STEP 2: collect options
+            if self.main_object is None:
+                options = self._main_opts
             else:
-                options = {}
+                for ident in self._possible_idents(binary_stream if binary is None else binary): # also allowed to cheat
+                    if ident in self._lib_opts:
+                        options = self._lib_opts[ident]
+                        break
+                else:
+                    options = {}
 
-        # STEP 3: identify backend
-        backend_spec = options.pop('backend', None)
-        backend_cls = self._backend_resolver(backend_spec)
-        if backend_cls is None:
-            backend_cls = self._static_backend(full_spec)
-        if backend_cls is None:
-            raise CLECompatibilityError("Unable to find a loader backend for %s.  Perhaps try the 'blob' loader?" % spec)
+            # STEP 3: identify backend
+            backend_spec = options.pop('backend', None)
+            backend_cls = self._backend_resolver(backend_spec)
+            if backend_cls is None:
+                backend_cls = self._static_backend(binary_stream if binary is None else binary)
+            if backend_cls is None:
+                raise CLECompatibilityError("Unable to find a loader backend for %s.  Perhaps try the 'blob' loader?" % spec)
 
-        # STEP 4: LOAD!
-        l.debug("... loading with %s", backend_cls)
+            # STEP 4: LOAD!
+            l.debug("... loading with %s", backend_cls)
 
-        return backend_cls(full_spec, is_main_bin=self.main_object is None, loader=self, **options)
+            result = backend_cls(binary, binary_stream, is_main_bin=self.main_object is None, loader=self, **options)
+            result.close()
+            return result
+        finally:
+            if close:
+                binary_stream.close()
 
     def _map_object(self, obj):
         """
@@ -835,8 +841,7 @@ class Loader:
         else:
             if obj._custom_base_addr is not None and not isinstance(obj, Blob):
                 l.warning("%s: base_addr was specified but the object is not PIC. "
-                          "specify force_rebase=True to override",
-                          os.path.basename(obj.binary) if obj.binary is not None else obj.binary_stream)
+                          "specify force_rebase=True to override", obj.binary_basename)
             base_addr = obj.linked_base
             if not self._is_range_free(obj.linked_base, obj_size):
                 raise CLEError("Position-DEPENDENT object %s cannot be loaded at %#x"% (obj.binary, base_addr))

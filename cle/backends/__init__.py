@@ -49,6 +49,7 @@ class Backend:
     An alternate interface to this constructor exists as the static method :meth:`cle.loader.Loader.load_object`
 
     :ivar binary:           The path to the file this object is loaded from
+    :ivar binary_basename:  The basename of the filepath, or a short representation of the stream it was loaded from
     :ivar is_main_bin:      Whether this binary is loaded as the main executable
     :ivar segments:         A listing of all the loaded segments in this file
     :ivar sections:         A listing of all the demarked sections in the file
@@ -78,9 +79,9 @@ class Backend:
 
     def __init__(self,
             binary,
+            binary_stream,
             loader=None,
             is_main_bin=False,
-            filename=None,
             entry_point=None,
             arch=None,
             base_addr=None,
@@ -89,17 +90,17 @@ class Backend:
             **kwargs):
         """
         :param binary:          The path to the binary to load
+        :param binary_stream:   The open stream to this binary. The reference to this will be held until you call close.
         :param is_main_bin:     Whether this binary should be loaded as the main executable
         """
-        if hasattr(binary, 'seek') and hasattr(binary, 'read'):
-            self.binary = filename
-            self.binary_stream = binary
+        self.binary = binary
+        self._binary_stream = binary_stream
+        if self.binary is not None:
+            self.binary_basename = os.path.basename(self.binary)
+        elif hasattr(self._binary_stream, "name"):
+            self.binary_basename = os.path.basename(self._binary_stream.name)
         else:
-            self.binary = binary
-            try:
-                self.binary_stream = open(binary, 'rb')
-            except IOError:
-                self.binary_stream = None
+            self.binary_basename = str(self._binary_stream)
 
         for k in list(kwargs.keys()):
             if k == 'custom_entry_point':
@@ -183,9 +184,7 @@ class Backend:
             raise CLEError("Bad parameter: arch=%s" % arch)
 
     def close(self):
-        if self.binary_stream is not None:
-            self.binary_stream.close()
-            self.binary_stream = None
+        del self._binary_stream
 
     def __repr__(self):
         if self.binary is not None:

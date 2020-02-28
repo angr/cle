@@ -60,17 +60,17 @@ class XBE(Backend):
     """
     is_default = True
 
-    def __init__(self, path, **kwargs):
+    def __init__(self, *args, **kwargs):
         if Xbe is None:
             raise CLEError("Run `pip install pyxbe==0.0.2` to support loading XBE files")
-        super().__init__(path, **kwargs)
+        super().__init__(*args, **kwargs)
         self.set_arch(archinfo.arch_from_id('x86'))
 
         self.os = 'xbox'
         if self.binary is None:
-            self._xbe = Xbe(data=self.binary_stream.read())
+            self._xbe = Xbe(data=self._binary_stream.read())
         else:
-            self._xbe = Xbe.from_file(path)
+            self._xbe = Xbe.from_file(self.binary)
         self._entry = self._xbe.entry_addr
         self._image_vmem = bytearray(self._xbe.header.image_size)
         self._min_addr = self._xbe.header.base_addr
@@ -111,6 +111,10 @@ class XBE(Backend):
             sec = XBESection(sec.name, file_offset, file_size, virtual_addr, virtual_size, sec)
             self.sections.append(sec)
 
+    def close(self):
+        super().close()
+        del self._xbe
+
     @staticmethod
     def is_compatible(stream):
         stream.seek(0)
@@ -130,30 +134,6 @@ class XBE(Backend):
     def check_compatibility(cls, spec, obj): # pylint: disable=unused-argument
         assert(False)
         return True
-
-    def __getstate__(self):
-        if self.binary is None:
-            raise ValueError("Can't pickle an object loaded from a stream")
-
-        # Get a copy of our pickleable self
-        state = dict(self.__dict__)
-
-        # Trash the unpickleable
-        if type(self.binary_stream) is PatchedStream:
-            state['binary_stream'].stream = None
-        else:
-            state['binary_stream'] = None
-
-        return state
-
-    def __setstate__(self, data):
-
-        self.__dict__.update(data)
-
-        if self.binary_stream is None:
-            self.binary_stream = open(self.binary, 'rb')
-        else:
-            self.binary_stream.stream = open(self.binary, 'rb')
 
 
 register_backend("xbe", XBE)

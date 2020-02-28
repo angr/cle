@@ -40,10 +40,10 @@ class MachO(Backend):
     MH_CIGAM = 0xcefaedfe
 
 
-    def __init__(self, binary, **kwargs):
+    def __init__(self, *args, **kwargs):
         l.warning('The Mach-O backend is not well-supported. Good luck!')
 
-        super(MachO, self).__init__(binary, **kwargs)
+        super(MachO, self).__init__(*args, **kwargs)
 
         self.struct_byteorder = None  # holds byteorder for struct.unpack(...)
         self._mapped_base = None # temporary holder für mapped base derived via loading
@@ -79,7 +79,7 @@ class MachO(Backend):
         # Begin parsing the file
         try:
 
-            binary_file = self.binary_stream
+            binary_file = self._binary_stream
             # get magic value and determine endianness
             self.struct_byteorder = self._detect_byteorder(struct.unpack("=I", binary_file.read(4))[0])
 

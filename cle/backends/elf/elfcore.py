@@ -12,40 +12,14 @@ l = logging.getLogger(name=__name__)
 # TODO: yall know struct.unpack_from exists, right? maybe even bitstream?
 
 
-class CoreNote:
-    """
-    This class is used when parsing the NOTES section of a core file.
-    """
-    n_type_lookup = {
-            1: 'NT_PRSTATUS',
-            2: 'NT_PRFPREG',
-            3: 'NT_PRPSINFO',
-            4: 'NT_TASKSTRUCT',
-            6: 'NT_AUXV',
-            0x53494749: 'NT_SIGINFO',
-            0x46494c45: 'NT_FILE',
-            0x46e62b7f: 'NT_PRXFPREG'
-            }
-
-    def __init__(self, n_type, name, desc):
-        self.n_type = n_type
-        if n_type in CoreNote.n_type_lookup:
-            self.n_type = CoreNote.n_type_lookup[n_type]
-        self.name = name
-        self.desc = desc
-
-    def __repr__(self):
-        return "<Note %s %s %#x>" % (self.name, self.n_type, len(self.desc))
-
-
 class ELFCore(ELF):
     """
     Loader class for ELF core files.
     """
     is_default = True # Tell CLE to automatically consider using the ELFCore backend
 
-    def __init__(self, binary, inhibit_close=False, **kwargs):
-        super(ELFCore, self).__init__(binary, inhibit_close=True, **kwargs)
+    def __init__(self, binary, **kwargs):
+        super(ELFCore, self).__init__(binary, **kwargs)
 
         self.filename_lookup = []
         self.__current_thread = None
@@ -53,9 +27,6 @@ class ELFCore(ELF):
         self.auxv = {}
 
         self.__extract_note_info()
-
-        if not inhibit_close and self.binary is not None:
-            self.binary_stream.close()
 
     @staticmethod
     def is_compatible(stream):
@@ -86,7 +57,7 @@ class ELFCore(ELF):
         """
         All meaningful information about the process's state at crashtime is stored in the note segment.
         """
-        for seg_readelf in self.reader.iter_segments():
+        for seg_readelf in self._reader.iter_segments():
             if seg_readelf.header.p_type == 'PT_NOTE':
                 for note in seg_readelf.iter_notes():
                     if note.n_type == 'NT_PRSTATUS':

@@ -14,7 +14,7 @@ class Jar(Soot):
 
     is_default = True  # let CLE automatically use this backend
 
-    def __init__(self, jar_path, entry_point=None, entry_point_params=('java.lang.String[]',), jni_libs=None, jni_libs_ld_path=None, **options):
+    def __init__(self, jar_path, binary_stream, entry_point=None, entry_point_params=('java.lang.String[]',), jni_libs=None, jni_libs_ld_path=None, **kwargs):
         """
         :param jar_path:                Path to JAR.
 
@@ -39,13 +39,13 @@ class Jar(Soot):
                 entry_point = main_class + "." + "main"
 
         # the actual lifting is done by the Soot superclass
-        super(Jar, self).__init__(jar_path,
+        super(Jar, self).__init__(jar_path, binary_stream,
                                   input_format='jar',
                                   entry_point=entry_point,
                                   entry_point_params=entry_point_params,
                                   jni_libs=jni_libs,
                                   jni_libs_ld_path=jni_libs_ld_path,
-                                  **options)
+                                  **kwargs)
 
     @staticmethod
     def is_compatible(stream):

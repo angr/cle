@@ -15,15 +15,9 @@ class CGC(ELF):
     """
     is_default = True # Tell CLE to automatically consider using the CGC backend
 
-    def __init__(self, binary, *args, **kwargs):
-        if hasattr(binary, 'seek'):
-            filename = None
-            stream = PatchedStream(binary, [(0, ELF_HEADER)])
-        else:
-            filename = binary
-            stream = PatchedStream(open(binary, 'rb'), [(0, ELF_HEADER)])
-        kwargs['filename'] = filename
-        super(CGC, self).__init__(stream, *args, **kwargs)
+    def __init__(self, binary, binary_stream, *args, **kwargs):
+        binary_stream = PatchedStream(binary_stream, [(0, ELF_HEADER)])
+        super(CGC, self).__init__(binary, binary_stream, *args, **kwargs)
         self.memory.store(AT.from_raw(0, self).to_rva(), CGC_HEADER)  # repair the CGC header
         self.os = 'cgc'
         self.execstack = True  # the stack is always executable in CGC

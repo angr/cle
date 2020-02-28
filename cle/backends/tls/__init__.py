@@ -53,7 +53,8 @@ class InternalTLSRelocation(Relocation):
         return self.val + self.owner.mapped_base
 
 class TLSObject(Backend):
-    pass
+    def __init__(self, loader, arch):
+        super().__init__('cle##tls', None, loader=loader, arch=arch)
 
 from .elf_tls import ELFThreadManager
 from .elfcore_tls import ELFCoreThreadManager

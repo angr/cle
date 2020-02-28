@@ -20,7 +20,7 @@ class Apk(Soot):
 
     is_default = True  # let CLE automatically use this backend
 
-    def __init__(self, apk_path, entry_point=None, entry_point_params=(), android_sdk=None,
+    def __init__(self, apk_path, binary_stream, entry_point=None, entry_point_params=(), android_sdk=None,
                  supported_jni_archs=None, jni_libs=None, jni_libs_ld_path=None, **options):
         """
         :param apk_path:                Path to APK.
@@ -64,7 +64,7 @@ class Apk(Soot):
                 l.error("Install pyaxmlparser to identify APK entry point.")
 
         # the actual lifting is done by the Soot superclass
-        super(Apk, self).__init__(apk_path,
+        super(Apk, self).__init__(apk_path, binary_stream,
                                   input_format='apk',
                                   android_sdk=android_sdk,
                                   entry_point=entry_point,

@@ -67,7 +67,7 @@ class PETLSObject(TLSObject):
     """
 
     def __init__(self, thread_manager: PEThreadManager):
-        super(PETLSObject, self).__init__('cle##tls', loader=thread_manager.loader, arch=thread_manager.arch)
+        super(PETLSObject, self).__init__(loader=thread_manager.loader, arch=thread_manager.arch)
 
         self.used_modules = len(thread_manager.modules)
         self.data_start = self.arch.bytes*thread_manager.max_modules
