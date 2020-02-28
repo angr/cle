@@ -5,7 +5,7 @@ from ..region import Segment
 
 class FakeSegment(Segment):
     def __init__(self, start, size):
-        super(FakeSegment, self).__init__(0, start, 0, size)
+        super().__init__(0, start, 0, size)
         self.is_readable = True
         self.is_writable = True
         self.is_executable = False
@@ -29,7 +29,7 @@ class BackedCGC(CGC):
         :param permissions_map:         A dict of memory region to permission flags
         :param current_allocation_base: An integer representing the current address of the top of the CGC heap.
         """
-        super(BackedCGC, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.memory_backer = memory_backer
         self.register_backer = register_backer

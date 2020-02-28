@@ -43,7 +43,7 @@ class MachO(Backend):
     def __init__(self, *args, **kwargs):
         l.warning('The Mach-O backend is not well-supported. Good luck!')
 
-        super(MachO, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.struct_byteorder = None  # holds byteorder for struct.unpack(...)
         self._mapped_base = None # temporary holder für mapped base derived via loading

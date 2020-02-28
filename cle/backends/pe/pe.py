@@ -21,7 +21,7 @@ class PE(Backend):
     is_default = True # Tell CLE to automatically consider using the PE backend
 
     def __init__(self, *args, **kwargs):
-        super(PE, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.segments = self.sections # in a PE, sections and segments have the same meaning
         self.os = 'windows'
         if self.binary is None:

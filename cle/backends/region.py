@@ -112,7 +112,7 @@ class EmptySegment(Segment):
     """
 
     def __init__(self, vaddr, memsize, is_readable=True, is_writable=True, is_executable=False):
-        super(EmptySegment, self).__init__(0, vaddr, 0, memsize)
+        super().__init__(0, vaddr, 0, memsize)
         self._is_readable = is_readable
         self._is_writable = is_writable
         self._is_executable = is_executable
@@ -150,7 +150,7 @@ class Section(Region):
         :param int vaddr:   The address in virtual memory this section begins
         :param int size:    How large this section is
         """
-        super(Section, self).__init__(offset, vaddr, size, size)
+        super().__init__(offset, vaddr, size, size)
         self.name = name
 
     @property

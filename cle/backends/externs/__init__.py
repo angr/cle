@@ -34,7 +34,7 @@ class TOCRelocation(Relocation):
 
 class ExternObject(Backend):
     def __init__(self, loader, map_size=0, tls_size=0):
-        super(ExternObject, self).__init__('cle##externs', None, loader=loader)
+        super().__init__('cle##externs', None, loader=loader)
         self._next_object = None
         self._delayed_writes = []
 
@@ -235,7 +235,7 @@ class ExternObject(Backend):
 
 class KernelObject(Backend):
     def __init__(self, loader, map_size=0x8000):
-        super(KernelObject, self).__init__('cle##kernel', None, loader=loader)
+        super().__init__('cle##kernel', None, loader=loader)
         self.map_size = map_size
         self.set_arch(loader.main_object.arch)
         self.memory.add_backer(0, bytes(map_size))

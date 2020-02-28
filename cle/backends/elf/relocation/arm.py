@@ -240,7 +240,7 @@ class R_ARM_THM_CALL(ELFReloc):
       - Implementation appears correct with the bits placed into offset[23:22]
     """
     def __init__(self, *args, **kwargs):
-        super(R_ARM_THM_CALL, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._insn_bytes = None
 
     def resolve_symbol(self, solist, **kwargs):

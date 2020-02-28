@@ -11,12 +11,11 @@ except ImportError:
 
 from .. import register_backend, Backend
 from ..region import Section
-from ... memory import Clemory
 from ...errors import CLEError, CLEInvalidBinaryError
 
 class MinidumpMissingStreamError(Exception):
     def __init__(self, stream, message=None):
-        super(MinidumpMissingStreamError, self).__init__()
+        super().__init__()
         self.message = message
         self.stream = stream
 
@@ -25,7 +24,7 @@ class Minidump(Backend):
     def __init__(self, *args, **kwargs):
         if minidumpfile is None:
             raise CLEError("Run `pip install minidump==0.0.10` to support loading minidump files")
-        super(Minidump, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.os = 'windows'
         self.supports_nx = True
         if self.binary is None:

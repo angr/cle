@@ -41,7 +41,7 @@ class BinjaSymbol(Symbol):
         else:
             symtype = SymbolType.TYPE_OTHER
 
-        super(BinjaSymbol, self).__init__(owner,
+        super().__init__(owner,
                                           sym.raw_name,
                                           AT.from_rva(sym.address, owner).to_rva(),
                                           owner.bv.address_size,
@@ -79,7 +79,7 @@ class BinjaBin(Backend):
                       "x86_64": archinfo.ArchAMD64()}
 
     def __init__(self, binary, *args, **kwargs):
-        super(BinjaBin, self).__init__(binary, *args, **kwargs)
+        super().__init__(binary, *args, **kwargs)
         if not bn:
             raise CLEError(BINJA_NOT_INSTALLED_STR)
         # get_view_of_file can take a bndb or binary - wait for autoanalysis to complete
