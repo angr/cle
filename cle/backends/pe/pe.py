@@ -9,7 +9,6 @@ from .relocation.generic import DllImport, IMAGE_REL_BASED_HIGHADJ, IMAGE_REL_BA
 from .relocation import get_relocation
 from .. import register_backend, Backend
 from ...address_translator import AT
-from ...patched_stream import PatchedStream
 
 
 l = logging.getLogger(name=__name__)
@@ -60,7 +59,7 @@ class PE(Backend):
         self.supports_nx = self._pe.OPTIONAL_HEADER.DllCharacteristics & 0x100 != 0
         self.pic = self.pic or self._pe.OPTIONAL_HEADER.DllCharacteristics & 0x40 != 0
         if hasattr(self._pe, 'DIRECTORY_ENTRY_LOAD_CONFIG'):
-            self.load_config = {name: value['Value'] for name, value in self._pe.DIRECTORY_ENTRY_LOAD_CONFIG.struct.dump_dict().items() if name is not 'Structure'}
+            self.load_config = {name: value['Value'] for name, value in self._pe.DIRECTORY_ENTRY_LOAD_CONFIG.struct.dump_dict().items() if name != 'Structure'}
         else:
             self.load_config = {}
 
