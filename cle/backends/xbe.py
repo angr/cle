@@ -7,7 +7,6 @@ except ImportError:
 
 import archinfo
 
-from ..patched_stream import PatchedStream
 from ..errors import CLEError
 from . import Backend, register_backend
 from .region import Segment, Section
@@ -16,12 +15,6 @@ l = logging.getLogger(name=__name__)
 
 class XBESection(Section):
     def __init__(self, name, file_offset, file_size, virtual_addr, virtual_size, xbe_sec):
-        """
-        :param str name:    The name of the section
-        :param int offset:  The offset into the binary file this section begins
-        :param int vaddr:   The address in virtual memory this section begins
-        :param int size:    How large this section is
-        """
         super(XBESection, self).__init__(name, file_offset, virtual_addr, virtual_size)
         self.filesize = file_size
         self._xbe_sec = xbe_sec
