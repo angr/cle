@@ -18,8 +18,8 @@ class BackedCGC(CGC):
     """
     is_default = True # Tell CLE to automatically consider using the BackedCGC backend
 
-    def __init__(self, path, memory_backer=None, register_backer=None, writes_backer=None, permissions_map=None,
-                 current_allocation_base=None, *args, **kwargs):
+    def __init__(self, *args, memory_backer=None, register_backer=None, writes_backer=None, permissions_map=None,
+                 current_allocation_base=None, **kwargs):
         """
         :param path:                    File path to CGC executable.
         :param memory_backer:           A dict of memory content, with beginning address of each segment as key and
@@ -29,7 +29,7 @@ class BackedCGC(CGC):
         :param permissions_map:         A dict of memory region to permission flags
         :param current_allocation_base: An integer representing the current address of the top of the CGC heap.
         """
-        super(BackedCGC, self).__init__(path, *args, **kwargs)
+        super(BackedCGC, self).__init__(*args, **kwargs)
 
         self.memory_backer = memory_backer
         self.register_backer = register_backer

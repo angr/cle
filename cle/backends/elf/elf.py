@@ -32,15 +32,15 @@ class ELF(MetaELF):
     """
     is_default = True  # Tell CLE to automatically consider using the ELF backend
 
-    def __init__(self, binary, addend=None, inhibit_close=False, debug_symbols=None, **kwargs):
-        super(ELF, self).__init__(binary, **kwargs)
+    def __init__(self, *args, addend=None, debug_symbols=None, **kwargs):
+        super(ELF, self).__init__(*args, **kwargs)
         patch_undo = []
         try:
-            self.reader = elffile.ELFFile(self.binary_stream)
-            list(self.reader.iter_sections())
+            self._reader = elffile.ELFFile(self._binary_stream)
+            list(self._reader.iter_sections())
         except Exception: # pylint: disable=broad-except
-            self.binary_stream.seek(4)
-            ty = self.binary_stream.read(1)
+            self._binary_stream.seek(4)
+            ty = self._binary_stream.read(1)
             if ty not in (b'\1', b'\2'):
                 raise CLECompatibilityError
 
@@ -50,29 +50,27 @@ class ELF(MetaELF):
                 patch_data = [(0x28, b'\0'*8), (0x3a, b'\0'*6)]
 
             for offset, patch in patch_data:
-                self.binary_stream.seek(offset)
-                patch_undo.append((offset, self.binary_stream.read(len(patch))))
+                self._binary_stream.seek(offset)
+                patch_undo.append((offset, self._binary_stream.read(len(patch))))
 
-            self.binary_stream = PatchedStream(self.binary_stream, patch_data)
+            self._binary_stream = PatchedStream(self._binary_stream, patch_data)
             l.error("PyReadELF couldn't load this file. Trying again without section headers...")
 
             try:
-                self.reader = elffile.ELFFile(self.binary_stream)
+                self._reader = elffile.ELFFile(self._binary_stream)
             except Exception as e: # pylint: disable=broad-except
                 raise CLECompatibilityError from e
 
         # Get an appropriate archinfo.Arch for this binary, unless the user specified one
         if self.arch is None:
-            self.set_arch(self.extract_arch(self.reader))
+            self.set_arch(self.extract_arch(self._reader))
         else:
-            other_arch = self.extract_arch(self.reader)
+            other_arch = self.extract_arch(self._reader)
             if other_arch != self.arch:
                 l.warning("User specified %s but autodetected %s. Proceed with caution.", self.arch, other_arch)
 
         self._addend = addend
 
-        self.strtab = None
-        self.dynsym = None
         self.hashtable = None
 
         self._dynamic = {}
@@ -101,15 +99,15 @@ class ELF(MetaELF):
         #
         # DWARF data
         #
-        self.has_dwarf_info = bool(self.reader.has_dwarf_info())
+        self.has_dwarf_info = bool(self._reader.has_dwarf_info())
         self.build_id = None
 
         # .eh_frame
         self.fdes = [ ] # Frame description entry. All addresses are rebased.
 
-        self._entry = self.reader.header.e_entry
-        self.is_relocatable = self.reader.header.e_type == 'ET_REL'
-        self.pic = self.pic or self.reader.header.e_type in ('ET_REL', 'ET_DYN')
+        self._entry = self._reader.header.e_entry
+        self.is_relocatable = self._reader.header.e_type == 'ET_REL'
+        self.pic = self.pic or self._reader.header.e_type in ('ET_REL', 'ET_DYN')
 
         self.__parsed_reloc_tables = set()
 
@@ -117,7 +115,7 @@ class ELF(MetaELF):
         # the fact that elffile, used by those methods, is working only with un-based virtual addresses, but Clemories
         # themselves are organized as a tree where each node backer internally uses relative addressing
         seg_addrs = (ALIGN_DOWN(x['p_vaddr'], self.loader.page_size)
-                     for x in self.reader.iter_segments() if x.header.p_type == 'PT_LOAD' and x.header.p_memsz > 0)
+                     for x in self._reader.iter_segments() if x.header.p_type == 'PT_LOAD' and x.header.p_memsz > 0)
         self.mapped_base = self.linked_base = 0
         try:
             self.mapped_base = self.linked_base = min(seg_addrs)
@@ -134,12 +132,10 @@ class ELF(MetaELF):
         if self.has_dwarf_info and self.loader._load_debug_info:
             # load DWARF information
             try:
-                dwarf = self.reader.get_dwarf_info()
+                dwarf = self._reader.get_dwarf_info()
             except ELFError:
                 l.warning("An exception occurred in pyelftools when loading the DWARF information%s. "
-                          "Marking DWARF as not available for this binary.",
-                          (" on %s" % binary) if isinstance(binary, str) else "",
-                          exc_info=True)
+                          "Marking DWARF as not available for this binary.", self.binary_basename, exc_info=True)
                 dwarf = None
                 self.has_dwarf_info = False
 
@@ -160,13 +156,14 @@ class ELF(MetaELF):
         for offset, patch in patch_undo:
             self.memory.store(AT.from_lva(self.min_addr + offset, self).to_rva(), patch)
 
-        if not inhibit_close and self.binary is not None:
-            self.binary_stream.close()
-
 
     #
     # Properties and Public Methods
     #
+
+    def close(self):
+        super().close()
+        del self._reader
 
     @classmethod
     def check_compatibility(cls, spec, obj):
@@ -276,13 +273,12 @@ class ELF(MetaELF):
 
         :param symid: Either an index into .dynsym or the name of a symbol.
         """
-        if symbol_table is None:
-            symbol_table = self.dynsym
-
         if type(symid) is int:
             if symid == 0:
                 # special case the null symbol, this is important for static binaries
                 return self._nullsymbol
+            if symbol_table is None:
+                raise TypeError("Must specify the symbol table to look up symbols by index")
             try:
                 re_sym = symbol_table.get_symbol(symid)
             except Exception:  # pylint: disable=broad-except
@@ -470,71 +466,14 @@ class ELF(MetaELF):
     # will probably break things. Caveat emptor.
     #
 
-    def __getstate__(self):
-        if self.binary is None:
-            raise ValueError("Can't pickle an object loaded from a stream")
-
-        state = dict(self.__dict__)
-
-        # Trash the unpickleable
-        if type(self.binary_stream) is PatchedStream:
-            state['binary_stream'].stream = None
-        else:
-            state['binary_stream'] = None
-
-        state['reader'] = None
-        state['strtab'] = None
-        state['dynsym'] = None
-        state['hashtable'] = None
-
-        return state
-
-    def __setstate__(self, data):
-        self.__dict__.update(data)
-
-        if self.binary_stream is None:
-            self.binary_stream = open(self.binary, 'rb')
-        else:
-            self.binary_stream.stream = open(self.binary, 'rb')
-
-        self.reader = elffile.ELFFile(self.binary_stream)
-        if self._dynamic and 'DT_STRTAB' in self._dynamic:
-            self.strtab = next(x for x in self.reader.iter_segments() if x.header.p_type == 'PT_DYNAMIC')._get_stringtable()
-            self.__neuter_streams(self.strtab)
-            if 'DT_SYMTAB' in self._dynamic and 'DT_SYMENT' in self._dynamic:
-                fakesymtabheader = {
-                    'sh_offset': AT.from_lva(self._dynamic['DT_SYMTAB'], self).to_rva(),
-                    'sh_entsize': self._dynamic['DT_SYMENT'],
-                    'sh_size': 0, # bogus size: no iteration allowed
-                    'sh_flags': 0,
-                    'sh_addralign': 0,
-                }
-                self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.reader, self.strtab)
-                self.dynsym.stream = self.memory
-
-                if 'DT_GNU_HASH' in self._dynamic:
-                    self.hashtable = GNUHashTable(
-                            self.dynsym,
-                            self.memory,
-                            AT.from_lva(self._dynamic['DT_GNU_HASH'], self).to_rva(),
-                            self.arch)
-                elif 'DT_HASH' in self._dynamic:
-                    self.hashtable = ELFHashTable(
-                            self.dynsym,
-                            self.memory,
-                            AT.from_lva(self._dynamic['DT_HASH'], self).to_rva(),
-                            self.arch)
-
-        self.binary_stream.close()
-
     def __register_segments(self):
         self.linking = 'static'
-        if self.is_relocatable and self.reader.num_segments() > 0:
+        if self.is_relocatable and self._reader.num_segments() > 0:
             # WTF?
             raise CLEError("Relocatable objects with segments are not supported.")
 
         type_to_seg_mapping = defaultdict(list)
-        for seg_readelf in self.reader.iter_segments():
+        for seg_readelf in self._reader.iter_segments():
             type_to_seg_mapping[seg_readelf.header.p_type].append(seg_readelf)
 
         # PT_LOAD segments must be processed first so that the memory_backers for the other segments exist
@@ -576,8 +515,8 @@ class ELF(MetaELF):
 
         self.extra_load_path = self.__parse_rpath(runpath, rpath)
 
-        self.strtab = seg_readelf._get_stringtable()
-        self.__neuter_streams(self.strtab)
+        strtab = seg_readelf._get_stringtable()
+        self.__neuter_streams(strtab)
 
         # To extract symbols from binaries without section headers, we need to hack into pyelftools.
         # TODO: pyelftools is less bad than it used to be. how much of this can go away?
@@ -591,41 +530,42 @@ class ELF(MetaELF):
                     'sh_flags': 0,
                     'sh_addralign': 0,
                 }
-                self.dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self.reader, self.strtab)
-                self.dynsym.stream = self.memory
+                dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self._reader, strtab)
+                dynsym.stream = self.memory
+                dynsym.elffile = None
 
                 # set up the hash table, preferring the gnu hash section to the old hash section
                 # the hash table lets you get any symbol given its name
                 if 'DT_GNU_HASH' in self._dynamic:
                     self.hashtable = GNUHashTable(
-                        self.dynsym, self.memory, AT.from_lva(self._dynamic['DT_GNU_HASH'], self).to_rva(), self.arch)
+                        dynsym, self.memory, AT.from_lva(self._dynamic['DT_GNU_HASH'], self).to_rva(), self.arch)
                 elif 'DT_HASH' in self._dynamic:
                     self.hashtable = ELFHashTable(
-                        self.dynsym, self.memory, AT.from_lva(self._dynamic['DT_HASH'], self).to_rva(), self.arch)
+                        dynsym, self.memory, AT.from_lva(self._dynamic['DT_HASH'], self).to_rva(), self.arch)
                 else:
                     l.warning("No hash table available in %s", self.binary)
 
                 # mips' relocations are absolutely screwed up, handle some of them here.
-                self.__relocate_mips()
+                self.__relocate_mips(dynsym)
 
                 # perform a lot of checks to figure out what kind of relocation tables are around
                 self.rela_type = None
                 if 'DT_PLTREL' in self._dynamic:
                     if self._dynamic['DT_PLTREL'] == 7:
                         self.rela_type = 'RELA'
-                        relentsz = self.reader.structs.Elf_Rela.sizeof()
+                        relentsz = self._reader.structs.Elf_Rela.sizeof()
                     elif self._dynamic['DT_PLTREL'] == 17:
                         self.rela_type = 'REL'
-                        relentsz = self.reader.structs.Elf_Rel.sizeof()
+                        relentsz = self._reader.structs.Elf_Rel.sizeof()
                     else:
                         raise CLEInvalidBinaryError('DT_PLTREL is not REL or RELA?')
                 else:
                     if 'DT_RELA' in self._dynamic:
                         self.rela_type = 'RELA'
-                        relentsz = self.reader.structs.Elf_Rela.sizeof()
+                        relentsz = self._reader.structs.Elf_Rela.sizeof()
                     elif 'DT_REL' in self._dynamic:
                         self.rela_type = 'REL'
-                        relentsz = self.reader.structs.Elf_Rel.sizeof()
+                        relentsz = self._reader.structs.Elf_Rel.sizeof()
                     else:
                         return
 
@@ -645,9 +585,10 @@ class ELF(MetaELF):
                         'sh_flags': 0,
                         'sh_addralign': 0,
                     }
-                    readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self.reader)
+                    readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self._reader)
                     readelf_relocsec.stream = self.memory
-                    self.__register_relocs(readelf_relocsec)
+                    readelf_relocsec.elffile = None
+                    self.__register_relocs(readelf_relocsec, dynsym)
 
                 # try to parse relocations out of a table of type DT_JMPREL
                 if 'DT_JMPREL' in self._dynamic:
@@ -663,9 +604,10 @@ class ELF(MetaELF):
                         'sh_flags': 0,
                         'sh_addralign': 0,
                     }
-                    readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self.reader)
+                    readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self._reader)
                     readelf_jmprelsec.stream = self.memory
-                    self.__register_relocs(readelf_jmprelsec, force_jmprel=True)
+                    readelf_jmprelsec.elffile = None
+                    self.__register_relocs(readelf_jmprelsec, dynsym, force_jmprel=True)
 
     def __parse_rpath(self, runpath, rpath):
         """
@@ -687,12 +629,12 @@ class ELF(MetaELF):
             parts.append(part)
         return parts
 
-    def __register_relocs(self, section, force_jmprel=False):
+    def __register_relocs(self, section, dynsym=None, force_jmprel=False):
 
         got_min = got_max = 0
 
         if not force_jmprel:
-            got_sec = self.reader.get_section_by_name('.got')
+            got_sec = self._reader.get_section_by_name('.got')
             if got_sec is not None:
                 got_min = got_sec.header.sh_addr
                 got_max = got_min + got_sec.header.sh_size
@@ -714,10 +656,10 @@ class ELF(MetaELF):
                     # The target section is not loaded into memory, so just continue
                     return
 
-        symtab = self.reader.get_section(section.header['sh_link']) if 'sh_link' in section.header else None
+        symtab = self._reader.get_section(section.header['sh_link']) if 'sh_link' in section.header else dynsym
         if isinstance(symtab, elftools.elf.sections.NullSection):
             # Oh my god Atmel please stop
-            symtab = self.reader.get_section_by_name('.symtab')
+            symtab = self._reader.get_section_by_name('.symtab')
         relocs = []
         for readelf_reloc in section.iter_relocations():
             # MIPS64 is just plain old fucked up
@@ -829,7 +771,7 @@ class ELF(MetaELF):
         new_addr = 0
         sec_list = []
 
-        for sec_readelf in self.reader.iter_sections():
+        for sec_readelf in self._reader.iter_sections():
             remap_offset = 0
             if self.is_relocatable and sec_readelf.header['sh_flags'] & 2:      # alloc flag
                 # Relocatable objects' section addresses are meaningless (they are meant to be relocated anyway)
@@ -854,7 +796,7 @@ class ELF(MetaELF):
                 self.__register_section_symbols(sec_readelf)
             if isinstance(sec_readelf, elffile.RelocationSection) and not \
                     ('DT_REL' in self._dynamic or 'DT_RELA' in self._dynamic or 'DT_JMPREL' in self._dynamic):
-                self.__register_relocs(sec_readelf)
+                self.__register_relocs(sec_readelf, dynsym=None)
 
             if section.occupies_memory:      # alloc flag - stick in memory maybe!
                 if AT.from_lva(section.vaddr, self).to_rva() not in self.memory:        # only allocate if not already allocated (i.e. by program header)
@@ -877,7 +819,7 @@ class ELF(MetaELF):
         for sym_re in sec_re.iter_symbols():
             self.symbols.add(self.get_symbol(sym_re))
 
-    def __relocate_mips(self):
+    def __relocate_mips(self, symtab):
         if 'DT_MIPS_BASE_ADDRESS' not in self._dynamic:
             return False
         # The MIPS GOT is an array of addresses, simple as that.
@@ -892,7 +834,7 @@ class ELF(MetaELF):
             self.relocs.append(reloc)
 
         for i in range(symbol_count - symtab_got_idx):
-            symbol = self.get_symbol(i + symtab_got_idx)
+            symbol = self.get_symbol(i + symtab_got_idx, symtab)
             reloc = MipsGlobalReloc(self, symbol, gotaddr + (i + got_local_num)*wordsize)
             self.relocs.append(reloc)
             self.jmprel[symbol.name] = reloc
@@ -904,6 +846,7 @@ class ELF(MetaELF):
            obj._table_offset = self._offset_to_rva(obj._table_offset)
         elif isinstance(obj, elftools.elf.sections.Section):
             obj.stream = self.memory
+            obj.elffile = None
             obj.header.sh_offset = self._offset_to_rva(obj.header.sh_offset)
         else:
             raise TypeError("Can't convert %r" % type(obj))
@@ -913,7 +856,12 @@ class ELF(MetaELF):
 
     def __process_debug_file(self, filename):
         with open(filename, 'rb') as fp:
-            elf = elffile.ELFFile(fp)
+            try:
+                elf = elffile.ELFFile(fp)
+            except ELFError:
+                l.warning("pyelftools failed to load debug file %s", filename, exc_info=True)
+                return
+
             for sec_readelf in elf.iter_sections():
                 if isinstance(sec_readelf, elffile.SymbolTableSection):
                     self.__register_section_symbols(sec_readelf)
@@ -932,7 +880,6 @@ class ELF(MetaELF):
                 # debug symbols don't have eh_frame ever from what I can tell
                 #if dwarf and dwarf.has_EH_CFI():
                 #    self._load_function_hints_from_fde(dwarf, FunctionHintSource.EXTERNAL_EH_FRAME)
-
 
 
 register_backend('elf', ELF)

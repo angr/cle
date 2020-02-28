@@ -13,6 +13,7 @@ try:
     from pysoot.lifter import Lifter
 except ImportError:
     pysoot = None
+    Lifter = None
 
 l = logging.getLogger(name=__name__)
 
@@ -25,7 +26,7 @@ class Soot(Backend):
     0.
     """
 
-    def __init__(self, path, entry_point=None, entry_point_params=(), input_format=None,
+    def __init__(self, *args, entry_point=None, entry_point_params=(), input_format=None,
                  additional_jars=None, additional_jar_roots=None,
                  jni_libs_ld_path=None, jni_libs=None,
                  android_sdk=None, **kwargs):
@@ -36,12 +37,14 @@ class Soot(Backend):
         if kwargs.get('has_memory', False):
             raise CLEError('The parameter "has_memory" must be False for Soot backend.')
 
-        super(Soot, self).__init__(path, has_memory=False, **kwargs)
+        super(Soot, self).__init__(*args, has_memory=False, **kwargs)
+        if self.binary is None:
+            raise ValueError("Cannot use the Soot backend loading from a stream")
 
         # load the classes
         l.debug("Lifting to Soot IR ...")
         start_time = time.time()
-        pysoot_lifter = Lifter(path,
+        pysoot_lifter = Lifter(self.binary,
                                input_format=input_format,
                                android_sdk=android_sdk,
                                additional_jars=additional_jars,

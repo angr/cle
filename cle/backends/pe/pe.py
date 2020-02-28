@@ -26,7 +26,7 @@ class PE(Backend):
         self.segments = self.sections # in a PE, sections and segments have the same meaning
         self.os = 'windows'
         if self.binary is None:
-            self._pe = pefile.PE(data=self.binary_stream.read(), fast_load=True)
+            self._pe = pefile.PE(data=self._binary_stream.read(), fast_load=True)
             self._parse_pe_non_reloc_data_directories()
         elif self.binary in self._pefile_cache: # these objects are not mutated, so they are reusable within a process
             self._pe = self._pefile_cache[self.binary]
@@ -59,6 +59,10 @@ class PE(Backend):
 
         self.supports_nx = self._pe.OPTIONAL_HEADER.DllCharacteristics & 0x100 != 0
         self.pic = self.pic or self._pe.OPTIONAL_HEADER.DllCharacteristics & 0x40 != 0
+        if hasattr(self._pe, 'DIRECTORY_ENTRY_LOAD_CONFIG'):
+            self.load_config = {name: value['Value'] for name, value in self._pe.DIRECTORY_ENTRY_LOAD_CONFIG.struct.dump_dict().items() if name is not 'Structure'}
+        else:
+            self.load_config = {}
 
         self._exports = {}
         self._ordinal_exports = {}
@@ -110,6 +114,10 @@ class PE(Backend):
     #
     # Public methods
     #
+
+    def close(self):
+        super().close()
+        del self._pe
 
     def get_symbol(self, name):
         """
@@ -273,37 +281,5 @@ class PE(Backend):
             section = PESection(pe_section, remap_offset=self.linked_base)
             self.sections.append(section)
             self.sections_map[section.name] = section
-
-    def __getstate__(self):
-        if self.binary is None:
-            raise ValueError("Can't pickle an object loaded from a stream")
-
-        state = dict(self.__dict__)
-
-        state['_pe'] = None
-
-        if type(self.binary_stream) is PatchedStream:
-            state['binary_stream'].stream = None
-        else:
-            state['binary_stream'] = None
-
-        return state
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-
-        if self.binary_stream is None:
-            self.binary_stream = open(self.binary, 'rb')
-        else:
-            self.binary_stream.stream = open(self.binary, 'rb')
-
-        if self.binary in self._pefile_cache: # these objects are not mutated, so they are reusable within a process
-            self._pe = self._pefile_cache[self.binary]
-        else:
-            self._pe = pefile.PE(self.binary)
-            if not self.is_main_bin:
-                # only cache shared libraries, the main binary will not be reused
-                self._pefile_cache[self.binary] = self._pe
-
 
 register_backend('pe', PE)

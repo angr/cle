@@ -3,9 +3,8 @@ import logging
 import binascii
 import struct
 
-from . import register_backend
+from . import register_backend, Backend
 from ..errors import CLEError
-from .blob import Blob
 
 l = logging.getLogger(name=__name__)
 
@@ -27,7 +26,7 @@ else:
     chh = ord
 
 
-class Hex(Blob):
+class Hex(Backend):
     """
     A loader for Intel Hex Objects
     See https://en.wikipedia.org/wiki/Intel_HEX
@@ -69,14 +68,15 @@ class Hex(Blob):
 
         return result
 
-    def _load(self, file_offset, mem_addr, size):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-        # Ignore the params, they don't really work in this format.
         # Do the whole thing in one shot.
+        self.os = 'unknown'
         got_base = False
         got_entry = False
-        self.binary_stream.seek(0)
-        string = self.binary_stream.read()
+        self._binary_stream.seek(0)
+        string = self._binary_stream.read()
         recs = string.splitlines()
         regions = []
         max_addr = 0
@@ -110,7 +110,6 @@ class Hex(Blob):
                 self._initial_cs, self._initial_ip = struct.unpack('>HH', data)
                 # The whole thing is the entry, as far as angr is concerned.
                 self._entry = struct.unpack('>I', data)[0]
-                self._custom_entry_point = self._entry
                 l.debug("Got entry point at " + hex(self._entry))
             elif rectype == HEX_TYPE_EXTLINEARADDR:
                 got_base = True
@@ -123,7 +122,6 @@ class Hex(Blob):
                 self._entry = struct.unpack('>I', data)[0]
                 l.debug("Found entry point at " + hex(self._entry))
                 self._initial_eip = self._entry
-                self._custom_entry_point = self._entry
             else:
                 raise CLEError("This HEX Object type is not implemented: " + hex(rectype))
         if not got_base:

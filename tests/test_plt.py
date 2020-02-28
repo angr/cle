@@ -93,8 +93,9 @@ def check_plt_entries(filename):
     ideal_plt = PLT_CACHE[filename.replace('\\', '/')]
     nose.tools.assert_equal(ideal_plt, ld.main_object.plt)
 
-PLT_CACHE = {}
-PLT_CACHE = pickle.load(open(os.path.join(TESTS_BASE, 'tests_data', 'objdump-grep-plt.p'), 'rb'))
+#PLT_CACHE = {}
+with open(os.path.join(TESTS_BASE, 'tests_data', 'objdump-grep-plt.p'), 'rb') as fp:
+    PLT_CACHE = pickle.load(fp)
 
 def test_plt():
     for filename in TESTS_ARCHES:

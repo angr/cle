@@ -127,6 +127,9 @@ class ClemoryBase:
     def tell(self):
         return self._pointer
 
+    def close(self):  # pylint: disable=no-self-use
+        pass
+
 class Clemory(ClemoryBase):
     """
     An object representing a memory space.
@@ -513,3 +516,35 @@ class ClemoryView(ClemoryBase):
         if search_max is None or search_max > self._end:
             search_max = self._end
         return self._backer.find(data, search_min=search_min + self._rebase, search_max=search_max + self._rebase)
+
+
+class ClemoryTranslator(ClemoryBase):
+    """
+    Uses a function to translate between address spaces when accessing a child clemory. Intended to be used only as
+    a stream object.
+    """
+    def __init__(self, backer: ClemoryBase, func):
+        super().__init__(backer._arch)
+        self.backer = backer
+        self.func = func
+
+    def __getitem__(self, k):
+        return self.backer[self.func(k)]
+
+    def __setitem__(self, k, v):
+        self.backer[self.func(k)] = v
+
+    def __contains__(self, k):
+        return self.func(k) in self.backer
+
+    def load(self, addr, n):
+        return self.backer.load(self.func(addr), n)
+
+    def store(self, addr, data):
+        self.backer.store(self.func(addr), data)
+
+    def backers(self, addr=0):
+        raise TypeError("Cannot access backers through address translation")
+
+    def find(self, data, search_min=None, search_max=None):
+        raise TypeError("Cannot perform finds through address translation")

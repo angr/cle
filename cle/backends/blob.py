@@ -1,6 +1,5 @@
 from . import Backend, register_backend
 from ..errors import CLEError
-from ..patched_stream import PatchedStream
 from .region import Segment
 import logging
 l = logging.getLogger(name=__name__)
@@ -13,7 +12,7 @@ class Blob(Backend):
     """
     is_default = True # Tell CLE to automatically consider using the Blob backend
 
-    def __init__(self, path, offset=None, segments=None, **kwargs):
+    def __init__(self, *args, offset=None, segments=None, **kwargs):
         """
         :param arch:   (required) an :class:`archinfo.Arch` for the binary blob.
         :param offset: Skip this many bytes from the beginning of the file.
@@ -25,23 +24,22 @@ class Blob(Backend):
         if 'custom_offset' in kwargs:
             offset = kwargs.pop('custom_offset')
             l.critical('Deprecation warning: the custom_offset parameter has been renamed to offset')
-        super(Blob, self).__init__(path, **kwargs)
+        super(Blob, self).__init__(*args, **kwargs)
 
         if self.arch is None:
             raise CLEError("Must specify arch when loading blob!")
 
         if self._custom_entry_point is None:
-            l.warning("No entry_point was specified for blob %s, assuming 0", path)
-            self._custom_entry_point = 0
+            l.warning("No entry_point was specified for blob %s, assuming 0", self.binary_basename)
 
-        self._entry = self._custom_entry_point
+        self._entry = 0
         self._max_addr = 0
         self._min_addr = 2**64
 
         try:
             self.linked_base = kwargs['base_addr']
         except KeyError:
-            l.warning("No base_addr was specified for blob %s, assuming 0", path)
+            l.warning("No base_addr was specified for blob %s, assuming 0", self.binary_basename)
         self.mapped_base = self.linked_base
 
         self.os = 'unknown'
@@ -50,14 +48,14 @@ class Blob(Backend):
             if segments is not None:
                 l.error("You can't specify both offset and segments. Taking only the segments data")
             else:
-                self.binary_stream.seek(0, 2)
-                segments = [(offset, self.linked_base, self.binary_stream.tell() - offset)]
+                self._binary_stream.seek(0, 2)
+                segments = [(offset, self.linked_base, self._binary_stream.tell() - offset)]
         else:
             if segments is not None:
                 pass
             else:
-                self.binary_stream.seek(0, 2)
-                segments = [(0, self.linked_base, self.binary_stream.tell())]
+                self._binary_stream.seek(0, 2)
+                segments = [(0, self.linked_base, self._binary_stream.tell())]
 
         for file_offset, mem_addr, size in segments:
             self._load(file_offset, mem_addr, size)
@@ -79,8 +77,8 @@ class Blob(Backend):
         Load a segment into memory.
         """
 
-        self.binary_stream.seek(file_offset)
-        string = self.binary_stream.read(size)
+        self._binary_stream.seek(file_offset)
+        string = self._binary_stream.read(size)
         self.memory.add_backer(mem_addr - self.linked_base, string)
         seg = Segment(file_offset, mem_addr, size, size)
         self.segments.append(seg)
@@ -105,30 +103,6 @@ class Blob(Backend):
     @classmethod
     def check_compatibility(cls, spec, obj): # pylint: disable=unused-argument
         return True
-
-    def __getstate__(self):
-        if self.binary is None:
-            raise ValueError("Can't pickle an object loaded from a stream")
-
-        # Get a copy of our pickleable self
-        state = dict(self.__dict__)
-
-        # Trash the unpickleable
-        if type(self.binary_stream) is PatchedStream:
-            state['binary_stream'].stream = None
-        else:
-            state['binary_stream'] = None
-
-        return state
-
-    def __setstate__(self, data):
-
-        self.__dict__.update(data)
-
-        if self.binary_stream is None:
-            self.binary_stream = open(self.binary, 'rb')
-        else:
-            self.binary_stream.stream = open(self.binary, 'rb')
 
 
 register_backend("blob", Blob)

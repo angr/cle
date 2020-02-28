@@ -29,7 +29,7 @@ class Minidump(Backend):
         self.os = 'windows'
         self.supports_nx = True
         if self.binary is None:
-            self._mdf = minidumpfile.MinidumpFile.parse_bytes(self.binary_stream.read())
+            self._mdf = minidumpfile.MinidumpFile.parse_bytes(self._binary_stream.read())
         else:
             self._mdf = minidumpfile.MinidumpFile.parse(self.binary)
 
@@ -53,12 +53,10 @@ class Minidump(Backend):
             raise MinidumpMissingStreamError('MemoryList', 'The memory segments were not defined')
 
         for segment in segments:
-            clemory = Clemory(self.arch)
             data = segment.read(segment.start_virtual_address, segment.size, self._mdf.file_handle)
-            clemory.add_backer(0, data)
-            self.memory.add_backer(segment.start_virtual_address, clemory)
+            self.memory.add_backer(segment.start_virtual_address, data)
 
-        for module in self.modules:
+        for module in self._mdf.modules.modules:
             for segment in segments:
                 if segment.start_virtual_address == module.baseaddress:
                     break
@@ -69,23 +67,19 @@ class Minidump(Backend):
             self.sections_map[ntpath.basename(section.name)] = section
         self.segments = self.sections
 
-    def __getstate__(self):
-        if self.binary is None:
-            raise ValueError("Can't pickle an object loaded from a stream")
+        self._thread_data = {}
 
-        state = dict(self.__dict__)
+        for thread in self._mdf.threads.threads:
+            tid = thread.ThreadId
+            self._binary_stream.seek(thread.ThreadContext.Rva)  # pylint: disable=undefined-loop-variable
+            data = self._binary_stream.read(thread.ThreadContext.DataSize)  # pylint: disable=undefined-loop-variable
+            self._binary_stream.seek(0)
+            self._thread_data[tid] = data
 
-        state['_mdf'] = None
-        state['binary_stream'] = None
-        return state
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        self._mdf = minidumpfile.MinidumpFile.parse(self.binary)
-
-    @property
-    def file_handle(self):
-        return self._mdf.file_handle
+    def close(self):
+        super().close()
+        self._mdf.file_handle.close()
+        del self._mdf
 
     @staticmethod
     def is_compatible(stream):
@@ -94,29 +88,14 @@ class Minidump(Backend):
         return identstring == b'MDMP'
 
     @property
-    def modules(self):
-        return self._mdf.modules.modules
-
-    @property
     def threads(self):
-        return [t.ThreadId for t in self._mdf.threads.threads]
-
-    @property
-    def raw_thread_records(self):
-        return self._mdf.threads.threads
+        return list(self._thread_data)
 
     def thread_registers(self, thread=None):
         if thread is None:
             thread = self.threads[0]
 
-        for thread_record in self._mdf.threads.threads:
-            if thread_record.ThreadId == thread:
-                break
-        else:
-            raise KeyError('The specified thread id was not found')
-        self.file_handle.seek(thread_record.ThreadContext.Rva)  # pylint: disable=undefined-loop-variable
-        data = self.file_handle.read(thread_record.ThreadContext.DataSize)  # pylint: disable=undefined-loop-variable
-        self.file_handle.seek(0)
+        data = self._thread_data[thread]
 
         if self.arch.name == 'AMD64':
             fmt = 'QQQQQQIIHHHHHHIQQQQQQQQQQQQQQQQQQQQQQQ'
