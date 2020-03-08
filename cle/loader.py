@@ -31,6 +31,7 @@ class Loader:
     The following parameters are optional.
 
     :param auto_load_libs:      Whether to automatically load shared libraries that loaded objects depend on.
+    :param load_debug_info:     Whether to automatically parse DWARF data and search for debug symbol files.
     :param concrete_target:     Whether to instantiate a concrete target for a concrete execution of the process.
                                 if this is the case we will need to instantiate a SimConcreteEngine that wraps the
                                 ConcreteTarget provided by the user.
@@ -76,7 +77,7 @@ class Loader:
                  force_load_libs=(), skip_libs=(),
                  main_opts=None, lib_opts=None, ld_path=(), use_system_libs=True,
                  ignore_import_version_numbers=True, case_insensitive=False, rebase_granularity=0x100000,
-                 except_missing_libs=False, aslr=False, perform_relocations=True, load_debug_info=True,
+                 except_missing_libs=False, aslr=False, perform_relocations=True, load_debug_info=False,
                  page_size=0x1, preload_libs=(), arch=None):
         if hasattr(main_binary, 'seek') and hasattr(main_binary, 'read'):
             self._main_binary_path = None
