@@ -665,18 +665,9 @@ class ELF(MetaELF):
             # MIPS64 is just plain old fucked up
             # https://www.sourceware.org/ml/libc-alpha/2003-03/msg00153.html
             if self.arch.name == 'MIPS64':
-                # Little endian additionally needs one of its fields reversed... WHY
-                if self.arch.memory_endness == 'Iend_LE':
-                    readelf_reloc.entry.r_info_sym = readelf_reloc.entry.r_info & 0xFFFFFFFF
-                    readelf_reloc.entry.r_info = struct.unpack('>Q', struct.pack('<Q', readelf_reloc.entry.r_info))[0]
-
-                type_1 = readelf_reloc.entry.r_info & 0xFF
-                type_2 = readelf_reloc.entry.r_info >> 8 & 0xFF
-                type_3 = readelf_reloc.entry.r_info >> 16 & 0xFF
-                extra_sym = readelf_reloc.entry.r_info >> 24 & 0xFF
-                if extra_sym != 0:
-                    l.error('r_info_extra_sym is nonzero??? PLEASE SEND HELP')
-
+                type_1 = readelf_reloc.entry.r_info_type
+                type_2 = readelf_reloc.entry.r_info_type2
+                type_3 = readelf_reloc.entry.r_info_type3
                 symbol = self.get_symbol(readelf_reloc.entry.r_info_sym, symtab)
 
                 if type_1 != 0:
