@@ -1,5 +1,6 @@
 import os
 import logging
+import hashlib
 import sortedcontainers
 
 import archinfo
@@ -139,6 +140,10 @@ class Backend:
         self.guess_simprocs = False
         self.guess_simprocs_hint = None
 
+        # checksums
+        self.md5 = None
+        self.sha256 = None
+
         self.mapped_base_symbolic = 0
         # These are set by cle, and should not be overriden manually
         self.mapped_base = self.linked_base = 0 # not to be set manually - used by CLE
@@ -182,6 +187,8 @@ class Backend:
             self.set_arch(arch())
         else:
             raise CLEError("Bad parameter: arch=%s" % arch)
+
+        self._checksum()
 
     def close(self):
         del self._binary_stream
@@ -398,10 +405,20 @@ class Backend:
         """
         return False
 
-
     @staticmethod
     def _get_symbol_relative_addr(symbol):
         return symbol.relative_addr
+
+    def _checksum(self):
+        """
+        Calculate MD5 and SHA256 checksum for the binary.
+        """
+
+        if self._binary_stream is not None:
+            data = self._binary_stream.read()
+            self._binary_stream.seek(0)
+            self.md5 = hashlib.md5(data).digest()
+            self.sha256 = hashlib.sha256(data).digest()
 
 ALL_BACKENDS = dict()
 
