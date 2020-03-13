@@ -54,11 +54,8 @@ class ELFSymbol(Symbol):
         self.is_weak = self.binding == 'STB_WEAK'
         self.is_local = self.binding == 'STB_LOCAL'
 
-        # these do not appear to be 100% correct, but they work so far...
-        # e.g. the "stdout" import symbol will be marked as an export symbol by this
-        # there does not seem to be a good way to reliably isolate import symbols
         self.is_import = sec_ndx == 'SHN_UNDEF' and self.binding in ('STB_GLOBAL', 'STB_WEAK')
-        self.is_export = self.section is not None and self.binding in ('STB_GLOBAL', 'STB_WEAK')
+        self.is_export = (self.section is not None or self.is_common) and self.binding in ('STB_GLOBAL', 'STB_WEAK')
 
     @property
     def subtype(self) -> ELFSymbolType:

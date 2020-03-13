@@ -79,7 +79,7 @@ class ExternObject(Backend):
         self.segments.append(ExternSegment(self.map_size))
         super().rebase(new_base)
 
-    def make_extern(self, name, size=0, alignment=None, thumb=False, sym_type=SymbolType.TYPE_FUNCTION, libname=None) -> Symbol:
+    def make_extern(self, name, size=0, alignment=None, thumb=False, sym_type=SymbolType.TYPE_FUNCTION, point_to=None, libname=None) -> Symbol:
         try:
             return self._symbol_cache[name]
         except KeyError:
@@ -87,7 +87,10 @@ class ExternObject(Backend):
 
         tls = sym_type == SymbolType.TYPE_TLS_OBJECT
         SymbolCls = Symbol
-        simdata = lookup(name, libname)
+        if point_to is not None:
+            simdata = PointToPrecise
+        else:
+            simdata = lookup(name, libname)
         if simdata is not None:
             SymbolCls = simdata
             size = simdata.static_size(self)
@@ -126,6 +129,11 @@ class ExternObject(Backend):
         new_symbol = SymbolCls(self, name, local_addr, size, sym_type)
         new_symbol.is_export = True
         new_symbol.is_extern = True
+
+        if point_to is not None:
+            new_symbol.pointto_name = point_to.name
+            new_symbol.pointto_type = point_to.type
+            new_symbol.pointto_precise = point_to
 
         self._symbol_cache[name] = new_symbol
         self.symbols.add(new_symbol)
@@ -250,3 +258,16 @@ class KernelObject(Backend):
         return AT.from_rva(self.map_size, self).to_mva()
 
 from .simdata import lookup, SimData
+from .simdata.common import PointTo, SimDataSimpleRelocation
+
+class PointToPrecise(PointTo):
+    pointto_precise = None
+
+    def relocations(self):
+        return [SimDataSimpleRelocation(
+            self.owner,
+            self.pointto_precise,
+            self.relative_addr,
+            self.addend,
+            preresolved=True,
+        )]
