@@ -741,6 +741,12 @@ class Loader:
         # if the extern object was used, add it to the list of objects we're mapping
         # also add it to the linked list of extern objects
         if extern_obj.map_size:
+            # resolve the extern relocs this way because they may produce more relocations as we go
+            i = 0
+            while i < len(extern_obj.relocs):
+                extern_obj.relocs[i].resolve_symbol(objects, extern_object=extern_obj)
+                i += 1
+
             objects.append(extern_obj)
             ordered_objects.insert(0, extern_obj)
             extern_obj._next_object = self._extern_object

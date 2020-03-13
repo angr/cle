@@ -158,3 +158,15 @@ class RelocTruncate32Mixin:
         self.owner.memory.pack_word(self.dest_addr, val, size=4, signed=False)
 
         return True
+
+
+class RelocGOTMixin:
+    """
+    A mix-in class which will cause the symbol to be resolved to a pointer to the symbol instead of the symbol
+    """
+
+    def resolve(self, symbol, extern_object=None, **kwargs):
+        assert extern_object is not None, "I have no idea how this would happen"
+
+        got_symbol = extern_object.make_extern('got.%s' % symbol.name, sym_type=SymbolType.TYPE_OBJECT, point_to=symbol)
+        super().resolve(got_symbol)

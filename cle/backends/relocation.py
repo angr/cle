@@ -38,12 +38,12 @@ class Relocation:
             return
 
         if (self.symbol is None or self.symbol.type == SymbolType.TYPE_NONE) and self.AUTO_HANDLE_NONE:
-            self.resolve(None)
+            self.resolve(None, extern_object=extern_object)
             return
 
         if self.symbol.is_static or self.symbol.is_local:
             # A static or local symbol should only be resolved by itself.
-            self.resolve(self.symbol)
+            self.resolve(self.symbol, extern_object=extern_object)
             return
 
         weak_result = None
@@ -51,7 +51,7 @@ class Relocation:
             symbol = so.get_symbol(self.symbol.name)
             if symbol is not None and symbol.is_export:
                 if not symbol.is_weak:
-                    self.resolve(symbol)
+                    self.resolve(symbol, extern_object=extern_object)
                     return
                 elif weak_result is None:
                     weak_result = symbol
@@ -59,22 +59,22 @@ class Relocation:
             # I think right now symbol.is_import = !symbol.is_export
             elif symbol is not None and not symbol.is_import and so is self.owner:
                 if not symbol.is_weak:
-                    self.resolve(symbol)
+                    self.resolve(symbol, extern_object=extern_object)
                     return
                 elif weak_result is None:
                     weak_result = symbol
 
         if weak_result is not None:
-            self.resolve(weak_result)
+            self.resolve(weak_result, extern_object=extern_object)
             return
 
         if self.symbol.is_weak:
             return
 
         new_symbol = extern_object.make_extern(self.symbol.name, sym_type=self.symbol._type, thumb=thumb)
-        self.resolve(new_symbol)
+        self.resolve(new_symbol, extern_object=extern_object)
 
-    def resolve(self, obj):
+    def resolve(self, obj, **kwargs):  # pylint: disable=unused-argument
         self.resolvedby = obj
         self.resolved = True
         if self.symbol is not None:
