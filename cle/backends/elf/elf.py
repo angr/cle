@@ -799,12 +799,37 @@ class ELF(MetaELF):
             if sec_readelf.header.sh_type == 'SHT_NOTE':
                 self.__register_notes(sec_readelf)
 
+            if section.name == '.comment':
+                self.__analyze_comments(sec_readelf.data())
+
     def __register_notes(self, sec_readelf):
         for note in sec_readelf.iter_notes():
             if note.n_type == 'NT_GNU_BUILD_ID' and note.n_name == 'GNU':
                 if self.build_id is not None and self.build_id != note.n_desc:
                     l.error("Mismatched build IDs present")
                 self.build_id = note.n_desc
+
+    def __analyze_comments(self, data):
+        try:
+            data = data.decode().split('\0')
+        except UnicodeDecodeError:
+            return
+
+        for line in data:
+            versions = [word for word in line.replace('(', ' ').replace(')', ' ').split() if '.' in word]
+            if not versions:
+                continue
+            versions.sort(key=lambda s: len(s))
+            version = versions[-1]
+            lline = line.lower()
+            if 'clang' in lline:
+                compiler = 'clang'
+            elif 'gcc' in lline:
+                compiler = 'gcc'
+            else:
+                continue
+
+            self.compiler = compiler, version
 
     def __register_section_symbols(self, sec_re):
         for sym_re in sec_re.iter_symbols():

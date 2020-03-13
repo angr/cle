@@ -131,7 +131,7 @@ class Backend:
         self.jmprel = {}
         self.arch = None
         self.os = None  # Let other stuff override this
-        self.engine_preset = None
+        self.compiler = None, None  # compiler name, version
         self._symbol_cache = {}
         # a list of directories to search for libraries specified by the object
         self.extra_load_path = []
