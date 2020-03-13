@@ -8,7 +8,7 @@ import archinfo
 from archinfo.arch_soot import ArchSoot
 
 from .address_translator import AT
-from .utils import ALIGN_UP, key_bisect_insort_left, key_bisect_floor_key
+from .utils import ALIGN_UP, key_bisect_floor_key, key_bisect_insort_right
 
 try:
     import claripy
@@ -648,19 +648,22 @@ class Loader:
                 continue
             obj = self._load_object_isolated(main_spec)
             objects.append(obj)
+            objects.extend(obj.child_objects)
             dependencies.extend(obj.deps)
 
             if self.main_object is None:
                 # this is technically the first place we can start to initialize things based on platform
                 self.main_object = obj
                 self.memory = Clemory(obj.arch, root=True)
-                if isinstance(obj, ELFCore):
+
+                chk_obj = self.main_object if not self.main_object.child_objects else self.main_object.child_objects[0]
+                if isinstance(chk_obj, ELFCore):
                     self.tls = ELFCoreThreadManager(self, obj.arch)
                 elif isinstance(obj, Minidump):
                     self.tls = MinidumpThreadManager(self, obj.arch)
-                elif isinstance(obj, MetaELF):
+                elif isinstance(chk_obj, MetaELF):
                     self.tls = ELFThreadManager(self, obj.arch)
-                elif isinstance(obj, PE):
+                elif isinstance(chk_obj, PE):
                     self.tls = PEThreadManager(self, obj.arch)
                 else:
                     self.tls = ThreadManager(self, obj.arch)
@@ -690,6 +693,7 @@ class Loader:
                 continue
 
             objects.append(obj)
+            objects.extend(obj.child_objects)
             dependencies.extend(obj.deps)
 
             if type(self.tls) is ThreadManager:   # ... java
@@ -733,10 +737,11 @@ class Loader:
         if self._perform_relocations:
             for obj in ordered_objects:
                 l.info("Linking %s", obj.binary)
+                sibling_objs = list(obj.parent_object.child_objects) if obj.parent_object is not None else []
                 dep_objs = [soname_mapping[dep_name] for dep_name in obj.deps if dep_name in soname_mapping]
                 main_objs = [self.main_object] if self.main_object is not obj else []
                 for reloc in obj.relocs:
-                    reloc.resolve_symbol(main_objs + preload_objects + dep_objs + [obj], extern_object=extern_obj)
+                    reloc.resolve_symbol(main_objs + preload_objects + sibling_objs + dep_objs + [obj], extern_object=extern_obj)
 
         # if the extern object was used, add it to the list of objects we're mapping
         # also add it to the linked list of extern objects
@@ -855,14 +860,14 @@ class Loader:
             if not self._is_range_free(obj.linked_base, obj_size):
                 raise CLEError("Position-DEPENDENT object %s cannot be loaded at %#x"% (obj.binary, base_addr))
 
-        assert obj.min_addr < obj.max_addr
         assert obj.mapped_base >= 0
 
         if obj.has_memory:
+            assert obj.min_addr < obj.max_addr
             l.info("Mapping %s at %#x", obj.binary, base_addr)
             self.memory.add_backer(base_addr, obj.memory)
         obj._is_mapped = True
-        key_bisect_insort_left(self.all_objects, obj, keyfunc=lambda o: o.min_addr)
+        key_bisect_insort_right(self.all_objects, obj, keyfunc=lambda o: o.min_addr)
 
     # Address space management
 

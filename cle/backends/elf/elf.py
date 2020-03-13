@@ -120,7 +120,7 @@ class ELF(MetaELF):
         try:
             self.mapped_base = self.linked_base = min(seg_addrs)
         except ValueError:
-            l.warning('no segments identified in PT_LOAD')
+            l.info('no PT_LOAD segments identified')
 
         self.__register_segments()
         self.__register_sections()

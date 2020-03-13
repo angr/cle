@@ -112,3 +112,16 @@ def key_bisect_insort_left(lst, item, lo=0, hi=None, keyfunc=lambda x: x):
         else:
             hi = mid
     lst.insert(lo, item)
+
+def key_bisect_insort_right(lst, item, lo=0, hi=None, keyfunc=lambda x: x):
+    if lo < 0:
+        raise ValueError('lo must be non-negative')
+    if hi is None:
+        hi = len(lst)
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if keyfunc(lst[mid]) <= keyfunc(item):
+            lo = mid + 1
+        else:
+            hi = mid
+    lst.insert(lo, item)

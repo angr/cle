@@ -62,9 +62,9 @@ class Symbol:
 
     def __repr__(self):
         if self.is_import:
-            return '<Symbol "%s" in %s (import)>' % (self.name, self.owner.provides)
+            return '<Symbol "%s" in %s (import)>' % (self.name, self.owner.binary_baesname)
         else:
-            return '<Symbol "%s" in %s at %#x>' % (self.name, self.owner.provides, self.rebased_addr)
+            return '<Symbol "%s" in %s at %#x>' % (self.name, self.owner.binary_basename, self.rebased_addr)
 
     def resolve(self, obj):
         self.resolved = True
