@@ -149,6 +149,8 @@ class Backend:
         self.mapped_base = self.linked_base = 0 # not to be set manually - used by CLE
 
         self.deps = []           # Needed shared objects (libraries dependencies)
+        self.child_objects = []  # any objects loaded directly out of this
+        self.parent_object = None
         self.linking = None # Dynamic or static linking
         self.pic = force_rebase
         self.execstack = False
@@ -447,6 +449,7 @@ from .java.jar import Jar
 from .java.apk import Apk
 from .java.soot import Soot
 from .xbe import XBE
+from .static_archive import StaticArchive
 
 try:
     from .binja import BinjaBin
