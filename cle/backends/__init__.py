@@ -392,6 +392,13 @@ class Backend:
         return None
 
     @classmethod
+    def is_compatible(cls, stream):
+        """
+        Determine quickly whether this backend can load an object from this stream
+        """
+        return False
+
+    @classmethod
     def check_compatibility(cls, spec, obj): # pylint: disable=unused-argument
         """
         Performs a minimal static load of ``spec`` and returns whether it's compatible with other_obj
@@ -424,8 +431,6 @@ ALL_BACKENDS = dict()
 
 
 def register_backend(name, cls):
-    if not hasattr(cls, 'is_compatible'):
-        raise TypeError("Backend needs an is_compatible() method")
     ALL_BACKENDS.update({name: cls})
 
 
