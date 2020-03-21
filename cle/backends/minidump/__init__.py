@@ -10,7 +10,7 @@ except ImportError:
     SystemInfoStream = None
 
 from .. import register_backend, Backend
-from ..region import Section
+from ..region import Section, Segment
 from ...errors import CLEError, CLEInvalidBinaryError
 
 class MinidumpMissingStreamError(Exception):
@@ -53,6 +53,7 @@ class Minidump(Backend):
 
         for segment in segments:
             data = segment.read(segment.start_virtual_address, segment.size, self._mdf.file_handle)
+            self.segments.append(Segment(segment.start_file_address, segment.start_virtual_address, segment.size, segment.size))
             self.memory.add_backer(segment.start_virtual_address, data)
 
         for module in self._mdf.modules.modules:
@@ -64,16 +65,16 @@ class Minidump(Backend):
             section = Section(module.name, segment.start_file_address, module.baseaddress, module.size)
             self.sections.append(section)
             self.sections_map[ntpath.basename(section.name)] = section
-        self.segments = self.sections
 
         self._thread_data = {}
 
         for thread in self._mdf.threads.threads:
             tid = thread.ThreadId
+            teb = thread.Teb
             self._binary_stream.seek(thread.ThreadContext.Rva)  # pylint: disable=undefined-loop-variable
             data = self._binary_stream.read(thread.ThreadContext.DataSize)  # pylint: disable=undefined-loop-variable
             self._binary_stream.seek(0)
-            self._thread_data[tid] = data
+            self._thread_data[tid] = (teb, data)
 
     def close(self):
         super().close()
@@ -94,12 +95,12 @@ class Minidump(Backend):
         if thread is None:
             thread = self.threads[0]
 
-        data = self._thread_data[thread]
+        teb, data = self._thread_data[thread]
 
         if self.arch.name == 'AMD64':
             fmt = 'QQQQQQIIHHHHHHIQQQQQQQQQQQQQQQQQQQQQQQ'
             fmt_registers = {
-                'fs':     11, 'gs':  12,
+                #'fs':     11, 'gs':  12,
                 'eflags': 14, 'rax': 21,
                 'rcx':    22, 'rdx': 23,
                 'rbx':    24, 'rsp': 25,
@@ -113,7 +114,7 @@ class Minidump(Backend):
         elif self.arch.name == 'X86':
             fmt = 'IIIIIII112xIIIIIIIIIIIIIIII512x'
             fmt_registers = {
-                'gs':     7,  'fs':  8,
+                #'gs':     7,  'fs':  8,
                 'edi':    11, 'esi': 12,
                 'ebx':    13, 'edx': 14,
                 'ecx':    15, 'eax': 16,
@@ -127,6 +128,13 @@ class Minidump(Backend):
         thread_registers = {}
         for register, position in fmt_registers.items():
             thread_registers[register] = members[position]
+
+        if self.arch.name == 'AMD64':
+            gs_base = self.memory.unpack_word(teb + 0x30)
+            thread_registers['gs_const'] = gs_base
+        elif self.arch.name == 'X86':
+            fs_base = self.memory.unpack_word(teb + 0x18)
+            thread_registers['fs'] = fs_base
         return thread_registers
 
     def get_thread_registers_by_id(self, thread_id):

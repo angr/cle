@@ -656,6 +656,8 @@ class Loader:
                 self.memory = Clemory(obj.arch, root=True)
                 if isinstance(obj, ELFCore):
                     self.tls = ELFCoreThreadManager(self, obj.arch)
+                elif isinstance(obj, Minidump):
+                    self.tls = MinidumpThreadManager(self, obj.arch)
                 elif isinstance(obj, MetaELF):
                     self.tls = ELFThreadManager(self, obj.arch)
                 elif isinstance(obj, PE):
@@ -1103,7 +1105,7 @@ class Loader:
 
 from .errors import CLEError, CLEFileNotFoundError, CLECompatibilityError, CLEOperationError
 from .memory import Clemory
-from .backends import MetaELF, ELF, PE, ELFCore, Blob, ALL_BACKENDS, Backend
-from .backends.tls import ThreadManager, ELFThreadManager, PEThreadManager, ELFCoreThreadManager, TLSObject
+from .backends import MetaELF, ELF, PE, ELFCore, Minidump, Blob, ALL_BACKENDS, Backend
+from .backends.tls import ThreadManager, ELFThreadManager, PEThreadManager, ELFCoreThreadManager, MinidumpThreadManager, TLSObject
 from .backends.externs import ExternObject, KernelObject
 from .utils import stream_or_path
