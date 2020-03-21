@@ -615,7 +615,7 @@ class ELF(MetaELF):
         """
         # DT_RUNPATH takes predence over DT_RPATH
         if len(runpath) > 0:
-            runpath = runpath
+            pass
         else:
             runpath = rpath
 
@@ -819,7 +819,7 @@ class ELF(MetaELF):
             versions = [word for word in line.replace('(', ' ').replace(')', ' ').split() if '.' in word]
             if not versions:
                 continue
-            versions.sort(key=lambda s: len(s))
+            versions.sort(key=len)
             version = versions[-1]
             lline = line.lower()
             if 'clang' in lline:
