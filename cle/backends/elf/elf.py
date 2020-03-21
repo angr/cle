@@ -1,6 +1,5 @@
 import copy
 import os
-import struct
 import logging
 import archinfo
 import elftools
