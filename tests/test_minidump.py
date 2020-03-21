@@ -16,7 +16,7 @@ def test_minidump():
     nose.tools.assert_is_instance(ld.main_object, cle.Minidump)
     nose.tools.assert_is_instance(ld.main_object.arch, archinfo.ArchX86)
     nose.tools.assert_equal(ld.main_object.os, 'windows')
-    nose.tools.assert_equal(len(ld.main_object.segments), 30)
+    nose.tools.assert_equal(len(ld.main_object.sections), 30)
 
     sections_map = ld.main_object.sections_map
     nose.tools.assert_in('jusched.exe', sections_map)
