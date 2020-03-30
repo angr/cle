@@ -32,12 +32,18 @@ class Minidump(Backend):
         else:
             self._mdf = minidumpfile.MinidumpFile.parse(self.binary)
 
+        self.wow64 = False
+
         if self.arch is None:
             if getattr(self._mdf, 'sysinfo', None) is None:
                 raise MinidumpMissingStreamError('SystemInfo', 'The architecture was not specified')
             arch = self._mdf.sysinfo.ProcessorArchitecture
             if arch == SystemInfoStream.PROCESSOR_ARCHITECTURE.AMD64:
-                self.set_arch(archinfo.ArchAMD64())
+                if any(module.name.endswith('wow64.dll') for module in self._mdf.modules.modules):
+                    self.wow64 = True
+                    self.set_arch(archinfo.ArchX86())
+                else:
+                    self.set_arch(archinfo.ArchAMD64())
             elif arch == SystemInfoStream.PROCESSOR_ARCHITECTURE.INTEL:
                 self.set_arch(archinfo.ArchX86())
             else:
@@ -97,7 +103,7 @@ class Minidump(Backend):
 
         teb, data = self._thread_data[thread]
 
-        if self.arch.name == 'AMD64':
+        if self.arch.name == 'AMD64' or self.wow64:
             fmt = 'QQQQQQIIHHHHHHIQQQQQQQQQQQQQQQQQQQQQQQ'
             fmt_registers = {
                 #'fs':     11, 'gs':  12,
@@ -129,12 +135,30 @@ class Minidump(Backend):
         for register, position in fmt_registers.items():
             thread_registers[register] = members[position]
 
-        if self.arch.name == 'AMD64':
+        if self.arch.name == 'AMD64' or self.wow64:
             gs_base = self.memory.unpack_word(teb + 0x30)
             thread_registers['gs_const'] = gs_base
         elif self.arch.name == 'X86':
             fs_base = self.memory.unpack_word(teb + 0x18)
             thread_registers['fs'] = fs_base
+
+        if self.wow64:
+            register_translation = [
+                ('edi', 'rdi'),
+                ('esi', 'rsi'),
+                ('ebx', 'rbx'),
+                ('edx', 'rdx'),
+                ('ecx', 'rcx'),
+                ('eax', 'rax'),
+                ('ebp', 'rbp'),
+                ('eip', 'rip'),
+                ('eflags', 'eflags'),
+                ('esp', 'rsp'),
+                ('fs', 'gs_const'), # ???
+            ]
+
+            thread_registers = {ereg: thread_registers[rreg] & 0xffffffff for ereg, rreg in register_translation}
+
         return thread_registers
 
     def get_thread_registers_by_id(self, thread_id):
