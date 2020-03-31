@@ -860,9 +860,14 @@ class ELF(MetaELF):
            obj._stream = self.memory
            obj._table_offset = self._offset_to_rva(obj._table_offset)
         elif isinstance(obj, elftools.elf.sections.Section):
-            obj.stream = self.memory
-            obj.elffile = None
-            obj.header.sh_offset = self._offset_to_rva(obj.header.sh_offset)
+            if obj.header.sh_type == 'SHT_NOBITS':
+                obj.stream = None
+                obj.elffile = None
+                obj.header.sh_offset = None
+            else:
+                obj.stream = self.memory
+                obj.elffile = None
+                obj.header.sh_offset = self._offset_to_rva(obj.header.sh_offset)
         else:
             raise TypeError("Can't convert %r" % type(obj))
 
