@@ -46,7 +46,7 @@ class MetaELF(Backend):
         if addr <= 0: return False
         target_addr = self.jmprel[name].linked_addr
         try:
-            if sanity_check and target_addr not in [c.value for c in self._block(addr, skip_stmts=True).all_constants]:
+            if sanity_check and target_addr not in [c.value for c in self._block(addr, skip_stmts=False).all_constants]:
                 return False
         except (pyvex.PyVEXError, KeyError):
             return False
@@ -127,9 +127,10 @@ class MetaELF(Backend):
         def scan_forward(addr, name, push=False):
             names = [name] if type(name) not in (list, tuple) else name
             def block_is_good(blk):
+                all_constants = set(c.value for c in blk.all_constants)
                 for name in names:
                     gotslot = func_jmprel[name].linked_addr
-                    if gotslot in [c.value for c in blk.all_constants]:
+                    if gotslot in all_constants:
                         block_is_good.name = name
                         return True
                 return False
@@ -143,7 +144,7 @@ class MetaELF(Backend):
             try:
                 while True:
                     tick()
-                    bb = self._block(addr, skip_stmts=True)
+                    bb = self._block(addr, skip_stmts=False)
 
                     step_forward = False
                     # the block shouldn't touch any cc_* registers
@@ -179,7 +180,7 @@ class MetaELF(Backend):
                     block = self._block(addr, skip_stmts=True)
                     if len(block.instruction_addresses) > 1:
                         for instruction in block.instruction_addresses[1:]:
-                            candidate_block = self._block(instruction, skip_stmts=True)
+                            candidate_block = self._block(instruction, skip_stmts=False)
                             if block_is_good(candidate_block) and block_is_good.name == old_name:
                                 addr = candidate_block.addr
                             else:
@@ -198,7 +199,7 @@ class MetaELF(Backend):
                             if stmt.tag == 'Ist_IMark':
                                 if seen_imark:
                                     # good????
-                                    bb = self._block(stmt.addr, skip_stmts=True)
+                                    bb = self._block(stmt.addr, skip_stmts=False)
                                     if block_is_good(bb):
                                         addr = stmt.addr
                                         cont = True
