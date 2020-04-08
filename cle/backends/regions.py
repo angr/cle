@@ -4,7 +4,7 @@ if str is not bytes:
     long = int
 
 
-class Regions(object):
+class Regions:
     """
     A container class acting as a list of regions (sections or segments). Additionally, it keeps an sorted list of
     all regions that are mapped into memory to allow fast lookups.

@@ -178,6 +178,10 @@ class Backend:
         self._is_mapped = False
         # cached max_addr
         self._max_addr = None
+        # cached last section
+        self._last_section = None
+        # cached last segment
+        self._last_segment = None
 
         if arch is None:
             self.arch = None
@@ -292,13 +296,25 @@ class Backend:
         """
         Returns the segment that contains `addr`, or ``None``.
         """
-        return self.segments.find_region_containing(addr)
+        if self._last_segment is not None and self._last_segment.contains_addr(addr):
+            return self._last_segment
+
+        r = self.segments.find_region_containing(addr)
+        if r is not None:
+            self._last_segment = r
+        return r
 
     def find_section_containing(self, addr):
         """
         Returns the section that contains `addr` or ``None``.
         """
-        return self.sections.find_region_containing(addr)
+        if self._last_section is not None and self._last_section.contains_addr(addr):
+            return self._last_section
+
+        r = self.sections.find_region_containing(addr)
+        if r is not None:
+            self._last_section = r
+        return r
 
     def addr_to_offset(self, addr):
         loadable = self.find_loadable_containing(addr)
