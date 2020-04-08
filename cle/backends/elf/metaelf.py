@@ -33,20 +33,20 @@ class MetaELF(Backend):
 
     supported_filetypes = ['elf']
 
-    def _block(self, addr):
+    def _block(self, addr, skip_stmts=False):
         # for sanity checking. we live in the world of heuristics now.
         thumb = self.arch.name.startswith("ARM") and addr % 2 == 1
         realaddr = addr
         if thumb: realaddr -= 1
         dat = self.memory.load(AT.from_lva(realaddr, self).to_rva(), 40)
-        return pyvex.IRSB(dat, addr, self.arch, bytes_offset=1 if thumb else 0, opt_level=1)
+        return pyvex.IRSB(dat, addr, self.arch, bytes_offset=1 if thumb else 0, opt_level=1, skip_stmts=skip_stmts)
 
     def _add_plt_stub(self, name, addr, sanity_check=True):
         # addr is an LVA
         if addr <= 0: return False
         target_addr = self.jmprel[name].linked_addr
         try:
-            if sanity_check and target_addr not in [c.value for c in self._block(addr).all_constants]:
+            if sanity_check and target_addr not in [c.value for c in self._block(addr, skip_stmts=True).all_constants]:
                 return False
         except (pyvex.PyVEXError, KeyError):
             return False
@@ -143,7 +143,7 @@ class MetaELF(Backend):
             try:
                 while True:
                     tick()
-                    bb = self._block(addr)
+                    bb = self._block(addr, skip_stmts=True)
 
                     step_forward = False
                     # the block shouldn't touch any cc_* registers
@@ -176,10 +176,10 @@ class MetaELF(Backend):
                     if block_is_good.name is None:
                         raise ValueError('block_is_good.name cannot be None.')
                     old_name = block_is_good.name
-                    block = self._block(addr)
+                    block = self._block(addr, skip_stmts=True)
                     if len(block.instruction_addresses) > 1:
                         for instruction in block.instruction_addresses[1:]:
-                            candidate_block = self._block(instruction)
+                            candidate_block = self._block(instruction, skip_stmts=True)
                             if block_is_good(candidate_block) and block_is_good.name == old_name:
                                 addr = candidate_block.addr
                             else:
@@ -190,11 +190,15 @@ class MetaELF(Backend):
                     while cont:
                         cont = False
                         seen_imark = False
+                        # we need to access bb.statements
+                        if bb.statements is None:
+                            # relift without skipping statements
+                            bb = self._block(bb.addr, skip_stmts=False)
                         for stmt in bb.statements:
                             if stmt.tag == 'Ist_IMark':
                                 if seen_imark:
                                     # good????
-                                    bb = self._block(stmt.addr)
+                                    bb = self._block(stmt.addr, skip_stmts=True)
                                     if block_is_good(bb):
                                         addr = stmt.addr
                                         cont = True
@@ -215,13 +219,13 @@ class MetaELF(Backend):
             try:
                 last_jk = None
                 addr = self.entry
-                bb = self._block(addr)
+                bb = self._block(addr, skip_stmts=True)
                 target = bb.default_exit_target
                 while target is not None:
                     tick()
                     last_jk = bb.jumpkind
                     addr = target
-                    bb = self._block(addr)
+                    bb = self._block(addr, skip_stmts=True)
                     target = bb.default_exit_target
 
                 if last_jk == 'Ijk_Call':
@@ -272,10 +276,10 @@ class MetaELF(Backend):
                     addr = AT.from_rva(self._plt[name], self).to_lva()
 
             if addr is not None:
-                b0 = self._block(addr)
+                b0 = self._block(addr, skip_stmts=True)
                 stub_size = b0.size
                 if isinstance(b0.next, pyvex.expr.Const) and b0.next.con.value == addr + b0.size:
-                    b1 = self._block(addr + b0.size)
+                    b1 = self._block(addr + b0.size, skip_stmts=True)
                     stub_size += b1.size
                 next_addr = addr + stub_size
 
