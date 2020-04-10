@@ -353,6 +353,7 @@ class Loader:
         if self._last_object is not None and \
                 self._last_object.min_addr <= addr <= self._last_object.max_addr:
             if not membership_check: return self._last_object
+            if not self._last_object.has_memory: return self._last_object
             o = _check_object_memory(self._last_object)
             if o: return o
 
