@@ -14,7 +14,7 @@ setup(
     name='cle',
     description='CLE Loads Everything (at least, many binary formats!) and provides a pythonic interface to analyze what they are and what they would look like in memory.',
     version='8.20.1.7',
-    python_requires='>=3.5',
+    python_requires='>=3.6',
     packages=packages,
     install_requires=[
         'pyelftools>=0.25',
