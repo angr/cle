@@ -809,11 +809,11 @@ class Loader:
         try:
             # STEP 2: collect options
             if self.main_object is None:
-                options = self._main_opts
+                options = dict(self._main_opts)
             else:
                 for ident in self._possible_idents(binary_stream if binary is None else binary): # also allowed to cheat
                     if ident in self._lib_opts:
-                        options = self._lib_opts[ident]
+                        options = dict(self._lib_opts[ident])
                         break
                 else:
                     options = {}
