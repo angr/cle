@@ -200,12 +200,8 @@ class Backend:
         del self._binary_stream
 
     def __repr__(self):
-        if self.binary is not None:
-            return '<%s Object %s, maps [%#x:%#x]>' % \
-                   (self.__class__.__name__, os.path.basename(self.binary), self.min_addr, self.max_addr)
-        else:
-            return '<%s Object from stream, maps [%#x:%#x]>' % \
-                   (self.__class__.__name__, self.min_addr, self.max_addr)
+        return '<%s Object %s, maps [%#x:%#x]>' % \
+               (self.__class__.__name__, self.binary_basename, self.min_addr, self.max_addr)
 
     def set_arch(self, arch):
         self.arch = arch
