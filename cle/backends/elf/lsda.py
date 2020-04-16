@@ -58,7 +58,38 @@ class LSDAExceptionTable:
             dwarf_format=dwarf_format,
             address_size=bits // 8
         )
-        self._formats = CallFrameInfo._eh_encoding_to_field(self.entry_structs)
+        self._formats = self._eh_encoding_to_field(self.entry_structs)
+
+    @staticmethod
+    def _eh_encoding_to_field(entry_structs):
+        """
+        Shamelessly copied from pyelftools since the original method is a bounded method.
+
+        Return a mapping from basic encodings (DW_EH_encoding_flags) the
+        corresponding field constructors (for instance
+        entry_structs.Dwarf_uint32).
+        """
+        return {
+            DW_EH_encoding_flags['DW_EH_PE_absptr']:
+                entry_structs.Dwarf_target_addr,
+            DW_EH_encoding_flags['DW_EH_PE_uleb128']:
+                entry_structs.Dwarf_uleb128,
+            DW_EH_encoding_flags['DW_EH_PE_udata2']:
+                entry_structs.Dwarf_uint16,
+            DW_EH_encoding_flags['DW_EH_PE_udata4']:
+                entry_structs.Dwarf_uint32,
+            DW_EH_encoding_flags['DW_EH_PE_udata8']:
+                entry_structs.Dwarf_uint64,
+
+            DW_EH_encoding_flags['DW_EH_PE_sleb128']:
+                entry_structs.Dwarf_sleb128,
+            DW_EH_encoding_flags['DW_EH_PE_sdata2']:
+                entry_structs.Dwarf_int16,
+            DW_EH_encoding_flags['DW_EH_PE_sdata4']:
+                entry_structs.Dwarf_int32,
+            DW_EH_encoding_flags['DW_EH_PE_sdata8']:
+                entry_structs.Dwarf_int64,
+        }
 
     def parse_lsda(self, address, offset):
         self.address = address
