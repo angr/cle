@@ -104,5 +104,8 @@ class Blob(Backend):
     def check_compatibility(cls, spec, obj): # pylint: disable=unused-argument
         return True
 
+    def _checksum(self):
+        return
+
 
 register_backend("blob", Blob)

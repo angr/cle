@@ -1,4 +1,4 @@
-class PatchedStream(object):
+class PatchedStream:
     """
     An object that wraps a readable stream, performing passthroughs on seek and read operations,
     except to make it seem like the data has actually been patched by the given patches.

@@ -166,7 +166,7 @@ class Clemory(ClemoryBase):
         if not data:
             raise ValueError("Backer is empty!")
 
-        if not isinstance(data, (bytes, list, Clemory)):
+        if not isinstance(data, (bytes, bytearray, list, Clemory)):
             raise TypeError("Data must be a bytes, list, or Clemory object.")
         if start in self:
             raise ValueError("Address %#x is already backed!" % start)
