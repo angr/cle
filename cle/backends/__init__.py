@@ -1,6 +1,8 @@
 import os
 import logging
 import hashlib
+from typing import List, Optional  # pylint:disable=unused-import
+
 import sortedcontainers
 
 import archinfo
@@ -41,6 +43,35 @@ class FunctionHint:
 
     def __repr__(self):
         return "<FuncHint@%#x, %d bytes>" % (self.addr, self.size)
+
+
+class ExceptionHandling:
+    """
+    Describes an exception handling.
+
+    Exception handlers are usually language-specific. In C++, it is usually implemented as try {} catch {} blocks.
+
+    :ivar int start_addr:               The beginning of the try block.
+    :ivar int size:                     Size of the try block.
+    :ivar Optional[int] handler_addr:   Address of the exception handler code.
+    :ivar type:                         Type of the exception handler. Optional.
+    :ivar Optional[int] func_addr:      Address of the function. Optional.
+    """
+
+    __slots__ = ('start_addr', 'size', 'handler_addr', 'type', 'func_addr',)
+
+    def __init__(self, start_addr, size, handler_addr=None, type=None, func_addr=None):
+
+        self.start_addr = start_addr
+        self.size = size
+        self.handler_addr = handler_addr
+        self.type = type
+        self.func_addr = func_addr
+
+    def __repr__(self):
+        return "<ExceptionHandling@%#x-%#x: handler@%#x>" % (self.start_addr,
+                                                             self.start_addr + self.size,
+                                                             self.handler_addr)
 
 
 class Backend:
@@ -164,8 +195,13 @@ class Backend:
         self.tls_module_id = None
         #self.tls_block_offset = None  # this is an ELF-only attribute
 
+        # exception handling
+        # they should be rebased when .rebase() is called
+        self.exception_handlings = []  # type: List[ExceptionHandling]
+
         # Hints
-        self.function_hints = []  # they should be rebased when .rebase() is called
+        # they should be rebased when .rebase() is called
+        self.function_hints = []  # type: List[FunctionHint]
 
         # Custom options
         self._custom_entry_point = entry_point
@@ -266,6 +302,13 @@ class Backend:
             self.sections._rebase(self.image_base_delta)
         if self.segments and self.sections is not self.segments:
             self.segments._rebase(self.image_base_delta)
+
+        for handling in self.exception_handlings:
+            if handling.func_addr is not None:
+                handling.func_addr += self.image_base_delta
+            if handling.handler_addr is not None:
+                handling.handler_addr += self.image_base_delta
+            handling.start_addr += self.image_base_delta
 
         for hint in self.function_hints:
             hint.addr = hint.addr + self.image_base_delta

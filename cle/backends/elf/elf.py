@@ -12,7 +12,8 @@ from .symbol import ELFSymbol, Symbol, SymbolType
 from .regions import ELFSection, ELFSegment
 from .hashtable import ELFHashTable, GNUHashTable
 from .metaelf import MetaELF, maybedecode
-from .. import register_backend, FunctionHint, FunctionHintSource
+from .lsda import LSDAExceptionTable
+from .. import register_backend, FunctionHint, FunctionHintSource, ExceptionHandling
 from .relocation import get_relocation
 from .relocation.generic import MipsGlobalReloc, MipsLocalReloc
 from ...patched_stream import PatchedStream
@@ -101,9 +102,6 @@ class ELF(MetaELF):
         self.has_dwarf_info = bool(self._reader.has_dwarf_info())
         self.build_id = None
 
-        # .eh_frame
-        self.fdes = [ ] # Frame description entry. All addresses are rebased.
-
         self._entry = self._reader.header.e_entry
         self.is_relocatable = self._reader.header.e_type == 'ET_REL'
         self.pic = self.pic or self._reader.header.e_type in ('ET_REL', 'ET_DYN')
@@ -133,13 +131,14 @@ class ELF(MetaELF):
             try:
                 dwarf = self._reader.get_dwarf_info()
             except ELFError:
-                l.warning("An exception occurred in pyelftools when loading the DWARF information%s. "
+                l.warning("An exception occurred in pyelftools when loading the DWARF information for %s. "
                           "Marking DWARF as not available for this binary.", self.binary_basename, exc_info=True)
                 dwarf = None
                 self.has_dwarf_info = False
 
             if dwarf and dwarf.has_EH_CFI():
                 self._load_function_hints_from_fde(dwarf, FunctionHintSource.EH_FRAME)
+                self._load_exception_handling(dwarf)
 
         if debug_symbols:
             self.__process_debug_file(debug_symbols)
@@ -319,13 +318,6 @@ class ELF(MetaELF):
         else:
             raise CLEError("Bad symbol identifier: %r" % (symid,))
 
-    def rebase(self, new_base):
-        super().rebase(new_base)
-
-        # rebase frame description entries
-        for fde in self.fdes:
-            fde.pc_begin = fde.pc_begin + self.image_base_delta
-
     #
     # Private Methods
     #
@@ -456,6 +448,44 @@ class ELF(MetaELF):
                         entry.header['address_range'],
                         source,
                     ))
+        except (DWARFError, ValueError):
+            l.warning("An exception occurred in pyelftools when loading FDE information.",
+                      exc_info=True)
+
+    def _load_exception_handling(self, dwarf):
+        """
+        Load exception handling information out of the .eh_frame and .gcc_except_table sections. We may support more
+        types of exception handling information in the future.
+
+        :param dwarf:   The DWARF info object from pyelftools.
+        :return:        None
+        """
+
+        try:
+            lsda = LSDAExceptionTable(self._binary_stream, self.arch.bits, self.arch.memory_endness == 'Iend_LE')
+            for entry in dwarf.EH_CFI_entries():
+                if type(entry) is callframe.FDE and \
+                        hasattr(entry, 'lsda_pointer') and \
+                        entry.lsda_pointer is not None:
+                    # function address
+                    func_addr = entry.header.get('initial_location', None)
+                    if func_addr is None:
+                        l.warning('Unexpected FDE structure: '
+                                  'initial_location is not specified while LSDA pointer is available.')
+                        continue
+
+                    # Load and parse LSDA exception table
+                    file_offset = self.addr_to_offset(entry.lsda_pointer)
+                    lsda_exception_table = lsda.parse_lsda(entry.lsda_pointer, file_offset)
+                    for exc in lsda_exception_table:
+                        handling = ExceptionHandling(
+                            func_addr + exc.cs_start,
+                            exc.cs_len,
+                            handler_addr=func_addr + exc.cs_lp if exc.cs_lp != 0 else None,
+                            func_addr=func_addr
+                        )
+                        self.exception_handlings.append(handling)
+
         except (DWARFError, ValueError):
             l.warning("An exception occurred in pyelftools when loading FDE information.",
                       exc_info=True)
