@@ -1,11 +1,15 @@
+import os
 import struct
 import elftools
 import logging
+from collections import defaultdict
 
 from .elf import ELF
+from ..blob import Blob
 from .. import register_backend
 from ...errors import CLEError, CLECompatibilityError
 from ...memory import Clemory
+from ...address_translator import AT
 
 l = logging.getLogger(name=__name__)
 
@@ -18,15 +22,18 @@ class ELFCore(ELF):
     """
     is_default = True # Tell CLE to automatically consider using the ELFCore backend
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, executable=None, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.filename_lookup = []
         self.__current_thread = None
         self._threads = []
         self.auxv = {}
+        self._main_filepath = executable
 
         self.__extract_note_info()
+
+        self.__reload_children()
 
     @staticmethod
     def is_compatible(stream):
@@ -183,7 +190,23 @@ class ELFCore(ELF):
         self.__current_thread.update(result)
 
     def __parse_files(self, desc):
-        self.filename_lookup = [(ent.vm_start, ent.vm_end, ent.page_offset, fn) for ent, fn in zip(desc.Elf_Nt_File_Entry, desc.filename)]
+        self.filename_lookup = [(ent.vm_start, ent.vm_end, ent.page_offset * desc.page_size, fn.decode()) for ent, fn in zip(desc.Elf_Nt_File_Entry, desc.filename)]
+
+        # TODO this can be less stupid if we just parse out what the name/address of the main executable is
+        # that metadata has to be somewhere, right?
+        matched = None
+        if self.filename_lookup and self._main_filepath is not None:
+            for i, (a, b, c, fn) in enumerate(self.filename_lookup):
+                if os.path.basename(self._main_filepath) == fn[fn.rfind('/')+1:]: # explicit unix basename
+                    matched = fn
+                    break
+            else:
+                matched = self.filename_lookup[0][-1]
+
+        for i, (a, b, c, fn) in enumerate(self.filename_lookup):
+            if fn == matched:
+                self.filename_lookup[i] = (a, b, c, self._main_filepath)
+
 
     def __parse_x86_tls(self, desc):
         self.__current_thread['segments'] = {}
@@ -211,6 +234,128 @@ class ELFCore(ELF):
                 value = bytes(value)
 
             self.auxv[code_str] = value
+
+    def __reload_children(self):
+        # god damn. hacks start here
+        self.loader.page_size = 0x1000
+        self.loader._perform_relocations = False
+
+        # hack: we are using a loader internal method in a non-kosher way which will cause our children to be
+        # marked as the main binary if we are also the main binary
+        # work around this by setting ourself here:
+        if self.loader.main_object is None:
+            self.loader.main_object = self
+
+        child_patches = defaultdict(list)
+        for vm_start, vm_end, offset, filename in self.filename_lookup:
+            try:
+                patch_data = self.__dummy_clemory.load(vm_start, vm_end-vm_start)
+            except KeyError:
+                pass
+            else:
+                child_patches[filename].append((vm_start, offset, patch_data))
+
+        remaining_segments = list(self.segments)
+
+        for filename, patches in child_patches.items():
+            try:
+                with open(filename, 'rb') as fp:
+                    obj = self.loader._load_object_isolated(fp)
+            except FileNotFoundError:
+                l.warning("Could not load %s; core may be incomplete", filename)
+                if self.loader.main_object is self:
+                    self.loader.main_object = None
+                self.child_objects.clear()
+                return
+
+            # several ways to try to match the NT_FILE entries to the object
+            # (not trivial because offsets can be mapped multiple places)
+            # (and because there's no clear pattern for how mappings are included or omitted)
+            base_addr = None
+
+            # try one: use the delta between each allocation as a signature (works when the text segment is missing)
+            if base_addr is None:
+                vm_starts = [a for a, _, _ in patches]
+                vm_deltas = [b - a for a, b in zip(vm_starts, vm_starts[1:])]
+                segment_starts = [seg.vaddr for seg in obj.segments]
+                segment_deltas = [b - a for a, b in zip(segment_starts, segment_starts[1:])]
+
+                # funky lil algorithm to find substrings
+                for match_idx in range(len(segment_deltas) - len(vm_deltas) + 1):
+                    for idx, vm_delta in enumerate(vm_deltas):
+                        if vm_delta != segment_deltas[match_idx + idx]:
+                            break
+                    else:
+                        base_addr = vm_starts[0] - AT.from_lva(obj.segments[match_idx].vaddr, obj).to_rva()
+                        break
+
+            # try two: if the file is identity-mapped, it's easy (?)
+            if base_addr is None:
+                base_reccomendations = [a - b for a, b, _ in patches]
+                if all(a == base_reccomendations[0] for a in base_reccomendations):
+                    base_addr = base_reccomendations[0]
+
+            # try three: if we have the zero offset then it's easy (?)
+            if base_addr is None:
+                if patches[0][1] == 0:
+                    base_addr = patches[0][0]
+
+            if base_addr is None:
+                import ipdb; ipdb.set_trace()
+                l.warning("Could not load %s (could not determine base); core may be incomplete", filename)
+                if self.loader.main_object is self:
+                    self.loader.main_object = None
+                self.child_objects.clear()
+                return
+
+            # store data provided by core into object
+            for vaddr, _, patch in patches:
+                try:
+                    obj.memory.store(vaddr - base_addr, patch)
+                except KeyError:
+                    pass  # this case handled below in the inject clause, right???
+
+            obj._custom_base_addr = base_addr
+            self.child_objects.append(obj)
+
+            # remove any core segments which are handled by this object
+            for seg in obj.segments:
+                addr = AT.from_lva(seg.vaddr, obj).to_rva() + base_addr
+                for subaddr in range(addr, addr + seg.memsize, 0x1000):
+                    match_seg = self.find_segment_containing(subaddr)
+                    if match_seg is not None:
+                        try:
+                            remaining_segments.remove(match_seg)
+                        except ValueError:
+                            pass
+
+            # inject any core segments which are not handled by the object but overlap with it
+            max_addr = base_addr + (obj.max_addr - obj.min_addr)
+            i = 0
+            while i < len(remaining_segments):
+                seg = remaining_segments[i]
+                if base_addr <= seg.vaddr <= max_addr or seg.vaddr <= base_addr < seg.vaddr + seg.memsize:
+                    remaining_segments.pop(i)
+
+                    seg_vaddr, backer = next(self.memory.backers(AT.from_mva(seg.vaddr, self).to_rva()))
+                    assert seg_vaddr == AT.from_mva(seg.vaddr, self).to_rva()
+                    obj.memory.add_backer(seg.vaddr - base_addr, backer)
+                else:
+                    i += 1
+
+        # for all remaining segments, make blobs out of them
+        mem = self.__dummy_clemory
+        for seg in remaining_segments:
+            obj = Blob(self.binary, mem, segments=[(seg.vaddr, seg.vaddr, seg.memsize)], base_addr=seg.vaddr, arch=self.arch, entry_point=0, force_rebase=True)
+            self.child_objects.append(obj)
+
+        self.mapped_base = 0
+        self._max_addr = 0
+        self.has_memory = False
+        if self.loader.main_object is self:
+            self.loader.main_object = None
+
+
 
 auxv_codes = {
  0x0: 'AT_NULL',

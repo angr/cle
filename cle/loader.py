@@ -659,7 +659,7 @@ class Loader:
                 self.main_object = obj
                 self.memory = Clemory(obj.arch, root=True)
 
-                chk_obj = self.main_object if not self.main_object.child_objects else self.main_object.child_objects[0]
+                chk_obj = self.main_object if isinstance(self.main_object, ELFCore) or not self.main_object.child_objects else self.main_object.child_objects[0]
                 if isinstance(chk_obj, ELFCore):
                     self.tls = ELFCoreThreadManager(self, obj.arch)
                 elif isinstance(obj, Minidump):
