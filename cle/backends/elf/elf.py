@@ -370,17 +370,8 @@ class ELF(MetaELF):
         self._inits_extracted = True
 
     def _load_segment(self, seg):
-        self._load_segment_metadata(seg)
-        self._load_segment_memory(seg)
-
-    def _load_segment_metadata(self, seg):
-        """
-        Loads a segment based on a LOAD directive in the program header table.
-        """
         loaded_segment = ELFSegment(seg)
         self.segments.append(loaded_segment)
-
-    def _load_segment_memory(self, seg):
 
         # see https://code.woboq.org/userspace/glibc/elf/dl-load.c.html#1066
         ph = seg.header
@@ -401,11 +392,14 @@ class ELF(MetaELF):
 
         mapoff = ALIGN_DOWN(ph.p_offset, self.loader.page_size)
 
+        # patch modified addresses into ELFSegment
+        loaded_segment.vaddr = mapstart
+        loaded_segment.memsize = mapend - mapstart
+        loaded_segment.filesize = mapend - mapstart
+        loaded_segment.offset = mapoff
+
         # see https://code.woboq.org/userspace/glibc/elf/dl-map-segments.h.html#88
         data = get_mmaped_data(seg.stream, mapoff, mapend - mapstart, self.loader.page_size)
-        if not data:
-            l.warning("Segment %s is empty at %#08x!", seg.header.p_type, mapstart)
-            return
         if allocend > dataend:
             zero = dataend
             zeropage = (zero + self.loader.page_size - 1) & ~(self.loader.page_size - 1)
@@ -416,6 +410,10 @@ class ELF(MetaELF):
             zeroend = ALIGN_UP(allocend, self.loader.page_size) # mmap maps to the next page boundary
             if zeroend > zeropage:
                 data = data.ljust(zeroend - mapstart, b'\0')
+            loaded_segment.memsize = zeroend - mapstart
+        elif not data:
+            l.warning("Segment %s is empty at %#08x!", seg.header.p_type, mapstart)
+            return
 
         self.memory.add_backer(AT.from_lva(mapstart, self).to_rva(), data)
 
@@ -738,6 +736,14 @@ class ELF(MetaELF):
 
     def __register_relro(self, segment_relro):
         segment_relro = ELFSegment(segment_relro, relro=True)
+        vaddr = ALIGN_DOWN(segment_relro.vaddr, self.loader.page_size)
+        vaddr_end = ALIGN_UP(vaddr + segment_relro.memsize, self.loader.page_size)
+        vaddr_endfile = ALIGN_UP(vaddr + segment_relro.filesize, self.loader.page_size)
+
+        segment_relro.offset = ALIGN_DOWN(segment_relro.offset, self.loader.page_size)
+        segment_relro.vaddr = vaddr
+        segment_relro.memsize = vaddr_end - vaddr
+        segment_relro.filesize = vaddr_endfile - vaddr
 
         def ___segments_overlap(seg1, seg2):
             # Re-arrange so seg1 starts first
