@@ -301,7 +301,6 @@ class ELFCore(ELF):
                     base_addr = patches[0][0]
 
             if base_addr is None:
-                import ipdb; ipdb.set_trace()
                 l.warning("Could not load %s (could not determine base); core may be incomplete", filename)
                 if self.loader.main_object is self:
                     self.loader.main_object = None
