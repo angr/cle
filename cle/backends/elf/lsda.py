@@ -10,7 +10,6 @@ from typing import List  # pylint:disable=unused-import
 from elftools.common.utils import struct_parse
 from elftools.dwarf.enums import DW_EH_encoding_flags
 from elftools.dwarf.structs import DWARFStructs, Struct
-from elftools.dwarf.callframe import CallFrameInfo
 
 
 class ExceptionTableHeader:

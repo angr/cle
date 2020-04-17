@@ -60,12 +60,12 @@ class ExceptionHandling:
 
     __slots__ = ('start_addr', 'size', 'handler_addr', 'type', 'func_addr',)
 
-    def __init__(self, start_addr, size, handler_addr=None, type=None, func_addr=None):
+    def __init__(self, start_addr, size, handler_addr=None, type_=None, func_addr=None):
 
         self.start_addr = start_addr
         self.size = size
         self.handler_addr = handler_addr
-        self.type = type
+        self.type = type_
         self.func_addr = func_addr
 
     def __repr__(self):
@@ -453,7 +453,7 @@ class Backend:
         return None
 
     @classmethod
-    def is_compatible(cls, stream):
+    def is_compatible(cls, stream):  # pylint:disable=unused-argument
         """
         Determine quickly whether this backend can load an object from this stream
         """
