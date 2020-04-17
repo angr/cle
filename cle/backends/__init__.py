@@ -69,9 +69,13 @@ class ExceptionHandling:
         self.func_addr = func_addr
 
     def __repr__(self):
-        return "<ExceptionHandling@%#x-%#x: handler@%#x>" % (self.start_addr,
-                                                             self.start_addr + self.size,
-                                                             self.handler_addr)
+        if self.handler_addr is not None:
+            return "<ExceptionHandling@%#x-%#x: handler@%#x>" % (self.start_addr,
+                                                                 self.start_addr + self.size,
+                                                                 self.handler_addr)
+        else:
+            return "<ExceptionHandling@%#x-%#x: no handler>" % (self.start_addr,
+                                                                 self.start_addr + self.size)
 
 
 class Backend:
