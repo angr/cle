@@ -426,7 +426,7 @@ class ELF(MetaELF):
         address = AT.from_lva(readelf_reloc.entry.r_offset, self).to_rva()
         if dest_section is not None:
             address += dest_section.remap_offset
-
+        assert (address > 0)
         return RelocClass(self, symbol, address, addend)
 
     def _load_function_hints_from_fde(self, dwarf, source):
@@ -719,7 +719,12 @@ class ELF(MetaELF):
                 symbol = self.get_symbol(readelf_reloc.entry.r_info_sym, symtab)
                 if symbol is None:
                     continue
-                reloc = self._make_reloc(readelf_reloc, symbol, dest_sec)
+                try:
+                    reloc = self._make_reloc(readelf_reloc, symbol, dest_sec)
+                except AssertionError:
+                    l.exception("Invalid relocation %s" % symbol.name)
+                    # Seriously Atmel, who wrote this toolchain??
+                    continue
                 if reloc is not None:
                     relocs.append(reloc)
                     self.relocs.append(reloc)
