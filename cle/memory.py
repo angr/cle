@@ -68,17 +68,19 @@ class ClemoryBase:
         if size == 16:
             # Python doesn't have struct format string to support 16-byte long words
             # load the word in two 8-byte chunks
-            fmt = self._arch.struct_fmt(size=8, signed=signed, endness=endness)
-            a = self.unpack(addr, fmt)[0]
-            b = self.unpack(addr + 8, fmt)[0]
             if endness is None:
                 endness = self._arch.memory_endness
             if endness == archinfo.Endness.BE:
-                return (a << 64) | b
+                lo_off, hi_off = 8, 0
             elif endness == archinfo.Endness.LE:
-                return (b << 64) | a
+                lo_off, hi_off = 0, 8
             else:
                 raise ValueError("Unsupported endness value %s." % endness)
+
+            lo = self.unpack_word(addr + lo_off, size=8, signed=False, endness=endness)
+            hi = self.unpack_word(addr + hi_off, size=8, signed=signed, endness=endness)
+            return (hi << 64) | lo
+
         return self.unpack(addr, self._arch.struct_fmt(size=size, signed=signed, endness=endness))[0]
 
     def pack(self, addr, fmt, *data):
