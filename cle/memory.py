@@ -65,7 +65,7 @@ class ClemoryBase:
         :param bool signed: Whether the data should be extracted signed/unsigned. Default unsigned
         :param archinfo.Endness endness: The endian to use in packing/unpacking. Defaults to memory endness
         """
-        if size > 8:
+        if size is not None and size > 8:
             # support larger wordsizes via recursive algorithm
             subsize = size >> 1
             if size != subsize << 1:
