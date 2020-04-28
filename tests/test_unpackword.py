@@ -52,6 +52,16 @@ def test_unpackword():
     xmmword = ld.memory.unpack_word(BASE_ADDR + 16, 16, endness=archinfo.Endness.LE, signed=True)
     nose.tools.assert_equal(xmmword, 0xfefffffffffffffffffffffffffffffd - 2**128)
 
+    # ymmword
+    ymmword = ld.memory.unpack_word(BASE_ADDR, 32, endness=archinfo.Endness.BE, signed=False)
+    nose.tools.assert_equal(ymmword, 0x370102030405060708090a0b0c0d0e0ffdfffffffffffffffffffffffffffffe)
+    ymmword = ld.memory.unpack_word(BASE_ADDR, 32, endness=archinfo.Endness.BE, signed=True)
+    nose.tools.assert_equal(ymmword, 0x370102030405060708090a0b0c0d0e0ffdfffffffffffffffffffffffffffffe)
+    ymmword = ld.memory.unpack_word(BASE_ADDR, 32, endness=archinfo.Endness.LE, signed=False)
+    nose.tools.assert_equal(ymmword, 0xfefffffffffffffffffffffffffffffd0f0e0d0c0b0a09080706050403020137)
+    ymmword = ld.memory.unpack_word(BASE_ADDR, 32, endness=archinfo.Endness.LE, signed=True)
+    nose.tools.assert_equal(ymmword, 0xfefffffffffffffffffffffffffffffd0f0e0d0c0b0a09080706050403020137 - 2**256)
+
 
 if __name__ == "__main__":
     test_unpackword()

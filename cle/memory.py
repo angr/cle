@@ -65,21 +65,24 @@ class ClemoryBase:
         :param bool signed: Whether the data should be extracted signed/unsigned. Default unsigned
         :param archinfo.Endness endness: The endian to use in packing/unpacking. Defaults to memory endness
         """
-        if size == 16:
-            # Python doesn't have struct format string to support 16-byte long words
-            # load the word in two 8-byte chunks
+        if size > 8:
+            # support larger wordsizes via recursive algorithm
+            subsize = size >> 1
+            if size != subsize << 1:
+                raise ValueError("Cannot unpack non-power-of-two sizes")
+
             if endness is None:
                 endness = self._arch.memory_endness
             if endness == archinfo.Endness.BE:
-                lo_off, hi_off = 8, 0
+                lo_off, hi_off = subsize, 0
             elif endness == archinfo.Endness.LE:
-                lo_off, hi_off = 0, 8
+                lo_off, hi_off = 0, subsize
             else:
                 raise ValueError("Unsupported endness value %s." % endness)
 
-            lo = self.unpack_word(addr + lo_off, size=8, signed=False, endness=endness)
-            hi = self.unpack_word(addr + hi_off, size=8, signed=signed, endness=endness)
-            return (hi << 64) | lo
+            lo = self.unpack_word(addr + lo_off, size=subsize, signed=False, endness=endness)
+            hi = self.unpack_word(addr + hi_off, size=subsize, signed=signed, endness=endness)
+            return (hi << (subsize << 3)) | lo
 
         return self.unpack(addr, self._arch.struct_fmt(size=size, signed=signed, endness=endness))[0]
 
