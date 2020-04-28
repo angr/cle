@@ -2,7 +2,10 @@ import bisect
 import struct
 from typing import Tuple, Union, List
 
+import archinfo
+
 __all__ = ('ClemoryBase', 'Clemory', 'ClemoryView')
+
 
 class ClemoryBase:
     __slots__ = ('_arch', '_pointer')
@@ -62,6 +65,20 @@ class ClemoryBase:
         :param bool signed: Whether the data should be extracted signed/unsigned. Default unsigned
         :param archinfo.Endness endness: The endian to use in packing/unpacking. Defaults to memory endness
         """
+        if size == 16:
+            # Python doesn't have struct format string to support 16-byte long words
+            # load the word in two 8-byte chunks
+            fmt = self._arch.struct_fmt(size=8, signed=signed, endness=endness)
+            a = self.unpack(addr, fmt)[0]
+            b = self.unpack(addr + 8, fmt)[0]
+            if endness is None:
+                endness = self._arch.memory_endness
+            if endness == archinfo.Endness.BE:
+                return (a << 64) | b
+            elif endness == archinfo.Endness.LE:
+                return (b >> 64) | a
+            else:
+                raise ValueError("Unsupported endness value %s." % endness)
         return self.unpack(addr, self._arch.struct_fmt(size=size, signed=signed, endness=endness))[0]
 
     def pack(self, addr, fmt, *data):
