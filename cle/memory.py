@@ -76,7 +76,7 @@ class ClemoryBase:
             if endness == archinfo.Endness.BE:
                 return (a << 64) | b
             elif endness == archinfo.Endness.LE:
-                return (b >> 64) | a
+                return (b << 64) | a
             else:
                 raise ValueError("Unsupported endness value %s." % endness)
         return self.unpack(addr, self._arch.struct_fmt(size=size, signed=signed, endness=endness))[0]
