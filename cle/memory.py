@@ -338,7 +338,7 @@ class Clemory(ClemoryBase):
         """
 
         # concrete memory read
-        if self.is_concrete_target_set():
+        if self.concrete_target is not None:
             # l.debug("invoked read_bytes %x %x" % (addr, n))
             return self.concrete_target.read_memory(addr, n)
 
@@ -348,6 +348,8 @@ class Clemory(ClemoryBase):
             if start > addr:
                 break
             offset = addr - start
+            if not views and offset + n < len(backer):
+                return bytes(memoryview(backer)[offset:offset + n])
             size = len(backer) - offset
             views.append(memoryview(backer)[offset:offset + n])
 
