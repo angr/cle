@@ -657,6 +657,8 @@ class ELF(MetaELF):
         return parts
 
     def __register_relocs(self, section, dynsym=None, force_jmprel=False):
+        if not self.loader._perform_relocations:
+            return
 
         got_min = got_max = 0
 
