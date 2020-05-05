@@ -7,7 +7,7 @@ class PESection(Section):
     def __init__(self, pe_section, remap_offset=0):
         super().__init__(
             pe_section.Name.decode(),
-            pe_section.Misc_PhysicalAddress,
+            pe_section.PointerToRawData,
             pe_section.VirtualAddress + remap_offset,
             pe_section.Misc_VirtualSize,
         )
