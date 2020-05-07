@@ -1,6 +1,7 @@
 import os
 import logging
 import hashlib
+from io import BufferedReader
 from typing import List, Optional  # pylint:disable=unused-import
 
 import sortedcontainers
@@ -130,7 +131,7 @@ class Backend:
         :param is_main_bin:     Whether this binary should be loaded as the main executable
         """
         self.binary = binary
-        self._binary_stream = binary_stream
+        self._binary_stream: BufferedReader = binary_stream
         if self.binary is not None:
             self.binary_basename = os.path.basename(self.binary)
         elif hasattr(self._binary_stream, "name"):
@@ -159,7 +160,7 @@ class Backend:
         self._segments = Regions() # List of segments
         self._sections = Regions() # List of sections
         self.sections_map = {}  # Mapping from section name to section
-        self.symbols = sortedcontainers.SortedKeyList(key=self._get_symbol_relative_addr)
+        self.symbols: sortedcontainers.SortedKeyList['Symbol'] = sortedcontainers.SortedKeyList(key=self._get_symbol_relative_addr)
         self.imports = {}
         self.resolved_imports = []
         self.relocs = []

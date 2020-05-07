@@ -3,7 +3,7 @@ import logging
 
 l = logging.getLogger(__name__)
 
-class ELFCoreThreadManager:
+class ELFCoreThreadManager():
     def __init__(self, loader, arch, **kwargs):  # pylint: disable=unused-argument
         self.loader = loader
         self.arch = arch

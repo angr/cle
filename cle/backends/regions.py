@@ -1,7 +1,14 @@
+from typing import List, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .. import Region
+
 from ..utils import key_bisect_find, key_bisect_insort_left
 
 if str is not bytes:
     long = int
+
+
 
 
 class Regions:
@@ -21,7 +28,7 @@ class Regions:
             self._sorted_list = []
 
     @property
-    def raw_list(self):
+    def raw_list(self) -> List['Region']:
         """
         Get the internal list. Any change to it is not tracked, and therefore _sorted_list will not be updated.
         Therefore you probably does not want to modify the list.
@@ -33,7 +40,7 @@ class Regions:
         return self._list
 
     @property
-    def max_addr(self):
+    def max_addr(self) -> Optional[int]:
         """
         Get the highest address of all regions.
 
@@ -45,16 +52,16 @@ class Regions:
             return self._sorted_list[-1].max_addr
         return None
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> 'Region':
         return self._list[idx]
 
-    def __setitem__(self, idx, item):
+    def __setitem__(self, idx: int, item: 'Region') -> None:
         self._list[idx] = item
 
         # update self._sorted_list
         self._sorted_list = self._make_sorted(self._list)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._list)
 
     def __repr__(self):
@@ -72,7 +79,7 @@ class Regions:
         for x in self._list:
             x._rebase(delta)
 
-    def append(self, region):
+    def append(self, region: 'Region'):
         """
         Append a new Region instance into the list.
 
@@ -83,7 +90,7 @@ class Regions:
         if self._is_region_mapped(region):
             key_bisect_insort_left(self._sorted_list, region, keyfunc=lambda r: r.vaddr)
 
-    def remove(self, region):
+    def remove(self, region: 'Region') -> None:
         """
         Remove an existing Region instance from the list.
 
@@ -93,7 +100,7 @@ class Regions:
             self._sorted_list.remove(region)
         self._list.remove(region)
 
-    def find_region_containing(self, addr):
+    def find_region_containing(self, addr) -> Optional['Region']:
         """
         Find the region that contains a specific address. Returns None if none of the regions covers the address.
 
@@ -130,7 +137,7 @@ class Regions:
         return self._sorted_list[pos]
 
     @staticmethod
-    def _is_region_mapped(region):
+    def _is_region_mapped(region: 'Region') -> bool:
 
         # delayed import
         from .elf.regions import ELFSection
@@ -153,3 +160,6 @@ class Regions:
         """
 
         return sorted([ r for r in lst if Regions._is_region_mapped(r) ], key=lambda x: x.vaddr)
+
+
+
