@@ -13,6 +13,11 @@ class Region:
 
     When used next to each other, `addr` and `offset` refer to virtual memory address and file offset, respectively.
     """
+
+    vaddr: int
+    memsize: int
+    filesize: int
+
     def __init__(self, offset, vaddr, filesize, memsize):
         self.vaddr = vaddr
         self.memsize = memsize

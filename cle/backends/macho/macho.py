@@ -1,15 +1,17 @@
 # -*-coding:utf8 -*-
 # This file is part of Mach-O Loader for CLE.
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
-
+from collections import defaultdict
 from os import SEEK_CUR, SEEK_SET
 import struct
 import sys
-from io import BytesIO
+from io import BytesIO, BufferedReader
+from typing import Optional, Dict, DefaultDict, List
+
 import archinfo
 
 from .section import MachOSection
-from .symbol import SymbolTableSymbol
+from .symbol import SymbolTableSymbol, AbstractMachOSymbol
 from .segment import MachOSegment
 from .binding import BindingHelper, read_uleb
 from .. import Backend, register_backend
@@ -65,9 +67,9 @@ class MachO(Backend):
         self.mod_init_func_pointers = []  # may be TUMB interworking
         self.mod_term_func_pointers = []  # may be THUMB interworking
         self.export_blob = None  # exports trie
-        self.binding_blob = None  # binding information
-        self.lazy_binding_blob = None  # lazy binding information
-        self.weak_binding_blob = None  # weak binidng information
+        self.binding_blob: Optional[bytes] = None  # binding information
+        self.lazy_binding_blob: Optional[bytes] = None  # lazy binding information
+        self.weak_binding_blob: Optional[bytes] = None  # weak binidng information
         self.symtab_offset = None # offset to the symtab
         self.symtab_nsyms = None # number of symbols in the symtab
         self.binding_done = False # if true binding was already done and do_bind will be a no-op
@@ -225,7 +227,7 @@ class MachO(Backend):
             self._entry = 0
 
     @staticmethod
-    def _read(fp, offset, size):
+    def _read(fp: BufferedReader, offset: int, size: int) -> bytes:
         """
         Simple read abstraction, reads size bytes from offset in file
         :param offset: Offset to seek() to
@@ -508,13 +510,13 @@ class MachO(Backend):
         l.debug("Adding library %r", lib_name)
         self.imported_libraries.append(lib_name)
 
-    def _load_dyld_info(self, f, offset):
+    def _load_dyld_info(self, f: BufferedReader, offset):
         """
         Extracts information blobs for rebasing, binding and export
         """
         (_, _, roff, rsize, boff, bsize, wboff, wbsize, lboff, lbsize, eoff, esize) = self._unpack("12I", f, offset, 48)
 
-        def blob_or_None(f,off,size): # helper
+        def blob_or_None(f: BufferedReader, off: int, size: int ) -> Optional[bytes]:  # helper
             return self._read(f,off,size) if off != 0 and size != 0 else None
 
         # Extract data blobs
@@ -702,13 +704,11 @@ class MachO(Backend):
 
         return result
 
-    def get_symbol_by_insertion_order(self, idx):
+    def get_symbol_by_insertion_order(self, idx: int) -> AbstractMachOSymbol:
         """
 
         :param idx: idx when this symbol was inserted
-        :type idx: int
         :return:
-        :rtype: AbstractMachOSymbol
         """
         return self._ordered_symbols[idx]
 

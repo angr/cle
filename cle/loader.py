@@ -3,6 +3,7 @@ import sys
 import platform
 import logging
 from collections import OrderedDict
+from typing import Optional
 
 import archinfo
 from archinfo.arch_soot import ArchSoot
@@ -72,6 +73,10 @@ class Loader:
 
     More keys are defined on a per-backend basis.
     """
+    # _main_binary_path: str
+    memory: Optional['Clemory']
+    main_object: Optional['Backend']
+    tls: Optional['ThreadManager']
 
     def __init__(self, main_binary, auto_load_libs=True, concrete_target = None,
                  force_load_libs=(), skip_libs=(),
@@ -119,11 +124,11 @@ class Loader:
 
         self.aslr = aslr
         self.page_size = page_size
-        self.memory = None # type: Clemory
-        self.main_object = None # type: Backend
-        self.tls = None # type: ThreadManager
-        self._kernel_object = None # type: KernelObject
-        self._extern_object = None # type: ExternObject
+        self.memory = None
+        self.main_object = None
+        self.tls = None
+        self._kernel_object = None # type: Optional[KernelObject]
+        self._extern_object = None # type: Optional[ExternObject]
         self.shared_objects = OrderedDict()
         self.all_objects = []  # this list should always be sorted by min_addr
         self.requested_names = set()
@@ -219,7 +224,7 @@ class Loader:
         return self._extern_object
 
     @property
-    def kernel_object(self):
+    def kernel_object(self) -> 'KernelObject':
         """
         Return the object used to provide addresses to syscalls.
 
