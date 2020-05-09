@@ -26,14 +26,21 @@ __all__ = ('MachO', 'MachOSection', 'MachOSegment')
 
 class SymbolList(SortedKeyList):
     _symbol_cache: DefaultDict[Tuple[str, int],
-                               List[AbstractMachOSymbol]] = defaultdict(list)
+                               List[AbstractMachOSymbol]]
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._symbol_cache = defaultdict(list)
 
     def add(self, symbol: AbstractMachOSymbol):
         super().add(symbol)
         self._symbol_cache[(symbol.name, symbol.library_ordinal,)].append(symbol)
 
-    def get_by_name_and_ordinal(self, name: str, ordinal: int):
-        return self._symbol_cache[(name, ordinal)]
+    def get_by_name_and_ordinal(self, name: str, ordinal: int, include_stab=False) -> List[AbstractMachOSymbol]:
+        if include_stab:
+            return self._symbol_cache[(name, ordinal)]
+        else:
+            return [symbol for symbol in self._symbol_cache[(name, ordinal)] if not symbol.is_stab]
 
 
 class MachO(Backend):
