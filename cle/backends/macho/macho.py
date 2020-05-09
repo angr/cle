@@ -6,7 +6,9 @@ from os import SEEK_CUR, SEEK_SET
 import struct
 import sys
 from io import BytesIO, BufferedReader
-from typing import Optional, Dict, DefaultDict, List
+from typing import Optional, Dict, DefaultDict, List, Tuple
+
+from sortedcontainers import SortedKeyList
 
 import archinfo
 
@@ -21,6 +23,17 @@ import logging
 l = logging.getLogger(name=__name__)
 
 __all__ = ('MachO', 'MachOSection', 'MachOSegment')
+
+class SymbolList(SortedKeyList):
+    _symbol_cache: DefaultDict[Tuple[str, int],
+                               List[AbstractMachOSymbol]] = defaultdict(list)
+
+    def add(self, symbol: AbstractMachOSymbol):
+        super().add(symbol)
+        self._symbol_cache[(symbol.name, symbol.library_ordinal,)].append(symbol)
+
+    def get_by_name_and_ordinal(self, name: str, ordinal: int):
+        return self._symbol_cache[(name, ordinal)]
 
 
 class MachO(Backend):
@@ -46,6 +59,7 @@ class MachO(Backend):
         l.warning('The Mach-O backend is not well-supported. Good luck!')
 
         super().__init__(*args, **kwargs)
+        self.symbols = SymbolList(key=self._get_symbol_relative_addr)
 
         self.struct_byteorder = None  # holds byteorder for struct.unpack(...)
         self._mapped_base = None # temporary holder für mapped base derived via loading
