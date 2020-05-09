@@ -373,15 +373,7 @@ def default_binding_handler(state: BindingState, binary: 'MachO'):
     """
 
     # locate the symbol:
-    # TODO: A lookup structure of some kind would be nice (see __init__)
-    matches = list(
-        filter(
-            lambda s, compare_state=state:
-            s.name == compare_state.sym_name and
-            s.library_ordinal == compare_state.lib_ord
-            and not s.is_stab, binary.symbols
-        )
-    )
+    matches = binary.symbols.get_by_name_and_ordinal(state.sym_name, state.lib_ord)
     if len(matches) > 1:
         l.error("Cannot bind: More than one match for (%r,%d)", state.sym_name, state.lib_ord)
         raise CLEInvalidBinaryError()
