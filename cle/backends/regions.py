@@ -140,6 +140,7 @@ class Regions:
     def _is_region_mapped(region: 'Region') -> bool:
 
         # delayed import
+        # pylint: disable=import-outside-toplevel
         from .elf.regions import ELFSection
 
         mapped = True
@@ -160,6 +161,3 @@ class Regions:
         """
 
         return sorted([ r for r in lst if Regions._is_region_mapped(r) ], key=lambda x: x.vaddr)
-
-
-

@@ -81,7 +81,7 @@ def read_sleb(blob, offset):
     return result, index - offset
 
 
-class BindingState(object):
+class BindingState():
     """State object"""
 
     def __init__(self, is_64):
@@ -113,7 +113,7 @@ class BindingState(object):
             raise CLEInvalidBinaryError()
 
 
-class BindingHelper(object):
+class BindingHelper():
     """Factors out binding logic from MachO.
     Intended to work in close conjunction with MachO not for standalone use"""
     binary: 'MachO'
@@ -357,7 +357,7 @@ def n_opcode_do_bind_uleb_times_skipping_uleb(s: BindingState, b: 'MachO', _i: i
     s.index += skip[1]
     l.debug(
         "DO_BIND_ULEB_TIMES_SKIPPING_ULEB @ %#x: %d,%d", s.index - skip[1] - count[1], count[0], skip[0])
-    for i in range(0, count[0]):
+    for _ in range(0, count[0]):
         if s.address >= s.seg_end_address:
             l.error("DO_BIND_ADD_ADDR_IMM_SCALED @ %#x: address >= seg_end_address (%#x >= %#x)",
                     s.index - skip[1] - count[1], s.address, s.seg_end_address)
@@ -377,7 +377,7 @@ def default_binding_handler(state: BindingState, binary: 'MachO'):
     if len(matches) > 1:
         l.error("Cannot bind: More than one match for (%r,%d)", state.sym_name, state.lib_ord)
         raise CLEInvalidBinaryError()
-    elif len(matches) < 1:
+    if len(matches) < 1:
         l.info("No match for (%r,%d), generating BindingSymbol ...", state.sym_name, state.lib_ord)
         matches = [BindingSymbol(binary, state.sym_name, state.lib_ord)]
         binary.symbols.add(matches[0])

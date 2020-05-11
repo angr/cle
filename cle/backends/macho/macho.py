@@ -6,9 +6,8 @@ from os import SEEK_CUR, SEEK_SET
 import struct
 import sys
 from io import BytesIO, BufferedReader
-from typing import Optional, Dict, DefaultDict, List, Tuple
+from typing import Optional, DefaultDict, List, Tuple
 
-from sortedcontainers import SortedKeyList
 
 import archinfo
 
@@ -24,6 +23,9 @@ l = logging.getLogger(name=__name__)
 
 __all__ = ('MachO', 'MachOSection', 'MachOSegment')
 
+from sortedcontainers import SortedKeyList
+
+# pylint: disable=abstract-method
 class SymbolList(SortedKeyList):
     _symbol_cache: DefaultDict[Tuple[str, int],
                                List[AbstractMachOSymbol]]
@@ -32,15 +34,18 @@ class SymbolList(SortedKeyList):
         super().__init__(**kwargs)
         self._symbol_cache = defaultdict(list)
 
-    def add(self, symbol: AbstractMachOSymbol):
-        super().add(symbol)
-        self._symbol_cache[(symbol.name, symbol.library_ordinal,)].append(symbol)
+    def add(self, value: AbstractMachOSymbol):
+        super().add(value)
+        self._symbol_cache[(value.name, value.library_ordinal,)].append(value)
 
     def get_by_name_and_ordinal(self, name: str, ordinal: int, include_stab=False) -> List[AbstractMachOSymbol]:
         if include_stab:
             return self._symbol_cache[(name, ordinal)]
         else:
             return [symbol for symbol in self._symbol_cache[(name, ordinal)] if not symbol.is_stab]
+
+# pylint: enable =abstract-method
+
 
 
 class MachO(Backend):
