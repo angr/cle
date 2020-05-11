@@ -160,7 +160,7 @@ class Backend:
         self._segments = Regions() # List of segments
         self._sections = Regions() # List of sections
         self.sections_map = {}  # Mapping from section name to section
-        self.symbols: sortedcontainers.SortedKeyList['Symbol'] = sortedcontainers.SortedKeyList(key=self._get_symbol_relative_addr)
+        self.symbols: 'sortedcontainers.SortedKeyList[Symbol]' = sortedcontainers.SortedKeyList(key=self._get_symbol_relative_addr)
         self.imports = {}
         self.resolved_imports = []
         self.relocs = []
