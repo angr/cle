@@ -76,8 +76,13 @@ class MachO(Backend):
         self.set_arch(archinfo.arch_from_id(arch_ident, endness="lsb"))
         self.struct_byteorder = self._header.endian
                 
-        # XXX: Actually populate this...
-        self.pic = bool(self._header.header.flags & 0x200000) if self.is_main_bin else True # position independent executable?
+        # self._header.filetype == 6 indicates its a dylib too
+        # https://llvm.org/doxygen/Support_2MachO_8h_source.html#36
+        if self._header.filetype == 'dylib':
+            self.pic = True
+        else:
+            # XXX: Handle other filetypes.
+            self.pic = bool(self._header.header.flags & 0x200000) if self.is_main_bin else True # position independent executable?
         self.flags = None  # binary flags
         self.imported_libraries = ["Self"]  # ordinal 0 = SELF_LIBRARY_ORDINAL
 
@@ -439,7 +444,6 @@ class MachO(Backend):
 
     def do_binding(self):
         # Perform binding
-
         if self.binding_done:
             l.warning("Binding already done, reset self.binding_done to override if you know what you are doing")
             return
@@ -451,8 +455,7 @@ class MachO(Backend):
             l.info("Found weak binding blob. According to current state of knowledge, weak binding "
                    "is only sensible if multiple binaries are involved and is thus skipped.")
 
-
-        self.binding_done=True
+        self.binding_done = True
 
     def _load_lc_data_in_code(self, f, off):
         l.debug("Parsing data in code")
