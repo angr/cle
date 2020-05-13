@@ -73,3 +73,4 @@ class MachOSegment(Region):
     @property
     def is_executable(self):
         return ((self.initprot | self.maxprot) & 0x04) != 0
+

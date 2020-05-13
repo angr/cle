@@ -10,6 +10,7 @@ import archinfo
 
 from macholib import MachO as MachOLoader
 from macholib import SymbolTable as MachOLoaderSymbolTable
+from macholib import mach_o 
 from .section import MachOSection
 from .symbol import SymbolTableSymbol
 from .segment import MachOSegment
@@ -26,6 +27,7 @@ __all__ = ('MachO', 'MachOSection', 'MachOSegment')
 # The documentation for Mach-O is at http://opensource.apple.com//source/xnu/xnu-1228.9.59/EXTERNAL_HEADERS/mach-o/loader.h
 
 # TODO:
+# Enable better logging debug messages across the loader
 # Handle loading corefile; corefiles in macos don't indicate where
 #   fs_base/gs_base is, so user will have to manually indicate
 # In the future, possibly add support for full_init_state, which will just
@@ -81,7 +83,7 @@ class MachO(Backend):
         if self._header.filetype == 'dylib':
             self.pic = True
         else:
-            # XXX: Handle other filetypes.
+            # XXX: Handle other filetypes. i.e. self._header.filetype
             self.pic = bool(self._header.header.flags & 0x200000) if self.is_main_bin else True # position independent executable?
         self.flags = None  # binary flags
         self.imported_libraries = ["Self"]  # ordinal 0 = SELF_LIBRARY_ORDINAL
@@ -118,15 +120,18 @@ class MachO(Backend):
 
         # File is read, begin populating internal fields
         self._parse_load_cmds()
-        self._parse_exports()
         #self._parse_symbols(binary_file)
         #self._parse_mod_funcs()
+        self._handle_rebase_info()
+        if self.is_main_bin:
+            # XXX: remove this after binding_helper is fixed.
+            # This is only for helping debug it
+            self._handle_bindings()
 
     def _handle_segment_load_command(self, macholib_seginfo, macholib_secinfo):
         seg = MachOSegment(macholib_seginfo, macholib_secinfo) # load_cmd_trie[1] is the segment, load_cmd_trie[2] is the sections
         self.segments.append(seg)
         # Can't map here; need to determine linked_base before trying to map :(
-        self.sections_by_ordinal.extend(seg.sections)
 
     def _map_segments(self):
         for seg in self.segments:
@@ -143,6 +148,10 @@ class MachO(Backend):
         self._entry = self.linked_base + entry_point_command.entryoff
 
     def _handle_dyld_info_command(self, dyld_info_cmd):
+        # http://www.newosxbook.com/articles/DYLD.html
+        # It appears __LINKEDIT is just storage for LC_DYLD_INFO
+        # So __LINKEDIT is a load cmd, and the dyld_info specifies 
+        # how to parse whats in it. Kinda funky.
         """
         Extracts information blobs for rebasing, binding and export
         """
@@ -158,7 +167,27 @@ class MachO(Backend):
         self.lazy_binding_blob = blob_or_None(f, dyld_info_cmd.lazy_bind_off, dyld_info_cmd.lazy_bind_size)
         self.export_blob = blob_or_None(f, dyld_info_cmd.export_off, dyld_info_cmd.export_size)
 
-    def _parse_exports(self):
+    def _handle_rebase_info(self):
+        if not self.rebase_blob: 
+            return
+        print('rebase_blob', self.rebase_blob)
+
+    def _handle_bind_info(self):
+        if not self.binding_blob:
+            return
+        print('bind_info', self.binding_blob)
+
+    def _handle_lazy_bind_info(self):
+        if not self.lazy_binding_blob:
+            return
+        print('lazy_binding', self.lazy_binding_blob)
+
+    def _handle_weak_bind_info(self):
+        if not self.weak_binding_blob:
+            return
+        print('weak_bind', self.weak_binding_blob)
+
+    def _handle_export_info(self):
         """
         Parses the exports trie
         """
@@ -442,7 +471,7 @@ class MachO(Backend):
     #    """Convenience"""
     #    return self._unpack_with_byteorder(fmt, self._read(fp, offset, size))
 
-    def do_binding(self):
+    def _handle_bindings(self):
         # Perform binding
         if self.binding_done:
             l.warning("Binding already done, reset self.binding_done to override if you know what you are doing")

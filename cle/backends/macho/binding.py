@@ -8,34 +8,15 @@ from .symbol import BindingSymbol
 
 from ...errors import CLEInvalidBinaryError
 from ...address_translator import AT
+from macholib import mach_o
 
 import logging
 l = logging.getLogger('cle.backends.macho.binding')
-
-OPCODE_MASK = 0xF0
-IMM_MASK = 0x0F
-BIND_TYPE_POINTER = 1
-BIND_TYPE_TEXT_ABSOLUTE32 = 2
-BIND_TYPE_TEXT_PCREL32 = 3
-BIND_OPCODE_DONE = 0x00
-BIND_OPCODE_SET_DYLIB_ORDINAL_IMM = 0x10
-BIND_OPCODE_SET_DYLIB_ORDINAL_ULEB = 0x20
-BIND_OPCODE_SET_DYLIB_SPECIAL_IMM = 0x30
-BIND_OPCODE_SET_SYMBOL_TRAILING_FLAGS_IMM = 0x40
-BIND_OPCODE_SET_TYPE_IMM = 0x50
-BIND_OPCODE_SET_ADDEND_SLEB = 0x60
-BIND_OPCODE_SET_SEGMENT_AND_OFFSET_ULEB = 0x70
-BIND_OPCODE_ADD_ADDR_ULEB = 0x80
-BIND_OPCODE_DO_BIND = 0x90
-BIND_OPCODE_DO_BIND_ADD_ADDR_ULEB = 0xA0
-BIND_OPCODE_DO_BIND_ADD_ADDR_IMM_SCALED = 0xB0
-BIND_OPCODE_DO_BIND_ULEB_TIMES_SKIPPING_ULEB = 0xC0
 
 if bytes is not str:
     chh = lambda x: x
 else:
     chh = ord
-
 
 def read_uleb(blob, offset):
     """Reads a number encoded as uleb128"""
@@ -52,7 +33,6 @@ def read_uleb(blob, offset):
             break
 
     return result, index - offset
-
 
 def read_sleb(blob, offset):
     """Reads a number encoded as sleb128"""
@@ -72,7 +52,6 @@ def read_sleb(blob, offset):
             break
 
     return result, index - offset
-
 
 class BindingState(object):
     """State object"""
@@ -105,7 +84,6 @@ class BindingState(object):
             l.error("index %d: address >= seg_end_address (%#x >= %#x)", self.index, self.address, self.seg_end_address)
             raise CLEInvalidBinaryError()
 
-
 class BindingHelper(object):
     """Factors out binding logic from MachO.
     Intended to work in close conjunction with MachO not for standalone use"""
@@ -126,19 +104,19 @@ class BindingHelper(object):
         s.seg_end_address = seg.vaddr + seg.memsize
         s.bind_handler = default_binding_handler
         self._do_bind_generic(blob, s, {
-            0: n_opcode_done,
-            0x10: n_opcode_set_dylib_ordinal_imm,
-            0x20: n_opcode_set_dylib_ordinal_uleb,
-            0x30: n_opcode_set_dylib_special_imm,
-            0x40: n_opcode_set_trailing_flags_imm,
-            0x50: n_opcode_set_type_imm,
-            0x60: n_opcode_set_addend_sleb,
-            0x70: n_opcode_set_segment_and_offset_uleb,
-            0x80: n_opcode_add_addr_uleb,
-            0x90: n_opcode_do_bind,
-            0xA0: n_opcode_do_bind_add_addr_uleb,
-            0xB0: n_opcode_do_bind_add_addr_imm_scaled,
-            0xC0: n_opcode_do_bind_uleb_times_skipping_uleb
+            mach_o.BIND_OPCODE_DONE: n_opcode_done,
+            mach_o.BIND_OPCODE_SET_DYLIB_ORDINAL_IMM: n_opcode_set_dylib_ordinal_imm,
+            mach_o.BIND_OPCODE_SET_DYLIB_ORDINAL_ULEB: n_opcode_set_dylib_ordinal_uleb,
+            mach_o.BIND_OPCODE_SET_DYLIB_SPECIAL_IMM: n_opcode_set_dylib_special_imm,
+            mach_o.BIND_OPCODE_SET_SYMBOL_TRAILING_FLAGS_IMM: n_opcode_set_trailing_flags_imm,
+            mach_o.BIND_OPCODE_SET_TYPE_IMM: n_opcode_set_type_imm,
+            mach_o.BIND_OPCODE_SET_ADDEND_SLEB: n_opcode_set_addend_sleb,
+            mach_o.BIND_OPCODE_SET_SEGMENT_AND_OFFSET_ULEB: n_opcode_set_segment_and_offset_uleb,
+            mach_o.BIND_OPCODE_ADD_ADDR_ULEB: n_opcode_add_addr_uleb,
+            mach_o.BIND_OPCODE_DO_BIND: n_opcode_do_bind,
+            mach_o.BIND_OPCODE_DO_BIND_ADD_ADDR_ULEB: n_opcode_do_bind_add_addr_uleb,
+            mach_o.BIND_OPCODE_DO_BIND_ADD_ADDR_IMM_SCALED: n_opcode_do_bind_add_addr_imm_scaled,
+            mach_o.BIND_OPCODE_DO_BIND_ULEB_TIMES_SKIPPING_ULEB: n_opcode_do_bind_uleb_times_skipping_uleb
         })
 
         l.debug("Done binding non-lazy, non-weak symbols ")
@@ -169,14 +147,14 @@ class BindingHelper(object):
             s.seg_end_address = 0  # TODO: no rebasing support
 
             self._do_bind_generic(blob, s, {
-                0x00: n_opcode_done,
-                0x10: n_opcode_set_dylib_ordinal_imm,
-                0x20: n_opcode_set_dylib_ordinal_uleb,
-                0x30: n_opcode_set_dylib_special_imm,
-                0x40: n_opcode_set_trailing_flags_imm,
-                0x50: n_opcode_set_type_imm,
-                0x70: l_opcode_set_segment_and_offset_uleb,
-                0x90: l_opcode_do_bind,
+                mach_o.BIND_OPCODE_DONE: n_opcode_done,
+                mach_o.BIND_OPCODE_SET_DYLIB_ORDINAL_IMM: n_opcode_set_dylib_ordinal_imm,
+                mach_o.BIND_OPCODE_SET_DYLIB_ORDINAL_ULEB: n_opcode_set_dylib_ordinal_uleb,
+                mach_o.BIND_OPCODE_SET_DYLIB_SPECIAL_IMM: n_opcode_set_dylib_special_imm,
+                mach_o.BIND_OPCODE_SET_SYMBOL_TRAILING_FLAGS_IMM: n_opcode_set_trailing_flags_imm,
+                mach_o.BIND_OPCODE_SET_TYPE_IMM: n_opcode_set_type_imm,
+                mach_o.BIND_OPCODE_SET_SEGMENT_AND_OFFSET_ULEB: l_opcode_set_segment_and_offset_uleb,
+                mach_o.BIND_OPCODE_DO_BIND: l_opcode_do_bind,
             })
 
         l.debug("Done binding lazy symbols")
@@ -196,8 +174,8 @@ class BindingHelper(object):
         while not s.done and s.index < end:
             l.debug("Current address: %#x, blob index (offset): %#x", s.address, s.index)
             raw_opcode = blob[s.index]
-            opcode = raw_opcode & OPCODE_MASK
-            immediate = raw_opcode & IMM_MASK
+            opcode = raw_opcode & mach_o.BIND_OPCODE_MASK
+            immediate = raw_opcode & mach_o.BIND_IMMEDIATE_MASK
             s.index += 1
             try:
                 h = opcode_dict[opcode]
@@ -235,7 +213,7 @@ def n_opcode_set_dylib_special_imm(s, b, i, blob):
     if i == 0:
         s.lib_ord = 0
     else:
-        s.lib_ord = (i | OPCODE_MASK) - 256
+        s.lib_ord = (i | mach_o.BIND_OPCODE_MASK) - 256
     l.debug("SET_DYLIB_SPECIAL_IMM @ %#x: %d", s.index, s.lib_ord)
     return s
 
@@ -266,7 +244,6 @@ def n_opcode_set_addend_sleb(s, b, i, blob):
     s.index += sleb[1]
     return s
 
-
 def n_opcode_set_segment_and_offset_uleb(s, b, i, blob):
     s.segment_index = i
     uleb = read_uleb(blob, s.index)
@@ -278,10 +255,10 @@ def n_opcode_set_segment_and_offset_uleb(s, b, i, blob):
 
     return s
 
-
 def l_opcode_set_segment_and_offset_uleb(s, b, i, blob):
     uleb = read_uleb(blob, s.index)
     l.debug("(l)SET_SEGMENT_AND_OFFSET_ULEB @ %#x: %d, %d", s.index, i, uleb[0])
+    print(b.segments, i)
     seg = b.segments[i]
     s.add_address_ov(seg.vaddr, uleb[0])
     s.index += uleb[1]
