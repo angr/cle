@@ -101,6 +101,8 @@ class BindingHelper(object):
         l.debug("Binding non-lazy, non-weak symbols")
         s = BindingState(self.binary.arch.bits == 64)
         seg = self.binary.segments[0]
+        # XXX: do self.binary.__text
+        # is it possible to have more than one __text?
         s.seg_end_address = seg.vaddr + seg.memsize
         s.bind_handler = default_binding_handler
         self._do_bind_generic(blob, s, {
@@ -167,6 +169,7 @@ class BindingHelper(object):
         :param opcode_dict: Dictionary opcode=> handler
         :return: resulting binding state
         """
+
         s = init_state
         seg = self.binary.segments[s.segment_index]
         s.seg_end_address = seg.vaddr + seg.memsize  # TODO: no rebasing support
@@ -178,13 +181,12 @@ class BindingHelper(object):
             immediate = raw_opcode & mach_o.BIND_IMMEDIATE_MASK
             s.index += 1
             try:
-                h = opcode_dict[opcode]
-                s = h(s, self.binary, immediate, blob)
+                binding_handler = opcode_dict[opcode]
+                s = binding_handler(s, self.binary, immediate, blob)
             except KeyError:
                 l.error("Invalid opcode for current binding: %#x", opcode)
 
         return s
-
 
 # pylint: disable=unused-argument
 # The following functions realize different variants of handling binding opcodes
@@ -194,12 +196,10 @@ def n_opcode_done(s, b, i, blob):
     s.done = True
     return s
 
-
 def n_opcode_set_dylib_ordinal_imm(s, b, i, blob):
     l.debug("SET_DYLIB_ORDINAL_IMM @ %#x: %d", s.index, i)
     s.lib_ord = i
     return s
-
 
 def n_opcode_set_dylib_ordinal_uleb(s, b, i, blob):
     uleb = read_uleb(blob, s.index)
@@ -208,7 +208,6 @@ def n_opcode_set_dylib_ordinal_uleb(s, b, i, blob):
     l.debug("SET_DYLIB_ORDINAL_ULEB @ %#x: %d", s.index, s.lib_ord)
     return s
 
-
 def n_opcode_set_dylib_special_imm(s, b, i, blob):
     if i == 0:
         s.lib_ord = 0
@@ -216,7 +215,6 @@ def n_opcode_set_dylib_special_imm(s, b, i, blob):
         s.lib_ord = (i | mach_o.BIND_OPCODE_MASK) - 256
     l.debug("SET_DYLIB_SPECIAL_IMM @ %#x: %d", s.index, s.lib_ord)
     return s
-
 
 def n_opcode_set_trailing_flags_imm(s, b, i, blob):
     s.sym_name = ""
@@ -230,12 +228,10 @@ def n_opcode_set_trailing_flags_imm(s, b, i, blob):
     l.debug("SET_SYMBOL_TRAILING_FLAGS_IMM @ %#x: %r,%#x", s.index - len(s.sym_name) - 1, s.sym_name, s.sym_flags)
     return s
 
-
 def n_opcode_set_type_imm(s, b, i, blob):
     s.binding_type = i
     l.debug("SET_TYPE_IMM @ %#x: %d", s.index, s.binding_type)
     return s
-
 
 def n_opcode_set_addend_sleb(s, b, i, blob):
     sleb = read_sleb(blob, s.index)
@@ -258,12 +254,10 @@ def n_opcode_set_segment_and_offset_uleb(s, b, i, blob):
 def l_opcode_set_segment_and_offset_uleb(s, b, i, blob):
     uleb = read_uleb(blob, s.index)
     l.debug("(l)SET_SEGMENT_AND_OFFSET_ULEB @ %#x: %d, %d", s.index, i, uleb[0])
-    print(b.segments, i)
     seg = b.segments[i]
     s.add_address_ov(seg.vaddr, uleb[0])
     s.index += uleb[1]
     return s
-
 
 def n_opcode_add_addr_uleb(s, b, i, blob):
     uleb = read_uleb(blob, s.index)
@@ -272,7 +266,6 @@ def n_opcode_add_addr_uleb(s, b, i, blob):
     s.index += uleb[1]
     return s
 
-
 def n_opcode_do_bind(s, b, i, blob):
     l.debug("(n)DO_BIND @ %#x", s.index)
     s.check_address_bounds()
@@ -280,12 +273,10 @@ def n_opcode_do_bind(s, b, i, blob):
     s.add_address_ov(s.address, s.sizeof_intptr_t)
     return s
 
-
 def l_opcode_do_bind(s, b, i, blob):
     l.debug("(l)DO_BIND @ %#x", s.index)
     s.bind_handler(s, b)
     return s
-
 
 def n_opcode_do_bind_add_addr_uleb(s, b, i, blob):
     uleb = read_uleb(blob, s.index)
@@ -300,7 +291,6 @@ def n_opcode_do_bind_add_addr_uleb(s, b, i, blob):
     s.add_address_ov(s.address, uleb[0] + s.sizeof_intptr_t)
     return s
 
-
 def n_opcode_do_bind_add_addr_imm_scaled(s, b, i, blob):
     l.debug("DO_BIND_ADD_ADDR_IMM_SCALED @ %#x: %d", s.index, i)
     if s.address >= s.seg_end_address:
@@ -311,7 +301,6 @@ def n_opcode_do_bind_add_addr_imm_scaled(s, b, i, blob):
     # this is done AFTER binding in preparation for the NEXT step
     s.add_address_ov(s.address, (i * s.sizeof_intptr_t) + s.sizeof_intptr_t)
     return s
-
 
 def n_opcode_do_bind_uleb_times_skipping_uleb(s, b, i, blob):
     count = read_uleb(blob, s.index)
@@ -328,7 +317,6 @@ def n_opcode_do_bind_uleb_times_skipping_uleb(s, b, i, blob):
         s.bind_handler(s, b)
         s.add_address_ov(s.address, skip[0] + s.sizeof_intptr_t)
     return s
-
 
 # default binding handler
 def default_binding_handler(state, binary):
@@ -350,7 +338,7 @@ def default_binding_handler(state, binary):
         raise CLEInvalidBinaryError()
     elif len(matches) < 1:
         l.info("No match for (%r,%d), generating BindingSymbol ...", state.sym_name, state.lib_ord)
-        matches =[BindingSymbol(binary,state.sym_name,state.lib_ord)]
+        matches = [BindingSymbol(binary,state.sym_name,state.lib_ord)]
         binary.symbols.add(matches[0])
         binary._ordered_symbols.append(matches[0])
 
@@ -387,3 +375,4 @@ def default_binding_handler(state, binary):
     else:
         l.error("Unknown BIND_TYPE: %d", state.binding_type)
         raise CLEInvalidBinaryError()
+

@@ -48,6 +48,7 @@ class MachO(Backend):
     *   In the case that the file loaded is not a corefile, this simulates the 
     *   dyld initialization routines.
     """
+
     is_default = True # Tell CLE to automatically consider using the MachO backend
     _header = None
 
@@ -58,22 +59,28 @@ class MachO(Backend):
 
         parsed_macho = MachOLoader.MachO(self.binary)
 
+        # First try to see which arch the main binary has
+        # Then try to match it to its dependencies
         if not self.is_main_bin:
             # target_arch prefrence goes to main bin...
             target_arch = self.loader.main_object.arch.name.lower()
 
-        if not target_arch is None:
+        # If we have a target_arch, try to match it up with one of the FAT slices
+        if target_arch:
             self._header = self.match_target_arch_to_header(target_arch, parsed_macho.headers)
             if not self._header:
                 print(self.binary)
                 # Print out all architectures found?
                 raise CLEError("Couldn't find architecture %s" % target_arch)
+
+        # Otherwise, we'll just pick one..
         else:
             if len(parsed_macho.headers) > 1:
                 l.warning('No target slice specified. Picking one at random.. Good luck!')
             self._header = parsed_macho.headers[0]
 
         arch_ident = self.get_arch_from_header(self._header.header)
+
         # TODO: add lsb/msb support here properly. self._header.endian is exactly it
         self.set_arch(archinfo.arch_from_id(arch_ident, endness="lsb"))
         self.struct_byteorder = self._header.endian
@@ -84,11 +91,13 @@ class MachO(Backend):
             self.pic = True
         else:
             # XXX: Handle other filetypes. i.e. self._header.filetype
-            self.pic = bool(self._header.header.flags & 0x200000) if self.is_main_bin else True # position independent executable?
+            # This means we can't load multiple `executables` into the same process
+            # .. Seems fine
+            self.pic = bool(self._header.header.flags & 0x200000) if self.is_main_bin else True 
+
         self.flags = None  # binary flags
         self.imported_libraries = ["Self"]  # ordinal 0 = SELF_LIBRARY_ORDINAL
 
-        # XXX: Fill this in. 
         # This was what was historically done: self.sections_by_ordinal.extend(seg.sections)
         self.sections_by_ordinal = [None] # ordinal 0 = None == Self
 
@@ -102,9 +111,11 @@ class MachO(Backend):
         self.binding_blob = None  # binding information
         self.lazy_binding_blob = None  # lazy binding information
         self.weak_binding_blob = None  # weak binidng information
-        self.symtab_offset = None # offset to the symtab
-        self.symtab_nsyms = None # number of symbols in the symtab
         self.binding_done = False # if true binding was already done and do_bind will be a no-op
+
+        # Module level constructors / destructors
+        self.mod_init_func_pointers = []
+        self.mod_term_func_ponters = []
 
         # Library dependencies.
         self.linking = 'dynamic' # static is impossible in macos... kinda 
@@ -121,17 +132,18 @@ class MachO(Backend):
         # File is read, begin populating internal fields
         self._parse_load_cmds()
         #self._parse_symbols(binary_file)
-        #self._parse_mod_funcs()
+        self._parse_mod_funcs()
         self._handle_rebase_info()
+
         if self.is_main_bin:
             # XXX: remove this after binding_helper is fixed.
             # This is only for helping debug it
             self._handle_bindings()
 
     def _handle_segment_load_command(self, macholib_seginfo, macholib_secinfo):
-        seg = MachOSegment(macholib_seginfo, macholib_secinfo) # load_cmd_trie[1] is the segment, load_cmd_trie[2] is the sections
-        self.segments.append(seg)
+        seg = MachOSegment(macholib_seginfo, macholib_secinfo) 
         # Can't map here; need to determine linked_base before trying to map :(
+        self.segments.append(seg)
 
     def _map_segments(self):
         for seg in self.segments:
@@ -170,22 +182,6 @@ class MachO(Backend):
     def _handle_rebase_info(self):
         if not self.rebase_blob: 
             return
-        print('rebase_blob', self.rebase_blob)
-
-    def _handle_bind_info(self):
-        if not self.binding_blob:
-            return
-        print('bind_info', self.binding_blob)
-
-    def _handle_lazy_bind_info(self):
-        if not self.lazy_binding_blob:
-            return
-        print('lazy_binding', self.lazy_binding_blob)
-
-    def _handle_weak_bind_info(self):
-        if not self.weak_binding_blob:
-            return
-        print('weak_bind', self.weak_binding_blob)
 
     def _handle_export_info(self):
         """
@@ -278,7 +274,6 @@ class MachO(Backend):
             # List is empty we are done!
             l.debug("Done parsing exports")
 
-
     def _parse_load_cmds(self):
         has_symbol_table = False
 
@@ -288,6 +283,7 @@ class MachO(Backend):
             cmd = load_cmd_trie[0]
             cmd_name = cmd.get_cmd_name()
             if cmd_name == 'LC_SEGMENT' or cmd_name == 'LC_SEGMENT_64':
+                # load_cmd_trie[1] is the segment, load_cmd_trie[2] is the sections
                 self._handle_segment_load_command(load_cmd_trie[1], load_cmd_trie[2])
             elif cmd_name == 'LC_MAIN':
                 self._handle_main_load_command(load_cmd_trie[1])
@@ -400,13 +396,11 @@ class MachO(Backend):
 
     @property
     def initializers(self):
-        # Parse __mod_init_func if exists
-        return []
+        return self.mod_init_func_pointers
 
     @property
     def finalizers(self):
-        # Parse __mod_term_func if exists (Or __mod_exit_func?)
-        return []
+        return self.mod_term_func_ponters
 
     #def is_thumb_interworking(self, address):
     #    """Returns true if the given address is a THUMB interworking address"""
@@ -418,30 +412,29 @@ class MachO(Backend):
     #    # Note: Untested
     #    return address & ~1 if self.is_thumb_interworking(address) else address
 
-    #def _parse_mod_funcs(self):
-    #    l.debug("Parsing module init/term function pointers")
+    def _parse_mod_funcs(self):
+        l.debug("Parsing module init/term function pointers")
 
-    #    fmt = "Q" if self.arch.bits == 64 else "I"
-    #    size = 8 if self.arch.bits == 64 else 4
+        fmt = "Q" if self.arch.bits == 64 else "I"
+        size = 8 if self.arch.bits == 64 else 4
 
-    #    # factoring out common code
-    #    def parse_mod_funcs_internal(s, target):
-    #        for i in range(s.vaddr, s.vaddr + s.memsize, size):
-    #            addr = self._unpack_with_byteorder(fmt, self.memory.load(i, size))[0]
-    #            l.debug("Addr: %#x", addr)
-    #            target.append(addr)
+        # factoring out common code
+        def parse_mod_funcs_internal(s, target):
+            for i in range(s.vaddr, s.vaddr + s.memsize, size):
+                addr = self._unpack_with_byteorder(fmt, self.memory.load(i, size))[0]
+                l.debug("Found init/term func @ %#x", addr)
+                target.append(addr)
 
-    #    for seg in self.segments:
-    #        for sec in seg.sections:
+        for seg in self.segments:
+            for sec in seg.sections:
+                if sec.sectname == '__mod_init_func': # S_MOD_INIT_FUNC_POINTERS
+                    l.debug("Section %s contains init pointers", sec.sectname)
+                    parse_mod_funcs_internal(sec, self.mod_init_func_pointers)
+                elif sec.sectname == '__mod_term_func': # S_MOD_TERM_FUNC_POINTERS
+                    l.debug("Section %s contains term pointers", sec.sectname)
+                    parse_mod_funcs_internal(sec, self.mod_term_func_pointers)
 
-    #            if sec.type == 0x9:  # S_MOD_INIT_FUNC_POINTERS
-    #                l.debug("Section %s contains init pointers", sec.sectname)
-    #                parse_mod_funcs_internal(sec, self.mod_init_func_pointers)
-    #            elif sec.type == 0xa:  # S_MOD_TERM_FUNC_POINTERS
-    #                l.debug("Section %s contains term pointers", sec.sectname)
-    #                parse_mod_funcs_internal(sec, self.mod_term_func_pointers)
-
-    #    l.debug("Done parsing module init/term function pointers")
+        l.debug("Done parsing module init/term function pointers")
 
     def find_segment_by_name(self, name):
         for s in self.segments:
@@ -460,12 +453,12 @@ class MachO(Backend):
         fp.seek(offset)
         return fp.read(size)
 
-    #def _unpack_with_byteorder(self, fmt, data):
-    #    """
-    #    Appends self.struct_byteorder before fmt to ensure usage of correct byteorder
-    #    :return: struct.unpack(self.struct_byteorder+fmt,input)
-    #    """
-    #    return struct.unpack(self.struct_byteorder + fmt, data)
+    def _unpack_with_byteorder(self, fmt, data):
+        """
+        Appends self.struct_byteorder before fmt to ensure usage of correct byteorder
+        :return: struct.unpack(self.struct_byteorder+fmt,input)
+        """
+        return struct.unpack(self.struct_byteorder + fmt, data)
 
     #def _unpack(self, fmt, fp, offset, size):
     #    """Convenience"""

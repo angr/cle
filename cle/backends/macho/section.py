@@ -49,3 +49,15 @@ class MachOSection(Region):
     @property
     def attributes(self):
         return self.flags & ATTRIBUTES_MASK
+
+    def __repr__(self):
+        return '<{}: {} in {}, flags={:x}, vaddr={:x}, memsize={:x}, filesize={:x}, offset={:x}>'.format(
+                self.__class__.__name__,
+                self.sectname,
+                self.segname,
+                self.flags,
+                self.vaddr,
+                self.memsize,
+                self.filesize,
+                self.offset,
+                self.flags)
