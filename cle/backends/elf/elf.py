@@ -694,6 +694,9 @@ class ELF(MetaELF):
             # MIPS64 is just plain old fucked up
             # https://www.sourceware.org/ml/libc-alpha/2003-03/msg00153.html
             if self.arch.name == 'MIPS64':
+                if not hasattr(readelf_reloc.entry, 'r_info_type2') and hasattr(readelf_reloc.entry, 'r_info_type3'):
+                    raise CLECompatibilityError("This code relies on `pyelftools` features that are not available on versions 0.26 and downwards.")
+
                 type_1 = readelf_reloc.entry.r_info_type
                 type_2 = readelf_reloc.entry.r_info_type2
                 type_3 = readelf_reloc.entry.r_info_type3
