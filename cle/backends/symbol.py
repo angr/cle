@@ -129,3 +129,9 @@ class Symbol:
             Symbol._complained_owner = True
             l.critical("Deprecation warning: use symbol.owner instead of symbol.owner_obj")
         return self.owner
+
+    def __getstate__(self):
+        return dict((k, v) for k, v in self.__dict__.items() if k != 'owner')
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
