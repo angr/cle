@@ -280,7 +280,7 @@ class ELF(MetaELF):
             try:
                 re_sym = symbol_table.get_symbol(symid)
             except Exception:  # pylint: disable=broad-except
-                l.exception("Error parsing symbol at %#08x", symid)
+                l.exception("Error parsing symbol %#08x", symid)
                 return None
             cache_key = self._symbol_to_tuple(re_sym)
             cached = self._symbol_cache.get(cache_key, None)
@@ -427,7 +427,11 @@ class ELF(MetaELF):
         if dest_section is not None:
             address += dest_section.remap_offset
 
-        return RelocClass(self, symbol, address, addend)
+        try:
+            return RelocClass(self, symbol, address, addend)
+        except KeyError:
+            l.error("Malformed relocation: access to unmapped %#x", readelf_reloc.entry.r_offset)
+            return None
 
     def _load_function_hints_from_fde(self, dwarf, source):
         """
