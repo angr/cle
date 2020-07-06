@@ -5,7 +5,7 @@ produce an address space where that program is loaded and ready to run.
 The primary interface to CLE is the Loader class.
 """
 
-__version__ = (8, 20, 6, 8)
+__version__ = (8, 20, 7, 6)
 
 if bytes is str:
     raise Exception("This module is designed for python 3 only. Please install an older version to use python 2.")
