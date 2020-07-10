@@ -158,7 +158,12 @@ class MachO(Backend):
         self._parse_exports()
         self._parse_symbols(binary_file)
         self._parse_mod_funcs()
-        self.mapped_base = self._mapped_base
+
+        text_segment = self.find_segment_by_name("__TEXT")
+        if not text_segment is None:
+            self.mapped_base = text_segment.vaddr
+        else:
+            l.warning("No text segment found")
 
 
     @staticmethod
@@ -216,7 +221,6 @@ class MachO(Backend):
 
     def _resolve_entry(self):
         if self.entryoff:
-            self._mapped_base = self.find_segment_by_name("__TEXT").vaddr
             self._entry = self.entryoff
         elif self.unixthread_pc:
             self._entry = self.unixthread_pc
