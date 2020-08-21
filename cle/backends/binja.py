@@ -98,7 +98,7 @@ class BinjaBin(Backend):
             l.info("Adding memory for segment at %x.", seg.start)
             br = bn.BinaryReader(self.bv)
             br.seek(seg.start)
-            data = br.read(seg.length)
+            data = br.read(len(seg))
             self.memory.add_backer(seg.start, data)
 
         self._find_got()
