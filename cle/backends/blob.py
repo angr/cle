@@ -82,7 +82,7 @@ class Blob(Backend):
         self.memory.add_backer(mem_addr - self.linked_base, string)
         seg = Segment(file_offset, mem_addr, size, size)
         self.segments.append(seg)
-        self._max_addr = max(len(string) + mem_addr, self._max_addr)
+        self._max_addr = max(len(string) + mem_addr - 1, self._max_addr)
         self._min_addr = min(mem_addr, self._min_addr)
 
     def function_name(self, addr): #pylint: disable=unused-argument,no-self-use
