@@ -14,6 +14,8 @@ def test_hex():
     ld = cle.Loader(machofile, auto_load_libs=False, main_opts={'arch':"ARMEL"})
     nose.tools.assert_true(isinstance(ld.main_object,cle.Hex))
     nose.tools.assert_equal(ld.main_object.os, 'unknown')
+    nose.tools.assert_equal(ld.main_object.min_addr, 0)
+    nose.tools.assert_equal(ld.main_object.max_addr, 0x6af3)
     nose.tools.assert_equal(ld.main_object.entry,0x44cd)
 
 
