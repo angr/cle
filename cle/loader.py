@@ -845,7 +845,7 @@ class Loader:
         """
         This will integrate the object into the global address space, but will not perform relocations.
         """
-        obj_size = obj.max_addr - obj.min_addr
+        obj_size = obj.max_addr - obj.min_addr + 1
 
         if obj.pic:
             if obj._custom_base_addr is not None and self._is_range_free(obj._custom_base_addr, obj_size):
@@ -871,7 +871,7 @@ class Loader:
         assert obj.mapped_base >= 0
 
         if obj.has_memory:
-            assert obj.min_addr < obj.max_addr
+            assert obj.min_addr <= obj.max_addr
             l.info("Mapping %s at %#x", obj.binary, base_addr)
             self.memory.add_backer(base_addr, obj.memory)
         obj._is_mapped = True
@@ -907,7 +907,7 @@ class Loader:
             return False
 
         for o in self.all_objects:
-            if o.min_addr <= va < o.max_addr or va <= o.min_addr < va + size:
+            if o.min_addr <= va <= o.max_addr or va <= o.min_addr < va + size:
                 return False
 
         return True
