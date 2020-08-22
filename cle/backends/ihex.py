@@ -92,8 +92,7 @@ class Hex(Backend):
                 # We have to be careful about the min and max addrs
                 if addr < min_addr:
                     min_addr = addr
-                if addr + len(data) > max_addr:
-                    max_addr = addr + len(data)
+                max_addr = max(max_addr, addr + len(data) - 1)
             elif rectype == HEX_TYPE_EOF:
                 # EOF
                 l.debug("Got EOF record.")

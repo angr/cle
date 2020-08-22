@@ -12,7 +12,7 @@ class MockBackend(cle.backends.Backend):
 
     @property
     def max_addr(self):
-        return self.mapped_base + self.size
+        return self.mapped_base + self.size - 1
 
 
 def test_overlap():

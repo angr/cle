@@ -67,7 +67,7 @@ class XBE(Backend):
         self._entry = self._xbe.entry_addr
         self._image_vmem = bytearray(self._xbe.header.image_size)
         self._min_addr = self._xbe.header.base_addr
-        self._max_addr = self._xbe.header.base_addr + self._xbe.header.image_size
+        self._max_addr = self._xbe.header.base_addr + self._xbe.header.image_size - 1
 
         # Add header
         self._add_xbe_section(
