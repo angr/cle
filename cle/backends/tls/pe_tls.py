@@ -104,7 +104,7 @@ class PETLSObject(TLSObject):
 
     @property
     def max_addr(self):
-        return self.mapped_base + self.data_start + self.used_data
+        return self.mapped_base + self.data_start + self.used_data - 1
 
     # PE is MUCH simpler in terms of what's the pointer to the thread data. Add these properties for compatibility.
 
