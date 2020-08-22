@@ -204,7 +204,7 @@ class ExternObject(Backend):
 
     @property
     def max_addr(self):
-        return AT.from_rva(self.map_size, self).to_mva()
+        return AT.from_rva(self.map_size - 1, self).to_mva()
 
     def make_import(self, name, sym_type):
         if name not in self.imports:
@@ -255,7 +255,7 @@ class KernelObject(Backend):
 
     @property
     def max_addr(self):
-        return AT.from_rva(self.map_size, self).to_mva()
+        return AT.from_rva(self.map_size - 1, self).to_mva()
 
 from .simdata import lookup, SimData
 from .simdata.common import PointTo, SimDataSimpleRelocation
