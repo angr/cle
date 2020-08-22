@@ -889,12 +889,12 @@ class Loader:
             # HACK: On small arches, we should be more aggressive in packing stuff in.
             gap_start = 0
         else:
-            gap_start = ALIGN_UP(self.main_object.max_addr, self._rebase_granularity)
+            gap_start = ALIGN_UP(self.main_object.max_addr + 1, self._rebase_granularity)
         for o in self.all_objects:
             if gap_start + size <= o.min_addr:
                 break
             else:
-                gap_start = ALIGN_UP(o.max_addr, self._rebase_granularity)
+                gap_start = ALIGN_UP(o.max_addr + 1, self._rebase_granularity)
 
         if gap_start + size >= 2**self.main_object.arch.bits:
             raise CLEOperationError("Ran out of room in address space")
