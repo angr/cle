@@ -38,15 +38,39 @@ class MetaELF(Backend):
         thumb = self.arch.name.startswith("ARM") and addr % 2 == 1
         realaddr = addr
         if thumb: realaddr -= 1
-        dat = self.memory.load(AT.from_lva(realaddr, self).to_rva(), 40)
+        dat = self._block_bytes(realaddr, 40)
         return pyvex.IRSB(dat, addr, self.arch, bytes_offset=1 if thumb else 0, opt_level=1, skip_stmts=skip_stmts)
+
+    def _block_bytes(self, addr, size):
+        return self.memory.load(AT.from_lva(addr, self).to_rva(), size)
+
+    def _block_references_addr(self, block, addr):
+        if addr in [c.value for c in block.all_constants]:
+            return True
+        if self.arch.name != 'X86':
+            return False
+        # search for tX = GET(ebx) -> Add32(tX, got_addr - addr)
+        if '.got.plt' not in self.sections_map:
+            return False
+        got_sec = self.sections_map['.got.plt']
+        tx = None
+        for stmt in block.statements:
+            if stmt.tag == 'Ist_WrTmp' and stmt.data.tag == 'Iex_Get' and stmt.data.offset == self.arch.registers['ebx'][0]:
+                tx = stmt.tmp
+            if tx is not None and stmt.tag == 'Ist_WrTmp' and stmt.data.tag == 'Iex_Binop' and stmt.data.op == 'Iop_Add32':
+                args = sorted(stmt.data.args, key=str)
+                if args[0].tag == 'Iex_Const' and args[0].con.value == addr - got_sec.vaddr and \
+                    args[1].tag == 'Iex_RdTmp' and args[1].tmp == tx:
+                    return True
+
+        return False
 
     def _add_plt_stub(self, name, addr, sanity_check=True):
         # addr is an LVA
         if addr <= 0: return False
         target_addr = self.jmprel[name].linked_addr
         try:
-            if sanity_check and target_addr not in [c.value for c in self._block(addr, skip_stmts=False).all_constants]:
+            if sanity_check and not self._block_references_addr(self._block(addr), target_addr):
                 return False
         except (pyvex.PyVEXError, KeyError):
             return False
@@ -62,13 +86,15 @@ class MetaELF(Backend):
         # we sanity-check all our attempts by requiring that the block lifted at the given address
         # references the GOT slot for the symbol.
 
-        plt_sec = None
+        plt_secs = []
         if '.plt' in self.sections_map:
-            plt_sec = self.sections_map['.plt']
+            plt_secs = [self.sections_map['.plt']]
         if '.plt.got' in self.sections_map:
-            plt_sec = self.sections_map['.plt.got']
+            plt_secs = [self.sections_map['.plt.got']]
         if '.MIPS.stubs' in self.sections_map:
-            plt_sec = self.sections_map['.MIPS.stubs']
+            plt_secs = [self.sections_map['.MIPS.stubs']]
+        if '.plt.sec' in self.sections_map:
+            plt_secs.append(self.sections_map['.plt.sec'])
 
         self.jmprel = OrderedDict(sorted(self.jmprel.items(), key=lambda x: x[1].linked_addr))
         func_jmprel = OrderedDict((k, v) for k, v in self.jmprel.items() if v.symbol.type not in (SymbolType.TYPE_OBJECT, SymbolType.TYPE_SECTION, SymbolType.TYPE_OTHER))
@@ -76,8 +102,8 @@ class MetaELF(Backend):
         # ATTEMPT 1: some arches will just leave the plt stub addr in the import symbol
         if self.arch.name in ('ARM', 'ARMEL', 'ARMHF', 'ARMCortexM', 'AARCH64', 'MIPS32', 'MIPS64'):
             for name, reloc in func_jmprel.items():
-                if plt_sec is None or plt_sec.contains_addr(reloc.symbol.linked_addr):
-                    self._add_plt_stub(name, reloc.symbol.linked_addr, sanity_check=plt_sec is None)
+                if not plt_secs or any(plt_sec.contains_addr(reloc.symbol.linked_addr) for plt_sec in plt_secs):
+                    self._add_plt_stub(name, reloc.symbol.linked_addr, sanity_check=bool(plt_secs))
 
         # ATTEMPT 2: on intel chips the data in the got slot pre-relocation points to a lazy-resolver
         # stub immediately after the plt stub
@@ -87,7 +113,7 @@ class MetaELF(Backend):
                     self._add_plt_stub(
                         name,
                         self.memory.unpack_word(reloc.relative_addr) - 6,
-                        sanity_check=not self.pic)
+                        sanity_check=True)
                 except KeyError:
                     pass
 
@@ -136,6 +162,11 @@ class MetaELF(Backend):
                 return False
             block_is_good.name = None
 
+            def is_endbr(addr):
+                if self.arch.name not in ('X86', 'AMD64'):
+                    return False
+                return self._block_bytes(addr, 4) in (b"\xf3\x0f\x1e\xfa", b"\xf3\x0f\x1e\xfb")
+
             instruction_alignment = self.arch.instruction_alignment
             if self.arch.name in ('ARMEL', 'ARMHF'):
                 # hard code alignment for ARM code
@@ -173,16 +204,19 @@ class MetaELF(Backend):
 
                 # "push" means try to increase the address as far as we can without regard for semantics
                 # the alternative is to only try to lop off nop instructions
+                # make sure we don't push through endbr
                 if push:
                     if block_is_good.name is None:
                         raise ValueError('block_is_good.name cannot be None.')
                     old_name = block_is_good.name
                     block = self._block(addr, skip_stmts=True)
-                    if len(block.instruction_addresses) > 1:
+                    if len(block.instruction_addresses) > 1 and not is_endbr(block.instruction_addresses[0]):
                         for instruction in block.instruction_addresses[1:]:
                             candidate_block = self._block(instruction, skip_stmts=False)
                             if block_is_good(candidate_block) and block_is_good.name == old_name:
                                 addr = candidate_block.addr
+                                if is_endbr(instruction):
+                                    break
                             else:
                                 break
                     block_is_good.name = old_name
@@ -237,14 +271,14 @@ class MetaELF(Backend):
         # if func_jmprel.keys()[0] not in self._plt:
         if not set(func_jmprel.keys()).intersection(self._plt.keys()):
             # Check if we have a .plt section
-            if plt_sec is None:
+            if not plt_secs:
                 # WAHP WAHP
                 return
 
-        if plt_sec is not None:
+        if plt_secs:
             # LAST TRY: Find the first block to references ANY GOT slot
             tick.bailout_timer = 5
-            scan_forward(plt_sec.vaddr, list(func_jmprel.keys()), push=True)
+            scan_forward(min(plt_sec.vaddr for plt_sec in plt_secs), list(func_jmprel.keys()), push=True)
 
         if not self._plt:
             # \(_^^)/
@@ -257,11 +291,11 @@ class MetaELF(Backend):
             ]
 
         name, addr = plt_hitlist[0]
-        if addr is None and plt_sec is not None:
+        if addr is None and plt_secs:
             # try to resolve the very first entry
             tick.bailout_timer = 5
-            guessed_addr = plt_sec.vaddr
-            scan_forward(guessed_addr, name)
+            guessed_addr = min(plt_sec.vaddr for plt_sec in plt_secs)
+            scan_forward(guessed_addr, name, push=True)
             if name in self._plt:
                 # resolved :-)
                 plt_hitlist[0] = (name, AT.from_rva(self._plt[name], self).to_lva())
@@ -272,7 +306,7 @@ class MetaELF(Backend):
                 if next_addr is None:
                     continue
                 tick.bailout_timer = 5
-                scan_forward(next_addr, name)
+                scan_forward(next_addr, name, push=True)
                 if name in self._plt:
                     addr = AT.from_rva(self._plt[name], self).to_lva()
 
