@@ -66,6 +66,12 @@ class R_PPC_ADDR16_LO(ELFReloc):    # pylint: disable=undefined-variable
         result = (result & PPC_HALF16)
         return result
 
+    def relocate(self):
+        if not self.resolved:
+            return False
+        self.owner.memory.pack_word(self.relative_addr, self.value, size=2)
+        return True
+
 
 class R_PPC_ADDR16_HI(ELFReloc):
     """
@@ -82,6 +88,11 @@ class R_PPC_ADDR16_HI(ELFReloc):
         result = (result & PPC_HALF16)
         return result
 
+    def relocate(self):
+        if not self.resolved:
+            return False
+        self.owner.memory.pack_word(self.relative_addr, self.value, size=2)
+        return True
 
 class R_PPC_ADDR16_HA(ELFReloc):    # pylint: disable=undefined-variable
     """
@@ -97,6 +108,12 @@ class R_PPC_ADDR16_HA(ELFReloc):    # pylint: disable=undefined-variable
         result = S + A
         result = (((result >> 16) + (1 if (result & 0x8000) else 0)) & PPC_HALF16)
         return result
+
+    def relocate(self):
+        if not self.resolved:
+            return False
+        self.owner.memory.pack_word(self.relative_addr, self.value, size=2)
+        return True
 
 
 class R_PPC_ADDR14(ELFReloc):
