@@ -43,3 +43,103 @@ class R_PPC64_DTPREL64(generic.GenericTLSDoffsetReloc):
 
 class R_PPC64_TPREL64(generic.GenericTLSOffsetReloc):
     pass
+
+class R_PPC64_REL24(ELFReloc):
+    """
+    Relocation Type: 10
+    Calculation: (S + A - P) >> 2
+    Field: low24*
+    """
+    @property
+    def value(self):
+        A = self.addend
+        S = self.resolvedby.rebased_addr
+        P = self.rebased_addr
+        return (S + A - P) >> 2
+
+    def relocate(self):
+        if not self.resolved:
+            return False
+        instr = self.owner.memory.unpack_word(self.relative_addr, size=4) & 0b11111100000000000000000000000011
+        imm = self.value & 0xFFFFFF
+        self.owner.memory.pack_word(self.relative_addr, instr | (imm << 2), size=4)
+        return True
+
+class R_PPC64_TOC16_LO(ELFReloc):
+    """
+    Relocation Type: 48
+    Calculation: #lo(S + A - .TOC.)
+    Field: half16
+    """
+    @property
+    def value(self):
+        A = self.addend
+        S = self.resolvedby.rebased_addr
+        if self.owner.ppc64_initial_rtoc is None:
+            l.warning(".TOC. value not found")
+            return (S + A) & 0xFFFF
+        TOC = self.owner.ppc64_initial_rtoc
+        return (S + A - TOC) & 0xFFFF
+
+    def relocate(self):
+        if not self.resolved:
+            return False
+        self.owner.memory.pack_word(self.relative_addr, self.value, size=2)
+        return True
+
+class R_PPC64_TOC16_HI(ELFReloc):
+    """
+    Relocation Type: 49
+    Calculation: #hi(S + A - .TOC.)
+    Field: half16
+    """
+    @property
+    def value(self):
+        A = self.addend
+        S = self.resolvedby.rebased_addr
+        if self.owner.ppc64_initial_rtoc is None:
+            l.warning(".TOC. value not found")
+            return ((S + A) >> 16) & 0xFFFF
+        TOC = self.owner.ppc64_initial_rtoc
+        return ((S + A - TOC) >> 16) & 0xFFFF
+
+    def relocate(self):
+        if not self.resolved:
+            return False
+        self.owner.memory.pack_word(self.relative_addr, self.value, size=2)
+        return True
+
+class R_PPC64_TOC16_HA(ELFReloc):
+    """
+    Relocation Type: 50
+    Calculation: #ha(S + A - .TOC.)
+    Field: half16
+    """
+    @property
+    def value(self):
+        A = self.addend
+        S = self.resolvedby.rebased_addr
+        if self.owner.ppc64_initial_rtoc is None:
+            l.warning(".TOC. value not found")
+            return ((((S + A) >> 16) + (1 if ((S + A) & 0x8000) else 0)) & 0xFFFF)
+        TOC = self.owner.ppc64_initial_rtoc
+        return ((((S + A - TOC) >> 16) + (1 if ((S + A - TOC) & 0x8000) else 0)) & 0xFFFF)
+
+    def relocate(self):
+        if not self.resolved:
+            return False
+        self.owner.memory.pack_word(self.relative_addr, self.value, size=2)
+        return True
+
+class R_PPC64_TOC(ELFReloc):
+    """
+    Relocation Type: 51
+    Calculation: .TOC.
+    Field: doubleword64
+    """
+    @property
+    def value(self):
+        if self.owner.ppc64_initial_rtoc is None:
+            l.warning(".TOC. value not found")
+            return 0
+        return self.owner.ppc64_initial_rtoc
