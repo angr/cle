@@ -617,7 +617,9 @@ class ELF(MetaELF):
                         'sh_addralign': 0,
                     }
                     readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self._reader)
+                    # support multiple versions of pyelftools
                     readelf_relocsec.stream = self.memory
+                    readelf_relocsec._stream = self.memory
                     readelf_relocsec.elffile = None
                     self.__register_relocs(readelf_relocsec, dynsym)
 
@@ -636,7 +638,9 @@ class ELF(MetaELF):
                         'sh_addralign': 0,
                     }
                     readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self._reader)
+                    # support multiple versions of pyelftools
                     readelf_jmprelsec.stream = self.memory
+                    readelf_jmprelsec._stream = self.memory
                     readelf_jmprelsec.elffile = None
                     self.__register_relocs(readelf_jmprelsec, dynsym, force_jmprel=True)
 
