@@ -714,14 +714,15 @@ class Loader:
         # produce dependency-ordered list of objects and soname map
 
         ordered_objects = []
-        soname_mapping = OrderedDict((obj.provides, obj) for obj in objects if obj.provides)
+        soname_mapping = OrderedDict((obj.provides if not self._ignore_import_version_numbers else obj.provides.rstrip('.0123456789'), obj) for obj in objects if obj.provides)
         seen = set()
         def visit(obj):
             if id(obj) in seen:
                 return
             seen.add(id(obj))
 
-            dep_objs = [soname_mapping[dep_name] for dep_name in obj.deps if dep_name in soname_mapping]
+            stripped_deps = [dep if not self._ignore_import_version_numbers else dep.rstrip('.0123456789') for dep in obj.deps]
+            dep_objs = [soname_mapping[dep_name] for dep_name in stripped_deps if dep_name in soname_mapping]
             for dep_obj in dep_objs:
                 visit(dep_obj)
 
@@ -746,7 +747,8 @@ class Loader:
             for obj in ordered_objects:
                 l.info("Linking %s", obj.binary)
                 sibling_objs = list(obj.parent_object.child_objects) if obj.parent_object is not None else []
-                dep_objs = [soname_mapping[dep_name] for dep_name in obj.deps if dep_name in soname_mapping]
+                stripped_deps = [dep if not self._ignore_import_version_numbers else dep.rstrip('.0123456789') for dep in obj.deps]
+                dep_objs = [soname_mapping[dep_name] for dep_name in stripped_deps if dep_name in soname_mapping]
                 main_objs = [self.main_object] if self.main_object is not obj else []
                 for reloc in obj.relocs:
                     reloc.resolve_symbol(main_objs + preload_objects + sibling_objs + dep_objs + [obj], extern_object=extern_obj)
