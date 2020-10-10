@@ -37,6 +37,31 @@ class GenericTLSOffsetReloc(ELFReloc):
             obj.tls_block_offset + self.addend + self.symbol.relative_addr - hell_offset)
 
 
+class GenericTLSDescriptorReloc(ELFReloc):
+    # Going VERY far out on a limb here
+    # "TLS descriptors" are a thing I'm seeing in aarch64 binaries which seem to want to relocate by
+    # sticking a pointer to a resolver function followed by some arbitrary data. The resolver function
+    # is passed a pointer to the descriptor. My guess is the resolver is supposed to basically perform
+    # _tls_get_addr, but the intention is probably to make it possible to work with dynamically loaded objects.
+
+    RESOLVER_ADDR = NotImplemented
+    AUTO_HANDLE_NONE = True
+
+    def relocate(self):
+        if self.resolvedby is None:
+            obj = self.owner
+        else:
+            obj = self.resolvedby.owner
+
+        if obj.tls_block_offset is None:
+            raise CLEInvalidBinaryError("Illegal relocation? - dynamically loaded object using static TLS? Maybe?")
+
+        self.owner.memory.pack_word(self.relative_addr, self.RESOLVER_ADDR)
+        self.owner.memory.pack_word(
+            self.relative_addr + self.arch.bytes,
+            obj.tls_block_offset + self.addend + self.symbol.relative_addr)  # Should this include the hell offset?
+
+
 class GenericTLSModIdReloc(ELFReloc):
     AUTO_HANDLE_NONE = True
 

@@ -34,6 +34,9 @@ class R_AARCH64_TLS_DTPMOD(generic.GenericTLSModIdReloc):
 class R_AARCH64_TLS_TPREL(generic.GenericTLSOffsetReloc):
     pass
 
+class R_AARCH64_TLSDESC(generic.GenericTLSDescriptorReloc):
+    RESOLVER_ADDR = 0xffff_ffff_ffff_fe00
+
 class R_AARCH64_CALL26(ELFReloc):
     """
     Relocation Type: 283
