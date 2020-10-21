@@ -453,6 +453,9 @@ class Clemory(ClemoryBase):
                         is_consecutive = False
                     # Update the predicted starting address
                     next_start = start + backer.max_addr
+
+                if not backer.consecutive:
+                    is_consecutive = False
             else:
                 raise TypeError("Unsupported backer type %s." % type(backer))
 
