@@ -31,6 +31,9 @@ class MetaELF(Backend):
         self._plt = {}
         self._ppc64_abiv1_initial_rtoc = None
 
+        self._cached_plt = None
+        self._cached_reverse_plt = None
+
     supported_filetypes = ['elf']
 
     def _block(self, addr, skip_stmts=False):
@@ -323,14 +326,18 @@ class MetaELF(Backend):
         """
         Maps names to addresses.
         """
-        return {k: AT.from_rva(self._plt[k], self).to_mva() for k in self._plt}
+        if self._cached_plt is None:
+            self._cached_plt = {k: AT.from_rva(self._plt[k], self).to_mva() for k in self._plt}
+        return self._cached_plt
 
     @property
     def reverse_plt(self):
         """
         Maps addresses to names.
         """
-        return {AT.from_rva(self._plt[k], self).to_mva(): k for k in self._plt}
+        if self._cached_reverse_plt is None:
+            self._cached_reverse_plt = {AT.from_rva(self._plt[k], self).to_mva(): k for k in self._plt}
+        return self._cached_reverse_plt
 
     @property
     def is_ppc64_abiv1(self):
