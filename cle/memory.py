@@ -159,7 +159,7 @@ class Clemory(ClemoryBase):
     Accesses can be made with [index] notation.
     """
 
-    __slots__ = ('_backers', '_root', 'consecutive', 'min_addr', 'max_addr', 'concrete_target' )
+    __slots__ = ('_backers', '_root', 'consecutive', 'min_addr', 'max_addr')
 
     def __init__(self, arch, root=False):
         super().__init__(arch)
@@ -169,15 +169,7 @@ class Clemory(ClemoryBase):
         self.consecutive = True
         self.min_addr = 0
         self.max_addr = 0
-
-        self.concrete_target = None
-
-    def is_concrete_target_set(self):
-        return self.concrete_target is not None
-
-    def set_concrete_target(self, concrete_target):
-        self.concrete_target = concrete_target
-
+        
     def add_backer(self, start, data):
         """
         Adds a backer to the memory.
@@ -233,11 +225,6 @@ class Clemory(ClemoryBase):
                     yield start + x
 
     def __getitem__(self, k):
-        # concrete memory read
-        if self.is_concrete_target_set():
-            # l.debug("invoked get_byte %x" % (k))
-            return self.concrete_target.read_memory(k, 1)
-
         for start, data in self._backers:
             if type(data) in (bytearray, list):
                 if 0 <= k - start < len(data):
@@ -293,7 +280,6 @@ class Clemory(ClemoryBase):
             'consecutive': self.consecutive,
             'min_addr': self.min_addr,
             'max_addr': self.max_addr,
-            'concrete_target': self.concrete_target
         }
 
         return s
@@ -306,8 +292,7 @@ class Clemory(ClemoryBase):
         self.consecutive = s['consecutive']
         self.min_addr = s['min_addr']
         self.max_addr = s['max_addr']
-        self.concrete_target = s['concrete_target']
-
+        
     def backers(self, addr=0):
         """
         Iterate through each backer for this clemory and all its children, yielding tuples of
@@ -336,12 +321,6 @@ class Clemory(ClemoryBase):
         Reading will stop at the beginning of the first unallocated region found, or when
         `n` bytes have been read.
         """
-
-        # concrete memory read
-        if self.concrete_target is not None:
-            # l.debug("invoked read_bytes %x %x" % (addr, n))
-            return self.concrete_target.read_memory(addr, n)
-
         views = []
 
         for start, backer in self.backers(addr):
