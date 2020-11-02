@@ -42,7 +42,7 @@ class ClemoryBase:
         try:
             start, backer = next(self.backers(addr))
         except StopIteration:
-            raise KeyError(addr)
+            raise KeyError(addr) # pylint: disable=raise-missing-from
 
         if start > addr:
             raise KeyError(addr)
@@ -52,7 +52,7 @@ class ClemoryBase:
         except struct.error as e:
             if len(backer) - (addr - start) >= struct.calcsize(fmt):
                 raise e
-            raise KeyError(addr)
+            raise KeyError(addr) # pylint: disable=raise-missing-from
 
     def unpack_word(self, addr, size=None, signed=False, endness=None):
         """
@@ -94,17 +94,17 @@ class ClemoryBase:
         try:
             start, backer = next(self.backers(addr))
         except StopIteration:
-            raise KeyError(addr)
+            raise KeyError(addr) # pylint: disable=raise-missing-from
 
         if start > addr:
-            raise KeyError(addr)
+            raise KeyError(addr) # pylint: disable=raise-missing-from
 
         try:
             return struct.pack_into(fmt, backer, addr - start, *data)
         except struct.error as e:
             if len(backer) - (addr - start) >= struct.calcsize(fmt):
                 raise e
-            raise KeyError(addr)
+            raise KeyError(addr) # pylint: disable=raise-missing-from
 
     def pack_word(self, addr, data, size=None, signed=False, endness=None):
         """
