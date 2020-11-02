@@ -165,11 +165,10 @@ class Clemory(ClemoryBase):
         super().__init__(arch)
         self._backers = []  # type: List[Tuple[int, Union[bytearray, Clemory, List[int]]]]
         self._root = root
-
         self.consecutive = True
         self.min_addr = 0
         self.max_addr = 0
-    
+        
     def add_backer(self, start, data):
         """
         Adds a backer to the memory.
