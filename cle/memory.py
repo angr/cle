@@ -168,7 +168,7 @@ class Clemory(ClemoryBase):
         self.consecutive = True
         self.min_addr = 0
         self.max_addr = 0
-        
+
     def add_backer(self, start, data):
         """
         Adds a backer to the memory.
@@ -291,7 +291,7 @@ class Clemory(ClemoryBase):
         self.consecutive = s['consecutive']
         self.min_addr = s['min_addr']
         self.max_addr = s['max_addr']
-    
+
     def backers(self, addr=0):
         """
         Iterate through each backer for this clemory and all its children, yielding tuples of
