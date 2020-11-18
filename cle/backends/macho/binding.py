@@ -16,7 +16,6 @@ from ...errors import CLEInvalidBinaryError
 from ...address_translator import AT
 
 import logging
-logging.basicConfig(level=logging.INFO)
 l = logging.getLogger(name=__name__)
 
 OPCODE_MASK = 0xF0
