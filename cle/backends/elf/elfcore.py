@@ -345,6 +345,8 @@ class ELFCore(ELF):
         # for all remaining segments, make blobs out of them
         mem = self.__dummy_clemory
         for seg in remaining_segments:
+            if not seg.memsize:
+                continue
             obj = Blob(self.binary, mem, segments=[(seg.vaddr, seg.vaddr, seg.memsize)], base_addr=seg.vaddr, arch=self.arch, entry_point=0, force_rebase=True)
             self.child_objects.append(obj)
 
