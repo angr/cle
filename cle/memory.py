@@ -300,7 +300,7 @@ class Clemory(ClemoryBase):
         :param addr:    An optional starting address - all backers before and not including this
                         address will be skipped.
         """
-        started = addr <= 0
+        started = False
         for start, backer in self._backers:
             if not started:
                 end = start + backer.max_addr if type(backer) is Clemory else start + len(backer)
