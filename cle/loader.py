@@ -3,7 +3,7 @@ import sys
 import platform
 import logging
 from collections import OrderedDict
-from typing import Optional
+from typing import Optional, List
 
 import archinfo
 from archinfo.arch_soot import ArchSoot
@@ -130,7 +130,7 @@ class Loader:
         self._kernel_object = None # type: Optional[KernelObject]
         self._extern_object = None # type: Optional[ExternObject]
         self.shared_objects = OrderedDict()
-        self.all_objects = []  # this list should always be sorted by min_addr
+        self.all_objects = []  # type: List[Backend]
         self.requested_names = set()
         if arch is not None:
             self._main_opts.update({'arch': arch})
