@@ -278,9 +278,15 @@ class MetaELF(Backend):
                 # WAHP WAHP
                 return
 
+        # some binaries have a bunch of CET stubs before the PLTs, and
+        # in the worst case we might have to skip over each one of
+        # these... so we set the bailout timer accordingly
+        def initial_bailout_timer(func_jmprel):
+            return len(func_jmprel) + 5
+
         if plt_secs:
             # LAST TRY: Find the first block to references ANY GOT slot
-            tick.bailout_timer = 5
+            tick.bailout_timer = initial_bailout_timer (func_jmprel)
             scan_forward(min(plt_sec.vaddr for plt_sec in plt_secs), list(func_jmprel.keys()), push=True)
 
         if not self._plt:
@@ -296,7 +302,7 @@ class MetaELF(Backend):
         name, addr = plt_hitlist[0]
         if addr is None and plt_secs:
             # try to resolve the very first entry
-            tick.bailout_timer = 5
+            tick.bailout_timer = initial_bailout_timer (func_jmprel)
             guessed_addr = min(plt_sec.vaddr for plt_sec in plt_secs)
             scan_forward(guessed_addr, name, push=True)
             if name in self._plt:
