@@ -57,31 +57,35 @@ def check_plt_entries(filename):
 
     ld.main_object._plt.pop('__gmon_start__', None)
 
-    #import subprocess
-    #p1 = subprocess.Popen(['objdump', '-d', real_filename], stdout=subprocess.PIPE)
-    #p2 = subprocess.Popen(['grep', '@plt>:'], stdin=p1.stdout, stdout=subprocess.PIPE)
-    #p1.stdout.close()
-    #dat, _ = p2.communicate()
-    #lines = dat.decode().strip().split('\n')
+    replaced_filename = filename.replace('\\', '/')
+    if replaced_filename not in PLT_CACHE:
+        import subprocess
+        p1 = subprocess.Popen(['objdump', '-d', real_filename], stdout=subprocess.PIPE)
+        p2 = subprocess.Popen(['grep', '@plt>:'], stdin=p1.stdout, stdout=subprocess.PIPE)
+        p1.stdout.close()
+        dat, _ = p2.communicate()
+        lines = dat.decode().strip().split('\n')
 
-    #ideal_plt = {}
-    #for line in lines:
-    #    addr, ident = line.split()
-    #    addr = int(addr, 16)
-    #    name = ident.split('@')[0].strip('<')
-    #    if '*' in name or name == '__gmon_start__':
-    #        continue
-    #    ideal_plt[name] = addr
+        ideal_plt = {}
+        for line in lines:
+           addr, ident = line.split()
+           addr = int(addr, 16)
+           name = ident.split('@')[0].strip('<')
+           if '*' in name or name == '__gmon_start__':
+               continue
+           ideal_plt[name] = addr
 
-    #if filename == os.path.join('armhf', 'libc.so.6'):
-    #    # objdump does these cases wrong as far as I can tell?
-    #    # or maybe not wrong just... different
-    #    # there's a prefix to this stub that jumps out of thumb mode
-    #    # cle finds the arm stub, objdump finds the thumb prefix
-    #    ideal_plt['free'] += 4
-    #    ideal_plt['malloc'] += 4
-    #PLT_CACHE[filename.replace('\\', '/')] = ideal_plt
-    ideal_plt = PLT_CACHE[filename.replace('\\', '/')]
+        if filename == os.path.join('armhf', 'libc.so.6'):
+           # objdump does these cases wrong as far as I can tell?
+           # or maybe not wrong just... different
+           # there's a prefix to this stub that jumps out of thumb mode
+           # cle finds the arm stub, objdump finds the thumb prefix
+           ideal_plt['free'] += 4
+           ideal_plt['malloc'] += 4
+        print("Regenerated ideal PLT for %s as %s", filename, ideal_plt)
+        PLT_CACHE[filename.replace('\\', '/')] = ideal_plt
+
+    ideal_plt = PLT_CACHE[replaced_filename]
     nose.tools.assert_equal(ideal_plt, ld.main_object.plt)
 
 #PLT_CACHE = {}
