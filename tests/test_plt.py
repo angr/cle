@@ -1,7 +1,8 @@
 import os
-import nose
-#import subprocess
+import subprocess
 import pickle
+
+import nose
 import cle
 
 TESTS_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)),
@@ -59,7 +60,6 @@ def check_plt_entries(filename):
 
     replaced_filename = filename.replace('\\', '/')
     if replaced_filename not in PLT_CACHE:
-        import subprocess
         p1 = subprocess.Popen(['objdump', '-d', real_filename], stdout=subprocess.PIPE)
         p2 = subprocess.Popen(['grep', '@plt>:'], stdin=p1.stdout, stdout=subprocess.PIPE)
         p1.stdout.close()
