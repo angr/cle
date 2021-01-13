@@ -22,7 +22,7 @@ class ELFCore(ELF):
     """
     is_default = True # Tell CLE to automatically consider using the ELFCore backend
 
-    def __init__(self, *args, executable=None, **kwargs):
+    def __init__(self, *args, executable=None, remote_file_mapping=None, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.filename_lookup = []
@@ -30,6 +30,7 @@ class ELFCore(ELF):
         self._threads = []
         self.auxv = {}
         self._main_filepath = executable
+        self._remote_file_mapping = remote_file_mapping if remote_file_mapping is not None else {}
 
         self.__extract_note_info()
 
@@ -190,7 +191,7 @@ class ELFCore(ELF):
         self.__current_thread.update(result)
 
     def __parse_files(self, desc):
-        self.filename_lookup = [(ent.vm_start, ent.vm_end, ent.page_offset * desc.page_size, fn.decode()) for ent, fn in zip(desc.Elf_Nt_File_Entry, desc.filename)]
+        self.filename_lookup = [(ent.vm_start, ent.vm_end, ent.page_offset * desc.page_size, self._remote_file_mapping.get(fn.decode(), fn.decode())) for ent, fn in zip(desc.Elf_Nt_File_Entry, desc.filename)]
 
         # TODO this can be less stupid if we just parse out what the name/address of the main executable is
         # that metadata has to be somewhere, right?
