@@ -71,10 +71,12 @@ class ELFCore(ELF):
                     if note.n_type == 'NT_PRSTATUS':
                         self.__cycle_thread()
                         self.__parse_prstatus(note.n_desc.encode('latin-1'))  # ???
-                    elif note.n_type == 'NT_FILE':
-                        self.__parse_files(note.n_desc)
+                    elif note.n_type == 'NT_PRPSINFO':
+                        self.__parse_prpsinfo(note.n_desc)
                     elif note.n_type == 'NT_AUXV':
                         self.__parse_auxv(note.n_desc.encode('latin-1'))
+                    elif note.n_type == 'NT_FILE':
+                        self.__parse_files(note.n_desc)
                     elif note.n_type == 512 and self.arch.name == 'X86':
                         self.__parse_x86_tls(note.n_desc.encode('latin-1'))
 
@@ -189,6 +191,9 @@ class ELFCore(ELF):
         pos += nreg * arch_bytes
         result['pr_fpvalid'] = struct.unpack("<I", desc[pos:pos+4])[0]
         self.__current_thread.update(result)
+
+    def __parse_prpsinfo(self, desc):
+        self.pr_fname = desc.pr_fname.split(b'\x00', 1)[0]
 
     def __parse_files(self, desc):
         self.filename_lookup = [(ent.vm_start, ent.vm_end, ent.page_offset * desc.page_size, self._remote_file_mapping.get(fn.decode(), fn.decode())) for ent, fn in zip(desc.Elf_Nt_File_Entry, desc.filename)]
