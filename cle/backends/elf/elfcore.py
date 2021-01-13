@@ -29,6 +29,7 @@ class ELFCore(ELF):
         self.__current_thread = None
         self._threads = []
         self.auxv = {}
+        self.pr_fname = None
         self._main_filepath = executable
         self._remote_file_mapping = remote_file_mapping if remote_file_mapping is not None else {}
 
@@ -80,6 +81,8 @@ class ELFCore(ELF):
                     elif note.n_type == 512 and self.arch.name == 'X86':
                         self.__parse_x86_tls(note.n_desc.encode('latin-1'))
 
+        self._replace_main_object_path()
+
         self.__cycle_thread()
         if not self._threads:
             l.warning("Could not find thread info, cannot initialize registers")
@@ -95,6 +98,28 @@ class ELFCore(ELF):
                 l.warning("This core dump does not contain TLS or auxv information. TLS information will be wrong.")
                 for thread in self._threads:
                     thread['segments'] = {thread['registers']['gs'] >> 3: (0, 0xffffffff, 0x51)}
+
+    def _replace_main_object_path(self):
+        """
+        try to replace path of the main_object with the specified one
+        """
+        if not self._main_filepath or not self.filename_lookup:
+            return
+
+        # identify the original path and assuming pr_fname always exists
+        matched = None
+        for i, (a, b, c, fn) in enumerate(self.filename_lookup):
+            if os.path.basename(fn).startswith(self.pr_fname): # pr_fname is defined to be the first 16 bytes of the executable name
+                matched = fn
+                print(matched)
+                break
+        else:
+            raise CLEError("Fail to find the main object, is this core dump malformed?")
+
+        # replace the path
+        for i, (a, b, c, fn) in enumerate(self.filename_lookup):
+            if fn == matched:
+                self.filename_lookup[i] = (a, b, c, self._main_filepath)
 
     @property
     def __dummy_clemory(self):
@@ -193,26 +218,10 @@ class ELFCore(ELF):
         self.__current_thread.update(result)
 
     def __parse_prpsinfo(self, desc):
-        self.pr_fname = desc.pr_fname.split(b'\x00', 1)[0]
+        self.pr_fname = desc.pr_fname.split(b'\x00', 1)[0].decode()
 
     def __parse_files(self, desc):
         self.filename_lookup = [(ent.vm_start, ent.vm_end, ent.page_offset * desc.page_size, self._remote_file_mapping.get(fn.decode(), fn.decode())) for ent, fn in zip(desc.Elf_Nt_File_Entry, desc.filename)]
-
-        # TODO this can be less stupid if we just parse out what the name/address of the main executable is
-        # that metadata has to be somewhere, right?
-        matched = None
-        if self.filename_lookup and self._main_filepath is not None:
-            for i, (a, b, c, fn) in enumerate(self.filename_lookup):
-                if os.path.basename(self._main_filepath) == fn[fn.rfind('/')+1:]: # explicit unix basename
-                    matched = fn
-                    break
-            else:
-                matched = self.filename_lookup[0][-1]
-
-        for i, (a, b, c, fn) in enumerate(self.filename_lookup):
-            if fn == matched:
-                self.filename_lookup[i] = (a, b, c, self._main_filepath)
-
 
     def __parse_x86_tls(self, desc):
         self.__current_thread['segments'] = {}
