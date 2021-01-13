@@ -32,6 +32,7 @@ class ELFCore(ELF):
         self.pr_fname = None
         self._main_filepath = executable
         self._remote_file_mapping = remote_file_mapping if remote_file_mapping is not None else {}
+        self._page_size = 0x1000 # a default page size, will be changed later by parsing notes
 
         self.__extract_note_info()
 
@@ -221,6 +222,7 @@ class ELFCore(ELF):
         self.pr_fname = desc.pr_fname.split(b'\x00', 1)[0].decode()
 
     def __parse_files(self, desc):
+        self._page_size = desc.page_size
         self.filename_lookup = [(ent.vm_start, ent.vm_end, ent.page_offset * desc.page_size, self._remote_file_mapping.get(fn.decode(), fn.decode())) for ent, fn in zip(desc.Elf_Nt_File_Entry, desc.filename)]
 
     def __parse_x86_tls(self, desc):
@@ -251,8 +253,7 @@ class ELFCore(ELF):
             self.auxv[code_str] = value
 
     def __reload_children(self):
-        # god damn. hacks start here
-        self.loader.page_size = 0x1000
+        self.loader.page_size = self._page_size
         self.loader._perform_relocations = False
 
         # hack: we are using a loader internal method in a non-kosher way which will cause our children to be
