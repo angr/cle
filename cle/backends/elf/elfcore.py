@@ -33,10 +33,13 @@ class ELFCore(ELF):
         self._main_filepath = executable
         self._remote_file_mapping = remote_file_mapping if remote_file_mapping is not None else {}
         self._page_size = 0x1000 # a default page size, will be changed later by parsing notes
+        self._main_object = None
 
         self.__extract_note_info()
 
         self.__reload_children()
+
+        self.__record_main_object()
 
     @staticmethod
     def is_compatible(stream):
@@ -372,6 +375,20 @@ class ELFCore(ELF):
         if self.loader.main_object is self:
             self.loader.main_object = None
 
+    def __record_main_object(self):
+        """
+        If children objects are reloaded, identify the main object for later use by loader
+        """
+        for obj in self.child_objects:
+            if self.pr_fname and obj.binary_basename.startswith(self.pr_fname):
+                self._main_object = obj
+                return
+            if os.path.basename(self._main_filepath) == obj.binary_basename:
+                self._main_object = obj
+                return
+
+        l.warning("Fail to identify main object in ELFCore")
+        self._main_object = self
 
 
 auxv_codes = {
