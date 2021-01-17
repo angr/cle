@@ -1,13 +1,18 @@
 import copy
 import os
 import logging
-import archinfo
+from typing import List, Optional
+from collections import OrderedDict, defaultdict
+
 import elftools
 from elftools.elf import elffile, sections
 from elftools.dwarf import callframe
 from elftools.common.exceptions import ELFError, DWARFError
-from collections import OrderedDict, defaultdict
 
+import archinfo
+
+from .compilation_unit import CompilationUnit
+from .variable import Variable
 from .symbol import ELFSymbol, Symbol, SymbolType
 from .regions import ELFSection, ELFSegment
 from .hashtable import ELFHashTable, GNUHashTable
@@ -101,6 +106,8 @@ class ELF(MetaELF):
         #
         self.has_dwarf_info = bool(self._reader.has_dwarf_info())
         self.build_id = None
+        self.variables: Optional[List[Variable]] = None
+        self.compilation_units: Optional[List[CompilationUnit]] = None
 
         self._entry = self._reader.header.e_entry
         self.is_relocatable = self._reader.header.e_type == 'ET_REL'
@@ -136,9 +143,13 @@ class ELF(MetaELF):
                 dwarf = None
                 self.has_dwarf_info = False
 
-            if dwarf and dwarf.has_EH_CFI():
-                self._load_function_hints_from_fde(dwarf, FunctionHintSource.EH_FRAME)
-                self._load_exception_handling(dwarf)
+            if dwarf:
+                # Load DIEs
+                self._load_dies(dwarf)
+                # Load function hints and exception handling artifacts
+                if dwarf.has_EH_CFI():
+                    self._load_function_hints_from_fde(dwarf, FunctionHintSource.EH_FRAME)
+                    self._load_exception_handling(dwarf)
 
         if debug_symbols:
             self.__process_debug_file(debug_symbols)
@@ -495,6 +506,60 @@ class ELF(MetaELF):
         except (DWARFError, ValueError):
             l.warning("An exception occurred in pyelftools when loading FDE information.",
                       exc_info=True)
+
+    def _load_dies(self, dwarf):
+        """
+        Load DIEs and CUs from DWARF.
+
+        :param dwarf:   The DWARF info object from pyelftools.
+        :return:        None
+        """
+
+        compilation_units: List[CompilationUnit] = [ ]
+        variables: List[Variable] = [ ]
+
+        for cu in dwarf.iter_CUs():
+            top_die = cu.get_top_DIE()
+            die_name: str = top_die.attributes['DW_AT_name'].value.decode('utf-8')
+            die_low_pc: int = top_die.attributes['DW_AT_low_pc'].value
+            die_high_pc: int = top_die.attributes['DW_AT_high_pc'].value
+
+            from elftools.dwarf.dwarf_expr import DWARFExprParser
+
+            expr_parser = DWARFExprParser(cu.structs)
+
+            cu_ = CompilationUnit(die_name, die_low_pc, die_high_pc)
+            compilation_units.append(cu_)
+
+            die_queue = [top_die]
+            while die_queue:
+                die = die_queue.pop(0)
+
+                for die_child in cu.iter_DIE_children(die):
+                    if die_child.tag == 'DW_TAG_variable':
+                        # load variable
+                        var = self._load_die_variable(die_child, expr_parser)
+                        var.decl_file = cu_
+                        variables.append(var)
+
+        self.variables = variables
+        self.compilation_units = compilation_units
+
+    def _load_die_variable(self, die, expr_parser) -> Variable:
+
+        v = Variable(
+            die.attributes['DW_AT_name'].value.decode('utf-8'),
+            None,  # TODO
+            None,  # will be backpatched in _load_dies()
+            die.attributes['DW_AT_decl_line'].value,
+        )
+
+        if 'DW_AT_location' in die.attributes and die.attributes['DW_AT_location'].form == 'DW_FORM_exprloc':
+            parsed_exprs = expr_parser.parse_expr(die.attributes['DW_AT_location'].value)
+            if len(parsed_exprs) == 1 and parsed_exprs[0].op == 'DW_OP_addr':
+                v.addr = parsed_exprs[0].args[0]
+
+        return v
 
     #
     # Private Methods... really. Calling these out of context
