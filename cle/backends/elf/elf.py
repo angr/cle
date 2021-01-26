@@ -742,10 +742,11 @@ class ELF(MetaELF):
                 self.jmprel[reloc.symbol.name] = reloc
 
     def __register_tls(self, seg_readelf):
-        self.tls_used = True
         self.tls_block_size = seg_readelf.header.p_memsz
         self.tls_data_size = seg_readelf.header.p_filesz
         self.tls_data_start = AT.from_lva(seg_readelf.header.p_vaddr, self).to_rva()
+        if self.tls_block_size != 0 or self.tls_data_size != 0:
+            self.tls_used = True
 
     def __register_relro(self, segment_relro):
         segment_relro = ELFSegment(segment_relro, relro=True)
