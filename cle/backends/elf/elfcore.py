@@ -133,20 +133,13 @@ class ELFCore(ELF):
 
     def __parse_prstatus(self, desc):
         """
-        Parse out the prstatus, accumulating the general purpose register values. Supports AMD64, X86, ARM, and AARCH64
-        at the moment.
+        Parse out the prstatus, accumulating the general purpose register values.
+        Supports AMD64, X86, ARM, AArch64, MIPS and MIPSEL at the moment.
 
         :param prstatus: a note object of type NT_PRSTATUS.
         """
 
         # TODO: support all architectures angr supports
-
-        result = {}
-        result['si_signo'], result['si_code'], result['si_errno'] = struct.unpack("<3I", desc[:12])
-
-        # this field is a short, but it's padded to an int
-        result['pr_cursig'] = struct.unpack("<I", desc[12:16])[0]
-
         arch_bytes = self.arch.bytes
         if arch_bytes == 4:
             fmt = "I"
@@ -155,29 +148,38 @@ class ELFCore(ELF):
         else:
             raise CLEError("Architecture must have a bitwidth of either 64 or 32")
 
-        result['pr_sigpend'], result['pr_sighold'] = struct.unpack("<" + (fmt * 2), desc[16:16+(2*arch_bytes)])
+        end = '>' if self.arch.memory_endness == 'Iend_BE' else '<'
 
-        attrs = struct.unpack("<IIII", desc[16+(2*arch_bytes):16+(2*arch_bytes)+(4*4)])
-        result['pr_pid'], result['pr_ppid'], result['pr_pgrp'], result['pr_sid'] = attrs
+        pos = 0
 
-        # parse out the 4 timevals
-        pos = 16+(2*arch_bytes)+(4*4)
-        usec = struct.unpack("<" + fmt, desc[pos:pos+arch_bytes])[0] * 1000
-        result['pr_utime_usec'] = struct.unpack("<" + fmt, desc[pos+arch_bytes:pos+arch_bytes*2])[0] + usec
+        def read_longs(n):
+            fin = pos+n*arch_bytes
+            return fin, *struct.unpack(end + fmt * n, desc[pos:fin])
 
-        pos += arch_bytes * 2
-        usec = struct.unpack("<" + fmt, desc[pos:pos+arch_bytes])[0] * 1000
-        result['pr_stime_usec'] = struct.unpack("<" + fmt, desc[pos+arch_bytes:pos+arch_bytes*2])[0] + usec
+        def read_ints(n):
+            fin = pos + n * 4
+            return fin, *struct.unpack(end + 'I' * n, desc[pos:fin])
 
-        pos += arch_bytes * 2
-        usec = struct.unpack("<" + fmt, desc[pos:pos+arch_bytes])[0] * 1000
-        result['pr_cutime_usec'] = struct.unpack("<" + fmt, desc[pos+arch_bytes:pos+arch_bytes*2])[0] + usec
+        def read_timeval():
+            sec, usec = struct.unpack(end+fmt*2, desc[pos:pos+2*arch_bytes])
+            return pos+2*arch_bytes, sec * 1000000 + usec
 
-        pos += arch_bytes * 2
-        usec = struct.unpack("<" + fmt, desc[pos:pos+arch_bytes])[0] * 1000
-        result['pr_cstime_usec'] = struct.unpack("<" + fmt, desc[pos+arch_bytes:pos+arch_bytes*2])[0] + usec
+        result = {}
 
-        pos += arch_bytes * 2
+        pos, result['si_signo'], result['si_code'], result['si_errno'] = read_ints(3)
+
+        # this field is a short, but it's padded to an int
+        result['pr_cursig'], = struct.unpack(end + "H", desc[pos:pos+2])
+        pos += 4
+
+        pos, result['pr_sigpend'], result['pr_sighold'] = read_longs(2)
+
+        pos, result['pr_pid'], result['pr_ppid'], result['pr_pgrp'], result['pr_sid'] = read_ints(4)
+
+        pos, result['pr_utime_usec'] = read_timeval()
+        pos, result['pr_stime_usec'] = read_timeval()
+        pos, result['pr_cutime_usec'] = read_timeval()
+        pos, result['pr_cstime_usec'] = read_timeval()
 
         # parse out general purpose registers
         if self.arch.name == 'AMD64':
@@ -210,14 +212,14 @@ class ELFCore(ELF):
         else:
             raise CLECompatibilityError("Architecture '%s' unsupported by ELFCore" % self.arch.name)
 
-        regvals = []
-        for idx in range(pos, pos+nreg*arch_bytes, arch_bytes):
-            regvals.append(struct.unpack("<" + fmt, desc[idx:idx+arch_bytes])[0])
+        assert nreg == len(rnames), "Please create an issue with this core-file attached to get this fixed."
+        pos, *regvals = read_longs(nreg)
         result['registers'] = dict(zip(rnames, regvals))
         del result['registers']['xxx']
 
-        pos += nreg * arch_bytes
-        result['pr_fpvalid'] = struct.unpack("<I", desc[pos:pos+4])[0]
+        pos, result['pr_fpvalid'] = read_ints(1)
+        assert pos == len(desc), "Please create an issue with this core-file attached to get this fixed."
+
         self.__current_thread.update(result)
 
     def __parse_prpsinfo(self, desc):
