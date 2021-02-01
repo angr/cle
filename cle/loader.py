@@ -843,7 +843,7 @@ class Loader:
             if close:
                 binary_stream.close()
 
-    def _map_object(self, obj):
+    def _map_object(self, obj: 'Backend'):
         """
         This will integrate the object into the global address space, but will not perform relocations.
         """
@@ -863,7 +863,7 @@ class Loader:
 
             obj.rebase(base_addr)
         else:
-            if obj._custom_base_addr is not None and not isinstance(obj, Blob):
+            if obj._custom_base_addr is not None and obj.linked_base != obj._custom_base_addr and not isinstance(obj, Blob):
                 l.warning("%s: base_addr was specified but the object is not PIC. "
                           "specify force_rebase=True to override", obj.binary_basename)
             base_addr = obj.linked_base
@@ -898,14 +898,14 @@ class Loader:
             else:
                 gap_start = ALIGN_UP(o.max_addr + 1, self._rebase_granularity)
 
-        if gap_start + size >= 2**self.main_object.arch.bits:
+        if gap_start + size > 2**self.main_object.arch.bits:
             raise CLEOperationError("Ran out of room in address space")
 
         return gap_start
 
     def _is_range_free(self, va, size):
         # self.main_object should not be None here
-        if va < 0 or va + size >= 2**self.main_object.arch.bits:
+        if va < 0 or va + size > 2**self.main_object.arch.bits:
             return False
 
         for o in self.all_objects:

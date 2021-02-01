@@ -6,6 +6,7 @@ from collections import defaultdict
 
 from .elf import ELF
 from ..blob import Blob
+from ..region import Segment
 from .. import register_backend
 from ...errors import CLEError, CLECompatibilityError
 from ...memory import Clemory
@@ -38,8 +39,6 @@ class ELFCore(ELF):
         self.__extract_note_info()
 
         self.__reload_children()
-
-        self.__record_main_object()
 
     @staticmethod
     def is_compatible(stream):
@@ -326,38 +325,63 @@ class ELFCore(ELF):
                 self.child_objects.clear()
                 return
 
-            # store data provided by core into object
-            for vaddr, _, patch in patches:
-                try:
-                    obj.memory.store(vaddr - base_addr, patch)
-                except KeyError:
-                    pass  # this case handled below in the inject clause, right???
-
             obj._custom_base_addr = base_addr
             self.child_objects.append(obj)
 
-            # remove any core segments which are handled by this object
-            for seg in obj.segments:
-                addr = AT.from_lva(seg.vaddr, obj).to_rva() + base_addr
-                for subaddr in range(addr, addr + seg.memsize, 0x1000):
-                    match_seg = self.find_segment_containing(subaddr)
-                    if match_seg is not None:
-                        try:
-                            remaining_segments.remove(match_seg)
-                        except ValueError:
-                            pass
+            # figure out how the core's data should affect the child object's data
+            # iterate over all the core segments, since the only time we will need to make a change to the child's memory is if the core has something to say about it
+            # if there is ANY OVERLAP AT ALL, copy over the relevant data and nuke the segment
+            # then, if there is any part of the segment which DOESN'T correspond to a child segment, inject a new memory backer into the child for the relevant data
 
-            # inject any core segments which are not handled by the object but overlap with it
             max_addr = base_addr + (obj.max_addr - obj.min_addr)
             i = 0
             while i < len(remaining_segments):
                 seg = remaining_segments[i]
+                # check for overlap (overapproximation)
                 if base_addr <= seg.vaddr <= max_addr or seg.vaddr <= base_addr < seg.vaddr + seg.memsize:
                     remaining_segments.pop(i)
 
-                    seg_vaddr, backer = next(self.memory.backers(AT.from_mva(seg.vaddr, self).to_rva()))
-                    assert seg_vaddr == AT.from_mva(seg.vaddr, self).to_rva()
-                    obj.memory.add_backer(seg.vaddr - base_addr, backer)
+                    # if there is data before the beginning of the child or after the end, make new artificial segments for it
+                    if seg.vaddr < base_addr:
+                        size = base_addr - seg.vaddr
+                        remaining_segments.insert(i, Segment(seg.offset, seg.vaddr, size, size))
+                        i += 1
+                    if seg.max_addr > max_addr:
+                        size = seg.max_addr - max_addr
+                        offset = seg.memsize - size
+                        remaining_segments.insert(i, Segment(seg.offset + offset, seg.vaddr + offset, size, size))
+                        i += 1
+
+                    # ohhhh this is SUCH a confusing address space-conversation problem!
+                    # we're going to enumerate the contents of the core segment. at each point we find the relevant child backer. if this skips any content, inject a backer into the child.
+                    # then, copy the contents of the core segment that overlaps the child backer.
+                    cursor = max(0, base_addr - seg.vaddr)
+                    while cursor < seg.filesize:  # use filesize and not memsize so we don't overwrite stuff with zeroes if it's omitted from the core
+                        child_cursor = cursor + seg.vaddr - base_addr
+                        try:
+                            child_offset, child_backer = next(obj.memory.backers(child_cursor))
+                        except StopIteration:
+                            # is this right? is there any behavior we need to account for in the case that there is somehow no backer past a point mapped by the core?
+                            break
+
+                        # have we skipped any part of the core?
+                        skip_size = child_offset - child_cursor
+                        if skip_size > 0:
+                            # inject it into the child
+                            obj.memory.add_backer(child_cursor, self.memory.load(AT.from_mva(cursor + seg.vaddr, self).to_rva(), skip_size))
+
+
+                        # how much of the child's segment have we skipped by starting at the beginning of the core segment?
+                        child_backer_offset = max(0, -skip_size)
+                        # how much of the core's segment have we skipped and handled via injection?
+                        core_backer_offset = max(0, skip_size)
+                        # how much can we copy?
+                        copy_size = min(len(child_backer) - child_backer_offset, seg.memsize - (cursor + core_backer_offset))
+                        # do the copy
+                        obj.memory.store(child_offset + child_backer_offset, self.memory.load(AT.from_mva(seg.vaddr + cursor + core_backer_offset, self).to_rva(), copy_size))
+
+                        # advance cursor
+                        cursor += core_backer_offset + copy_size
                 else:
                     i += 1
 
@@ -374,6 +398,7 @@ class ELFCore(ELF):
         self.has_memory = False
         if self.loader.main_object is self:
             self.loader.main_object = None
+            self.__record_main_object()
 
     def __record_main_object(self):
         """
@@ -383,11 +408,11 @@ class ELFCore(ELF):
             if self.pr_fname and obj.binary_basename.startswith(self.pr_fname):
                 self._main_object = obj
                 return
-            if os.path.basename(self._main_filepath) == obj.binary_basename:
+            if self._main_filepath is not None and os.path.basename(self._main_filepath) == obj.binary_basename:
                 self._main_object = obj
                 return
 
-        l.warning("Fail to identify main object in ELFCore")
+        l.warning("Failed to identify main object in ELFCore")
         self._main_object = self
 
 
