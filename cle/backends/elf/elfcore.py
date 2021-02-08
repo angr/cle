@@ -154,15 +154,15 @@ class ELFCore(ELF):
 
         def read_longs(n):
             fin = pos+n*arch_bytes
-            return fin, *struct.unpack(end + fmt * n, desc[pos:fin])
+            return (fin, *struct.unpack(end + fmt * n, desc[pos:fin]))
 
         def read_ints(n):
             fin = pos + n * 4
-            return fin, *struct.unpack(end + 'I' * n, desc[pos:fin])
+            return (fin, *struct.unpack(end + 'I' * n, desc[pos:fin]))
 
         def read_timeval():
             sec, usec = struct.unpack(end+fmt*2, desc[pos:pos+2*arch_bytes])
-            return pos+2*arch_bytes, sec * 1000000 + usec
+            return (pos+2*arch_bytes, sec * 1000000 + usec)
 
         result = {}
 
