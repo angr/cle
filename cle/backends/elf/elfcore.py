@@ -218,7 +218,7 @@ class ELFCore(ELF):
         del result['registers']['xxx']
 
         pos, result['pr_fpvalid'] = read_ints(1)
-        assert pos == len(desc), "Please create an issue with this core-file attached to get this fixed."
+        assert pos <= len(desc) < pos + arch_bytes, "Please create an issue with this core-file attached to get this fixed."
 
         self.__current_thread.update(result)
 
