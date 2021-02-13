@@ -76,6 +76,12 @@ class ELFTLSObject(TLSObject):
         for off in self.arch.elf_tls.pthread_offsets:
             self._drop_int(off + self.tcb_offset, self.tp_offset, True)  # ?????
 
+        # tid. feel free to move this code wherever
+        # this only matters if you're not running the libc initializers... hm.
+        #tid = len(thread_manager.threads) + 1
+        #if self.arch.name == 'AMD64':
+        #    self._drop_int(self.tcb_offset + 0x2d0, tid, False, size=4)
+
         # Set up the DTV
         # at dtv[-1] there's capacity, at dtv[0] there's count (technically generation number?)
         self._drop_int(self.dtv_offset - 2 * self.arch.bytes, thread_manager.max_modules - 1)
@@ -95,10 +101,10 @@ class ELFTLSObject(TLSObject):
     def _calculate_pointers(self, used_data, max_modules):
         raise NotImplementedError
 
-    def _drop_int(self, offset, num, needs_relocation=False):
+    def _drop_int(self, offset, num, needs_relocation=False, **kwargs):
         if needs_relocation:
             self.relocs.append(InternalTLSRelocation(num, offset, self))
-        self.memory.pack_word(offset, num)
+        self.memory.pack_word(offset, num, **kwargs)
 
     @property
     def thread_pointer(self):

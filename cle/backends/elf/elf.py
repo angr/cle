@@ -142,8 +142,12 @@ class ELF(MetaELF):
 
         if debug_symbols:
             self.__process_debug_file(debug_symbols)
-        elif self.loader._load_debug_info and self.build_id:
-            debug_filename = '/usr/lib/debug/.build-id/%s/%s.debug' % (self.build_id[:2], self.build_id[2:])
+        elif self.loader._load_debug_info:
+            if self.build_id:
+                debug_filename = '/usr/lib/debug/.build-id/%s/%s.debug' % (self.build_id[:2], self.build_id[2:])
+                if os.path.isfile(debug_filename):
+                    self.__process_debug_file(debug_filename)
+            debug_filename = os.path.join('/usr/lib/debug', os.path.realpath(self.binary))
             if os.path.isfile(debug_filename):
                 self.__process_debug_file(debug_filename)
 

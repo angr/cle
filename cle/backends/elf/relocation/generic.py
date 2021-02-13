@@ -26,15 +26,17 @@ class GenericTLSOffsetReloc(ELFReloc):
 
         if self.resolvedby is None:
             obj = self.owner
+            addr = 0
         else:
             obj = self.resolvedby.owner
+            addr = self.resolvedby.relative_addr
 
         if obj.tls_block_offset is None:
             raise CLEInvalidBinaryError("Illegal relocation - dynamically loaded object using static TLS")
 
         self.owner.memory.pack_word(
             self.relative_addr,
-            obj.tls_block_offset + self.addend + self.symbol.relative_addr - hell_offset)
+            obj.tls_block_offset + self.addend + addr - hell_offset)
 
 
 class GenericTLSDescriptorReloc(ELFReloc):
