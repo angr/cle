@@ -199,7 +199,7 @@ class Loader:
     @property
     def elfcore_object(self):
         """
-        If the linux dynamic loader is present in memory, return it
+        If a corefile was loaded, this returns the actual core object instead of the main binary
         """
         for obj in self.all_objects:
             if isinstance(obj, ELFCore):
