@@ -197,6 +197,16 @@ class Loader:
         return None
 
     @property
+    def elfcore_object(self):
+        """
+        If the linux dynamic loader is present in memory, return it
+        """
+        for obj in self.all_objects:
+            if isinstance(obj, ELFCore):
+                return obj
+        return None
+
+    @property
     def extern_object(self):
         """
         Return the extern object used to provide addresses to unresolved symbols and angr internals.
