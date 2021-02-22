@@ -114,7 +114,6 @@ class ELFCore(ELF):
         for i, (a, b, c, fn) in enumerate(self.filename_lookup):
             if os.path.basename(fn).startswith(self.pr_fname): # pr_fname is defined to be the first 16 bytes of the executable name
                 matched = fn
-                print(matched)
                 break
         else:
             raise CLEError("Fail to find the main object, is this core dump malformed?")
