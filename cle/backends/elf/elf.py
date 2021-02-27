@@ -551,6 +551,9 @@ class ELF(MetaELF):
         self.extra_load_path = self.__parse_rpath(runpath, rpath)
 
         strtab = seg_readelf._get_stringtable()
+        if strtab is None:
+            l.warning("Unexpected return value from pyelftools: stringtable object is None.")
+            return
         self.__neuter_streams(strtab)
 
         # To extract symbols from binaries without section headers, we need to hack into pyelftools.
