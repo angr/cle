@@ -8,16 +8,38 @@ from ..symbol import SymbolType
 from ...address_translator import AT
 from ...utils import stream_or_path
 from elftools.elf.descriptions import describe_ei_osabi
+from elftools.elf.enums import ENUM_DT_FLAGS
+from enum import Enum
 from collections import OrderedDict
 
 __all__ = ('MetaELF',)
 
 l = logging.getLogger(name=__name__)
 
+class Relro(Enum):
+    NONE = 0
+    PARTIAL = 1
+    FULL = 2
+
 def maybedecode(string):
     # so... it turns out that pyelftools is garbage and will transparently give you either strings or bytestrings
     # based on pretty much nothing whatsoever
     return string if type(string) is str else string.decode()
+
+def get_relro(elf):
+    # The tests for partial and full RELRO have been taken from
+    # checksec.sh v1.5 (https://www.trapkit.de/tools/checksec/):
+    #   - Partial RELRO has a 'GNU_RELRO' segment
+    #   - Full RELRO also has a 'BIND_NOW' flag in the dynamic section
+    if not any(seg.header.p_type == 'PT_GNU_RELRO' for seg in elf.iter_segments()):
+        return Relro.NONE
+    dyn_sec = elf.get_section_by_name('.dynamic')
+    if dyn_sec is None:
+        return Relro.PARTIAL
+    flags = [tag for tag in dyn_sec.iter_tags() if tag.entry.d_tag == 'DT_FLAGS']
+    if len(flags) != 1:
+        return Relro.PARTIAL
+    return Relro.FULL if flags[0].entry.d_val & ENUM_DT_FLAGS['DF_BIND_NOW'] == ENUM_DT_FLAGS['DF_BIND_NOW'] else Relro.PARTIAL
 
 class MetaELF(Backend):
     """
@@ -28,6 +50,7 @@ class MetaELF(Backend):
         tmp_reader = elftools.elf.elffile.ELFFile(self._binary_stream)
         self.os = describe_ei_osabi(tmp_reader.header.e_ident.EI_OSABI)
         self.elfflags = tmp_reader.header.e_flags
+        self.relro = get_relro(tmp_reader)
         self._plt = {}
         self._ppc64_abiv1_initial_rtoc = None
 
@@ -53,9 +76,12 @@ class MetaELF(Backend):
         if self.arch.name != 'X86':
             return False
         # search for tX = GET(ebx) -> Add32(tX, got_addr - addr)
-        if '.got.plt' not in self.sections_map:
+        if '.got.plt' in self.sections_map:
+            got_sec = self.sections_map['.got.plt']
+        elif self.relro is Relro.FULL:
+            got_sec = self.sections_map['.got']
+        else:
             return False
-        got_sec = self.sections_map['.got.plt']
         tx = None
         for stmt in block.statements:
             if stmt.tag == 'Ist_WrTmp' and stmt.data.tag == 'Iex_Get' and stmt.data.offset == self.arch.registers['ebx'][0]:
