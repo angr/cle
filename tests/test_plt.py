@@ -96,6 +96,10 @@ def test_plt():
     for filename in TESTS_ARCHES:
         yield check_plt_entries, filename
 
+def test_plt_full_relro():
+    ld = cle.Loader(os.path.join(TESTS_BASE, 'tests/i386/full-relro.bin'), main_opts={'base_addr': 0x400000})
+    assert ld.main_object.plt == {'__libc_start_main': 0x400390}
+
 if __name__ == '__main__':
     for f, a in test_plt():
         print(a)
