@@ -138,12 +138,9 @@ class SymbolTableSymbol(AbstractMachOSymbol):
 
     @property
     def rebased_addr(self):
-        l.warning("Rebasing not implemented for Mach-O")
+        # l.warning("Rebasing not implemented for Mach-O")
         return self.linked_addr
 
-    def resolve(self, obj):
-        # Incompatibility to CLE
-        pass  # Mach-O cannot be resolved like this as the whole binary is involved
 
     # real symbols have properties, mach-o symbols have plenty of them:
     @property
@@ -271,10 +268,6 @@ class BindingSymbol(AbstractMachOSymbol):
     def rebased_addr(self):
         l.warning("Rebasing not implemented for Mach-O")
         return self.linked_addr
-
-    def resolve(self, obj):
-        # Incompatibility to CLE
-        pass  # Mach-O cannot be resolved like this as the whole binary is involved
 
     def demangled_name(self):
         return self.name  # it is not THAT easy with Mach-O

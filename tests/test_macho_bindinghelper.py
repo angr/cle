@@ -11,7 +11,7 @@ from cle.backends.macho.binding import n_opcode_done,n_opcode_set_dylib_ordinal_
 from cle.backends.macho.binding import n_opcode_set_dylib_special_imm,n_opcode_set_trailing_flags_imm,n_opcode_set_type_imm
 from cle.backends.macho.binding import n_opcode_set_addend_sleb
 
-from cle import CLEInvalidBinaryError
+from cle import CLEInvalidBinaryError, MachO
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                          os.path.join('..', '..', 'binaries'))
@@ -147,6 +147,7 @@ class TestLEB(unittest.TestCase):
         self.assertEqual(result,expected)
 
 
+# noinspection PyTypeChecker
 class TestBindingHelper(unittest.TestCase):
 
     # Note: These tests will require mocking MachOBinary objects
@@ -402,7 +403,8 @@ class TestBindingHelper(unittest.TestCase):
         """
         machofile = os.path.join(TEST_BASE, 'tests', 'armhf', 'FileProtection-05.arm64.macho')
         ld = cle.Loader(machofile, auto_load_libs=False)
-        macho = ld.main_object
+        assert isinstance(ld.main_object, MachO)
+        macho: MachO = ld.main_object
         macho.do_binding()
         expected = {
             "_OBJC_CLASS_$_UIResponder": [0x100009128],

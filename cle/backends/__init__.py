@@ -264,7 +264,7 @@ class Backend:
         return AT.from_lva(self._entry, self).to_mva()
 
     @property
-    def segments(self):
+    def segments(self) -> Regions:
         return self._segments
 
     @segments.setter
