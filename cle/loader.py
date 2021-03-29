@@ -978,6 +978,9 @@ class Loader:
                 dirs.extend(self.main_object.extra_load_path)
                 if sys.platform.startswith('linux'):
                     dirs.extend(self.main_object.arch.library_search_path())
+                elif sys.platform.startswith('openbsd'):
+                    dirs.extend(self.main_object.arch.library_search_path())
+                    dirs.extend(['/usr/local/lib', '/usr/X11R6/lib'])
                 elif sys.platform == 'win32':
                     native_dirs = os.environ['PATH'].split(';')
 
