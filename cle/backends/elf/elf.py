@@ -561,9 +561,18 @@ class ELF(MetaELF):
 
         for cu in dwarf.iter_CUs():
             top_die = cu.get_top_DIE()
-            die_name: str = top_die.attributes['DW_AT_name'].value.decode('utf-8')
-            die_low_pc: int = top_die.attributes['DW_AT_low_pc'].value
-            die_high_pc: int = top_die.attributes['DW_AT_high_pc'].value
+            die_name: Optional[str] = None
+            if 'DW_AT_name' in top_die.attributes:
+                die_name = top_die.attributes['DW_AT_name'].value.decode('utf-8')
+            die_low_pc: Optional[int] = None
+            if 'DW_AT_low_pc' in top_die.attributes:
+                die_low_pc = top_die.attributes['DW_AT_low_pc'].value
+            die_high_pc: Optional[int] = None
+            if 'DW_AT_high_pc' in top_die.attributes:
+                die_high_pc = top_die.attributes['DW_AT_high_pc'].value
+
+            if die_low_pc is None or die_high_pc is None:
+                continue
 
             from elftools.dwarf.dwarf_expr import DWARFExprParser
 
@@ -588,11 +597,21 @@ class ELF(MetaELF):
 
     def _load_die_variable(self, die, expr_parser) -> Variable:
 
+        if 'DW_AT_name' in die.attributes:
+            var_name = die.attributes['DW_AT_name'].value.decode('utf-8')
+        else:
+            var_name = None
+
+        if 'DW_AT_decl_line' in die.attributes:
+            decl_line = die.attributes['DW_AT_decl_line'].value
+        else:
+            decl_line = None
+
         v = Variable(
-            die.attributes['DW_AT_name'].value.decode('utf-8'),
+            var_name,
             None,  # TODO
-            None,  # will be backpatched in _load_dies()
-            die.attributes['DW_AT_decl_line'].value,
+            None,  # decl_file: will be back-patched in _load_dies()
+            decl_line,
         )
 
         if 'DW_AT_location' in die.attributes and die.attributes['DW_AT_location'].form == 'DW_FORM_exprloc':
