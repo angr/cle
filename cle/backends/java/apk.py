@@ -99,9 +99,9 @@ class Apk(Soot):
 
             # Step 2: parse name of available libs and archs
             #         from lib paths "/lib/<jni_arch>/lib<name>.so"
-            lib_filelist = [f.split('/') for f in filelist if f.startswith('lib')]
+            lib_filelist = [list(filter(None, f.split('/'))) for f in filelist if f.startswith('lib')]
             jni_libs = { lib_path[2] for lib_path in lib_filelist if len(lib_path) > 2}
-            available_jni_archs = { lib_path[1] for lib_path in lib_filelist }
+            available_jni_archs = { lib_path[1] for lib_path in lib_filelist if len(lib_path) > 2 }
 
             if not jni_libs:
                 l.info("No JNI libs found.")
