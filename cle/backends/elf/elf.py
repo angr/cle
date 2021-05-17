@@ -325,6 +325,12 @@ class ELF(MetaELF):
         else:
             raise CLEError("Bad symbol identifier: %r" % (symid,))
 
+    def rebase(self, new_base):
+        delta = self.linked_base - new_base
+        super().rebase(new_base)
+
+        self.addr_to_line = {addr + delta: value for addr, value in self.addr_to_line.items()}
+
     #
     # Private Methods
     #
