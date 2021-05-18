@@ -525,7 +525,7 @@ class ELF(MetaELF):
                 else:
                     file_entry = lineprog.header['file_entry'][line.state.file - 1]
                     if file_entry["dir_index"] == 0:
-                        filename = os.path.join(comp_dir, file_entry.name.decode())
+                        filename = os.path.join(comp_dir, file_entry.name).decode()
                     else:
                         filename = os.path.join(
                             comp_dir,
