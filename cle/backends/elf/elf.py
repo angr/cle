@@ -7,6 +7,7 @@ from elftools.elf import elffile, sections
 from elftools.dwarf import callframe
 from elftools.common.exceptions import ELFError, DWARFError
 from collections import OrderedDict, defaultdict
+from sortedcontainers import SortedDict
 
 from .symbol import ELFSymbol, Symbol, SymbolType
 from .regions import ELFSection, ELFSegment
@@ -101,6 +102,7 @@ class ELF(MetaELF):
         #
         self.has_dwarf_info = bool(self._reader.has_dwarf_info())
         self.build_id = None
+        self.addr_to_line = SortedDict()
 
         self._entry = self._reader.header.e_entry
         self.is_relocatable = self._reader.header.e_type == 'ET_REL'
@@ -139,6 +141,7 @@ class ELF(MetaELF):
             if dwarf and dwarf.has_EH_CFI():
                 self._load_function_hints_from_fde(dwarf, FunctionHintSource.EH_FRAME)
                 self._load_exception_handling(dwarf)
+                self._load_line_info(dwarf)
 
         if debug_symbols:
             self.__process_debug_file(debug_symbols)
@@ -322,6 +325,12 @@ class ELF(MetaELF):
         else:
             raise CLEError("Bad symbol identifier: %r" % (symid,))
 
+    def rebase(self, new_base):
+        delta = new_base - self.linked_base
+        super().rebase(new_base)
+
+        self.addr_to_line = {addr + delta: value for addr, value in self.addr_to_line.items()}
+
     #
     # Private Methods
     #
@@ -495,6 +504,37 @@ class ELF(MetaELF):
         except (DWARFError, ValueError):
             l.warning("An exception occurred in pyelftools when loading FDE information.",
                       exc_info=True)
+
+    def _load_line_info(self, dwarf):
+        """
+        Generates addr_to_line as a mapping: addr -> (filename, lineno).
+        Lineno is one-indexed.
+        """
+        for cu in dwarf.iter_CUs():
+            comp_dir = '.'
+            die = cu.get_top_DIE()
+            if 'DW_AT_comp_dir' in die.attributes:
+                comp_dir = die.attributes['DW_AT_comp_dir'].value
+            lineprog = dwarf.line_program_for_CU(cu)
+            file_cache = {}
+            for line in lineprog.get_entries():
+                if line.state is None:
+                    continue
+                if line.state.file in file_cache:
+                    filename = file_cache[line.state.file]
+                else:
+                    file_entry = lineprog.header['file_entry'][line.state.file - 1]
+                    if file_entry["dir_index"] == 0:
+                        filename = os.path.join(comp_dir, file_entry.name).decode()
+                    else:
+                        filename = os.path.join(
+                            comp_dir,
+                            lineprog.header["include_directory"][file_entry["dir_index"] - 1],
+                            file_entry.name).decode()
+                    file_cache[line.state.file] = filename
+
+                relocated_addr = AT.from_lva(line.state.address, self).to_mva()
+                self.addr_to_line[relocated_addr] = (filename, line.state.line)
 
     #
     # Private Methods... really. Calling these out of context
@@ -945,18 +985,18 @@ class ELF(MetaELF):
                 elif sec_readelf.header.sh_type == 'SHT_NOTE':
                     self.__register_notes(sec_readelf)
 
-            #has_dwarf_info = bool(elf.has_dwarf_info())
-            #if has_dwarf_info:
-            #    try:
-            #        dwarf = self.reader.get_dwarf_info()
-            #    except ELFError:
-            #        l.warning("An exception occurred in pyelftools when loading the DWARF information on %s.", filename,
-            #                  exc_info=True)
-            #        dwarf = None
+            has_dwarf_info = bool(elf.has_dwarf_info())
+            if has_dwarf_info:
+                try:
+                    dwarf = elf.get_dwarf_info()
+                except ELFError:
+                    l.warning("An exception occurred in pyelftools when loading the DWARF information on %s.", filename,
+                              exc_info=True)
+                    dwarf = None
 
                 # debug symbols don't have eh_frame ever from what I can tell
-                #if dwarf and dwarf.has_EH_CFI():
-                #    self._load_function_hints_from_fde(dwarf, FunctionHintSource.EXTERNAL_EH_FRAME)
+                if dwarf:
+                    self._load_line_info(dwarf)
 
 
 register_backend('elf', ELF)
