@@ -4,7 +4,7 @@ from .variable import Variable
 
 
 class Subprogram:
-    local_variables: List[Variable]
+    local_variables: List[Variable] = []
 
     def __init__(self, name, low_pc, high_pc,) -> None:
         self.name = name

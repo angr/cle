@@ -9,8 +9,8 @@ from .variable_type import VariableType
 
 class CompilationUnit:
 
-    functions: Dict[int, Subprogram]
-    global_variable: List[Variable]
+    functions: Dict[int, Subprogram] = {}
+    global_variables: List[Variable] = []
 
     def __init__(self, name, comp_dir, low_pc, high_pc, language):
         self.name = name

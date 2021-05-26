@@ -540,13 +540,9 @@ class ELF(MetaELF):
 
         compilation_units: List[CompilationUnit] = [ ]
         globle_variables: List[Variable] = [ ]
-        type_list: Dict[int, VariableType]
+        type_list: Dict[int, VariableType] = {}
 
         for cu in dwarf.iter_CUs():
-            if top_die.tag != "DW_TAG_compile_unit":
-                l.warning("ignore a top die with unexpected tag")
-                continue
-
             expr_parser = DWARFExprParser(cu.structs)
 
             # scan the whole die tree for DW_TAG_base_type
@@ -555,6 +551,11 @@ class ELF(MetaELF):
                     type_list[die.offset] = VariableType.read_from_die(die)
 
             top_die = cu.get_top_DIE()
+
+            if top_die.tag != "DW_TAG_compile_unit":
+                l.warning("ignore a top die with unexpected tag")
+                continue
+
             die_name = top_die.attributes['DW_AT_name'].value.decode('utf-8')
             die_comp_dir = top_die.attributes['DW_AT_comp_dir'].value.decode('utf-8')
             die_low_pc, die_high_pc = self._load_low_high_pc_form_die(top_die)
@@ -565,10 +566,10 @@ class ELF(MetaELF):
             
             for die_child in cu.iter_DIE_children(top_die):
                 if die_child.tag == 'DW_TAG_variable':
-                    # load variable
+                    # load global variable
                     var = self._load_die_variable(die_child, expr_parser, type_list)
                     var.decl_file = cu_.file_path
-                    globle_variables.append(var)
+                    cu_.global_variables.append(var)
                 elif die_child.tag == 'DW_TAG_subprogram':
                     # load subprogram 
                     name = die_child.attributes['DW_AT_name'].value.decode('utf-8')
@@ -577,8 +578,8 @@ class ELF(MetaELF):
 
                     for sub_die in cu._iter_DIE_subtree(die_child):
                         if sub_die.tag in ['DW_TAG_variable','DW_TAG_formal_parameter']:
-                            # load variable
-                            var = self._load_die_variable(sub_die, expr_parser)
+                            # load local variable
+                            var = self._load_die_variable(sub_die, expr_parser, type_list)
                             var.decl_file = cu_.file_path
                             sub_prog.local_variables.append(var)
 
@@ -615,7 +616,7 @@ class ELF(MetaELF):
 
         if 'DW_AT_location' in die.attributes and die.attributes['DW_AT_location'].form == 'DW_FORM_exprloc':
             parsed_exprs = expr_parser.parse_expr(die.attributes['DW_AT_location'].value)
-            if len(parsed_exprs) == 1 and parsed_exprs[0].op == 'DW_OP_addr':
+            if len(parsed_exprs) == 1 and parsed_exprs[0].op_name == 'DW_OP_addr':
                 v.addr = parsed_exprs[0].args[0]
 
         return v
