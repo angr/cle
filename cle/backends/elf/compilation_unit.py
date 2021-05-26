@@ -4,6 +4,7 @@ from elftools.dwarf.compileunit import CompileUnit
 from typing import Dict, List
 from .variable import Variable
 from .subprogram import Subprogram
+from .variable_type import VariableType
 
 
 class CompilationUnit:
@@ -19,4 +20,4 @@ class CompilationUnit:
         self.high_pc = high_pc
         self.language = language
 
-    
+
