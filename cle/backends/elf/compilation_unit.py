@@ -1,10 +1,8 @@
 import os.path
 
-from elftools.dwarf.compileunit import CompileUnit
 from typing import Dict, List
 from .variable import Variable
 from .subprogram import Subprogram
-from .variable_type import VariableType
 
 
 class CompilationUnit:

@@ -15,8 +15,10 @@ from elftools.dwarf.die import DIE
 
 import archinfo
 
-from .compilation_unit import CompilationUnit, Subprogram, VariableType
+from .compilation_unit import CompilationUnit
 from .variable import Variable
+from .variable_type import VariableType
+from .subprogram import Subprogram
 from .symbol import ELFSymbol, Symbol, SymbolType
 from .regions import ELFSection, ELFSegment
 from .hashtable import ELFHashTable, GNUHashTable

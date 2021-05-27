@@ -1,5 +1,4 @@
-from elftools.dwarf.compileunit import CompileUnit
-from typing import Dict, List
+from typing import List
 from .variable import Variable
 
 
