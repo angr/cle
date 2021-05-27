@@ -526,7 +526,7 @@ class ELF(MetaELF):
         elif highpc_attr_class == 'constant':
             highpc = lowpc + highpc_attr.value
         else:
-            l.warning('Error: invalid DW_AT_high_pc class:',highpc_attr_class)
+            l.warning('Error: invalid DW_AT_high_pc class:%s',highpc_attr_class)
             return lowpc, None
         return lowpc,highpc
 
@@ -538,7 +538,6 @@ class ELF(MetaELF):
         :return:        None
         """
         compilation_units: List[CompilationUnit] = [ ]
-        globle_variables: List[Variable] = [ ]
         type_list: Dict[int, VariableType] = {}
 
         for cu in dwarf.iter_CUs():
@@ -558,7 +557,7 @@ class ELF(MetaELF):
             die_name = top_die.attributes['DW_AT_name'].value.decode('utf-8')
             die_comp_dir = top_die.attributes['DW_AT_comp_dir'].value.decode('utf-8')
             die_low_pc, die_high_pc = self._load_low_high_pc_form_die(top_die)
-            die_lang = describe_attr_value(top_die.attributes['DW_AT_language'], die, die.offset)
+            die_lang = describe_attr_value(top_die.attributes['DW_AT_language'], top_die, top_die.offset)
 
             cu_ = CompilationUnit(die_name,die_comp_dir, die_low_pc, die_high_pc,die_lang)
             compilation_units.append(cu_)
@@ -604,7 +603,7 @@ class ELF(MetaELF):
             if type_offset in type_list:
                 type_ = type_list[type_offset]
             else:
-                l.warning("unknown type offset", var_name, type_offset)
+                l.warning("unknown type offset var_name:%s type_offset:%s", var_name, type_offset)
 
         v = Variable(
             name= var_name,
