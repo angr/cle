@@ -1,20 +1,25 @@
 import copy
 import os
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict
 from collections import OrderedDict, defaultdict
+from sortedcontainers import SortedDict
 
 import elftools
 from elftools.elf import elffile, sections
 from elftools.dwarf import callframe
 from elftools.common.exceptions import ELFError, DWARFError
-from collections import OrderedDict, defaultdict
-from sortedcontainers import SortedDict
+from elftools.dwarf.dwarf_expr import DWARFExprParser
+from elftools.dwarf.descriptions import describe_form_class, describe_attr_value
+from elftools.dwarf.dwarfinfo import DWARFInfo
+from elftools.dwarf.die import DIE
 
 import archinfo
 
 from .compilation_unit import CompilationUnit
 from .variable import Variable
+from .variable_type import VariableType
+from .subprogram import Subprogram
 from .symbol import ELFSymbol, Symbol, SymbolType
 from .regions import ELFSection, ELFSegment
 from .hashtable import ELFHashTable, GNUHashTable
@@ -45,11 +50,11 @@ class ELF(MetaELF):
         try:
             self._reader = elffile.ELFFile(self._binary_stream)
             list(self._reader.iter_sections())
-        except Exception: # pylint: disable=broad-except
+        except Exception as e: # pylint: disable=broad-except
             self._binary_stream.seek(4)
             ty = self._binary_stream.read(1)
             if ty not in (b'\1', b'\2'):
-                raise CLECompatibilityError
+                raise CLECompatibilityError from e
 
             if ty == b'\1':
                 patch_data = [(0x20, b'\0'*4), (0x2e, b'\0'*6)]
@@ -548,54 +553,97 @@ class ELF(MetaELF):
                 relocated_addr = AT.from_lva(line.state.address, self).to_mva()
                 self.addr_to_line[relocated_addr] = (filename, line.state.line)
 
-    def _load_dies(self, dwarf):
+    @staticmethod
+    def _load_low_high_pc_form_die(die: DIE):
+        """
+        Load low and high pc from a DIE.
+
+        :param die:     The DIE object from pyelftools.
+        :return:        low_pc, high_pc
+        """
+        if 'DW_AT_low_pc' not in die.attributes:
+            return None, None
+        lowpc = die.attributes['DW_AT_low_pc'].value
+
+        if 'DW_AT_high_pc' not in die.attributes:
+            return lowpc, None
+
+        # DWARF v4 in section 2.17 describes how to interpret the
+        # DW_AT_high_pc attribute based on the class of its form.
+        # For class 'address' it's taken as an absolute address
+        # (similarly to DW_AT_low_pc); for class 'constant', it's
+        # an offset from DW_AT_low_pc.
+        highpc_attr = die.attributes['DW_AT_high_pc']
+        highpc_attr_class = describe_form_class(highpc_attr.form)
+        if highpc_attr_class == 'address':
+            highpc = highpc_attr.value
+        elif highpc_attr_class == 'constant':
+            highpc = lowpc + highpc_attr.value
+        else:
+            l.warning('Error: invalid DW_AT_high_pc class:%s',highpc_attr_class)
+            return lowpc, None
+        return lowpc,highpc
+
+    def _load_dies(self, dwarf: DWARFInfo):
         """
         Load DIEs and CUs from DWARF.
 
         :param dwarf:   The DWARF info object from pyelftools.
         :return:        None
         """
-
         compilation_units: List[CompilationUnit] = [ ]
-        variables: List[Variable] = [ ]
+        type_list: Dict[int, VariableType] = {}
 
         for cu in dwarf.iter_CUs():
-            top_die = cu.get_top_DIE()
-            die_name: Optional[str] = None
-            if 'DW_AT_name' in top_die.attributes:
-                die_name = top_die.attributes['DW_AT_name'].value.decode('utf-8')
-            die_low_pc: Optional[int] = None
-            if 'DW_AT_low_pc' in top_die.attributes:
-                die_low_pc = top_die.attributes['DW_AT_low_pc'].value
-            die_high_pc: Optional[int] = None
-            if 'DW_AT_high_pc' in top_die.attributes:
-                die_high_pc = top_die.attributes['DW_AT_high_pc'].value
-
-            if die_low_pc is None or die_high_pc is None:
-                continue
-
-            from elftools.dwarf.dwarf_expr import DWARFExprParser
-
             expr_parser = DWARFExprParser(cu.structs)
 
-            cu_ = CompilationUnit(die_name, die_low_pc, die_high_pc)
+            # scan the whole die tree for DW_TAG_base_type
+            for die in cu.iter_DIEs():
+                if die.tag == "DW_TAG_base_type":
+                    type_list[die.offset] = VariableType.read_from_die(die)
+
+            top_die = cu.get_top_DIE()
+
+            if top_die.tag != "DW_TAG_compile_unit":
+                l.warning("ignore a top die with unexpected tag")
+                continue
+
+            die_name = top_die.attributes['DW_AT_name'].value.decode('utf-8')
+            die_comp_dir = top_die.attributes['DW_AT_comp_dir'].value.decode('utf-8')
+            die_low_pc, die_high_pc = self._load_low_high_pc_form_die(top_die)
+            die_lang = describe_attr_value(top_die.attributes['DW_AT_language'], top_die, top_die.offset)
+
+            cu_ = CompilationUnit(die_name,die_comp_dir, die_low_pc, die_high_pc,die_lang)
             compilation_units.append(cu_)
 
-            die_queue = [top_die]
-            while die_queue:
-                die = die_queue.pop(0)
+            for die_child in cu.iter_DIE_children(top_die):
+                if die_child.tag == 'DW_TAG_variable':
+                    # load global variable
+                    var = self._load_die_variable(die_child, expr_parser, type_list)
+                    var.decl_file = cu_.file_path
+                    cu_.global_variables.append(var)
+                elif die_child.tag == 'DW_TAG_subprogram':
+                    # load subprogram
+                    if 'DW_AT_name' in die_child.attributes:
+                        name = die_child.attributes['DW_AT_name'].value.decode('utf-8')
+                    else:
+                        name = None
+                    low_pc, high_pc = self._load_low_high_pc_form_die(die_child)
+                    sub_prog = Subprogram(name, low_pc, high_pc)
 
-                for die_child in cu.iter_DIE_children(die):
-                    if die_child.tag == 'DW_TAG_variable':
-                        # load variable
-                        var = self._load_die_variable(die_child, expr_parser)
-                        var.decl_file = cu_
-                        variables.append(var)
+                    for sub_die in cu._iter_DIE_subtree(die_child):
+                        if sub_die.tag in ['DW_TAG_variable','DW_TAG_formal_parameter']:
+                            # load local variable
+                            var = self._load_die_variable(sub_die, expr_parser, type_list)
+                            var.decl_file = cu_.file_path
+                            sub_prog.local_variables.append(var)
 
-        self.variables = variables
+                    cu_.functions[low_pc] = sub_prog
+
         self.compilation_units = compilation_units
 
-    def _load_die_variable(self, die, expr_parser) -> Variable:
+    @staticmethod
+    def _load_die_variable(die: DIE, expr_parser, type_list) -> Variable:
 
         if 'DW_AT_name' in die.attributes:
             var_name = die.attributes['DW_AT_name'].value.decode('utf-8')
@@ -607,17 +655,29 @@ class ELF(MetaELF):
         else:
             decl_line = None
 
+        type_ = None
+        if 'DW_AT_type' in die.attributes:
+            type_offset = die.attributes['DW_AT_type'].value
+            if type_offset in type_list:
+                type_ = type_list[type_offset]
+            else:
+                l.warning("unknown type offset var_name:%s type_offset:%s", var_name, type_offset)
+
         v = Variable(
-            var_name,
-            None,  # TODO
-            None,  # decl_file: will be back-patched in _load_dies()
-            decl_line,
+            name= var_name,
+            type_= type_,
+            decl_file= None,  # decl_file: will be back-patched in _load_dies()
+            decl_line= decl_line,
         )
 
         if 'DW_AT_location' in die.attributes and die.attributes['DW_AT_location'].form == 'DW_FORM_exprloc':
             parsed_exprs = expr_parser.parse_expr(die.attributes['DW_AT_location'].value)
-            if len(parsed_exprs) == 1 and parsed_exprs[0].op == 'DW_OP_addr':
-                v.addr = parsed_exprs[0].args[0]
+            if len(parsed_exprs) == 1 and parsed_exprs[0].op_name == 'DW_OP_addr':
+                v.sort, v.addr = "global", parsed_exprs[0].args[0]
+            elif len(parsed_exprs) == 1 and parsed_exprs[0].op_name == 'DW_OP_fbreg':
+                v.sort, v.addr = "stack", parsed_exprs[0].args[0]
+            elif len(parsed_exprs) == 1 and parsed_exprs[0].op_name.startswith("DW_OP_reg"):
+                v.sort, v.addr = "register", parsed_exprs[0].op - 0x50 # 0x50 == DW_OP_reg0
 
         return v
 
