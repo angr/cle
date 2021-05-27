@@ -49,11 +49,11 @@ class ELF(MetaELF):
         try:
             self._reader = elffile.ELFFile(self._binary_stream)
             list(self._reader.iter_sections())
-        except Exception: # pylint: disable=broad-except, raise-missing-from
+        except Exception as e: # pylint: disable=broad-except
             self._binary_stream.seek(4)
             ty = self._binary_stream.read(1)
             if ty not in (b'\1', b'\2'):
-                raise CLECompatibilityError
+                raise CLECompatibilityError from e
 
             if ty == b'\1':
                 patch_data = [(0x20, b'\0'*4), (0x2e, b'\0'*6)]
@@ -614,7 +614,7 @@ class ELF(MetaELF):
             decl_line = die.attributes['DW_AT_decl_line'].value
         else:
             decl_line = None
-        
+
         type_ = None
         if 'DW_AT_type' in die.attributes:
             type_offset = die.attributes['DW_AT_type'].value
