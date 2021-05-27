@@ -511,8 +511,19 @@ class ELF(MetaELF):
             l.warning("An exception occurred in pyelftools when loading FDE information.",
                       exc_info=True)
 
-    def _load_low_high_pc_form_die(self,die):
+    def _load_low_high_pc_form_die(self, die: DIE):
+        """
+        Load low and high pc from a DIE.
+
+        :param die:     The DIE object from pyelftools.
+        :return:        low_pc, high_pc
+        """
+        if 'DW_AT_low_pc' not in die.attributes:
+            return None, None
         lowpc = die.attributes['DW_AT_low_pc'].value
+
+        if 'DW_AT_high_pc' not in die.attributes:
+            return lowpc, None
 
         # DWARF v4 in section 2.17 describes how to interpret the
         # DW_AT_high_pc attribute based on the class of its form.

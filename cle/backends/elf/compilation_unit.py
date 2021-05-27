@@ -8,7 +8,10 @@ from .variable_type import VariableType
 
 
 class CompilationUnit:
-
+    """
+    CompilationUnit for DWARF
+    See http://dwarfstd.org/doc/DWARF5.pdf page 60
+    """
     functions: Dict[int, Subprogram] = {}
     global_variables: List[Variable] = []
 
