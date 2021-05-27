@@ -537,7 +537,6 @@ class ELF(MetaELF):
         :param dwarf:   The DWARF info object from pyelftools.
         :return:        None
         """
-
         compilation_units: List[CompilationUnit] = [ ]
         globle_variables: List[Variable] = [ ]
         type_list: Dict[int, VariableType] = {}
@@ -588,7 +587,7 @@ class ELF(MetaELF):
         self.compilation_units = compilation_units
 
     def _load_die_variable(self, die: DIE, expr_parser, type_list) -> Variable:
-
+        
         if 'DW_AT_name' in die.attributes:
             var_name = die.attributes['DW_AT_name'].value.decode('utf-8')
         else:
@@ -617,7 +616,11 @@ class ELF(MetaELF):
         if 'DW_AT_location' in die.attributes and die.attributes['DW_AT_location'].form == 'DW_FORM_exprloc':
             parsed_exprs = expr_parser.parse_expr(die.attributes['DW_AT_location'].value)
             if len(parsed_exprs) == 1 and parsed_exprs[0].op_name == 'DW_OP_addr':
-                v.addr = parsed_exprs[0].args[0]
+                v.sort, v.addr = "global", parsed_exprs[0].args[0]
+            elif len(parsed_exprs) == 1 and parsed_exprs[0].op_name == 'DW_OP_fbreg':
+                v.sort, v.addr = "stack", parsed_exprs[0].args[0]
+            elif len(parsed_exprs) == 1 and parsed_exprs[0].op_name.startswith("DW_OP_reg"):
+                v.sort, v.addr = "register", parsed_exprs[0].op - 0x50 # 0x50 == DW_OP_reg0
 
         return v
 
