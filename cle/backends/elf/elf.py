@@ -49,7 +49,7 @@ class ELF(MetaELF):
         try:
             self._reader = elffile.ELFFile(self._binary_stream)
             list(self._reader.iter_sections())
-        except Exception: # pylint: disable=broad-except
+        except Exception: # pylint: disable=broad-except, raise-missing-from
             self._binary_stream.seek(4)
             ty = self._binary_stream.read(1)
             if ty not in (b'\1', b'\2'):
@@ -513,7 +513,8 @@ class ELF(MetaELF):
             l.warning("An exception occurred in pyelftools when loading FDE information.",
                       exc_info=True)
 
-    def _load_low_high_pc_form_die(self, die: DIE):
+    @staticmethod
+    def _load_low_high_pc_form_die(die: DIE):
         """
         Load low and high pc from a DIE.
 
@@ -574,7 +575,7 @@ class ELF(MetaELF):
 
             cu_ = CompilationUnit(die_name,die_comp_dir, die_low_pc, die_high_pc,die_lang)
             compilation_units.append(cu_)
-            
+
             for die_child in cu.iter_DIE_children(top_die):
                 if die_child.tag == 'DW_TAG_variable':
                     # load global variable
@@ -582,8 +583,11 @@ class ELF(MetaELF):
                     var.decl_file = cu_.file_path
                     cu_.global_variables.append(var)
                 elif die_child.tag == 'DW_TAG_subprogram':
-                    # load subprogram 
-                    name = die_child.attributes['DW_AT_name'].value.decode('utf-8')
+                    # load subprogram
+                    if 'DW_AT_name' in die_child.attributes:
+                        name = die_child.attributes['DW_AT_name'].value.decode('utf-8')
+                    else:
+                        name = None
                     low_pc, high_pc = self._load_low_high_pc_form_die(die_child)
                     sub_prog = Subprogram(name, low_pc, high_pc)
 
@@ -598,8 +602,9 @@ class ELF(MetaELF):
 
         self.compilation_units = compilation_units
 
-    def _load_die_variable(self, die: DIE, expr_parser, type_list) -> Variable:
-        
+    @staticmethod
+    def _load_die_variable(die: DIE, expr_parser, type_list) -> Variable:
+
         if 'DW_AT_name' in die.attributes:
             var_name = die.attributes['DW_AT_name'].value.decode('utf-8')
         else:

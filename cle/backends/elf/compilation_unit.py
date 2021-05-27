@@ -20,5 +20,3 @@ class CompilationUnit:
         self.low_pc = low_pc
         self.high_pc = high_pc
         self.language = language
-
-
