@@ -77,9 +77,12 @@ class ELF(MetaELF):
         if self.arch is None:
             self.set_arch(self.extract_arch(self._reader))
         else:
-            other_arch = self.extract_arch(self._reader)
-            if other_arch != self.arch:
-                l.warning("User specified %s but autodetected %s. Proceed with caution.", self.arch, other_arch)
+            try:
+                other_arch = self.extract_arch(self._reader)
+                if other_arch != self.arch:
+                    l.warning("User specified %s but autodetected %s. Proceed with caution.", self.arch, other_arch)
+            except archinfo.ArchNotFound:
+                pass
 
         self._addend = addend
 
