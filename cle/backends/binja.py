@@ -13,7 +13,7 @@ try:
     import binaryninja as bn
 except ImportError:
     bn = None
-    l.info("Unable to import binaryninja module")
+    l.debug("Unable to import binaryninja module")
     BINJA_NOT_INSTALLED_STR = "Binary Ninja does not appear to be installed. Please ensure Binary Ninja \
                                and its Python API are properly installed before using this backend."
 
