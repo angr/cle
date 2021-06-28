@@ -44,3 +44,12 @@ class MachOSection(Region):
     @property
     def attributes(self):
         return self.flags & ATTRIBUTES_MASK
+
+    def __repr__(self):
+        return "<Section: %s (part of Segment: %s)| offset %#x, vaddr %#x, size %#x>" % (
+            self.sectname if self.sectname else "Unnamed",
+            self.segname,
+            self.offset,
+            self.vaddr,
+            self.memsize
+        )
