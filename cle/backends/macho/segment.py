@@ -58,3 +58,12 @@ class MachOSegment(Region):
     @property
     def is_executable(self):
         return ((self.initprot | self.maxprot) & 0x04) != 0
+
+
+    def __repr__(self):
+        return "<%s | offset %#x, vaddr %#x, size %#x>" % (
+            self.segname if self.segname else "Unnamed",
+            self.offset,
+            self.vaddr,
+            self.memsize
+        )
