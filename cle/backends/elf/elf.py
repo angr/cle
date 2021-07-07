@@ -536,6 +536,8 @@ class ELF(MetaELF):
             if 'DW_AT_comp_dir' in die.attributes:
                 comp_dir = die.attributes['DW_AT_comp_dir'].value
             lineprog = dwarf.line_program_for_CU(cu)
+            if lineprog is None:
+                continue
             file_cache = {}
             for line in lineprog.get_entries():
                 if line.state is None:
