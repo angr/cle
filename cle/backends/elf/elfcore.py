@@ -378,8 +378,9 @@ class ELFCore(ELF):
                         core_backer_offset = max(0, skip_size)
                         # how much can we copy?
                         copy_size = min(len(child_backer) - child_backer_offset, seg.memsize - (cursor + core_backer_offset))
-                        # do the copy
-                        obj.memory.store(child_offset + child_backer_offset, self.memory.load(AT.from_mva(seg.vaddr + cursor + core_backer_offset, self).to_rva(), copy_size))
+                        if copy_size > 0:
+                            # do the copy if we have anything to copy
+                            obj.memory.store(child_offset + child_backer_offset, self.memory.load(AT.from_mva(seg.vaddr + cursor + core_backer_offset, self).to_rva(), copy_size))
 
                         # advance cursor
                         cursor += core_backer_offset + copy_size
