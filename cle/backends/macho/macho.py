@@ -294,7 +294,7 @@ class MachO(Backend):
         self.pie = bool(self.flags & 0x200000)  # MH_PIE
 
         if not bool(self.flags & 0x80):  # ensure MH_TWOLEVEL
-            raise CLEInvalidBinaryError("Cannot handle non MH_TWOLEVEL binaries")
+            l.error("Binary is not using MH_TWOLEVEL namespacing. This isn't properly implemented yet and will degrade results in unpredictable ways. Please open an issue if you encounter this with a binary you can share")
 
     @staticmethod
     def _detect_byteorder(magic):
