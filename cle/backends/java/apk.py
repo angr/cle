@@ -2,6 +2,7 @@ import logging
 import os
 import tempfile
 from zipfile import ZipFile
+from pyaxmlparser import APK as APKParser
 
 from .. import register_backend
 from .soot import Soot
@@ -53,15 +54,15 @@ class Apk(Soot):
         else:
             l.info("Using user defined JNI lib(s) %s (load path(s) %s)", jni_libs, jni_libs_ld_path)
 
+        try:
+            apk_parser = APKParser(apk_path)
+        except ImportError:
+            l.error("Install pyaxmlparser to identify APK entry point and components.")
+
         if not entry_point:
-            try:
-                from pyaxmlparser import APK as APKParser
-                apk_parser = APKParser(apk_path)
-                main_activity = apk_parser.get_main_activity()
-                entry_point = main_activity + '.' + 'onCreate'
-                entry_point_params = ('android.os.Bundle',)
-            except ImportError:
-                l.error("Install pyaxmlparser to identify APK entry point.")
+            main_activity = apk_parser.get_main_activity()
+            entry_point = main_activity + '.' + 'onCreate'
+            entry_point_params = ('android.os.Bundle',)
 
         # the actual lifting is done by the Soot superclass
         super().__init__(apk_path, binary_stream,
