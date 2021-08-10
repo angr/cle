@@ -3,6 +3,7 @@ import os
 import tempfile
 from zipfile import ZipFile
 from pyaxmlparser import APK as APKParser
+from .android_lifecycle import callback
 
 from .. import register_backend
 from .soot import Soot
@@ -78,20 +79,13 @@ class Apk(Soot):
                             'service': apk_parser.get_services,
                             'receiver': apk_parser.get_receivers,
                             'provider': apk_parser.get_providers}
-        activity_callbacks = ["onCreate(android.os.Bundle)", "onStart()", "onResume()", "onPause()", "onStop()",
-                              "onDestroy()"]
-        service_callbacks = ["onCreate(android.os.Bundle)", "onStart(android.content.Intent, int)",
-                             "onStartCommand(android.content.Intent, int, int)", "onBind(android.content.Intent)",
-                             "onRebind(android.content.Intent)",
-                             "onUnbind(android.content.Intent)", "onDestroy()"]
 
         self.components = {'activity': [], 'service': [], 'receiver': [], 'provider': []}
         self.callbacks = {'activity': [], 'service': [], 'receiver': [], 'provider': []}
-        self.callback_names = {'activity': activity_callbacks, 'service': service_callbacks, 'receiver': [],
-                               'provider': []}
+        self.callback = callback
 
         for key, getter in component_getter.items():
-            callback_names = self.callback_names[key]
+            callback_names = self.callback[key]
             class_names = getter()
             self.components[key], self.callbacks[key] = self._extract_lifecycle(class_names, key)
 
@@ -104,11 +98,11 @@ class Apk(Soot):
         if isinstance(cls, list):
             for class_name in cls:
                 components.append(self.classes[class_name])
-                callbacks.extend(self.get_callbacks(class_name, self.callback_names[component_kind]))
+                callbacks.extend(self.get_callbacks(class_name, self.callback[component_kind]))
         else:
             class_name = cls
             components = self.classes[class_name]
-            callbacks.extend(self.get_callbacks(class_name, self.callback_names[component_kind]))
+            callbacks.extend(self.get_callbacks(class_name, self.callback[component_kind]))
 
         return components, callbacks
 
