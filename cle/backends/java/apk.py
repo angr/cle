@@ -2,7 +2,6 @@ import logging
 import os
 import tempfile
 from zipfile import ZipFile
-from pyaxmlparser import APK as APKParser
 from .android_lifecycle import callback
 
 from .. import register_backend
@@ -55,15 +54,20 @@ class Apk(Soot):
         else:
             l.info("Using user defined JNI lib(s) %s (load path(s) %s)", jni_libs, jni_libs_ld_path)
 
-        try:
-            apk_parser = APKParser(apk_path)
-        except ImportError:
-            l.error("Install pyaxmlparser to identify APK entry point and components.")
-
         if not entry_point:
-            main_activity = apk_parser.get_main_activity()
-            entry_point = main_activity + '.' + 'onCreate'
-            entry_point_params = ('android.os.Bundle',)
+            try:
+                from pyaxmlparser import APK as APKParser
+                apk_parser = APKParser(apk_path)
+                l.error("Install pyaxmlparser to identify APK entry point and components.")
+                main_activity = apk_parser.get_main_activity()
+                entry_point = main_activity + '.' + 'onCreate'
+                entry_point_params = ('android.os.Bundle',)
+                self.components = {'activity': [], 'service': [], 'receiver': [], 'provider': []}
+                self.callbacks = {'activity': [], 'service': [], 'receiver': [], 'provider': []}
+                self._set_lifecycle(apk_parser)
+
+            except ImportError:
+                l.error("Install pyaxmlparser to identify APK entry point.")
 
         # the actual lifting is done by the Soot superclass
         super().__init__(apk_path, binary_stream,
@@ -74,10 +78,6 @@ class Apk(Soot):
                                   jni_libs=jni_libs,
                                   jni_libs_ld_path=jni_libs_ld_path,
                                   **options)
-
-        self.components = {'activity': [], 'service': [], 'receiver': [], 'provider': []}
-        self.callbacks = {'activity': [], 'service': [], 'receiver': [], 'provider': []}
-        self._set_lifecycle(apk_parser)
 
     def _set_lifecycle(self, apk_parser):
         component_getter = {'activity': apk_parser.get_activities,
