@@ -2,9 +2,9 @@ import logging
 import os
 import tempfile
 from zipfile import ZipFile
-from .android_lifecycle import callback
 
 from .. import register_backend
+from .android_lifecycle import callback
 from .soot import Soot
 
 l = logging.getLogger(name=__name__)
