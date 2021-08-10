@@ -61,10 +61,10 @@ class Apk(Soot):
             l.info("Using user defined JNI lib(s) %s (load path(s) %s)", jni_libs, jni_libs_ld_path)
 
         if not entry_point and PYAXMLPARSER_INSTALLED:
-                apk_parser = APKParser(apk_path)
-                main_activity = apk_parser.get_main_activity()
-                entry_point = main_activity + '.' + 'onCreate'
-                entry_point_params = ('android.os.Bundle',)
+            apk_parser = APKParser(apk_path)
+            main_activity = apk_parser.get_main_activity()
+            entry_point = main_activity + '.' + 'onCreate'
+            entry_point_params = ('android.os.Bundle',)
 
         # the actual lifting is done by the Soot superclass
         super().__init__(apk_path, binary_stream,
