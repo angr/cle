@@ -7,6 +7,12 @@ from .. import register_backend
 from .android_lifecycle import callback
 from .soot import Soot
 
+try:
+    from pyaxmlparser import APK as APKParser
+    PYAXMLPARSER_INSTALLED = True
+except ImportError:
+    PYAXMLPARSER_INSTALLED = False
+
 l = logging.getLogger(name=__name__)
 
 # Default list of JNI archs (in descending order of preference)
@@ -54,20 +60,12 @@ class Apk(Soot):
         else:
             l.info("Using user defined JNI lib(s) %s (load path(s) %s)", jni_libs, jni_libs_ld_path)
 
-        if not entry_point:
-            try:
-                from pyaxmlparser import APK as APKParser
+        if not entry_point and PYAXMLPARSER_INSTALLED:
                 apk_parser = APKParser(apk_path)
                 l.error("Install pyaxmlparser to identify APK entry point and components.")
                 main_activity = apk_parser.get_main_activity()
                 entry_point = main_activity + '.' + 'onCreate'
                 entry_point_params = ('android.os.Bundle',)
-                self.components = {'activity': [], 'service': [], 'receiver': [], 'provider': []}
-                self.callbacks = {'activity': [], 'service': [], 'receiver': [], 'provider': []}
-                self._set_lifecycle(apk_parser)
-
-            except ImportError:
-                l.error("Install pyaxmlparser to identify APK entry point.")
 
         # the actual lifting is done by the Soot superclass
         super().__init__(apk_path, binary_stream,
@@ -78,6 +76,11 @@ class Apk(Soot):
                                   jni_libs=jni_libs,
                                   jni_libs_ld_path=jni_libs_ld_path,
                                   **options)
+
+        if PYAXMLPARSER_INSTALLED:
+            self.components = {'activity': [], 'service': [], 'receiver': [], 'provider': []}
+            self.callbacks = {'activity': [], 'service': [], 'receiver': [], 'provider': []}
+            self._set_lifecycle(apk_parser)
 
     def _set_lifecycle(self, apk_parser):
         component_getter = {'activity': apk_parser.get_activities,
