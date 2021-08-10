@@ -62,7 +62,6 @@ class Apk(Soot):
 
         if not entry_point and PYAXMLPARSER_INSTALLED:
                 apk_parser = APKParser(apk_path)
-                l.error("Install pyaxmlparser to identify APK entry point and components.")
                 main_activity = apk_parser.get_main_activity()
                 entry_point = main_activity + '.' + 'onCreate'
                 entry_point_params = ('android.os.Bundle',)
