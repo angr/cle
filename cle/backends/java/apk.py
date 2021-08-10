@@ -107,8 +107,8 @@ class Apk(Soot):
     def get_callbacks(self, class_name, callback_names):
         callback_methods = []
 
-        for callback in callback_names:
-            split_str = callback.split('(')
+        for callback_name in callback_names:
+            split_str = callback_name.split('(')
             method_name = split_str[0]
             param_str = split_str[1].rstrip(')')
 
