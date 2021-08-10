@@ -208,6 +208,9 @@ class Backend:
         # they should be rebased when .rebase() is called
         self.function_hints = []  # type: List[FunctionHint]
 
+        # line number mapping
+        self.addr_to_line = {}
+
         # Custom options
         self._custom_entry_point = entry_point
         self._custom_base_addr = base_addr
