@@ -75,21 +75,19 @@ class Apk(Soot):
                                   jni_libs_ld_path=jni_libs_ld_path,
                                   **options)
 
+        self.components = {'activity': [], 'service': [], 'receiver': [], 'provider': []}
+        self.callbacks = {'activity': [], 'service': [], 'receiver': [], 'provider': []}
+        self._set_lifecycle(apk_parser)
+
+    def _set_lifecycle(self, apk_parser):
         component_getter = {'activity': apk_parser.get_activities,
                             'service': apk_parser.get_services,
                             'receiver': apk_parser.get_receivers,
                             'provider': apk_parser.get_providers}
 
-        self.components = {'activity': [], 'service': [], 'receiver': [], 'provider': []}
-        self.callbacks = {'activity': [], 'service': [], 'receiver': [], 'provider': []}
-        self.callback = callback
-
         for key, getter in component_getter.items():
-            callback_names = self.callback[key]
             class_names = getter()
             self.components[key], self.callbacks[key] = self._extract_lifecycle(class_names, key)
-
-        print(self.classes)
 
     def _extract_lifecycle(self, cls, component_kind):
         components = []
@@ -98,16 +96,17 @@ class Apk(Soot):
         if isinstance(cls, list):
             for class_name in cls:
                 components.append(self.classes[class_name])
-                callbacks.extend(self.get_callbacks(class_name, self.callback[component_kind]))
+                callbacks.extend(self.get_callbacks(class_name, callback[component_kind]))
         else:
             class_name = cls
             components = self.classes[class_name]
-            callbacks.extend(self.get_callbacks(class_name, self.callback[component_kind]))
+            callbacks.extend(self.get_callbacks(class_name, callback[component_kind]))
 
         return components, callbacks
 
     def get_callbacks(self, class_name, callback_names):
         callback_methods = []
+
         for callback in callback_names:
             split_str = callback.split('(')
             method_name = split_str[0]
