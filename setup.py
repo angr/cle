@@ -17,7 +17,7 @@ setup(
     python_requires='>=3.6',
     packages=packages,
     install_requires=[
-        'pyelftools>=0.25',
+        'pyelftools>=0.27',
         'cffi',
         'pyvex==9.0.gitrolling',
         'pefile',
