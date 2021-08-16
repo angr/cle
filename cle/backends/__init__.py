@@ -493,9 +493,12 @@ class Backend:
             self.sha256 = hashlib.sha256(data).digest()
 
     def __getstate__(self):
-        return self.__dict__
+        state = self.__dict__.copy()
+        state['symbols'] = list(state['symbols'])
+        return state
 
     def __setstate__(self, state):
+        state['symbols'] = sortedcontainers.SortedKeyList(state['symbols'], key=self._get_symbol_relative_addr)
         self.__dict__.update(state)
         for sym in self.symbols:
             sym.owner = self
