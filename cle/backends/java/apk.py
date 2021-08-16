@@ -101,7 +101,7 @@ class Apk(Soot):
                 callbacks.extend(self.get_callbacks(class_name, callback[component_kind]))
         else:
             class_name = cls
-            components = self.classes[class_name]
+            components.append(self.classes[class_name])
             callbacks.extend(self.get_callbacks(class_name, callback[component_kind]))
 
         return components, callbacks
