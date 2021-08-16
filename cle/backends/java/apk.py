@@ -76,12 +76,19 @@ class Apk(Soot):
                                   jni_libs_ld_path=jni_libs_ld_path,
                                   **options)
 
+        # the lifecycle needs to support of pyaxmlparser
         if PYAXMLPARSER_INSTALLED:
             self.components = {'activity': [], 'service': [], 'receiver': [], 'provider': []}
             self.callbacks = {'activity': [], 'service': [], 'receiver': [], 'provider': []}
             self._set_lifecycle(apk_parser)
 
     def _set_lifecycle(self, apk_parser):
+        """
+        Set components with callbacks of APK lifecycle.
+
+        :param pyaxmlparser apk_parser: XML Parser of the APK.
+        """
+
         component_getter = {'activity': apk_parser.get_activities,
                             'service': apk_parser.get_services,
                             'receiver': apk_parser.get_receivers,
@@ -91,7 +98,17 @@ class Apk(Soot):
             class_names = getter()
             self.components[key], self.callbacks[key] = self._extract_lifecycle(class_names, key)
 
-    def _extract_lifecycle(self, cls, component_kind):
+    def _extract_lifecycle(self, class_name, component_kind):
+        """
+        Extract components with callbacks from class names and component kind.
+        Use general callback name for each component by component kind
+
+        :param str cls:             Name of the class.
+        :param str component_kind:  Kind of the component. (activity, service, receiver, provider)
+        :return list components:    The list of class objects which are components.
+        :return list callbacks:     The list of method objects which are callbacks.
+        """
+
         components = []
         callbacks = []
         cls_name = class_name if isinstance(class_name, list) else [ class_name ]
@@ -103,6 +120,15 @@ class Apk(Soot):
         return components, callbacks
 
     def get_callbacks(self, class_name, callback_names):
+        """
+        Get callback methods from the name of callback methods.
+
+        :param str class_name:      Name of the class.
+        :param list callback_names: Name list of the callbacks.
+        :return:             The method object which is callback.
+        :rtype:              pysoot.sootir.soot_method.SootMethod
+        """
+
         callback_methods = []
 
         for callback_name in callback_names:
