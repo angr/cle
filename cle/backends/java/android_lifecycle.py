@@ -1,3 +1,7 @@
+"""
+Constant values for lifecycle of Apk.
+"""
+
 component_class = [
     "android.app.Activity",
     "android.app.Service",
