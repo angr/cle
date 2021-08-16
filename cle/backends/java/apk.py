@@ -94,15 +94,11 @@ class Apk(Soot):
     def _extract_lifecycle(self, cls, component_kind):
         components = []
         callbacks = []
+        cls_name = class_name if isinstance(class_name, list) else [ class_name ]
 
-        if isinstance(cls, list):
-            for class_name in cls:
-                components.append(self.classes[class_name])
-                callbacks.extend(self.get_callbacks(class_name, callback[component_kind]))
-        else:
-            class_name = cls
-            components.append(self.classes[class_name])
-            callbacks.extend(self.get_callbacks(class_name, callback[component_kind]))
+        for cls in cls_name:
+            components.append(self.classes[cls])
+            callbacks.extend(self.get_callbacks(cls, callback[component_kind]))
 
         return components, callbacks
 
