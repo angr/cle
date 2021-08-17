@@ -118,14 +118,14 @@ class Apk(Soot):
 
         return components, callbacks
 
-    def get_callbacks(self, class_name, callback_names):
+    def get_callbacks(self, class_name: str, callback_names: list) -> list:
         """
         Get callback methods from the name of callback methods.
 
-        :param str class_name:      Name of the class.
-        :param list callback_names: Name list of the callbacks.
-        :return:             The method object which is callback.
-        :rtype:              pysoot.sootir.soot_method.SootMethod
+        :param class_name:      Name of the class.
+        :param callback_names:  Name list of the callbacks.
+        :return:                The method object which is callback.
+        :rtype:                 list[pysoot.sootir.soot_method.SootMethod]
         """
 
         callback_methods = []
