@@ -98,20 +98,19 @@ class Apk(Soot):
             class_names = getter()
             self.components[key], self.callbacks[key] = self._extract_lifecycle(class_names, key)
 
-    def _extract_lifecycle(self, class_name, component_kind):
+    def _extract_lifecycle(self, cls_name: list, component_kind: str) -> (list, list):
         """
         Extract components with callbacks from class names and component kind.
         Use general callback name for each component by component kind
 
-        :param str cls:             Name of the class.
-        :param str component_kind:  Kind of the component. (activity, service, receiver, provider)
-        :return list components:    The list of class objects which are components.
-        :return list callbacks:     The list of method objects which are callbacks.
+        :param cls_name:        Name of the class.
+        :param component_kind:  Kind of the component. (activity, service, receiver, provider)
+        :return components:     The list of class objects which are components.
+        :return callbacks:      The list of method objects which are callbacks.
         """
 
         components = []
         callbacks = []
-        cls_name = class_name if isinstance(class_name, list) else [ class_name ]
 
         for cls in cls_name:
             components.append(self.classes[cls])
