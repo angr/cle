@@ -1,6 +1,7 @@
 import logging
 import os
 import tempfile
+from typing import List
 from zipfile import ZipFile
 
 from .. import register_backend
@@ -12,6 +13,13 @@ try:
     PYAXMLPARSER_INSTALLED = True
 except ImportError:
     PYAXMLPARSER_INSTALLED = False
+
+try:
+    from pysoot.sootir.soot_method import SootMethod
+    from pysoot.sootir.soot_class import SootClass
+except ImportError:
+    SootMethod = None
+    SootClass = None
 
 l = logging.getLogger(name=__name__)
 
@@ -107,7 +115,7 @@ class Apk(Soot):
             class_names = getter()
             self.components[key], self.callbacks[key] = self._extract_lifecycle(class_names, key)
 
-    def _extract_lifecycle(self, cls_name: list, component_kind: str) -> (list, list):
+    def _extract_lifecycle(self, cls_name: List[str], component_kind: str) -> (List[SootClass], List[SootMethod]):
         """
         Extract components with callbacks from class names and component kind.
         Use general callback name for each component by component kind
@@ -127,7 +135,7 @@ class Apk(Soot):
 
         return components, callbacks
 
-    def get_callbacks(self, class_name: str, callback_names: list) -> list:
+    def get_callbacks(self, class_name: str, callback_names: List[str]) -> List[SootMethod]:
         """
         Get callback methods from the name of callback methods.
 
