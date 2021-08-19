@@ -86,6 +86,10 @@ class Apk(Soot):
             self.components = {'activity': [], 'service': [], 'receiver': [], 'provider': []}
             self.callbacks = {'activity': [], 'service': [], 'receiver': [], 'provider': []}
             self._set_lifecycle(apk_parser)
+        else:
+            self.components = None
+            self.callbacks = None
+            l.warning("Install pyaxmlparser, if you want to identify components with callbacks.")
 
     def _set_lifecycle(self, apk_parser):
         """
