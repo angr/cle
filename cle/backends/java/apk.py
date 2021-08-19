@@ -60,13 +60,16 @@ class Apk(Soot):
         else:
             l.info("Using user defined JNI lib(s) %s (load path(s) %s)", jni_libs, jni_libs_ld_path)
 
-        if PYAXMLPARSER_INSTALLED:
-            apk_parser = APKParser(apk_path)
+        apk_parser = APKParser(apk_path) if PYAXMLPARSER_INSTALLED else None
 
-            if not entry_point:
+        if not entry_point:
+            if apk_parser:
                 main_activity = apk_parser.get_main_activity()
                 entry_point = main_activity + '.' + 'onCreate'
                 entry_point_params = ('android.os.Bundle',)
+            else:
+                l.error("Install pyaxmlparser to identify APK entry point.")
+                raise ImportError
 
         # the actual lifting is done by the Soot superclass
         super().__init__(apk_path, binary_stream,
@@ -79,7 +82,7 @@ class Apk(Soot):
                                   **options)
 
         # the lifecycle needs to support of pyaxmlparser
-        if PYAXMLPARSER_INSTALLED:
+        if apk_parser:
             self.components = {'activity': [], 'service': [], 'receiver': [], 'provider': []}
             self.callbacks = {'activity': [], 'service': [], 'receiver': [], 'provider': []}
             self._set_lifecycle(apk_parser)
