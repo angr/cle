@@ -222,7 +222,11 @@ class ELFCore(ELF):
         self.__current_thread.update(result)
 
     def __parse_prpsinfo(self, desc):
-        self.pr_fname = desc.pr_fname.split(b'\x00', 1)[0].decode()
+        pr_fname = desc.pr_fname.split(b'\x00', 1)[0]
+        try:
+            self.pr_fname = pr_fname.decode()
+        except UnicodeDecodeError:
+            self.pr_fname = repr(pr_fname)
 
     def __parse_files(self, desc):
         self._page_size = desc.page_size
