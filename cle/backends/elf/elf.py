@@ -629,21 +629,23 @@ class ELF(MetaELF):
                     cu_.global_variables.append(var)
                 elif die_child.tag == 'DW_TAG_subprogram':
                     # load subprogram
+                    
                     if 'DW_AT_name' in die_child.attributes:
                         name = die_child.attributes['DW_AT_name'].value.decode('utf-8')
                     else:
                         name = None
                     low_pc, high_pc = self._load_low_high_pc_form_die(die_child)
-                    sub_prog = Subprogram(name, low_pc, high_pc)
+                    if low_pc is not None or high_pc is not None:
+                        sub_prog = Subprogram(name, low_pc, high_pc)
 
-                    for sub_die in cu._iter_DIE_subtree(die_child):
-                        if sub_die.tag in ['DW_TAG_variable','DW_TAG_formal_parameter']:
-                            # load local variable
-                            var = self._load_die_variable(sub_die, expr_parser, type_list)
-                            var.decl_file = cu_.file_path
-                            sub_prog.local_variables.append(var)
+                        for sub_die in cu._iter_DIE_subtree(die_child):
+                            if sub_die.tag in ['DW_TAG_variable','DW_TAG_formal_parameter']:
+                                # load local variable
+                                var = self._load_die_variable(sub_die, expr_parser, type_list)
+                                var.decl_file = cu_.file_path
+                                sub_prog.local_variables.append(var)
 
-                    cu_.functions[low_pc] = sub_prog
+                        cu_.functions[low_pc] = sub_prog
 
         self.compilation_units = compilation_units
 
