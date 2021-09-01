@@ -629,12 +629,13 @@ class ELF(MetaELF):
                     cu_.global_variables.append(var)
                 elif die_child.tag == 'DW_TAG_subprogram':
                     # load subprogram
-                    if 'DW_AT_low_pc' in die_child.attributes:
-                        if 'DW_AT_name' in die_child.attributes:
-                            name = die_child.attributes['DW_AT_name'].value.decode('utf-8')
-                        else:
-                            name = None
-                        low_pc, high_pc = self._load_low_high_pc_form_die(die_child)
+                    
+                    if 'DW_AT_name' in die_child.attributes:
+                        name = die_child.attributes['DW_AT_name'].value.decode('utf-8')
+                    else:
+                        name = None
+                    low_pc, high_pc = self._load_low_high_pc_form_die(die_child)
+                    if low_pc is not None or high_pc is not None:
                         sub_prog = Subprogram(name, low_pc, high_pc)
 
                         for sub_die in cu._iter_DIE_subtree(die_child):
