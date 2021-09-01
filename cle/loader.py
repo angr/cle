@@ -909,7 +909,16 @@ class Loader:
                 gap_start = ALIGN_UP(o.max_addr + 1, self._rebase_granularity)
 
         if gap_start + size > 2**self.main_object.arch.bits:
-            raise CLEOperationError("Ran out of room in address space")
+            # this may happen when loading an ELF core whose main object may occupy a large range of memory addresses
+            # with large unoccupied holes left in the middle
+            # we fall back to finding unoccupied holes
+            for this_seg, next_seg in zip(self.main_object.segments.raw_list, self.main_object.segments.raw_list[1:]):
+                gap_start = ALIGN_UP(this_seg.vaddr + this_seg.memsize, self._rebase_granularity)
+                gap = next_seg.vaddr - gap_start
+                if gap >= size:
+                    break
+            else:
+                raise CLEOperationError("Ran out of room in address space")
 
         return gap_start
 
