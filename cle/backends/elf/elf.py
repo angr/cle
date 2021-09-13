@@ -668,7 +668,9 @@ class ELF(MetaELF):
             if type_offset in type_list:
                 type_ = type_list[type_offset]
             else:
-                l.warning("unknown type offset var_name:%s type_offset:%s", var_name, type_offset)
+                # this warning takes too long to print on binaries with too many unknown type offsets. disable it
+                # l.warning("unknown type offset var_name:%s type_offset:%s", var_name, type_offset)
+                pass
 
         v = Variable(
             name= var_name,
