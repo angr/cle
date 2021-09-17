@@ -74,15 +74,18 @@ class ELFCore(ELF):
                 for note in seg_readelf.iter_notes():
                     if note.n_type == 'NT_PRSTATUS':
                         self.__cycle_thread()
-                        self.__parse_prstatus(note.n_desc.encode('latin-1'))  # ???
+                        n_desc = note.n_desc.encode('latin-1') if isinstance(note.n_desc, str) else note.n_desc
+                        self.__parse_prstatus(n_desc)
                     elif note.n_type == 'NT_PRPSINFO':
                         self.__parse_prpsinfo(note.n_desc)
                     elif note.n_type == 'NT_AUXV':
-                        self.__parse_auxv(note.n_desc.encode('latin-1'))
+                        n_desc = note.n_desc.encode('latin-1') if isinstance(note.n_desc, str) else note.n_desc
+                        self.__parse_auxv(n_desc)
                     elif note.n_type == 'NT_FILE':
                         self.__parse_files(note.n_desc)
                     elif note.n_type == 512 and self.arch.name == 'X86':
-                        self.__parse_x86_tls(note.n_desc.encode('latin-1'))
+                        n_desc = note.n_desc.encode('latin-1') if isinstance(note.n_desc, str) else note.n_desc
+                        self.__parse_x86_tls(n_desc)
 
         self._replace_main_object_path()
 
