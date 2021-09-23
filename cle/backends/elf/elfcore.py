@@ -287,8 +287,14 @@ class ELFCore(ELF):
             try:
                 with open(filename, 'rb') as fp:
                     obj = self.loader._load_object_isolated(fp)
-            except FileNotFoundError:
-                l.warning("Could not load %s; core may be incomplete", filename)
+            except (FileNotFoundError, CLECompatibilityError) as ex:
+                if isinstance(ex, FileNotFoundError):
+                    l.warning("Dependency %s does not exist on the current system; this core may be incomplete.",
+                              filename)
+                elif isinstance(ex, CLECompatibilityError):
+                    l.warning("Could not find a compatible loader for %s; this core may be incomplete.", filename)
+                else:
+                    l.warning("Could not load %s; this core may be incomplete.", filename)
                 if self.loader.main_object is self:
                     self.loader.main_object = None
                 self.child_objects.clear()
