@@ -1,3 +1,4 @@
+# pylint:disable=wrong-import-position
 import os
 import logging
 import hashlib
@@ -160,7 +161,8 @@ class Backend:
         self._segments = Regions() # List of segments
         self._sections = Regions() # List of sections
         self.sections_map = {}  # Mapping from section name to section
-        self.symbols: 'sortedcontainers.SortedKeyList[Symbol]' = sortedcontainers.SortedKeyList(key=self._get_symbol_relative_addr)
+        self.symbols: 'sortedcontainers.SortedKeyList[Symbol]' = sortedcontainers.SortedKeyList(
+            key=self._get_symbol_relative_addr)
         self.imports = {}
         self.resolved_imports = []
         self.relocs = []
@@ -289,7 +291,8 @@ class Backend:
 
     @property
     def symbols_by_addr(self):
-        l.critical("Deprecation warning: symbols_by_addr is deprecated - use loader.find_symbol() for lookup and .symbols for enumeration")
+        l.critical("Deprecation warning: symbols_by_addr is deprecated - use loader.find_symbol() for lookup "
+                   "and .symbols for enumeration")
         return {s.rebased_addr: s for s in self.symbols}
 
     def rebase(self, new_base):
@@ -438,7 +441,8 @@ class Backend:
         """
         Deprecated
         """
-        l.critical("Deprecation warning: initial_register_values is deprecated - use backend.thread_registers() instead")
+        l.critical("Deprecation warning: initial_register_values is deprecated - "
+                   "use backend.thread_registers() instead")
         return self.thread_registers().items()
 
     def get_symbol(self, name): # pylint: disable=no-self-use,unused-argument
@@ -503,7 +507,7 @@ class Backend:
         for sym in self.symbols:
             sym.owner = self
 
-ALL_BACKENDS = dict()
+ALL_BACKENDS = { }
 
 
 def register_backend(name, cls):
