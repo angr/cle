@@ -11,11 +11,6 @@ from archinfo.arch_soot import ArchSoot
 from .address_translator import AT
 from .utils import ALIGN_UP, key_bisect_floor_key, key_bisect_insort_right
 
-try:
-    import claripy
-except ImportError:
-    claripy = None
-
 __all__ = ('Loader',)
 
 l = logging.getLogger(name=__name__)
@@ -610,6 +605,12 @@ class Loader:
         """
         if not self.aslr:
             return []
+
+        try:
+            import claripy  # pylint:disable=import-outside-toplevel
+        except ImportError:
+            claripy = None
+
         if not claripy:
             l.error("Please install claripy to get symbolic constraints")
             return []
