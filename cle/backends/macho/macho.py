@@ -2,6 +2,7 @@
 # This file is part of Mach-O Loader for CLE.
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
 from collections import defaultdict
+from enum import Enum
 from os import SEEK_CUR, SEEK_SET
 import struct
 import sys
@@ -10,6 +11,7 @@ from typing import Optional, DefaultDict, List, Tuple
 
 
 import archinfo
+from .macho_load_commands import LoadCommands as LC
 
 from .section import MachOSection
 from .symbol import SymbolTableSymbol, AbstractMachOSymbol
@@ -99,6 +101,7 @@ class MachO(Backend):
         self.symtab_offset = None # offset to the symtab
         self.symtab_nsyms = None # number of symbols in the symtab
         self.binding_done = False # if true binding was already done and do_bind will be a no-op
+        self._dyld_chained_fixups: Optional[int] = None
 
         # For some analysis the insertion order of the symbols is relevant and needs to be kept.
         # This is has to be separate from self.symbols because the latter is sorted by address
@@ -141,34 +144,42 @@ class MachO(Backend):
                 (cmd, size) = self._unpack("II", binary_file, offset, 8)
 
                 # check for segments that interest us
-                if cmd in [0x1, 0x19]:  # LC_SEGMENT,LC_SEGMENT_64
+                if cmd in [LC.LC_SEGMENT, LC.LC_SEGMENT_64]:  # LC_SEGMENT,LC_SEGMENT_64
                     l.debug("Found LC_SEGMENT(_64) @ %#x", offset)
                     self._load_segment(binary_file, offset)
-                elif cmd == 0x2:  # LC_SYMTAB
+                elif cmd == LC.LC_SYMTAB:  # LC_SYMTAB
                     l.debug("Found LC_SYMTAB @ %#x", offset)
                     self._load_symtab(binary_file, offset)
-                elif cmd in [0x22, 0x80000022]:  # LC_DYLD_INFO(_ONLY)
+                elif cmd in [LC.LC_DYLD_INFO, LC.LC_DYLD_INFO_ONLY]:  # LC_DYLD_INFO(_ONLY)
                     l.debug("Found LC_DYLD_INFO(_ONLY) @ %#x", offset)
                     self._load_dyld_info(binary_file, offset)
-                elif cmd in [0xc, 0x8000001c, 0x80000018]:  # LC_LOAD_DYLIB, LC_REEXPORT_DYLIB,LC_LOAD_WEAK_DYLIB
+                elif cmd in [LC.LC_LOAD_DYLIB, 0x8000001c, LC.LC_LOAD_WEAK_DYLIB]:  # LC_LOAD_DYLIB, LC_REEXPORT_DYLIB,LC_LOAD_WEAK_DYLIB
                     l.debug("Found LC_*_DYLIB @ %#x", offset)
                     self._load_dylib_info(binary_file, offset)
-                elif cmd == 0x80000028:  # LC_MAIN
+                elif cmd == LC.LC_MAIN:  # LC_MAIN
                     l.debug("Found LC_MAIN @ %#x", offset)
                     self._load_lc_main(binary_file, offset)
-                elif cmd == 0x5:  # LC_UNIXTHREAD
+                elif cmd == LC.LC_UNIXTHREAD:  # LC_UNIXTHREAD
                     l.debug("Found LC_UNIXTHREAD @ %#x", offset)
                     self._load_lc_unixthread(binary_file, offset)
-                elif cmd == 0x26:  # LC_FUNCTION_STARTS
+                elif cmd == LC.LC_FUNCTION_STARTS:  # LC_FUNCTION_STARTS
                     l.debug("Found LC_FUNCTION_STARTS @ %#x", offset)
                     self._load_lc_function_starts(binary_file, offset)
-                elif cmd == 0x29:  # LC_DATA_IN_CODE
+                elif cmd == LC.LC_DATA_IN_CODE:  # LC_DATA_IN_CODE
                     l.debug("Found LC_DATA_IN_CODE @ %#x", offset)
                     self._load_lc_data_in_code(binary_file, offset)
-                elif cmd in [0x21, 0x2c]:  # LC_ENCRYPTION_INFO(_64)
+                elif cmd in [LC.LC_ENCRYPTION_INFO, LC.LC_ENCRYPTION_INFO_64]:  # LC_ENCRYPTION_INFO(_64)
                     l.debug("Found LC_ENCRYPTION_INFO @ %#x", offset)
-                    self._assert_unencrypted(binary_file, offset)
-
+                    # self._assert_unencrypted(binary_file, offset)
+                elif cmd in [LC.LC_DYLD_CHAINED_FIXUPS]:
+                    l.debug("Found LC_DYLD_CHAINED_FIXUPS @ %#x", offset)
+                    self._parse_dyld_chained_fixups(binary_file, offset)
+                else:
+                    try:
+                        command_name = LC(cmd)
+                        l.error(f"{str(command_name)} is not handled yet")
+                    except ValueError:
+                        l.error(f"Command {hex(cmd)} is not recognized!")
                 # update bookkeeping
                 offset += size
 
@@ -702,6 +713,10 @@ class MachO(Backend):
 
         # Store segment
         self.segments.append(seg)
+
+    def _parse_dyld_chained_fixups(self, f, offset):
+        (_, _, dataoff, datasize) = self._unpack("4I", f, offset, 16)
+        self._dyld_chained_fixups = dataoff
 
     def get_symbol_by_address_fuzzy(self, address):
         """
