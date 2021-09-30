@@ -3,9 +3,13 @@
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/) and updated in September 2019.
 
 import struct
+
+
+from ..relocation import Relocation
+from .. import Backend, Symbol
 from typing import Callable, Dict, Tuple
 
-from .symbol import BindingSymbol
+from .symbol import BindingSymbol, AbstractMachOSymbol, SymbolTableSymbol
 
 from typing import TYPE_CHECKING
 
@@ -366,6 +370,40 @@ def n_opcode_do_bind_uleb_times_skipping_uleb(s: BindingState, b: 'MachO', _i: i
     return s
 
 
+class MachORelocation(Relocation):
+
+    def __init__(self, owner: Backend, symbol: AbstractMachOSymbol, relative_addr: int, data):
+        super().__init__(owner, symbol, relative_addr)
+        self.data = data
+
+    def resolve_symbol(self, solist, thumb=False, extern_object=None, **kwargs):
+        if isinstance(self.symbol, BindingSymbol):
+            raise NotImplementedError("Doesn't seem to happen?")
+        elif isinstance(self.symbol, SymbolTableSymbol):
+            if self.symbol.library_name in [so.binary_basename for so in solist]:
+                raise NotImplementedError("Symbol could actually be resolved because we have the required library, but that isn't implemented yet")
+            else:
+                # Create an extern symbol for it
+                new_symbol = extern_object.make_extern(self.symbol.name, sym_type=self.symbol._type, thumb=thumb)
+                self.resolve(new_symbol, extern_object=extern_object)
+        else:
+            raise NotImplementedError("Did not expect this to happen")
+
+    @property
+    def dest_addr(self):
+        """
+        mach-o rebasing is hard to handle, so this behaviour differs from other relocations
+        """
+        return self.rebased_addr
+
+
+    @property
+    def value(self):
+        return self.resolvedby.rebased_addr
+
+    def __repr__(self):
+        return f"<MachO Reloc for {self.symbol} at {hex(self.relative_addr)}>"
+
 # default binding handler
 def default_binding_handler(state: BindingState, binary: 'MachO'):
     """Binds location to the symbol with the given name and library ordinal
@@ -392,9 +430,10 @@ def default_binding_handler(state: BindingState, binary: 'MachO'):
 
     if state.binding_type == 1:  # POINTER
         l.debug("Updating address %#x with symobl %r @ %#x", location, state.sym_name, value)
-        binary.memory.store(
-            AT.from_lva(location, binary).to_rva(),
-            struct.pack(binary.struct_byteorder + ("Q" if binary.arch.bits == 64 else "I"), value))
+        addr = AT.from_mva(location, binary).to_rva()
+        data = struct.pack(binary.struct_byteorder + ("Q" if binary.arch.bits == 64 else "I"), value)
+        reloc = MachORelocation(binary, symbol, addr, data)
+        binary.relocs.append(reloc)
         symbol.bind_xrefs.append(location)
     elif state.binding_type == 2:  # ABSOLUTE32
         location_32 = location % (2 ** 32)

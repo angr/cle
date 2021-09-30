@@ -190,6 +190,9 @@ class Clemory(ClemoryBase):
         bisect.insort(self._backers, (start, data))
         self._update_min_max()
 
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} [{hex(self.min_addr)}:{hex(self.max_addr)}]>"
+
     def update_backer(self, start, data):
         if not isinstance(data, (bytes, list, Clemory)):
             raise TypeError("Data must be a bytes, list, or Clemory object.")

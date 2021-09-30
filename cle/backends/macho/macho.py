@@ -15,7 +15,7 @@ from .section import MachOSection
 from .symbol import SymbolTableSymbol, AbstractMachOSymbol
 from .segment import MachOSegment
 from .binding import BindingHelper, read_uleb
-from .. import Backend, register_backend
+from .. import Backend, register_backend, AT
 from ...errors import CLEInvalidBinaryError, CLECompatibilityError, CLEOperationError
 
 import logging
@@ -193,6 +193,7 @@ class MachO(Backend):
         else:
             l.warning("No text segment found")
 
+        self.do_binding()
 
     @staticmethod
     def is_compatible(stream):
@@ -693,7 +694,11 @@ class MachO(Backend):
             if seg.filesize < seg.memsize:
                 blob += b'\0' * (seg.memsize - seg.filesize)  # padding
 
-            self.memory.add_backer(seg.vaddr, blob)
+            # for some reason seg.offset is not always the same as seg.vaddr - baseaddress
+            # when they differ the vaddr seems to be the correct choice according to loaders like in Ghidra
+            # but there isn't necessarily a clear definition of a baseaddress because the vmaddr just specifies the the address in the global memory space
+            vaddr_offset = AT.from_mva(seg.vaddr, self).to_rva()
+            self.memory.add_backer(vaddr_offset, blob)
 
         # Store segment
         self.segments.append(seg)
