@@ -138,7 +138,6 @@ class SymbolTableSymbol(AbstractMachOSymbol):
 
     @property
     def rebased_addr(self):
-        # l.warning("Rebasing not implemented for Mach-O")
         return self.linked_addr
 
 

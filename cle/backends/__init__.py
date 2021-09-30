@@ -17,6 +17,10 @@ from ..errors import CLEOperationError, CLEError
 
 l = logging.getLogger(name=__name__)
 
+import typing
+
+if typing.TYPE_CHECKING:
+    from .. import Loader
 
 class FunctionHintSource:
     """
@@ -114,6 +118,7 @@ class Backend:
                             define `min_addr` and `max_addr` even if `has_memory` is False.
     """
     is_default = False
+    loader: "Loader"
 
     def __init__(self,
             binary,
