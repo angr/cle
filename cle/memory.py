@@ -1,5 +1,6 @@
 import bisect
 import struct
+from mmap import mmap
 from typing import Tuple, Union, List
 
 import archinfo
@@ -179,7 +180,7 @@ class Clemory(ClemoryBase):
         if not data:
             raise ValueError("Backer is empty!")
 
-        if not isinstance(data, (bytes, bytearray, list, Clemory)):
+        if not isinstance(data, (bytes, bytearray, list, Clemory, mmap)):
             raise TypeError("Data must be a bytes, list, or Clemory object.")
         if start in self:
             raise ValueError("Address %#x is already backed!" % start)
@@ -417,7 +418,7 @@ class Clemory(ClemoryBase):
                 if next_start != start:
                     is_consecutive = False
 
-            if isinstance(backer, (bytearray, list)):
+            if isinstance(backer, (bytearray, list, mmap)):
                 backer_length = len(backer)
                 # Update max_addr
                 if max_addr is None or start + backer_length > max_addr:
