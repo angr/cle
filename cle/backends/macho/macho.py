@@ -1,24 +1,26 @@
 # -*-coding:utf8 -*-
 # This file is part of Mach-O Loader for CLE.
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
+import typing
 from collections import defaultdict
-from enum import Enum
 from os import SEEK_CUR, SEEK_SET
 import struct
 import sys
 from io import BytesIO, BufferedReader
-from typing import Optional, DefaultDict, List, Tuple
+from typing import Optional, DefaultDict, List, Tuple, Dict
+
 
 
 import archinfo
 from .macho_load_commands import LoadCommands as LC
 
 from .section import MachOSection
-from .symbol import SymbolTableSymbol, AbstractMachOSymbol
+from .symbol import SymbolTableSymbol, AbstractMachOSymbol, DyldBoundSymbol
 from .segment import MachOSegment
 from .binding import BindingHelper, read_uleb
 from .. import Backend, register_backend, AT
 from ...errors import CLEInvalidBinaryError, CLECompatibilityError, CLEOperationError
+
 
 import logging
 l = logging.getLogger(name=__name__)
@@ -26,6 +28,15 @@ l = logging.getLogger(name=__name__)
 __all__ = ('MachO', 'MachOSection', 'MachOSegment')
 
 from sortedcontainers import SortedKeyList
+
+if typing.TYPE_CHECKING:
+    from angr.state_plugins import SimMemView
+    from angr import SimState
+    from angr.sim_type import SimStructValue
+FilePointer = int    # Offset into a raw binary file
+FileOffset = int     # Offset to another FilePointer
+MemoryPointer = int  # Offset into the mapped memory space
+
 
 # pylint: disable=abstract-method
 class SymbolList(SortedKeyList):
@@ -101,11 +112,11 @@ class MachO(Backend):
         self.symtab_offset = None # offset to the symtab
         self.symtab_nsyms = None # number of symbols in the symtab
         self.binding_done = False # if true binding was already done and do_bind will be a no-op
-        self._dyld_chained_fixups: Optional[int] = None
-
+        self._dyld_chained_fixups_offset: Optional[int] = None
+        self._dyld_rebases: Dict[MemoryPointer, MemoryPointer] = {}
         # For some analysis the insertion order of the symbols is relevant and needs to be kept.
         # This is has to be separate from self.symbols because the latter is sorted by address
-        self._ordered_symbols = []
+        self._ordered_symbols: List[AbstractMachOSymbol] = []
 
         # Begin parsing the file
         try:
@@ -172,12 +183,13 @@ class MachO(Backend):
                     l.debug("Found LC_ENCRYPTION_INFO @ %#x", offset)
                     # self._assert_unencrypted(binary_file, offset)
                 elif cmd in [LC.LC_DYLD_CHAINED_FIXUPS]:
-                    l.debug("Found LC_DYLD_CHAINED_FIXUPS @ %#x", offset)
-                    self._parse_dyld_chained_fixups(binary_file, offset)
+                    l.info("Found LC_DYLD_CHAINED_FIXUPS @ %#x", offset)
+                    (_, _, dataoff, datasize) = self._unpack("4I", binary_file, offset, 16)
+                    self._dyld_chained_fixups_offset: int = dataoff
                 else:
                     try:
                         command_name = LC(cmd)
-                        l.error(f"{str(command_name)} is not handled yet")
+                        l.warning(f"{str(command_name)} is not handled yet")
                     except ValueError:
                         l.error(f"Command {hex(cmd)} is not recognized!")
                 # update bookkeeping
@@ -200,11 +212,15 @@ class MachO(Backend):
 
         text_segment = self.find_segment_by_name("__TEXT")
         if not text_segment is None:
-            self.mapped_base = text_segment.vaddr
+            self.mapped_base: MemoryPointer = text_segment.vaddr
         else:
             l.warning("No text segment found")
-
-        self.do_binding()
+        if self._dyld_chained_fixups_offset:
+            l.info("Parsing dyld bound symbols and fixup chains (ios15 and above)")
+            self._parse_dyld_chained_fixups(binary_file)
+        else:
+            l.info("Parsing binding bytecode stream")
+            self.do_binding()
 
     @staticmethod
     def is_compatible(stream):
@@ -690,6 +706,7 @@ class MachO(Backend):
 
             # Store section
             seg.sections.append(sec)
+            self.sections.append(sec)
 
         # add to sections_by_ordinal
         self.sections_by_ordinal.extend(seg.sections)
@@ -714,9 +731,100 @@ class MachO(Backend):
         # Store segment
         self.segments.append(seg)
 
-    def _parse_dyld_chained_fixups(self, f, offset):
-        (_, _, dataoff, datasize) = self._unpack("4I", f, offset, 16)
-        self._dyld_chained_fixups = dataoff
+    def _parse_dyld_chained_fixups(self, f):
+        """
+        This new logic was introduced with ios15 and replaces the hold binding command bytestream
+        :param f:
+        :return:
+        """
+        from .dyld_types import setup_types
+        setup_types()
+
+        def iterate_fixed_array(array: "SimMemView"):
+            from angr.sim_type import SimTypeFixedSizeArray
+            assert isinstance(array._type, SimTypeFixedSizeArray)
+            current = 0
+            while current < array._type.length:
+                yield array[current]
+                current += 1
+
+        from angr import SimState
+
+        data_offset = self._dyld_chained_fixups_offset
+
+        # Setup a "state" based on the memory mapped binary for convenient access to the structs
+        # This is probably slower than using ctypes or similar, but it makes the code a lot easier to write
+        from cle import Clemory
+        import mmap
+        with open(self.binary, "rb") as bf:
+            with mmap.mmap(bf.fileno(), 0, prot=mmap.PROT_READ) as mapped_file:
+                m = Clemory(arch=self.arch)
+                m.add_backer(0, mapped_file)
+                state = SimState(arch=self.arch, cle_memory_backer=m)
+
+                dyld_fixups_header: "SimMemView" = state.mem[data_offset].struct.dyld_chained_fixups_header
+
+                imports_start_addr: "SimMemView" = state.mem[dyld_fixups_header.imports_offset.concrete + data_offset]
+                symbols_start_addr: FilePointer = dyld_fixups_header.symbols_offset.concrete + data_offset
+
+                imports: "SimMemView" = imports_start_addr.struct.dyld_chained_import.array(
+                    dyld_fixups_header.imports_count.concrete
+                )
+                for imp in iterate_fixed_array(imports):
+                    sym_name: str = state.mem[symbols_start_addr + imp.name_offset.resolved].string.concrete
+                    sym = DyldBoundSymbol(self, sym_name, imp.lib_ordinal.concrete)
+
+                    self.symbols.add(sym)
+                    self._ordered_symbols.append(sym)
+
+                    l.debug(f"Added dyld symbol {sym}")
+
+                ### Now the chained fixup handling
+
+                starts_offset = self._dyld_chained_fixups_offset + dyld_fixups_header.starts_offset.concrete
+                seg_count: int = state.mem[starts_offset].uint32_t.concrete
+                segments: "SimMemView" = state.mem[starts_offset + 4].uint32_t.array(seg_count)
+
+                for i in iterate_fixed_array(segments):
+                    if i.concrete == 0:
+                        continue
+                    starts_in_seg_addr = starts_offset + i.concrete
+                    chained_starts_in_seg: "SimMemView" = state.mem[starts_in_seg_addr].struct.dyld_chained_starts_in_segment
+                    offset_in_page_start: "SimMemView" = chained_starts_in_seg.page_start.array(chained_starts_in_seg.page_count)
+                    for page_idx in range(chained_starts_in_seg.page_count.concrete):
+                        offset_in_page: FileOffset = offset_in_page_start[page_idx].concrete
+                        chain_base: FilePointer = (
+                                chained_starts_in_seg.segment_offset.concrete + (
+                                    page_idx * chained_starts_in_seg.page_size.concrete) + offset_in_page
+                        )
+                        self._parse_fixup_chain(state, chain_base)
+
+    def _parse_fixup_chain(self, file: "SimState", chain_base: FilePointer, max_accepted_chain_length=10000):
+        l.info(f"Starting to parse fixup chain at {hex(chain_base)}")
+        for _ in range(max_accepted_chain_length):
+            chained_rebase_ptr: "SimStructValue" = file.mem[chain_base].struct.dyld_chained_ptr_64_rebase.concrete
+            if chained_rebase_ptr.bind == 1:
+                chained_bind_ptr: "SimMemView" = file.mem[chain_base].struct.dyld_chained_ptr_64_bind
+                import_symbol = self._ordered_symbols[chained_bind_ptr.ordinal.concrete]
+                l.debug(f"Binding for {import_symbol} found at {hex(chain_base)} but this is not processed yet")
+                chain_base += chained_bind_ptr.next.concrete * 4
+            else:
+                location: MemoryPointer = self.mapped_base + chain_base
+                target: MemoryPointer = self.mapped_base + chained_rebase_ptr.target
+
+                if l.isEnabledFor(logging.DEBUG):
+                    l.debug(f"Encountered Rebase Fixup at {hex(location)} "
+                            f"in {self.find_section_containing(location)} "
+                            f"to {hex(target)} in {self.find_section_containing(target)}")
+                self._dyld_rebases[location] = target
+                self.memory.store(location, struct.pack("Q", target))
+                chain_base += chained_rebase_ptr.next * 4
+
+            if chained_rebase_ptr.next == 0:
+                break
+        else:
+            raise ValueError(f"The Fixup chain did not end before reaching max_accepted_chain_length={max_accepted_chain_length}. This is either a bug, a malformed binary, or the binary has an absurd amount of symbols and fixups")
+
 
     def get_symbol_by_address_fuzzy(self, address):
         """
