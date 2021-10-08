@@ -534,7 +534,7 @@ class ELF(MetaELF):
             comp_dir = '.'
             die = cu.get_top_DIE()
             if 'DW_AT_comp_dir' in die.attributes:
-                comp_dir = die.attributes['DW_AT_comp_dir'].value
+                comp_dir = die.attributes['DW_AT_comp_dir'].value.decode()
             lineprog = dwarf.line_program_for_CU(cu)
             if lineprog is None:
                 continue
@@ -547,12 +547,12 @@ class ELF(MetaELF):
                 else:
                     file_entry = lineprog.header['file_entry'][line.state.file - 1]
                     if file_entry["dir_index"] == 0:
-                        filename = os.path.join(comp_dir, file_entry.name).decode()
+                        filename = os.path.join(comp_dir, file_entry.name.decode())
                     else:
                         filename = os.path.join(
                             comp_dir,
-                            lineprog.header["include_directory"][file_entry["dir_index"] - 1],
-                            file_entry.name).decode()
+                            lineprog.header["include_directory"][file_entry["dir_index"] - 1].decode(),
+                            file_entry.name.decode())
                     file_cache[line.state.file] = filename
 
                 relocated_addr = AT.from_lva(line.state.address, self).to_mva()
@@ -587,7 +587,7 @@ class ELF(MetaELF):
         else:
             l.warning('Error: invalid DW_AT_high_pc class:%s',highpc_attr_class)
             return lowpc, None
-        return lowpc,highpc
+        return lowpc, highpc
 
     def _load_dies(self, dwarf: DWARFInfo):
         """
