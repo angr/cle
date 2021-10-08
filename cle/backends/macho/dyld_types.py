@@ -74,3 +74,6 @@ def setup_types():
         ("bind", SimTypeNumOffset(1, signed=False))
     ]))
     angr.types.register_types(dyld_chained_ptr_64_bind)
+
+
+DYLD_CHAINED_PTR_START_NONE = 0xFFFF

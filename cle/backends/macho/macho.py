@@ -737,7 +737,7 @@ class MachO(Backend):
         :param f:
         :return:
         """
-        from .dyld_types import setup_types
+        from .dyld_types import setup_types, DYLD_CHAINED_PTR_START_NONE
         setup_types()
 
         def iterate_fixed_array(array: "SimMemView"):
@@ -793,6 +793,8 @@ class MachO(Backend):
                     offset_in_page_start: "SimMemView" = chained_starts_in_seg.page_start.array(chained_starts_in_seg.page_count)
                     for page_idx in range(chained_starts_in_seg.page_count.concrete):
                         offset_in_page: FileOffset = offset_in_page_start[page_idx].concrete
+                        if offset_in_page == DYLD_CHAINED_PTR_START_NONE:
+                            continue
                         chain_base: FilePointer = (
                                 chained_starts_in_seg.segment_offset.concrete + (
                                     page_idx * chained_starts_in_seg.page_size.concrete) + offset_in_page
