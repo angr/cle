@@ -613,12 +613,20 @@ class ELF(MetaELF):
                 l.warning("ignore a top die with unexpected tag")
                 continue
 
-            die_name = top_die.attributes['DW_AT_name'].value.decode('utf-8')
-            die_comp_dir = top_die.attributes['DW_AT_comp_dir'].value.decode('utf-8')
+            die_name = top_die.attributes.get('DW_AT_name', None)
+            die_comp_dir = top_die.attributes.get('DW_AT_comp_dir', None)
             die_low_pc, die_high_pc = self._load_low_high_pc_form_die(top_die)
-            die_lang = describe_attr_value(top_die.attributes['DW_AT_language'], top_die, top_die.offset)
+            die_lang = top_die.attributes.get('DW_AT_language', None)
 
-            cu_ = CompilationUnit(die_name,die_comp_dir, die_low_pc, die_high_pc,die_lang)
+            if die_name is None or die_comp_dir is None or die_low_pc is None or die_high_pc is None or \
+                    die_lang is None:
+                continue
+
+            die_name = die_name.value.decode('utf-8')
+            die_comp_dir = die_comp_dir.value.decode('utf-8')
+            die_lang = describe_attr_value(die_lang, top_die, top_die.offset)
+
+            cu_ = CompilationUnit(die_name, die_comp_dir, die_low_pc, die_high_pc,die_lang)
             compilation_units.append(cu_)
 
             for die_child in cu.iter_DIE_children(top_die):
