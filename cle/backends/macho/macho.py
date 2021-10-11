@@ -779,12 +779,14 @@ class MachO(Backend):
                 imports_start_addr: "SimMemView" = state.mem[dyld_fixups_header.imports_offset.concrete + data_offset]
                 symbols_start_addr: FilePointer = dyld_fixups_header.symbols_offset.concrete + data_offset
 
+                import_count = dyld_fixups_header.imports_count.concrete
                 imports: "SimMemView" = imports_start_addr.struct.dyld_chained_import.array(
-                    dyld_fixups_header.imports_count.concrete
+                    import_count
                 )
+                l.info(f"Found {import_count} dyld symbols")
                 for imp in iterate_fixed_array(imports):
-                    sym_name: str = state.mem[symbols_start_addr + imp.name_offset.resolved].string.concrete
-                    sym = DyldBoundSymbol(self, sym_name, imp.lib_ordinal.concrete)
+                    sym_name: bytes = state.mem[symbols_start_addr + imp.name_offset.resolved].string.concrete
+                    sym = DyldBoundSymbol(self, sym_name.decode(), imp.lib_ordinal.concrete)
 
                     self.symbols.add(sym)
                     self._ordered_symbols.append(sym)
