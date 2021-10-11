@@ -7,9 +7,10 @@ from os import SEEK_CUR, SEEK_SET
 import struct
 import sys
 from io import BytesIO, BufferedReader
-from typing import Optional, DefaultDict, List, Tuple, Dict
+from typing import Optional, DefaultDict, List, Tuple, Dict, Union
 
-
+from packaging.version import Version, LegacyVersion
+from packaging import version
 
 import archinfo
 from .macho_load_commands import LoadCommands as LC
@@ -118,6 +119,9 @@ class MachO(Backend):
         # This is has to be separate from self.symbols because the latter is sorted by address
         self._ordered_symbols: List[AbstractMachOSymbol] = []
 
+        # The minimum version encoded by the LC_BUILD_VERSION command
+        self._minimum_version: Union[Version, LegacyVersion, None] = None
+
         # Begin parsing the file
         try:
 
@@ -186,6 +190,14 @@ class MachO(Backend):
                     l.info("Found LC_DYLD_CHAINED_FIXUPS @ %#x", offset)
                     (_, _, dataoff, datasize) = self._unpack("4I", binary_file, offset, 16)
                     self._dyld_chained_fixups_offset: int = dataoff
+                elif cmd in [LC.LC_BUILD_VERSION]:
+                    l.info("Found LC_BUILD_VERSION @ %#x", offset)
+                    (_, _, platform, minos, sdk, ntools) = self._unpack("6I", binary_file, offset, 6 * 4)
+                    patch = (minos >> (8 * 0)) & 0xFF
+                    minor = (minos >> (8 * 1)) & 0xFF
+                    major = (minos >> (8 * 2)) & 0xFFFF
+                    self._minimum_version = version.parse(f"{major}.{minor}.{patch}")
+                    l.info(f"Found minimum version {self._minimum_version}")
                 else:
                     try:
                         command_name = LC(cmd)
