@@ -455,7 +455,7 @@ class MachO(Backend):
                         tmp = read_uleb(blob, blob_f.tell())
                         blob_f.seek(tmp[1], SEEK_CUR)
                         symbol_offset = tmp[0] + self.segments[1].vaddr
-                        l.info("Found normal export %r: %#x", sym_str, symbol_offset)
+                        l.debug("Found normal export %r: %#x", sym_str, symbol_offset)
                         self.exports_by_name[sym_str.decode()] = (flags, symbol_offset)
 
                 child_count = struct.unpack("B", blob_f.read(1))[0]
