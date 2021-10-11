@@ -377,9 +377,7 @@ class MachORelocation(Relocation):
         self.data = data
 
     def resolve_symbol(self, solist, thumb=False, extern_object=None, **kwargs):
-        if isinstance(self.symbol, BindingSymbol):
-            raise NotImplementedError("Doesn't seem to happen?")
-        elif isinstance(self.symbol, SymbolTableSymbol):
+        if isinstance(self.symbol, (SymbolTableSymbol, BindingSymbol)):
             if self.symbol.library_name in [so.binary_basename for so in solist]:
                 raise NotImplementedError("Symbol could actually be resolved because we have the required library, but that isn't implemented yet")
             else:
