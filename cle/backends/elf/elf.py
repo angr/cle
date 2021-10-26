@@ -74,11 +74,12 @@ class ELF(MetaELF):
                 raise CLECompatibilityError from e
 
         # Get an appropriate archinfo.Arch for this binary, unless the user specified one
+        e_machine_map = kwargs.get('e_machine_map', {})
         if self.arch is None:
-            self.set_arch(self.extract_arch(self._reader))
+            self.set_arch(self.extract_arch(self._reader, e_machine_map))
         else:
             try:
-                other_arch = self.extract_arch(self._reader)
+                other_arch = self.extract_arch(self._reader, e_machine_map)
                 if other_arch != self.arch:
                     l.warning("User specified %s but autodetected %s. Proceed with caution.", self.arch, other_arch)
             except archinfo.ArchNotFound:
@@ -248,8 +249,39 @@ class ELF(MetaELF):
         return atts
 
     @staticmethod
-    def extract_arch(reader):
-        arch_str = reader['e_machine']
+    def extract_arch(reader, e_machine_map : Dict[int, str]) -> archinfo.Arch:
+        '''
+        Looks at `e_machine` ELF header value, represented as a short integer in the ELF file. This short integer maps
+        to a human-readable string, usually. If `elftools` library that this implementation relies on cannot find a
+        corresponding string, the function looks for the mapping into `e_machine_map`
+
+        Uses `e_machine` value (represented as string) to find and return a corresponding architecture `archinfo.Arch`.
+        Uses angr-registered architectures map to do so.
+
+        :param reader:
+            An object that contains `e_machine` ELF header value
+        :param e_machine_map: Dict[int, str]
+            A mapping from ELF `e_machine` short integer to a human-readable string
+            representation
+        :return: archinfo.Arch
+            Architecture associated with the string in `e_machine` ELF header value
+        :raises:
+        '''
+
+        # `machine_arch` is a string if `elftools` know how to map 'e_machine' to string; otherwise, an int
+        machine_arch = reader['e_machine'] # type: str | int
+        arch_str = None
+        if (isinstance(machine_arch, str)):
+            arch_str = machine_arch
+        elif (isinstance(machine_arch, int)):
+            if machine_arch in e_machine_map:
+                arch_str = e_machine_map[machine_arch]
+            else:
+                raise Exception("cannot map 'e_machine' ELF header value (a short int) to a string; "
+                                "provide 'e_machine_map' argument to Loader")
+        else:
+            assert False
+
         if 'ARM' in arch_str:
             # Check the ARM attributes, if they exist
             arm_attrs = ELF._extract_arm_attrs(reader)
@@ -637,7 +669,7 @@ class ELF(MetaELF):
                     cu_.global_variables.append(var)
                 elif die_child.tag == 'DW_TAG_subprogram':
                     # load subprogram
-                    
+
                     if 'DW_AT_name' in die_child.attributes:
                         name = die_child.attributes['DW_AT_name'].value.decode('utf-8')
                     else:
