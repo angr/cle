@@ -38,6 +38,15 @@ l = logging.getLogger(name=__name__)
 __all__ = ('ELFSymbol', 'ELF')
 
 
+# map 'e_machine' ELF header values (represented as `short int`s) to human-readable format (string)
+# There are mappings missing currently in `elftools`, so we provide them ourselves
+additional_e_machine_mappings : Dict[int, str] = {
+    247: 'Linux BPF - in-kernel virtual machine',
+    252: 'C-SKY',
+    0x5441: 'Fujitsu FR-V'
+}
+
+
 class ELF(MetaELF):
     """
     The main loader class for statically loading ELF executables. Uses the pyreadelf library where useful.
@@ -249,7 +258,19 @@ class ELF(MetaELF):
 
     @staticmethod
     def extract_arch(reader):
-        arch_str = reader['e_machine']
+        e_machine_header_val = reader['e_machine']
+        arch_str = None
+        if isinstance(e_machine_header_val, str):
+            arch_str = e_machine_header_val
+        elif isinstance(e_machine_header_val, int):
+            if e_machine_header_val in additional_e_machine_mappings:
+                arch_str = additional_e_machine_mappings[e_machine_header_val]
+            else:
+                raise CLECompatibilityError('The `e_machine` header value '
+                                            'of the ELF file is not known: %d' % e_machine_header_val)
+        else:
+            assert False # assumption that `reader['e_machine'] returns `str` or `int` is violated
+
         if 'ARM' in arch_str:
             # Check the ARM attributes, if they exist
             arm_attrs = ELF._extract_arm_attrs(reader)
@@ -637,7 +658,7 @@ class ELF(MetaELF):
                     cu_.global_variables.append(var)
                 elif die_child.tag == 'DW_TAG_subprogram':
                     # load subprogram
-                    
+
                     if 'DW_AT_name' in die_child.attributes:
                         name = die_child.attributes['DW_AT_name'].value.decode('utf-8')
                     else:
