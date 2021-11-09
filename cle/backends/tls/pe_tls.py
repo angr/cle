@@ -77,6 +77,8 @@ class PETLSObject(TLSObject):
 
         for obj in thread_manager.modules:
             image = thread_manager.initialization_image(obj)
+            if image is None:
+                continue
             image_offset = self.data_start + self.used_data
             index_offset = obj.tls_module_id * self.arch.bytes
 

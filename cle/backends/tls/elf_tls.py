@@ -96,6 +96,8 @@ class ELFTLSObject(TLSObject):
 
             # initialization image
             image = thread_manager.initialization_image(obj)
+            if image is None:
+                continue
             self.memory.add_backer(self.tp_offset + obj.tls_block_offset, image)
 
     def _calculate_pointers(self, used_data, max_modules):
