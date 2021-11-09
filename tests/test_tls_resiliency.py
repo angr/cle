@@ -1,13 +1,17 @@
 import os
-import cle
+import unittest
 from unittest import TestCase
+
+import cle
+
 
 test_location = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                              os.path.join('..', '..', 'binaries', 'tests'))
 
 
 class TestTlsResiliency(TestCase):
-    def test_tls_pe_incorrect_tls_data_start(self):
+    @staticmethod
+    def test_tls_pe_incorrect_tls_data_start():
         p = os.path.join(test_location, "i386", "windows", "2.exe")
         path_ld = cle.Loader(p)
         assert path_ld is not None
@@ -16,4 +20,4 @@ class TestTlsResiliency(TestCase):
 
 
 if __name__ == '__main__':
-    TestTlsResiliency().test_tls_pe_incorrect_tls_data_start()
+    unittest.main()
