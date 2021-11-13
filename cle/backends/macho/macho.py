@@ -8,6 +8,8 @@ import struct
 import sys
 from io import BytesIO, BufferedReader
 from typing import Optional, DefaultDict, List, Tuple, Dict, Union
+import logging
+from sortedcontainers import SortedKeyList
 
 from packaging.version import Version, LegacyVersion
 from packaging import version
@@ -23,12 +25,11 @@ from .. import Backend, register_backend, AT
 from ...errors import CLEInvalidBinaryError, CLECompatibilityError, CLEOperationError
 
 
-import logging
 l = logging.getLogger(name=__name__)
 
 __all__ = ('MachO', 'MachOSection', 'MachOSegment')
 
-from sortedcontainers import SortedKeyList
+
 
 if typing.TYPE_CHECKING:
     from angr.state_plugins import SimMemView
@@ -41,6 +42,10 @@ MemoryPointer = int  # Offset into the mapped memory space
 
 # pylint: disable=abstract-method
 class SymbolList(SortedKeyList):
+    """
+    Special data structure that extends SortedKeyList to allow looking up a MachO library by name and ordinal quickly
+    without having to iterate over the whole list
+    """
     _symbol_cache: DefaultDict[Tuple[str, int],
                                List[AbstractMachOSymbol]]
 
@@ -151,7 +156,8 @@ class MachO(Backend):
             # Load commands have a common structure: First 4 bytes identify the command by a magic number
             # second 4 bytes determine the commands size. Everything after this generic "header" is command-specific
             # this makes parsing the commands easy.
-            # The documentation for Mach-O is at http://opensource.apple.com//source/xnu/xnu-1228.9.59/EXTERNAL_HEADERS/mach-o/loader.h
+            # The documentation for Mach-O is at
+            # http://opensource.apple.com//source/xnu/xnu-1228.9.59/EXTERNAL_HEADERS/mach-o/loader.h
             count = 0
             offset = lc_offset
             while count < self.ncmds and (offset - lc_offset) < self.sizeofcmds:
@@ -168,7 +174,11 @@ class MachO(Backend):
                 elif cmd in [LC.LC_DYLD_INFO, LC.LC_DYLD_INFO_ONLY]:  # LC_DYLD_INFO(_ONLY)
                     l.debug("Found LC_DYLD_INFO(_ONLY) @ %#x", offset)
                     self._load_dyld_info(binary_file, offset)
-                elif cmd in [LC.LC_LOAD_DYLIB, 0x8000001c, LC.LC_LOAD_WEAK_DYLIB]:  # LC_LOAD_DYLIB, LC_REEXPORT_DYLIB,LC_LOAD_WEAK_DYLIB
+                elif cmd in [LC.LC_LOAD_DYLIB, 0x8000001c, LC.LC_LOAD_WEAK_DYLIB]:
+                    # TODO: Old comment claimed that 0x8000001c is LC_REEXPORT_DYLIB
+                    #  but 0x8000001c should be LC_RPATH = 0x1C | LC_REQ_DYLD
+                    #  So there is something wrong here that might be harmless
+                    #  but it definitely doesn't seem correct
                     l.debug("Found LC_*_DYLIB @ %#x", offset)
                     self._load_dylib_info(binary_file, offset)
                 elif cmd == LC.LC_MAIN:  # LC_MAIN
@@ -192,7 +202,7 @@ class MachO(Backend):
                     self._dyld_chained_fixups_offset: int = dataoff
                 elif cmd in [LC.LC_BUILD_VERSION]:
                     l.info("Found LC_BUILD_VERSION @ %#x", offset)
-                    (_, _, platform, minos, sdk, ntools) = self._unpack("6I", binary_file, offset, 6 * 4)
+                    (_, _, _platform, minos, _sdk, _ntools) = self._unpack("6I", binary_file, offset, 6 * 4)
                     patch = (minos >> (8 * 0)) & 0xFF
                     minor = (minos >> (8 * 1)) & 0xFF
                     major = (minos >> (8 * 2)) & 0xFFFF
@@ -232,7 +242,7 @@ class MachO(Backend):
             l.warning("No text segment found")
         if self._dyld_chained_fixups_offset:
             l.info("Parsing dyld bound symbols and fixup chains (ios15 and above)")
-            self._parse_dyld_chained_fixups(binary_file)
+            self._parse_dyld_chained_fixups()
         else:
             l.info("Parsing binding bytecode stream")
             self.do_binding()
@@ -337,7 +347,9 @@ class MachO(Backend):
         self.pie = bool(self.flags & 0x200000)  # MH_PIE
 
         if not bool(self.flags & 0x80):  # ensure MH_TWOLEVEL
-            l.error("Binary is not using MH_TWOLEVEL namespacing. This isn't properly implemented yet and will degrade results in unpredictable ways. Please open an issue if you encounter this with a binary you can share")
+            l.error("Binary is not using MH_TWOLEVEL namespacing."
+                    "This isn't properly implemented yet and will degrade results in unpredictable ways."
+                    "Please open an issue if you encounter this with a binary you can share")
 
     @staticmethod
     def _detect_byteorder(magic):
@@ -568,7 +580,8 @@ class MachO(Backend):
         # TODO: This is the place to add x86 and x86_64 thread states
         if flavor == 1 and self.arch.bits != 64:  # ARM_THREAD_STATE or ARM_UNIFIED_THREAD_STATE or ARM_THREAD_STATE32
             blob = self._unpack("16I", f, offset + 16, 64)  # parses only until __pc
-        elif flavor == 1 and self.arch.bits == 64 or flavor == 6:  # ARM_THREAD_STATE or ARM_UNIFIED_THREAD_STATE or ARM_THREAD_STATE64
+        elif flavor == 1 and self.arch.bits == 64 or flavor == 6:
+            # ARM_THREAD_STATE or ARM_UNIFIED_THREAD_STATE or ARM_THREAD_STATE64
             blob = self._unpack("33Q", f, offset + 16, 264)  # parses only until __pc
         else:
             l.error("Unknown thread flavor: %d", flavor)
@@ -728,8 +741,9 @@ class MachO(Backend):
 
         if segname == b"__PAGEZERO":
             # TODO: What we actually need at this point is some sort of smart on-demand string or memory
-            # This should not cause trouble because accesses to __PAGEZERO are SUPPOSED to crash (segment has access set to no access)
-            # This optimization is here as otherwise several GB worth of zeroes would clutter our memory
+            #  This should not cause trouble because accesses to __PAGEZERO are SUPPOSED to crash
+            #  (segment has access set to no access)
+            #  This optimization is here as otherwise several GB worth of zeroes would clutter our memory
             l.info("Found PAGEZERO, skipping backer for memory conservation")
         elif seg.filesize > 0:
             # Append segment data to memory
@@ -739,14 +753,15 @@ class MachO(Backend):
 
             # for some reason seg.offset is not always the same as seg.vaddr - baseaddress
             # when they differ the vaddr seems to be the correct choice according to loaders like in Ghidra
-            # but there isn't necessarily a clear definition of a baseaddress because the vmaddr just specifies the the address in the global memory space
+            # but there isn't necessarily a clear definition of a baseaddress
+            # because the vmaddr just specifies the the address in the global memory space
             vaddr_offset = AT.from_mva(seg.vaddr, self).to_rva()
             self.memory.add_backer(vaddr_offset, blob)
 
         # Store segment
         self.segments.append(seg)
 
-    def _parse_dyld_chained_fixups(self, f):
+    def _parse_dyld_chained_fixups(self):
         """
         This new logic was introduced with ios15 and replaces the hold binding command bytestream
         :param f:
@@ -786,7 +801,7 @@ class MachO(Backend):
                 imports: "SimMemView" = imports_start_addr.struct.dyld_chained_import.array(
                     import_count
                 )
-                l.info(f"Found {import_count} dyld symbols")
+                l.info("Found %s dyld symbols", import_count)
                 for imp in iterate_fixed_array(imports):
                     sym_name: bytes = state.mem[symbols_start_addr + imp.name_offset.resolved].string.concrete
                     sym = DyldBoundSymbol(self, sym_name.decode(), imp.lib_ordinal.concrete)
@@ -806,8 +821,10 @@ class MachO(Backend):
                     if i.concrete == 0:
                         continue
                     starts_in_seg_addr = starts_offset + i.concrete
-                    chained_starts_in_seg: "SimMemView" = state.mem[starts_in_seg_addr].struct.dyld_chained_starts_in_segment
-                    offset_in_page_start: "SimMemView" = chained_starts_in_seg.page_start.array(chained_starts_in_seg.page_count)
+                    chained_starts_in_seg: "SimMemView" = state.mem[
+                        starts_in_seg_addr].struct.dyld_chained_starts_in_segment
+                    offset_in_page_start: "SimMemView" = chained_starts_in_seg.page_start.array(
+                        chained_starts_in_seg.page_count)
                     for page_idx in range(chained_starts_in_seg.page_count.concrete):
                         offset_in_page: FileOffset = offset_in_page_start[page_idx].concrete
                         if offset_in_page == DYLD_CHAINED_PTR_START_NONE:

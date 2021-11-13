@@ -1,8 +1,6 @@
 # Contributed March 2021 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
-import cle
-import nose
-import unittest
 import os
+import cle
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                          os.path.join('..', '..', 'binaries'))
@@ -106,4 +104,3 @@ def test_basic_reloc_functionality():
 
 if __name__ == "__main__":
     test_basic_reloc_functionality()
-    pass

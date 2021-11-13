@@ -1,13 +1,11 @@
-import os
 from typing import cast
+from pathlib import Path
 
 import nose
 
-import angr
 import cle
 from cle import MachO
 
-from pathlib import Path
 TEST_BASE = Path(__file__).resolve().parent.parent.parent / "binaries"
 
 
