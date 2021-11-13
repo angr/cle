@@ -218,8 +218,11 @@ class MachO(Backend):
 
         # File is read, begin populating internal fields
         self._resolve_entry()
+        l.info("Parsing exports")
         self._parse_exports()
+        l.info(f"Parsing {self.symtab_nsyms} symbols")
         self._parse_symbols(binary_file)
+        l.info("Parsing module init/term function pointers")
         self._parse_mod_funcs()
 
         text_segment = self.find_segment_by_name("__TEXT")

@@ -241,8 +241,12 @@ class DyldBoundSymbol(AbstractMachOSymbol):
         if LIBRARY_ORDINAL_DYN_LOOKUP == self.lib_ordinal:
             l.warning("LIBRARY_ORDINAL_DYN_LOOKUP found, cannot handle")
             return None
-
-        return self.owner_obj.imported_libraries[self.lib_ordinal]
+        try:
+            return self.owner_obj.imported_libraries[self.lib_ordinal]
+        except IndexError:
+            l.error("Symbol %s has library ordinal %d, but there are only %d imported libraries", self,
+                    self.lib_ordinal, len(self.owner_obj.imported_libraries))
+            return None
 
     def is_function(self):
         # Incompatibility to CLE
