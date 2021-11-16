@@ -20,7 +20,7 @@ from .macho_load_commands import LoadCommands as LC
 from .section import MachOSection
 from .symbol import SymbolTableSymbol, AbstractMachOSymbol, DyldBoundSymbol
 from .segment import MachOSegment
-from .binding import BindingHelper, read_uleb
+from .binding import BindingHelper, read_uleb, MachORelocation
 from .. import Backend, register_backend, AT
 from ...errors import CLEInvalidBinaryError, CLECompatibilityError, CLEOperationError
 
@@ -84,7 +84,8 @@ class MachO(Backend):
     MH_CIGAM_64 = 0xcffaedfe
     MH_MAGIC = 0xfeedface
     MH_CIGAM = 0xcefaedfe
-
+    ncmds: int
+    sizeofcmds: int
 
     def __init__(self, *args, **kwargs):
         l.warning('The Mach-O backend is not well-supported. Good luck!')
@@ -98,9 +99,7 @@ class MachO(Backend):
         self.cpusubtype = None
         self.filetype = None
         self.pie = None  # position independent executable?
-        self.ncmds = None  # number of load commands
         self.flags = None  # binary flags
-        self.sizeofcmds = None  # total size of load commands
         self.imported_libraries = ["Self"]  # ordinal 0 = SELF_LIBRARY_ORDINAL
         self.sections_by_ordinal = [None] # ordinal 0 = None == Self
         self.exports_by_name = {}  # note exports is currently a raw and unprocessed datastructure.
@@ -135,8 +134,16 @@ class MachO(Backend):
             self.struct_byteorder = self._detect_byteorder(struct.unpack("=I", binary_file.read(4))[0])
 
             # parse the mach header:
-            # (ignore all irrelevant fiels)
-            self._parse_mach_header(binary_file)
+            # (ignore all irrelevant fields)
+            (_, self.cputype, self.cpusubtype, self.filetype, self.ncmds, self.sizeofcmds,
+             self.flags) = self._unpack("7I", binary_file, 0, 28)
+
+            self.pie = bool(self.flags & 0x200000)  # MH_PIE
+
+            if not bool(self.flags & 0x80):  # ensure MH_TWOLEVEL
+                l.error("Binary is not using MH_TWOLEVEL namespacing."
+                        "This isn't properly implemented yet and will degrade results in unpredictable ways."
+                        "Please open an issue if you encounter this with a binary you can share")
 
             # determine architecture
             arch_ident = self._detect_arch_ident()
@@ -247,8 +254,8 @@ class MachO(Backend):
             l.info("Parsing binding bytecode stream")
             self.do_binding()
 
-    @staticmethod
-    def is_compatible(stream):
+    @classmethod
+    def is_compatible(cls, stream):
         stream.seek(0)
         identstring = stream.read(0x5)
         stream.seek(0)
@@ -283,8 +290,8 @@ class MachO(Backend):
                 target.append(addr)
 
         for seg in self.segments:
+            seg: Union[MachOSection, MachOSegment]
             for sec in seg.sections:
-
                 if sec.type == 0x9:  # S_MOD_INIT_FUNC_POINTERS
                     l.debug("Section %s contains init pointers", sec.sectname)
                     parse_mod_funcs_internal(sec, self.mod_init_func_pointers)
@@ -296,6 +303,7 @@ class MachO(Backend):
 
     def find_segment_by_name(self, name):
         for s in self.segments:
+            s: Union[MachOSection, MachOSegment]
             if s.segname == name:
                 return s
         return None
@@ -331,26 +339,6 @@ class MachO(Backend):
         """Convenience"""
         return self._unpack_with_byteorder(fmt, self._read(fp, offset, size))
 
-    def _parse_mach_header(self, f):
-        """
-        Parses the mach-o header and sets
-        self.cputype, self.cpusubtype, self.pie, self.ncmds,self.flags,self.sizeofcmds and self.filetype
-
-        Currently ignores any type of information that is not directly relevant to analyses
-        :param f: The binary as a file object
-        :return: None
-        """
-        # this method currently disregards any differences between 32 and 64 bit code
-        (_, self.cputype, self.cpusubtype, self.filetype, self.ncmds, self.sizeofcmds,
-         self.flags) = self._unpack("7I", f, 0, 28)
-
-        self.pie = bool(self.flags & 0x200000)  # MH_PIE
-
-        if not bool(self.flags & 0x80):  # ensure MH_TWOLEVEL
-            l.error("Binary is not using MH_TWOLEVEL namespacing."
-                    "This isn't properly implemented yet and will degrade results in unpredictable ways."
-                    "Please open an issue if you encounter this with a binary you can share")
-
     @staticmethod
     def _detect_byteorder(magic):
         """Determines the binary's byteorder """
@@ -380,7 +368,6 @@ class MachO(Backend):
                 l.debug("Not a mach-o file")
                 raise CLECompatibilityError()
 
-
     def do_binding(self):
         # Perform binding
 
@@ -395,9 +382,7 @@ class MachO(Backend):
             l.info("Found weak binding blob. According to current state of knowledge, weak binding "
                    "is only sensible if multiple binaries are involved and is thus skipped.")
 
-
-        self.binding_done=True
-
+        self.binding_done = True
 
     def _parse_exports(self):
         """
@@ -665,7 +650,7 @@ class MachO(Backend):
             end += 1
         return self.strtab[start:]
 
-    def parse_lc_str(self, f, start, limit=None):
+    def parse_lc_str(self, f, start, limit: Optional[int] = None):
         """Parses a lc_str data structure"""
         tmp = self._unpack("c", f, start, 1)[0]
         s = b''
@@ -764,7 +749,6 @@ class MachO(Backend):
     def _parse_dyld_chained_fixups(self):
         """
         This new logic was introduced with ios15 and replaces the hold binding command bytestream
-        :param f:
         :return:
         """
         from .dyld_types import setup_types, DYLD_CHAINED_PTR_START_NONE
@@ -913,6 +897,7 @@ class MachO(Backend):
         :return: MachOSegment or None
         """
         for seg in self.segments:
+            seg: Union[MachOSection, MachOSegment]
             if seg.segname == name:
                 return seg
 
