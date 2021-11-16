@@ -787,13 +787,29 @@ class MachO(Backend):
                 )
                 l.info("Found %s dyld symbols", import_count)
                 for imp in iterate_fixed_array(imports):
-                    sym_name: bytes = state.mem[symbols_start_addr + imp.name_offset.resolved].string.concrete
-                    sym = DyldBoundSymbol(self, sym_name.decode(), imp.lib_ordinal.concrete)
-
-                    self.symbols.add(sym)
-                    self._ordered_symbols.append(sym)
-
-                    l.debug(f"Added dyld symbol {sym}")
+                    sym_name_bytes: bytes = state.mem[symbols_start_addr + imp.name_offset.concrete].string.concrete
+                    sym_name = sym_name_bytes.decode()
+                    library_ordinal = imp.lib_ordinal.concrete
+                    symbols = self.symbols.get_by_name_and_ordinal(sym_name, library_ordinal)
+                    if len(symbols) == 1:
+                        sym = symbols[0]
+                        reloc = MachORelocation(self, sym, imp._addr.args[0], None)
+                        self.relocs.append(reloc)
+                        l.debug(f"Added dyld symbol {sym}")
+                    elif len(symbols) == 0:
+                        try:
+                            l.info("No Symbol with name %s for library %s",
+                               sym_name, self.imported_libraries[library_ordinal])
+                        except IndexError:
+                            l.info("No Symbol with name %s and library ordinal %s is not valid", sym_name, library_ordinal)
+                        sym = DyldBoundSymbol(self, sym_name, library_ordinal)
+                        reloc = MachORelocation(self, sym, imp._addr.args[0], None)
+                        self.relocs.append(reloc)
+                    else:
+                        raise NotImplementedError(
+                            f"Multiple symbols with name {sym_name}"
+                            f"for library {self.imported_libraries[library_ordinal]}."
+                        )
 
                 ### Now the chained fixup handling
 
