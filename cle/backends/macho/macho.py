@@ -216,7 +216,7 @@ class MachO(Backend):
                     minor = (minos >> (8 * 1)) & 0xFF
                     major = (minos >> (8 * 2)) & 0xFFFF
                     self._minimum_version = version.parse(f"{major}.{minor}.{patch}")
-                    l.info(f"Found minimum version {self._minimum_version}")
+                    l.info("Found minimum version %s", self._minimum_version)
                 else:
                     try:
                         command_name = LC(cmd)
@@ -862,17 +862,18 @@ class MachO(Backend):
                         )
                         self._parse_fixup_chain(state, chain_base)
 
-    def _parse_fixup_chain(self, file: "SimState", chain_base: FilePointer, max_accepted_chain_length=10000, format=1):
+    def _parse_fixup_chain(self, file: "SimState", chain_base: FilePointer, max_accepted_chain_length=10000):
         current_chain_addr = chain_base
-        l.info(f"Starting to parse fixup chain at {hex(current_chain_addr)}")
+        l.info("Starting to parse fixup chain at %s", hex(current_chain_addr))
         for _ in range(max_accepted_chain_length):
-            chained_rebase_ptr: "SimStructValue" = file.mem[current_chain_addr].struct.dyld_chained_ptr_64_rebase.concrete
+            chained_rebase_ptr: "SimStructValue" = file.mem[
+                current_chain_addr].struct.dyld_chained_ptr_64_rebase.concrete
             if chained_rebase_ptr.bind == 1:
                 chained_bind_ptr: "SimMemView" = file.mem[current_chain_addr].struct.dyld_chained_ptr_64_bind
                 import_symbol = self._dyld_imports[chained_bind_ptr.ordinal.concrete]
                 reloc = MachORelocation(self, import_symbol, current_chain_addr, None)
                 self.relocs.append(reloc)
-                l.debug(f"Binding for {import_symbol} found at {hex(current_chain_addr)} but this is not processed yet")
+                l.debug("Binding for %s found at %x", import_symbol, current_chain_addr)
                 current_chain_addr += chained_bind_ptr.next.concrete * 4
             else:
                 location: MemoryPointer = self.mapped_base + current_chain_addr
@@ -890,7 +891,9 @@ class MachO(Backend):
             if chained_rebase_ptr.next == 0:
                 break
         else:
-            raise ValueError(f"The Fixup chain did not end before reaching max_accepted_chain_length={max_accepted_chain_length}. This is either a bug, a malformed binary, or the binary has an absurd amount of symbols and fixups")
+            raise ValueError(
+                f"The Fixup chain did not end before reaching max_accepted_chain_length={max_accepted_chain_length}."
+                f"This is either a bug, a malformed binary, or the binary has an absurd amount of symbols and fixups")
 
 
     def get_symbol_by_address_fuzzy(self, address):

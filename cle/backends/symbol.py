@@ -1,9 +1,9 @@
 from enum import Enum
 import logging
+from typing import TYPE_CHECKING
 
 from ..address_translator import AT
 
-from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .. import Backend
 
@@ -119,7 +119,7 @@ class Symbol:
 
     def resolve_forwarder(self):
         """
-        If this symbol is a forwarding export, return the symbol the forwarding refers to, or None if it cannot be found.
+        If this symbol is a forwarding export, return the symbol the forwarding refers to, or None if it cannot be found
         """
         return self
 
