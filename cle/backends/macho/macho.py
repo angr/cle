@@ -119,6 +119,8 @@ class MachO(Backend):
         self.binding_done = False # if true binding was already done and do_bind will be a no-op
         self._dyld_chained_fixups_offset: Optional[int] = None
         self._dyld_rebases: Dict[MemoryPointer, MemoryPointer] = {}
+        self._dyld_imports: List[AbstractMachOSymbol] = []
+
         # For some analysis the insertion order of the symbols is relevant and needs to be kept.
         # This is has to be separate from self.symbols because the latter is sorted by address
         self._ordered_symbols: List[AbstractMachOSymbol] = []
@@ -815,19 +817,17 @@ class MachO(Backend):
                     library_ordinal = imp.lib_ordinal.concrete
                     symbols = self.symbols.get_by_name_and_ordinal(sym_name, library_ordinal)
                     if len(symbols) == 1:
-                        sym = symbols[0]
-                        reloc = MachORelocation(self, sym, imp._addr.args[0], None)
-                        self.relocs.append(reloc)
-                        l.debug(f"Added dyld symbol {sym}")
+                        self._dyld_imports.append(symbols[0])
                     elif len(symbols) == 0:
                         try:
-                            l.info("No Symbol with name %s for library %s",
+                            l.debug("Creating DyldBoundSymbol with name %s for library %s",
                                sym_name, self.imported_libraries[library_ordinal])
                         except IndexError:
-                            l.info("No Symbol with name %s and library ordinal %s is not valid", sym_name, library_ordinal)
+                            l.debug("Creating DyldBoundSymbol with name %s and library ordinal %s (unknown library)",
+                                   sym_name, library_ordinal)
                         sym = DyldBoundSymbol(self, sym_name, library_ordinal)
-                        reloc = MachORelocation(self, sym, imp._addr.args[0], None)
-                        self.relocs.append(reloc)
+                        self.symbols.add(sym)
+                        self._dyld_imports.append(sym)
                     else:
                         raise NotImplementedError(
                             f"Multiple symbols with name {sym_name}"
@@ -846,6 +846,10 @@ class MachO(Backend):
                     starts_in_seg_addr = starts_offset + i.concrete
                     chained_starts_in_seg: "SimMemView" = state.mem[
                         starts_in_seg_addr].struct.dyld_chained_starts_in_segment
+
+                    if chained_starts_in_seg.pointer_format.concrete != 6:
+                        raise NotImplementedError("This Pointer Format is not implemented yet")
+
                     offset_in_page_start: "SimMemView" = chained_starts_in_seg.page_start.array(
                         chained_starts_in_seg.page_count)
                     for page_idx in range(chained_starts_in_seg.page_count.concrete):
@@ -858,17 +862,20 @@ class MachO(Backend):
                         )
                         self._parse_fixup_chain(state, chain_base)
 
-    def _parse_fixup_chain(self, file: "SimState", chain_base: FilePointer, max_accepted_chain_length=10000):
-        l.info(f"Starting to parse fixup chain at {hex(chain_base)}")
+    def _parse_fixup_chain(self, file: "SimState", chain_base: FilePointer, max_accepted_chain_length=10000, format=1):
+        current_chain_addr = chain_base
+        l.info(f"Starting to parse fixup chain at {hex(current_chain_addr)}")
         for _ in range(max_accepted_chain_length):
-            chained_rebase_ptr: "SimStructValue" = file.mem[chain_base].struct.dyld_chained_ptr_64_rebase.concrete
+            chained_rebase_ptr: "SimStructValue" = file.mem[current_chain_addr].struct.dyld_chained_ptr_64_rebase.concrete
             if chained_rebase_ptr.bind == 1:
-                chained_bind_ptr: "SimMemView" = file.mem[chain_base].struct.dyld_chained_ptr_64_bind
-                import_symbol = self._ordered_symbols[chained_bind_ptr.ordinal.concrete]
-                l.debug(f"Binding for {import_symbol} found at {hex(chain_base)} but this is not processed yet")
-                chain_base += chained_bind_ptr.next.concrete * 4
+                chained_bind_ptr: "SimMemView" = file.mem[current_chain_addr].struct.dyld_chained_ptr_64_bind
+                import_symbol = self._dyld_imports[chained_bind_ptr.ordinal.concrete]
+                reloc = MachORelocation(self, import_symbol, current_chain_addr, None)
+                self.relocs.append(reloc)
+                l.debug(f"Binding for {import_symbol} found at {hex(current_chain_addr)} but this is not processed yet")
+                current_chain_addr += chained_bind_ptr.next.concrete * 4
             else:
-                location: MemoryPointer = self.mapped_base + chain_base
+                location: MemoryPointer = self.mapped_base + current_chain_addr
                 target: MemoryPointer = self.mapped_base + chained_rebase_ptr.target
 
                 if l.isEnabledFor(logging.DEBUG):
@@ -876,8 +883,9 @@ class MachO(Backend):
                             f"in {self.find_section_containing(location)} "
                             f"to {hex(target)} in {self.find_section_containing(target)}")
                 self._dyld_rebases[location] = target
+                # TODO: Technically this is basically a relocation, i.e. relevant for rebasing
                 self.memory.store(location, struct.pack("Q", target))
-                chain_base += chained_rebase_ptr.next * 4
+                current_chain_addr += chained_rebase_ptr.next * 4
 
             if chained_rebase_ptr.next == 0:
                 break

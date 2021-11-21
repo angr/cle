@@ -3,7 +3,11 @@
 # This file is part of Mach-O Loader for CLE.
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/) and updated in September 2019.
 
-from .. import Symbol, SymbolType
+from .. import Symbol, SymbolType, Backend
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from . import MachO
 
 import logging
 l = logging.getLogger(name=__name__)
@@ -27,8 +31,12 @@ class AbstractMachOSymbol(Symbol):
     Defines the minimum common properties all types of mach-o symbols must have
     """
 
-    def __init__(self, owner, name, relative_addr, size, sym_type):
-        super().__init__(owner,name,relative_addr,size,sym_type)
+    def __init__(self, owner: Backend,
+             name: str,
+             relative_addr: int,
+             size: int,
+             sym_type: SymbolType):
+        super(AbstractMachOSymbol, self).__init__(owner, name, relative_addr, size, sym_type)
 
         # additional properties
         self.bind_xrefs = []  # XREFs discovered during binding of the symbol
@@ -57,8 +65,8 @@ class SymbolTableSymbol(AbstractMachOSymbol):
 
     Much of the code below is based on heuristics as official documentation is sparse, consider yourself warned!
     """
-
-    def __init__(self, owner, symtab_offset, n_strx, n_type, n_sect, n_desc, n_value):
+    owner: "MachO"
+    def __init__(self, owner: "MachO", symtab_offset, n_strx, n_type, n_sect, n_desc, n_value):
         # Note 1: Setting size = owner.arch.bytes has been directly taken over from the PE backend,
         # there is no meaningful definition of a symbol's size so I assume the size of an address counts here
         # Note 2: relative_addr will be the address of a symbols __got or __nl_symbol_ptr entry, not the address of a stub

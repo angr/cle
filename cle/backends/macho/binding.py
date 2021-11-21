@@ -9,7 +9,7 @@ from ..relocation import Relocation
 from .. import Backend, Symbol
 from typing import Callable, Dict, Tuple
 
-from .symbol import BindingSymbol, AbstractMachOSymbol, SymbolTableSymbol
+from .symbol import BindingSymbol, AbstractMachOSymbol, SymbolTableSymbol, DyldBoundSymbol
 
 from typing import TYPE_CHECKING
 
@@ -377,7 +377,7 @@ class MachORelocation(Relocation):
         self.data = data
 
     def resolve_symbol(self, solist, thumb=False, extern_object=None, **kwargs):
-        if isinstance(self.symbol, (SymbolTableSymbol, BindingSymbol)):
+        if isinstance(self.symbol, (SymbolTableSymbol, BindingSymbol, DyldBoundSymbol)):
             if self.symbol.library_name in [so.binary_basename for so in solist]:
                 raise NotImplementedError("Symbol could actually be resolved because we have the required library, but that isn't implemented yet")
             else:

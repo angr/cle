@@ -3,6 +3,10 @@ import logging
 
 from ..address_translator import AT
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .. import Backend
+
 l = logging.getLogger(name=__name__)
 
 
@@ -48,7 +52,7 @@ class Symbol:
     :ivar str resolvewith:  The name of the library we must use to resolve this symbol, or None if none is required.
     """
 
-    def __init__(self, owner, name, relative_addr, size, sym_type):
+    def __init__(self, owner: "Backend", name: str, relative_addr: int, size: int, sym_type: SymbolType):
         """
         Not documenting this since if you try calling it, you're wrong.
         """
