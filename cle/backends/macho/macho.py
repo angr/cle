@@ -610,6 +610,14 @@ class MachO(Backend):
         # load string table
         self.strtab = self._read(f, stroff, strsize)
 
+        # Create Dictionary of offsets to strings for quick lookups e.g. during later symbol creation
+        _indexed_strtab: Dict[int, bytes] = {}
+        idx = 0
+        for s in self.strtab.split(b"\x00"):
+            _indexed_strtab[idx] = s
+            idx += len(s) + 1
+        self._indexed_strtab = _indexed_strtab
+
         # store symtab info
         self.symtab_nsyms = nsyms
         self.symtab_offset = symoff
@@ -636,10 +644,14 @@ class MachO(Backend):
             self.symbols.add(sym)
             self._ordered_symbols.append(sym)
 
-            l.debug("Symbol # %d @ %#x is '%s'",i,offset, sym.name)
+            l.debug("Symbol # %d @ %#x is '%s'", i, offset, sym.name)
 
     def get_string(self, start):
         """Loads a string from the string table"""
+
+        if start in self._indexed_strtab:
+            return self._indexed_strtab[start]
+
         end = start
         if end > len(self.strtab):
             raise ValueError()
