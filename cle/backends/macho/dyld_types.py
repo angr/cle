@@ -37,6 +37,17 @@ def setup_types():
 
     angr.types.register_types(dyld_chained_import)
 
+
+    dyld_chained_import_addend64 = SimStruct(name="dyld_chained_import_addend64", pack=True, fields=OrderedDict([
+                ("lib_ordinal", SimTypeNumOffset(16, signed=False)),
+                ("weak_import", SimTypeNumOffset(1, signed=False)),
+                ("reserved", SimTypeNumOffset(15, signed=False)),
+                ("name_offset", SimTypeNumOffset(32, signed=False)),
+                ("addend", SimTypeNum(64, signed=False))
+            ]))
+
+    angr.types.register_types(dyld_chained_import_addend64)
+
     dyld_chained_starts_in_image = SimStruct(name="dyld_chained_starts_in_image", fields=OrderedDict([
         ("seg_count", SimTypeNum(32, signed=False)),
         ("seg_info_offset", SimTypeNum(32, signed=False))

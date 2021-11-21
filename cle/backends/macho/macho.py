@@ -790,13 +790,24 @@ class MachO(Backend):
 
                 dyld_fixups_header: "SimMemView" = state.mem[data_offset].struct.dyld_chained_fixups_header
 
+                if dyld_fixups_header.symbols_format.concrete != 0:
+                    raise NotImplementedError("Symbol Format not supported yet")
                 imports_start_addr: "SimMemView" = state.mem[dyld_fixups_header.imports_offset.concrete + data_offset]
                 symbols_start_addr: FilePointer = dyld_fixups_header.symbols_offset.concrete + data_offset
 
                 import_count = dyld_fixups_header.imports_count.concrete
-                imports: "SimMemView" = imports_start_addr.struct.dyld_chained_import.array(
-                    import_count
-                )
+
+                import_format = dyld_fixups_header.imports_format.concrete
+                if import_format == 1: # DYLD_CHAINED_IMPORT
+                    imports: "SimMemView" = imports_start_addr.struct.dyld_chained_import.array(
+                        import_count
+                    )
+                elif import_format == 3: # DYLD_CHAINED_IMPORT_ADDEND64
+                    imports: "SimMemView" = imports_start_addr.struct.dyld_chained_import_addend64.array(
+                        import_count
+                    )
+                else:
+                    raise NotImplementedError("This Import format is not supported yet")
                 l.info("Found %s dyld symbols", import_count)
                 for imp in iterate_fixed_array(imports):
                     sym_name_bytes: bytes = state.mem[symbols_start_addr + imp.name_offset.concrete].string.concrete
