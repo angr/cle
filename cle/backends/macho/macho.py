@@ -729,7 +729,7 @@ class MachO(Backend):
             # Create section
             sec = MachOSection(section_foff, section_vaddr, section_vsize, section_vsize, section_segname,
                                section_sectname,
-                               section_align, section_reloff, section_nreloc, section_flags, r1, r2)
+                               section_align, section_reloff, section_nreloc, section_flags, r1, r2, parent_segment=seg)
 
             # Store section
             seg.sections.append(sec)

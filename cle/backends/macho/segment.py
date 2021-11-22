@@ -2,10 +2,10 @@
 # This file is part of Mach-O Loader for CLE.
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
 
-from .. import Region
+from .. import Segment
 
 
-class MachOSegment(Region):
+class MachOSegment(Segment):
     """
     Mach-O Segment
 
@@ -58,7 +58,6 @@ class MachOSegment(Region):
     @property
     def is_executable(self):
         return ((self.initprot | self.maxprot) & 0x04) != 0
-
 
     def __repr__(self):
         return "<%s | offset %#x, vaddr %#x, size %#x>" % (
