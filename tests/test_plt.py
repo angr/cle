@@ -136,8 +136,4 @@ def test_plt_full_relro():
     assert ld.main_object.plt == {'__libc_start_main': 0x400390}
 
 if __name__ == '__main__':
-    # for f, a in test_plt():
-    #     print(a)
-    #     f(a)
-    # pickle.dump(PLT_CACHE, open(os.path.join(TESTS_BASE, 'tests_data', 'objdump-grep-plt.p'), 'wb'))
     unittest.main()
