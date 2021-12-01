@@ -75,17 +75,17 @@ class TestRunSections(unittest.TestCase):
         mapped_sections = [ section for section in sections if section.vaddr != 0 ]
 
         for section in mapped_sections:
-            nose.tools.assert_equal(ld.main_object.find_section_containing(section.vaddr).name,
-                                    section.name)
-            nose.tools.assert_equal(ld.main_object.sections.find_region_containing(section.vaddr).name,
-                                    section.name)
+            nose.tools.assert_equal(
+                ld.main_object.find_section_containing(section.vaddr).name, section.name)
+            nose.tools.assert_equal(
+                ld.main_object.sections.find_region_containing(section.vaddr).name, section.name)
             if section.memsize > 0:
-                nose.tools.assert_equal(ld.main_object.find_section_containing(section.vaddr + 1).name,
-                                        section.name)
-                nose.tools.assert_equal(ld.main_object.sections.find_region_containing(section.vaddr + 1).name,
-                                        section.name)
-                nose.tools.assert_equal(ld.main_object.find_section_containing(section.vaddr + section.memsize - 1).name,
-                                        section.name)
+                nose.tools.assert_equal(
+                    ld.main_object.find_section_containing(section.vaddr + 1).name, section.name)
+                nose.tools.assert_equal(
+                    ld.main_object.sections.find_region_containing(section.vaddr + 1).name, section.name)
+                nose.tools.assert_equal(
+                    ld.main_object.find_section_containing(section.vaddr + section.memsize - 1).name, section.name)
                 nose.tools.assert_equal(
                     ld.main_object.sections.find_region_containing(section.vaddr + section.memsize - 1).name, section.name)
 
@@ -143,11 +143,11 @@ class TestRunSections(unittest.TestCase):
 
     def test_sections(self):
         for (arch, filename), data in groundtruth.items():
-            self._run_sections(arch, filename,data['sections'])
+            self._run_sections(arch, filename, data['sections'])
 
     def test_segments(self):
         for (arch, filename), data in groundtruth.items():
-            self._run_segments(arch, filename,data['segments'])
+            self._run_segments(arch, filename, data['segments'])
 
 if __name__ == "__main__":
     unittest.main()
