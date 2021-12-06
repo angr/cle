@@ -1,11 +1,11 @@
-
-import nose
 import os
 
 import cle
 
-TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                         os.path.join('..', '..', 'binaries', 'tests'))
+TEST_BASE = os.path.join(
+    os.path.dirname(os.path.realpath(__file__)),
+    os.path.join("..", "..", "binaries", "tests"),
+)
 
 
 def test_gxx_exception_0():
@@ -14,29 +14,31 @@ def test_gxx_exception_0():
     binary = os.path.join(TEST_BASE, "x86_64", "exceptions_0")
     ld = cle.Loader(binary, load_debug_info=True, auto_load_libs=False)
 
-    nose.tools.assert_equal(len(ld.main_object.exception_handlings), 4)
-    exception_handlings = dict((exc.start_addr, exc) for exc in ld.main_object.exception_handlings)
-    nose.tools.assert_equal(len(exception_handlings), 4)
+    assert len(ld.main_object.exception_handlings) == 4
+    exception_handlings = dict(
+        (exc.start_addr, exc) for exc in ld.main_object.exception_handlings
+    )
+    assert len(exception_handlings) == 4
     # 0x400a61
-    nose.tools.assert_equal(exception_handlings[0x400a61].start_addr, 0x400a61)
-    nose.tools.assert_equal(exception_handlings[0x400a61].size, 0x1a)
-    nose.tools.assert_equal(exception_handlings[0x400a61].func_addr, 0x400a4a)
-    nose.tools.assert_equal(exception_handlings[0x400a61].handler_addr, 0x400a82)
+    assert exception_handlings[0x400A61].start_addr == 0x400A61
+    assert exception_handlings[0x400A61].size == 0x1A
+    assert exception_handlings[0x400A61].func_addr == 0x400A4A
+    assert exception_handlings[0x400A61].handler_addr == 0x400A82
     # 0x400a98
-    nose.tools.assert_equal(exception_handlings[0x400a98].start_addr, 0x400a98)
-    nose.tools.assert_equal(exception_handlings[0x400a98].size, 0x1a)
-    nose.tools.assert_equal(exception_handlings[0x400a98].func_addr, 0x400a4a)
-    nose.tools.assert_equal(exception_handlings[0x400a98].handler_addr, 0x400ab9)
+    assert exception_handlings[0x400A98].start_addr == 0x400A98
+    assert exception_handlings[0x400A98].size == 0x1A
+    assert exception_handlings[0x400A98].func_addr == 0x400A4A
+    assert exception_handlings[0x400A98].handler_addr == 0x400AB9
     # 0x400ab2
-    nose.tools.assert_equal(exception_handlings[0x400ab2].start_addr, 0x400ab2)
-    nose.tools.assert_equal(exception_handlings[0x400ab2].size, 0x5)
-    nose.tools.assert_equal(exception_handlings[0x400ab2].func_addr, 0x400a4a)
-    nose.tools.assert_equal(exception_handlings[0x400ab2].handler_addr, None)
+    assert exception_handlings[0x400AB2].start_addr == 0x400AB2
+    assert exception_handlings[0x400AB2].size == 0x5
+    assert exception_handlings[0x400AB2].func_addr == 0x400A4A
+    assert exception_handlings[0x400AB2].handler_addr == None
     # 0x400ac7
-    nose.tools.assert_equal(exception_handlings[0x400ac7].start_addr, 0x400ac7)
-    nose.tools.assert_equal(exception_handlings[0x400ac7].size, 0x5)
-    nose.tools.assert_equal(exception_handlings[0x400ac7].func_addr, 0x400a4a)
-    nose.tools.assert_equal(exception_handlings[0x400ac7].handler_addr, None)
+    assert exception_handlings[0x400AC7].start_addr == 0x400AC7
+    assert exception_handlings[0x400AC7].size == 0x5
+    assert exception_handlings[0x400AC7].func_addr == 0x400A4A
+    assert exception_handlings[0x400AC7].handler_addr == None
 
 
 if __name__ == "__main__":
