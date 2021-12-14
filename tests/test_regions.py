@@ -1,4 +1,5 @@
 import os
+import unittest
 
 import nose
 
@@ -53,96 +54,100 @@ groundtruth = {
     }
 }
 
+class TestRunSections(unittest.TestCase):
+    def _run_sections(self, arch, filename, sections):
 
-def run_sections(arch, filename, sections):
+        binary_path = os.path.join(TESTS_BASE, arch, filename)
 
-    binary_path = os.path.join(TESTS_BASE, arch, filename)
+        ld = cle.Loader(binary_path, auto_load_libs=False)
 
-    ld = cle.Loader(binary_path, auto_load_libs=False)
+        nose.tools.assert_equal(len(ld.main_object.sections), len(sections))
+        for i, section in enumerate(ld.main_object.sections):
+            nose.tools.assert_equal(section.name, sections[i].name)
+            nose.tools.assert_equal(section.offset, sections[i].offset)
+            nose.tools.assert_equal(AT.from_mva(section.vaddr, ld.main_object).to_lva(), sections[i].vaddr)
+            nose.tools.assert_equal(section.memsize, sections[i].memsize)
 
-    nose.tools.assert_equal(len(ld.main_object.sections), len(sections))
-    for i, section in enumerate(ld.main_object.sections):
-        nose.tools.assert_equal(section.name, sections[i].name)
-        nose.tools.assert_equal(section.offset, sections[i].offset)
-        nose.tools.assert_equal(AT.from_mva(section.vaddr, ld.main_object).to_lva(), sections[i].vaddr)
-        nose.tools.assert_equal(section.memsize, sections[i].memsize)
+        # address lookups
+        nose.tools.assert_is_none(ld.main_object.sections.find_region_containing(-1))
 
-    # address lookups
-    nose.tools.assert_is_none(ld.main_object.sections.find_region_containing(-1))
+        # skip all sections that are not mapped into memory
+        mapped_sections = [ section for section in sections if section.vaddr != 0 ]
 
-    # skip all sections that are not mapped into memory
-    mapped_sections = [ section for section in sections if section.vaddr != 0 ]
-
-    for section in mapped_sections:
-        nose.tools.assert_equal(ld.main_object.find_section_containing(section.vaddr).name, section.name)
-        nose.tools.assert_equal(ld.main_object.sections.find_region_containing(section.vaddr).name, section.name)
-        if section.memsize > 0:
-            nose.tools.assert_equal(ld.main_object.find_section_containing(section.vaddr + 1).name, section.name)
-            nose.tools.assert_equal(ld.main_object.sections.find_region_containing(section.vaddr + 1).name, section.name)
-            nose.tools.assert_equal(ld.main_object.find_section_containing(section.vaddr + section.memsize - 1).name,
-                                    section.name)
+        for section in mapped_sections:
             nose.tools.assert_equal(
-                ld.main_object.sections.find_region_containing(section.vaddr + section.memsize - 1).name, section.name)
-
-    for i in range(len(mapped_sections) - 1):
-        sec_a, sec_b = mapped_sections[i], mapped_sections[i + 1]
-        if sec_a.vaddr + sec_a.memsize < sec_b.vaddr:
-            # there is a gap between sec_a and sec_b
-            for j in range(min(sec_b.vaddr - (sec_a.vaddr + sec_a.memsize), 20)):
-                a = sec_a.vaddr + sec_a.memsize + j
-                nose.tools.assert_is_none(ld.main_object.find_section_containing(a))
-                nose.tools.assert_is_none(ld.main_object.sections.find_region_containing(a))
-
-    nose.tools.assert_is_none(ld.main_object.find_section_containing(0xffffffff), None)
-
-def run_segments(arch, filename, segments):
-
-    binary_path = os.path.join(TESTS_BASE, arch, filename)
-
-    ld = cle.Loader(binary_path, auto_load_libs=False)
-
-    nose.tools.assert_equal(len(ld.main_object.segments), len(segments))
-    for i, segment in enumerate(ld.main_object.segments):
-        nose.tools.assert_equal(segment.offset, segments[i].offset)
-        nose.tools.assert_equal(segment.vaddr, segments[i].vaddr)
-        nose.tools.assert_equal(segment.memsize, segments[i].memsize)
-        nose.tools.assert_equal(segment.filesize, segments[i].filesize)
-
-    # address lookups
-    nose.tools.assert_is_none(ld.main_object.segments.find_region_containing(-1))
-
-    # skip all segments that are not mapped into memory
-    mapped_segments = [ segment for segment in segments if segment.vaddr != 0 ]
-
-    for segment in mapped_segments:
-        nose.tools.assert_equal(ld.main_object.find_segment_containing(segment.vaddr).vaddr, segment.vaddr)
-        nose.tools.assert_equal(ld.main_object.segments.find_region_containing(segment.vaddr).vaddr, segment.vaddr)
-        if segment.memsize > 0:
-            nose.tools.assert_equal(ld.main_object.find_segment_containing(segment.vaddr + 1).vaddr, segment.vaddr)
-            nose.tools.assert_equal(ld.main_object.segments.find_region_containing(segment.vaddr + 1).vaddr, segment.vaddr)
-            nose.tools.assert_equal(ld.main_object.find_segment_containing(segment.vaddr + segment.memsize - 1).vaddr,
-                                    segment.vaddr)
+                ld.main_object.find_section_containing(section.vaddr).name, section.name)
             nose.tools.assert_equal(
-                ld.main_object.segments.find_region_containing(segment.vaddr + segment.memsize - 1).vaddr, segment.vaddr)
+                ld.main_object.sections.find_region_containing(section.vaddr).name, section.name)
+            if section.memsize > 0:
+                nose.tools.assert_equal(
+                    ld.main_object.find_section_containing(section.vaddr + 1).name, section.name)
+                nose.tools.assert_equal(
+                    ld.main_object.sections.find_region_containing(section.vaddr + 1).name, section.name)
+                nose.tools.assert_equal(
+                    ld.main_object.find_section_containing(section.vaddr + section.memsize - 1).name, section.name)
+                nose.tools.assert_equal(
+                    ld.main_object.sections.find_region_containing(section.vaddr + section.memsize - 1).name, section.name)
 
-    for i in range(len(mapped_segments) - 1):
-        seg_a, seg_b = mapped_segments[i], mapped_segments[i + 1]
-        if seg_a.vaddr + seg_a.memsize < seg_b.vaddr:
-            # there is a gap between seg_a and seg_b
-            for j in range(min(seg_b.vaddr - (seg_a.vaddr + seg_a.memsize), 20)):
-                a = seg_a.vaddr + seg_a.memsize + j
-                nose.tools.assert_is_none(ld.main_object.find_segment_containing(a))
-                nose.tools.assert_is_none(ld.main_object.segments.find_region_containing(a))
+        for i in range(len(mapped_sections) - 1):
+            sec_a, sec_b = mapped_sections[i], mapped_sections[i + 1]
+            if sec_a.vaddr + sec_a.memsize < sec_b.vaddr:
+                # there is a gap between sec_a and sec_b
+                for j in range(min(sec_b.vaddr - (sec_a.vaddr + sec_a.memsize), 20)):
+                    a = sec_a.vaddr + sec_a.memsize + j
+                    nose.tools.assert_is_none(ld.main_object.find_section_containing(a))
+                    nose.tools.assert_is_none(ld.main_object.sections.find_region_containing(a))
 
-    nose.tools.assert_is_none(ld.main_object.find_segment_containing(0xffffffff), None)
+        nose.tools.assert_is_none(ld.main_object.find_section_containing(0xffffffff), None)
 
+    def _run_segments(self, arch, filename, segments):
 
-def test_all():
+        binary_path = os.path.join(TESTS_BASE, arch, filename)
 
-    for (arch, filename), data in groundtruth.items():
-        yield run_sections, arch, filename, data['sections']
-        yield run_segments, arch, filename, data['segments']
+        ld = cle.Loader(binary_path, auto_load_libs=False)
 
+        nose.tools.assert_equal(len(ld.main_object.segments), len(segments))
+        for i, segment in enumerate(ld.main_object.segments):
+            nose.tools.assert_equal(segment.offset, segments[i].offset)
+            nose.tools.assert_equal(segment.vaddr, segments[i].vaddr)
+            nose.tools.assert_equal(segment.memsize, segments[i].memsize)
+            nose.tools.assert_equal(segment.filesize, segments[i].filesize)
+
+        # address lookups
+        nose.tools.assert_is_none(ld.main_object.segments.find_region_containing(-1))
+
+        # skip all segments that are not mapped into memory
+        mapped_segments = [ segment for segment in segments if segment.vaddr != 0 ]
+
+        for segment in mapped_segments:
+            nose.tools.assert_equal(ld.main_object.find_segment_containing(segment.vaddr).vaddr, segment.vaddr)
+            nose.tools.assert_equal(ld.main_object.segments.find_region_containing(segment.vaddr).vaddr, segment.vaddr)
+            if segment.memsize > 0:
+                nose.tools.assert_equal(ld.main_object.find_segment_containing(segment.vaddr + 1).vaddr, segment.vaddr)
+                nose.tools.assert_equal(ld.main_object.segments.find_region_containing(segment.vaddr + 1).vaddr, segment.vaddr)
+                nose.tools.assert_equal(ld.main_object.find_segment_containing(segment.vaddr + segment.memsize - 1).vaddr,
+                                        segment.vaddr)
+                nose.tools.assert_equal(
+                    ld.main_object.segments.find_region_containing(segment.vaddr + segment.memsize - 1).vaddr, segment.vaddr)
+
+        for i in range(len(mapped_segments) - 1):
+            seg_a, seg_b = mapped_segments[i], mapped_segments[i + 1]
+            if seg_a.vaddr + seg_a.memsize < seg_b.vaddr:
+                # there is a gap between seg_a and seg_b
+                for j in range(min(seg_b.vaddr - (seg_a.vaddr + seg_a.memsize), 20)):
+                    a = seg_a.vaddr + seg_a.memsize + j
+                    nose.tools.assert_is_none(ld.main_object.find_segment_containing(a))
+                    nose.tools.assert_is_none(ld.main_object.segments.find_region_containing(a))
+
+        nose.tools.assert_is_none(ld.main_object.find_segment_containing(0xffffffff), None)
+
+    def test_sections(self):
+        for (arch, filename), data in groundtruth.items():
+            self._run_sections(arch, filename, data['sections'])
+
+    def test_segments(self):
+        for (arch, filename), data in groundtruth.items():
+            self._run_segments(arch, filename, data['segments'])
 
 if __name__ == "__main__":
-    test_all()
+    unittest.main()
