@@ -814,65 +814,17 @@ class ELF(MetaELF):
                 if 'DT_PLTREL' in self._dynamic:
                     if self._dynamic['DT_PLTREL'] == 7:
                         self.rela_type = 'RELA'
-                        relentsz = self._reader.structs.Elf_Rela.sizeof()
                     elif self._dynamic['DT_PLTREL'] == 17:
                         self.rela_type = 'REL'
-                        relentsz = self._reader.structs.Elf_Rel.sizeof()
                     else:
                         raise CLEInvalidBinaryError('DT_PLTREL is not REL or RELA?')
                 else:
                     if 'DT_RELA' in self._dynamic:
                         self.rela_type = 'RELA'
-                        relentsz = self._reader.structs.Elf_Rela.sizeof()
                     elif 'DT_REL' in self._dynamic:
                         self.rela_type = 'REL'
-                        relentsz = self._reader.structs.Elf_Rel.sizeof()
                     else:
                         return
-
-                # try to parse relocations out of a table of type DT_REL{,A}
-                rela_tag = 'DT_' + self.rela_type
-                relsz_tag = rela_tag + 'SZ'
-                if rela_tag in self._dynamic:
-                    reloffset = AT.from_lva(self._dynamic[rela_tag], self).to_rva()
-                    if relsz_tag not in self._dynamic:
-                        raise CLEInvalidBinaryError('Dynamic section contains %s but not %s' % (rela_tag, relsz_tag))
-                    relsz = self._dynamic[relsz_tag]
-                    fakerelheader = {
-                        'sh_offset': reloffset,
-                        'sh_type': 'SHT_' + self.rela_type,
-                        'sh_entsize': relentsz,
-                        'sh_size': relsz,
-                        'sh_flags': 0,
-                        'sh_addralign': 0,
-                    }
-                    readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self._reader)
-                    # support multiple versions of pyelftools
-                    readelf_relocsec.stream = self.memory
-                    readelf_relocsec._stream = self.memory
-                    readelf_relocsec.elffile = None
-                    self.__register_relocs(readelf_relocsec, dynsym)
-
-                # try to parse relocations out of a table of type DT_JMPREL
-                if 'DT_JMPREL' in self._dynamic:
-                    jmpreloffset = AT.from_lva(self._dynamic['DT_JMPREL'], self).to_rva()
-                    if 'DT_PLTRELSZ' not in self._dynamic:
-                        raise CLEInvalidBinaryError('Dynamic section contains DT_JMPREL but not DT_PLTRELSZ')
-                    jmprelsz = self._dynamic['DT_PLTRELSZ']
-                    fakejmprelheader = {
-                        'sh_offset': jmpreloffset,
-                        'sh_type': 'SHT_' + self.rela_type,
-                        'sh_entsize': relentsz,
-                        'sh_size': jmprelsz,
-                        'sh_flags': 0,
-                        'sh_addralign': 0,
-                    }
-                    readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self._reader)
-                    # support multiple versions of pyelftools
-                    readelf_jmprelsec.stream = self.memory
-                    readelf_jmprelsec._stream = self.memory
-                    readelf_jmprelsec.elffile = None
-                    self.__register_relocs(readelf_jmprelsec, dynsym, force_jmprel=True)
 
     def __parse_rpath(self, runpath, rpath):
         """
@@ -1064,8 +1016,7 @@ class ELF(MetaELF):
         for sec_readelf, section in sec_list:
             if isinstance(sec_readelf, elffile.SymbolTableSection):
                 self.__register_section_symbols(sec_readelf)
-            if isinstance(sec_readelf, elffile.RelocationSection) and not \
-                    ('DT_REL' in self._dynamic or 'DT_RELA' in self._dynamic or 'DT_JMPREL' in self._dynamic):
+            if isinstance(sec_readelf, elffile.RelocationSection):
                 self.__register_relocs(sec_readelf, dynsym=None)
 
             if section.occupies_memory:      # alloc flag - stick in memory maybe!
