@@ -77,7 +77,8 @@ CLE's loader is implemented in the Loader class.
 There are several backends that can be used to load a single file:
 
     - ELF, as its name says, loads ELF binaries. ELF files loaded this way are
-      statically parsed using PyElfTools.
+      statically parsed using PyElfTools. load_debug_info=True to also generate
+      a json corpus.
 
     - PE is a backend to load Microsoft's Portable Executable format,
       effectively Windows binaries. It uses the (optional) `pefile` module.

@@ -241,6 +241,11 @@ class Loader:
         return self._kernel_object
 
     @property
+    def corpus(self):
+        if hasattr(self.main_object, "corpus"):
+            return self.main_object.corpus
+
+    @property
     def all_elf_objects(self):
         """
         Return a list of every object that was loaded from an ELF file.

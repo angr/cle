@@ -10,13 +10,16 @@ from elftools.elf import elffile, sections
 from elftools.dwarf import callframe
 from elftools.common.exceptions import ELFError, DWARFError
 from elftools.dwarf.dwarf_expr import DWARFExprParser
-from elftools.dwarf.descriptions import describe_form_class, describe_attr_value
+from elftools.dwarf.descriptions import describe_form_class, describe_attr_value, set_global_machine_arch
 from elftools.dwarf.dwarfinfo import DWARFInfo
 from elftools.dwarf.die import DIE
+from elftools.dwarf.locationlists import LocationParser
 
 import archinfo
 
 from .compilation_unit import CompilationUnit
+from .corpus import ElfCorpus
+
 from .variable import Variable
 from .variable_type import VariableType
 from .subprogram import Subprogram
@@ -128,6 +131,7 @@ class ELF(MetaELF):
         self.addr_to_line = SortedDict()
         self.variables: Optional[List[Variable]] = None
         self.compilation_units: Optional[List[CompilationUnit]] = None
+        self.corpus = None
 
         self._entry = self._reader.header.e_entry
         self.is_relocatable = self._reader.header.e_type == 'ET_REL'
@@ -164,6 +168,8 @@ class ELF(MetaELF):
                 self.has_dwarf_info = False
 
             if dwarf:
+                # Prepare a corpus to populate
+                self.corpus = ElfCorpus(self.binary)
                 # Load DIEs
                 self._load_dies(dwarf)
                 # Load function hints and exception handling artifacts
@@ -610,6 +616,16 @@ class ELF(MetaELF):
             return lowpc, None
         return lowpc, highpc
 
+    def _prepare_location_parser(self, dwarf):
+        """
+        Prepare the location parser using the dwarf info
+        """
+        location_lists = dwarf.location_lists()
+
+        # Needed to decode register names in DWARF expressions.
+        set_global_machine_arch(self._reader.get_machine_arch())
+        self.loc_parser = LocationParser(location_lists)
+
     def _load_dies(self, dwarf: DWARFInfo):
         """
         Load DIEs and CUs from DWARF.
@@ -618,18 +634,28 @@ class ELF(MetaELF):
         :return:        None
         """
         compilation_units: List[CompilationUnit] = [ ]
+
+        # DW_TAG_base_types, and DW_TAG_typedef
         type_list: Dict[int, VariableType] = {}
+        type_die_lookup: Dict[int, elftools.dwarf.die.DIE] = {}
+
+        # The corpus needs the location parser to get registers
+        self._prepare_location_parser(dwarf)
+        self.corpus.loc_parser = self.loc_parser
 
         for cu in dwarf.iter_CUs():
             expr_parser = DWARFExprParser(cu.structs)
 
-            # scan the whole die tree for DW_TAG_base_type
+            # scan the whole die tree for DW_TAG_base_type and DW_TAG_typedef
             for die in cu.iter_DIEs():
                 if die.tag == "DW_TAG_base_type":
                     type_list[die.offset] = VariableType.read_from_die(die)
+                type_die_lookup[die.offset] = die
 
+            # Provide type information to the corpus
+            self.corpus.type_die_lookup = type_die_lookup
+ 
             top_die = cu.get_top_DIE()
-
             if top_die.tag != "DW_TAG_compile_unit":
                 l.warning("ignore a top die with unexpected tag")
                 continue
@@ -650,12 +676,19 @@ class ELF(MetaELF):
             cu_ = CompilationUnit(die_name, die_comp_dir, die_low_pc, die_high_pc,die_lang)
             compilation_units.append(cu_)
 
+            # First round is going to generate all base types, etc.
             for die_child in cu.iter_DIE_children(top_die):
+
+                # Add to the corpus TODO this can be optional
+                self.corpus.add_dwarf_information_entry(die_child)
+
+                # Then parse with func/variable types specific to using here
                 if die_child.tag == 'DW_TAG_variable':
                     # load global variable
                     var = self._load_die_variable(die_child, expr_parser, type_list)
                     var.decl_file = cu_.file_path
                     cu_.global_variables.append(var)
+
                 elif die_child.tag == 'DW_TAG_subprogram':
                     # load subprogram
 
@@ -666,6 +699,7 @@ class ELF(MetaELF):
                     low_pc, high_pc = self._load_low_high_pc_form_die(die_child)
                     if low_pc is not None or high_pc is not None:
                         sub_prog = Subprogram(name, low_pc, high_pc)
+                        sub_dies = []
 
                         for sub_die in cu._iter_DIE_subtree(die_child):
                             if sub_die.tag in ['DW_TAG_variable','DW_TAG_formal_parameter']:
@@ -673,8 +707,10 @@ class ELF(MetaELF):
                                 var = self._load_die_variable(sub_die, expr_parser, type_list)
                                 var.decl_file = cu_.file_path
                                 sub_prog.local_variables.append(var)
+                                sub_dies.append(sub_die)
 
                         cu_.functions[low_pc] = sub_prog
+
 
         self.compilation_units = compilation_units
 
