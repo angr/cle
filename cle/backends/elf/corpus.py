@@ -1,11 +1,13 @@
 from elftools.common.py3compat import bytes2str
 from elftools.dwarf.descriptions import describe_form_class, describe_reg_name
 from elftools.dwarf.locationlists import LocationEntry, LocationExpr
+from elftools.dwarf.dwarf_expr import DWARFExprParser
 
-from .location import get_register_from_expr
+from .location import get_register_from_expr, get_dwarf_from_expr
 from .variable_type import VariableType
 from ..corpus import Corpus
 
+import re
 import json
 import logging
 import sys
@@ -28,6 +30,9 @@ class ElfCorpus(Corpus):
         """
         Add a global variable parsed from the dwarf.
         """
+        # DW_AT_external attribute if the variable is visible outside of its enclosing CU
+        if not "DW_AT_external" in die.attributes:
+            return
         entry = {"name": self.get_name(die), "size": self.get_size(die)}
         entry.update(self.parse_underlying_type(die))
         self.variables.append(entry)
@@ -52,18 +57,72 @@ class ElfCorpus(Corpus):
         a variable entry, and other tags mentioned here drill down to those.
         """
         if die.tag == "DW_TAG_variable":
-            self.parse_variable(die)
+            return self.parse_variable(die)
         if die.tag == "DW_TAG_subprogram":
-            self.parse_subprogram(die)
+            return self.parse_subprogram(die)
+
+        if die.tag == "DW_TAG_union_type":
+            return self.parse_union_type(die)
+
+        if die.tag == "DW_TAG_enumeration_type":
+            return self.parse_enumeration_type(die)
+
+        if die.tag == "DW_TAG_array_type":
+            return self.parse_array_type(die)
+
+        if die.tag == "DW_TAG_structure_type":
+            return self.parse_structure_type(die)
+
+        if die.tag == "DW_TAG_lexical_block":
+            return self.parse_die(die)
+
+        if die.tag == "DW_TAG_member":
+            return self.parse_member(die)
+
+        if die.tag == "DW_TAG_base_type":
+            return self.parse_base_type(die)
 
         # Legical blocks wrap other things
         if die.tag == "DW_TAG_lexical_block":
-            self.parse_children(die)
+            return self.parse_children(die)
 
     def parse_children(self, die):
         for child in die.iter_children():
             self.parse_die(child)
              
+    def parse_call_site(self, die, parent):
+        """
+        Parse a call site
+        TODO this isn't finished yet
+        """
+        entry = {}
+
+        params = []
+        for child in die.iter_children():
+            if child.tag == "DW_TAG_GNU_call_site_parameter":
+                param = self.parse_call_site_parameter(child)
+                if param:
+                    params.append(param)
+            else:
+                raise Exception("Unknown call site parameter!:\n%s" % child)
+
+        if entry:
+            self.callsites.append(entry)            
+
+    def parse_call_site_parameter(self, die):
+        """
+        Given a callsite parameter, parse the dwarf expression
+        """
+        param = {}
+        loc = self.parse_location(die)
+        if loc:
+            param['location'] = loc
+        if "DW_AT_GNU_call_site_value" in die.attributes:
+            expr_parser = DWARFExprParser(die.dwarfinfo.structs)
+            expr = die.attributes['DW_AT_GNU_call_site_value'].value
+            #print(get_dwarf_from_expr(expr, die.dwarfinfo.structs, cu_offset=die.cu.cu_offset))
+        return param
+
     def parse_subprogram(self, die):
         """
         Add a function (subprogram) parsed from DWARF
@@ -84,18 +143,28 @@ class ElfCorpus(Corpus):
         if "DW_AT_type" in die.attributes:       
             # TODO get register for this
             return_value = self.parse_underlying_type(die)
-            return_value['location'] = describe_reg_name(0)
+            return_value['location'] = "%" + describe_reg_name(0)
   
         params = []
+
+        # Don't add die offsets we've seen before
+        if die.offset in self.seen:
+            return
+        self.seen.add(die.offset)
  
         # Hold previous child for modifiers
         param = None
+
         for child in die.iter_children():
             
             # can either be inlined subroutine or format parameter
             if child.tag == "DW_TAG_formal_parameter":            
-                locs = self.parse_location(child)
-                param = {"name": self.get_name(child), "size": self.get_size(child)}          
+                loc = self.parse_location(child)
+                param = {"name": self.get_name(child), "size": self.get_size(child)} 
+
+                # Only add location if we know it!
+                if loc:
+                    param['location'] = loc
                 param.update(self.parse_underlying_type(child))
 
             elif child.tag == "DW_TAG_inlined_subroutine":
@@ -108,7 +177,7 @@ class ElfCorpus(Corpus):
             elif child.tag == "DW_TAG_unspecified_parameters":
                 continue
 
-            # TODO I don't think this should be a param?
+            # These usually aren't seen outside the CU
             elif child.tag == "DW_TAG_variable":
                 self.parse_variable(child)
 
@@ -125,12 +194,17 @@ class ElfCorpus(Corpus):
                 param = self.parse_array_type(child)
 
             elif child.tag == "DW_TAG_structure_type":
-                print('STRUCTURE')
                 param = self.parse_structure_type(child)
+
+            # Call sites
+            elif child.tag in ["DW_TAG_GNU_call_site", "DW_TAG_call_site"]:
+                param = self.parse_call_site(child, die)            
 
             # TODO is this only external stuff?
             elif child.tag == "DW_TAG_lexical_block":
-                self.parse_die(child)
+                tmp = self.parse_die(child)
+                import IPython
+                IPython.embed()
 
             # Skip these
             elif child.tag in ["DW_TAG_const_type", "DW_TAG_typedef", "DW_TAG_label"]:
@@ -153,16 +227,22 @@ class ElfCorpus(Corpus):
         """
         # The size here includes padding
         entry = {"name": self.get_name(die), "size": self.get_size(die), "class": "Struct"}
-
+        
         # Parse children (members of the union)
         fields = []
         for child in die.iter_children():
-            print(child)
             fields.append(self.parse_member(child))
 
         if fields:
             entry['fields'] = fields
         return entry
+
+    def parse_base_type(self, die):
+        """
+        Parse a base type.
+        """
+        # The size here includes padding
+        return {"type": self.get_name(die), "size": self.get_size(die), "class": "Scalar"}
 
     def parse_union_type(self, die):
         """
@@ -177,13 +257,11 @@ class ElfCorpus(Corpus):
         # Parse children (members of the union)
         fields = []
         for child in die.iter_children():
-            print(child)
             fields.append(self.parse_member(child))
 
         if fields:
             entry['fields'] = fields
         return entry
-
 
     def parse_location(self, die):
         """
@@ -199,12 +277,29 @@ class ElfCorpus(Corpus):
 
              # Attribute itself contains location information
              if isinstance(loc, LocationExpr):
-                 return get_register_from_expr(loc.loc_expr, die.dwarfinfo.structs, die.cu.cu_offset)
+                 loc = get_register_from_expr(loc.loc_expr, die.dwarfinfo.structs, die.cu.cu_offset)
+                 # The first entry is the register
+                 return self.parse_register(loc[0])
 
              # List is reference to .debug_loc section
              elif isinstance(loc, list):
-                 return self.get_loclist(loc, die)
+                 loc = self.get_loclist(loc, die)
+                 return self.parse_register(loc[0][0])
 
+    def parse_register(self, register):
+        """
+        Given the first register entry, remove dwarf
+        """
+        # DW_OP_fbreg is signed LEB128 offset from  the DW_AT_frame_base address of the current function.
+        if "DW_OP_fbreg" in register:
+            return "framebase+" + register.split(':')[-1].strip()
+        # If we have a ( ) this is the register name
+        if re.search(r'\((.*?)\)',register):
+            return "%" + re.sub("(\(|\))", "", re.search(r"\((.*?)\)", register).group(0))
+        # Still need to parse
+        if register == "null":
+            return None
+        return register
 
     def get_loclist(self, loclist, die):
         """
@@ -226,6 +321,7 @@ class ElfCorpus(Corpus):
         """
         entry = {"name": self.get_name(die)}
         underlying_type = self.parse_underlying_type(die)
+
         if underlying_type:
             entry.update(underlying_type)
         return entry
@@ -238,8 +334,8 @@ class ElfCorpus(Corpus):
         entry = {"class": "Array", "name": self.get_name(die)}
 
         # Get the type of the members
-        member_type = self.parse_underlying_type(die)
-        
+        member_type = self.parse_underlying_type(die)       
+
         # TODO we might want to handle order
         # This can be DW_AT_col_order or DW_AT_row_order, and if not present
         # We use the language default
@@ -254,9 +350,7 @@ class ElfCorpus(Corpus):
             member_size = member_type['size']
                 
         # Children are the members of the array
-        entries = []
-        total_size = 0
-        
+        entries = []        
         children = list(die.iter_children())
 
         # Assume we can only have one child either enum or subrange
@@ -273,7 +367,7 @@ class ElfCorpus(Corpus):
                 member = self.parse_enumeration_type(child)
             else:
                 l.warning('Unknown array member tag %s' % child.tag)
-
+            
         entry.update(member)
         entry['size'] = member_size * member['count']
         return entry
@@ -310,6 +404,7 @@ class ElfCorpus(Corpus):
         elif "DW_AT_upper_bound" in die.attributes:
 
             # TODO need to get language in here to derive
+            # TODO: size seems one off.
             # The default lower bound is 0 for C, C++, D, Java, Objective C, Objective C++, Python, and UPC. 
             # The default lower bound is 1 for Ada, COBOL, Fortran, Modula-2, Pascal and PL/I.
             lower_bound = 0
@@ -351,25 +446,54 @@ class ElfCorpus(Corpus):
 
         # Can we get the underlying type?
         type_die = self.type_die_lookup.get(die.attributes["DW_AT_type"].value)
- 
-        # Do we know it?
-        if type_die:
+         
+        # Case 1: It's an array (and type is for elements)
+        if type_die.tag == "DW_TAG_array_type":
+            entry = self.parse_array_type(type_die)
+            array_type = self.parse_underlying_type(type_die)
+            entry.update({"name": self.get_name(die), "class": "Array", "type": array_type['type']})
+            return entry
 
-            # TODO this maybe should just increment indirections if pointer
+        # Otherwise, keep digging
+        elif type_die:
             while "DW_AT_type" in type_die.attributes:
+
+                # Having indirections means we have a pointer somewhere
                 if type_die.tag == "DW_TAG_pointer_type":
                     indirections +=1
                 next_die = self.type_die_lookup.get(type_die.attributes["DW_AT_type"].value)
                 if not next_die:
                     break
                 type_die = next_die
-            entry = {"type": self.get_name(type_die), "size": self.get_size(type_die)}
 
+            # Parse the underlying bits
+            updated = self.parse_die(type_die)
+
+            # Make sure to not replace the class if we already have it
+            if not updated:
+                import IPython
+                IPython.embed()
+            entry.update(updated)
+            
             # Only add non zero indirections
             if indirections != 0:
                 entry['indirections'] = indirections
 
+        # Based on the underlying type, add a class
+        entry['class'] = self.add_class(type_die)
         return entry
+
+    def add_class(self, die):
+        """
+        Given a type, add the class
+        """
+        if die.tag == "DW_TAG_base_type":
+            return "Scalar"
+        if die.tag == "DW_TAG_structure_type":
+            return "Struct"
+        if die.tag == "DW_TAG_array_type":
+            return "Array"
+        return "Unknown"
 
     def get_size(self, die):
         """

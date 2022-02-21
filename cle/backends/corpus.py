@@ -22,6 +22,8 @@ class Corpus:
         locations.append({"variables": self.variables})
         for func in self.functions:
             locations.append({"function": func})
+        for site in self.callsites:
+            locations.append({"callsite": site})
         return {"library": self.library, "locations": locations}
 
     def to_json(self): 

@@ -4,6 +4,15 @@ from elftools.dwarf.descriptions import describe_reg_name
 # Keep a cache of dumpers with lookup based on the struct
 _DWARF_EXPR_DUMPER_CACHE = {}
 
+def get_dwarf_from_expr(expr, structs, cu_offset=None):
+    """
+    Given an expression, 
+    """
+    cache_key = id(structs)
+    if cache_key not in _DWARF_EXPR_DUMPER_CACHE:
+        _DWARF_EXPR_DUMPER_CACHE[cache_key] = RegisterDumper(structs)
+    dwarf_expr_dumper = _DWARF_EXPR_DUMPER_CACHE[cache_key]
+    return dwarf_expr_dumper.dump_register(expr, cu_offset)
 
 def get_register_from_expr(expr, structs, cu_offset=None):
     """
