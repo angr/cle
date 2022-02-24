@@ -522,7 +522,6 @@ class ELF(MetaELF):
         :param dwarf:   The DWARF info object from pyelftools.
         :return:        None
         """
-
         try:
             lsda = LSDAExceptionTable(self._binary_stream, self.arch.bits, self.arch.memory_endness == 'Iend_LE')
             for entry in dwarf.EH_CFI_entries():

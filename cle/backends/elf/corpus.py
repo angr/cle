@@ -26,6 +26,9 @@ class ElfCorpus(Corpus):
         super().__init__(*args, **kwargs)
         self.seen = set()
 
+        # Keep track of ids we have parsed before (underlying types)
+        self.lookup = set()
+
     def parse_variable(self, die):
         """
         Add a global variable parsed from the dwarf.
@@ -56,6 +59,11 @@ class ElfCorpus(Corpus):
         parsing a function will append a function entry, a variable
         a variable entry, and other tags mentioned here drill down to those.
         """
+        # Have we seen it before?
+        if die.offset in self.lookup:
+            return {}
+        self.lookup.add(die.offset)
+
         if die.tag == "DW_TAG_variable":
             return self.parse_variable(die)
         if die.tag == "DW_TAG_subprogram":
@@ -93,12 +101,17 @@ class ElfCorpus(Corpus):
     def parse_call_site(self, die, parent):
         """
         Parse a call site
-        TODO this isn't finished yet
         """
         entry = {}
 
+        # The abstract origin points to the function
+        if "DW_AT_abstract_origin" in die.attributes:
+            origin = self.type_die_lookup.get(die.attributes['DW_AT_abstract_origin'].value)
+            entry.update({"name": self.get_name(origin)})
+
         params = []
         for child in die.iter_children():
+            # TODO need better param parsing
             if child.tag == "DW_TAG_GNU_call_site_parameter":
                 param = self.parse_call_site_parameter(child)
                 if param:
@@ -106,7 +119,8 @@ class ElfCorpus(Corpus):
             else:
                 raise Exception("Unknown call site parameter!:\n%s" % child)
 
-        if entry:
+        if entry and params:
+            entry['params'] = params
             self.callsites.append(entry)            
 
     def parse_call_site_parameter(self, die):
@@ -321,7 +335,6 @@ class ElfCorpus(Corpus):
         """
         entry = {"name": self.get_name(die)}
         underlying_type = self.parse_underlying_type(die)
-
         if underlying_type:
             entry.update(underlying_type)
         return entry
@@ -467,13 +480,10 @@ class ElfCorpus(Corpus):
                 type_die = next_die
 
             # Parse the underlying bits
-            updated = self.parse_die(type_die)
-
-            # Make sure to not replace the class if we already have it
-            if not updated:
-                import IPython
-                IPython.embed()
-            entry.update(updated)
+            # TODO need to sometimes parse deeper but not go recursive...
+            entry = {"type": self.get_name(type_die), "size": self.get_size(type_die)}
+            #updated = self.parse_die(type_die)
+            #entry.update(updated)
             
             # Only add non zero indirections
             if indirections != 0:
