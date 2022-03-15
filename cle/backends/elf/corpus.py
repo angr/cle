@@ -1,7 +1,7 @@
 from elftools.common.py3compat import bytes2str
 from elftools.dwarf.descriptions import describe_form_class, describe_reg_name
 from elftools.dwarf.locationlists import LocationEntry, LocationExpr
-from elftools.dwarf.dwarf_expr import DWARFExprParser
+from elftools.dwarf.dwarf_expr import DWARFExprParser, DW_OP_name2opcode
 
 from .location import get_register_from_expr, get_dwarf_from_expr
 from .variable_type import VariableType
@@ -215,10 +215,8 @@ class ElfCorpus(Corpus):
                 param = self.parse_call_site(child, die)            
 
             # TODO is this only external stuff?
-            elif child.tag == "DW_TAG_lexical_block":
-                tmp = self.parse_die(child)
-                import IPython
-                IPython.embed()
+            elif child.tag == "DW_TAG_lexical_block": 
+                self.parse_lexical_block(child)
 
             # Skip these
             elif child.tag in ["DW_TAG_const_type", "DW_TAG_typedef", "DW_TAG_label"]:
@@ -235,6 +233,20 @@ class ElfCorpus(Corpus):
         self.functions.append(entry)
 
     # TAGs to parse
+    def parse_lexical_block(self, die, code=None):
+        """
+        Lexical blocks typically have variable children?
+        """
+        for child in die.iter_children():
+            if child.tag == "DW_TAG_variable":
+                self.parse_variable(child)
+
+            # We found a loop
+            elif child.tag == "DW_AT_lexical_block":
+                if code == die.abbrev_code:
+                    return
+                return self.parse_lexical_block(die)
+        
     def parse_structure_type(self, die):
         """
         Parse a structure type.
@@ -306,7 +318,7 @@ class ElfCorpus(Corpus):
         """
         # DW_OP_fbreg is signed LEB128 offset from  the DW_AT_frame_base address of the current function.
         if "DW_OP_fbreg" in register:
-            return "framebase+" + register.split(':')[-1].strip()
+            return "framebase" + register.split(':')[-1].strip()
         # If we have a ( ) this is the register name
         if re.search(r'\((.*?)\)',register):
             return "%" + re.sub("(\(|\))", "", re.search(r"\((.*?)\)", register).group(0))
@@ -357,19 +369,14 @@ class ElfCorpus(Corpus):
 
         # Case 1: the each member of the array uses a non-traditional storage
         member_size = self._find_nontraditional_size(die)
-
-        # Case 2: we multiple number of members by each member size!
-        if not member_size:
-            member_size = member_type['size']
                 
         # Children are the members of the array
         entries = []        
         children = list(die.iter_children())
 
-        # Assume we can only have one child either enum or subrange
-        if len(children) != 1:
-            raise Exception("DW_AT_array too many children: %s\n" % children)
-
+        size = 0
+        total_size = 0
+        total_count = 0
         for child in children:
             member = None
 
@@ -380,9 +387,18 @@ class ElfCorpus(Corpus):
                 member = self.parse_enumeration_type(child)
             else:
                 l.warning('Unknown array member tag %s' % child.tag)
-            
-        entry.update(member)
-        entry['size'] = member_size * member['count']
+
+            if not member:
+                continue
+
+            count = member.get('count', 0)
+            size = member.get('size') or member_size
+            if count != "unknown" and size:
+                total_size += (count * size)
+            entries.append(member)
+
+        entry['size'] = total_size
+        entry['count'] = total_count
         return entry
 
     def parse_enumeration_type(self, die):
@@ -456,12 +472,18 @@ class ElfCorpus(Corpus):
         entry = {}
         if "DW_AT_type" not in die.attributes:
             return entry
-
+        
         # Can we get the underlying type?
         type_die = self.type_die_lookup.get(die.attributes["DW_AT_type"].value)
-         
+
+        #if not type_die and die.tag == "DW_TAG_formal_parameter":
+ 
+        # TODO need another function to parse types but not call get_underlying_type?
+        if not type_die:
+            return {"type": "unknown"}
+
         # Case 1: It's an array (and type is for elements)
-        if type_die.tag == "DW_TAG_array_type":
+        if type_die and type_die.tag == "DW_TAG_array_type":
             entry = self.parse_array_type(type_die)
             array_type = self.parse_underlying_type(type_die)
             entry.update({"name": self.get_name(die), "class": "Array", "type": array_type['type']})

@@ -59,6 +59,7 @@ class ELF(MetaELF):
     def __init__(self, *args, addend=None, debug_symbols=None, **kwargs):
         super().__init__(*args, **kwargs)
         patch_undo = []
+        print(self.binary)
         try:
             self._reader = elffile.ELFFile(self._binary_stream)
             list(self._reader.iter_sections())
@@ -642,14 +643,20 @@ class ELF(MetaELF):
         self._prepare_location_parser(dwarf)
         self.corpus.loc_parser = self.loc_parser
 
+        # Parse all dies recursively
+        def parse_die_types(die):
+            type_die_lookup[die.offset] = die
+            for child in die.iter_children():
+                parse_die_types(child)
+            
         for cu in dwarf.iter_CUs():
             expr_parser = DWARFExprParser(cu.structs)
 
             # scan the whole die tree for DW_TAG_base_type and DW_TAG_typedef
-            for die in cu.iter_DIEs():
+            for die in cu.iter_DIEs():                
                 if die.tag == "DW_TAG_base_type":
                     type_list[die.offset] = VariableType.read_from_die(die)
-                type_die_lookup[die.offset] = die
+                parse_die_types(die)
 
             # Provide type information to the corpus
             self.corpus.type_die_lookup = type_die_lookup
