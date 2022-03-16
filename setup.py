@@ -2,7 +2,9 @@ from setuptools import setup, find_packages
 
 setup(
     name='cle',
-    description='CLE Loads Everything (at least, many binary formats!) and provides a pythonic interface to analyze what they are and what they would look like in memory.',
+    description='CLE Loads Everything (at least, many binary formats!) and '
+        'provides a pythonic interface to analyze what they are and what they '
+        'would look like in memory.',
     version='9.1.gitrolling',
     python_requires='>=3.6',
     packages=find_packages(),
