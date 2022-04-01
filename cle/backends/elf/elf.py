@@ -626,7 +626,9 @@ class ELF(MetaELF):
             # scan the whole die tree for DW_TAG_base_type
             for die in cu.iter_DIEs():
                 if die.tag == "DW_TAG_base_type":
-                    type_list[die.offset] = VariableType.read_from_die(die)
+                    var_type = VariableType.read_from_die(die)
+                    if var_type is not None:
+                        type_list[die.offset] = var_type
 
             top_die = cu.get_top_DIE()
 

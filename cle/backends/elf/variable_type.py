@@ -11,7 +11,11 @@ class VariableType:
 
     @staticmethod
     def read_from_die(die: DIE):
+        dw_at_name = die.attributes.get("DW_AT_name", None)
+        byte_size = die.attributes.get("DW_AT_byte_size", None)
+        if byte_size is None:
+            return None
         return VariableType(
-            name = die.attributes["DW_AT_name"].value.decode(),
-            byte_size = die.attributes["DW_AT_byte_size"].value
+            name = dw_at_name.value.decode() if dw_at_name is not None else "unknown",
+            byte_size = byte_size.value
         )
