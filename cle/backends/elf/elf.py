@@ -6,7 +6,7 @@ from collections import OrderedDict, defaultdict
 from sortedcontainers import SortedDict
 
 import elftools
-from elftools.elf import elffile, sections
+from elftools.elf import elffile, sections, dynamic
 from elftools.dwarf import callframe
 from elftools.common.exceptions import ELFError, DWARFError
 from elftools.dwarf.dwarf_expr import DWARFExprParser
@@ -758,6 +758,22 @@ class ELF(MetaELF):
         """
         Parse the dynamic section for dynamically linked objects.
         """
+        # PATHOLOGICAL CASE
+        # some elf files have a dyn with filesz = 0 but actually do contain content. this is valid. apparently.
+        # this is a hack. there is certainly a better way to do this
+        # ref (for fish and audrey's eyes only) https://shellphish.slack.com/archives/D08QXM76Y/p1649197435856279
+        if seg_readelf.header.p_filesz == 0 and seg_readelf.header.p_memsz != 0:
+            seg_readelf.header.p_filesz = seg_readelf.header.p_memsz
+            seg_readelf.header.p_offset = AT.from_lva(seg_readelf.header.p_vaddr, self).to_rva()
+            dynamic.Dynamic.__init__(
+                seg_readelf,
+                self.memory,  # YIKES
+                seg_readelf.elffile,
+                seg_readelf._stringtable,
+                seg_readelf.header.p_offset,
+                False
+            )
+
         runpath, rpath = "", ""
         for tag in seg_readelf.iter_tags():
             # Create a dictionary, self._dynamic, mapping DT_* strings to their values
