@@ -4,6 +4,8 @@ import os
 import cle
 import nose
 import logging
+import struct
+import pyvex
 
 
 def setup():
@@ -23,11 +25,12 @@ def setup():
     return l, relocations, ppc_backend
 
 
-def test_ppc_rel24_relocation(l, relocations, ppc_backend):
+def test_ppc_rel24_relocation():
     """
     Test R_PPC_REL24 relocations on a PowerPC object file.
     :return:
     """
+    l, relocations, ppc_backend = setup()
 
     # Verify that a faulty branch-and-link instruction operates correctly.
     # Expected bytes: 4b ff ff 05
@@ -43,17 +46,19 @@ def test_ppc_rel24_relocation(l, relocations, ppc_backend):
     for r in relocations:
         if r.symbol.name == "_Znwj" and r.__class__ == ppc_backend.R_PPC_REL24:
             found_symbol = True
-            nose.tools.assert_equal(r.value, 1220440101)
+            irsb = pyvex.lift(struct.pack('>I', r.value), r.rebased_addr, r.arch)
+            nose.tools.assert_equal(irsb.constant_jump_targets, {r.symbol.resolvedby.rebased_addr})
             break
 
     nose.tools.assert_equal(found_symbol, True)
 
 
-def test_ppc_addr16_ha_relocation(relocations, ppc_backend):
+def test_ppc_addr16_ha_relocation():
     """
     Test R_PPC_ADDR16_HA relocations on a PowerPC object file.
     :return:
     """
+    _, relocations, ppc_backend = setup()
 
     # Verify relocated symbol exists in addition to its calculated value.
     found_symbol = False
@@ -67,11 +72,12 @@ def test_ppc_addr16_ha_relocation(relocations, ppc_backend):
     nose.tools.assert_equal(found_symbol, True)
 
 
-def test_ppc_addr16_lo_relocation(relocations, ppc_backend):
+def test_ppc_addr16_lo_relocation():
     """
     Test R_PPC_ADDR16_LO relocations on a PowerPC object file.
     :return:
     """
+    _, relocations, ppc_backend = setup()
 
     # Verify relocated symbol exists in addition to its calculated value.
     found_symbol = False
@@ -86,9 +92,6 @@ def test_ppc_addr16_lo_relocation(relocations, ppc_backend):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    ld, relocs, backend = setup()
-
-    test_ppc_rel24_relocation(ld, relocs, backend)
-    test_ppc_addr16_ha_relocation(relocs, backend)
-    test_ppc_addr16_lo_relocation(relocs, backend)
+    test_ppc_rel24_relocation()
+    test_ppc_addr16_ha_relocation()
+    test_ppc_addr16_lo_relocation()
