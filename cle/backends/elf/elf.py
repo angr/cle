@@ -469,7 +469,7 @@ class ELF(MetaELF):
             l.warning("Segment %s is empty at %#08x!", seg.header.p_type, mapstart)
             return
 
-        self.memory.add_backer(AT.from_lva(mapstart, self).to_rva(), data)
+        self.memory.add_backer(AT.from_lva(mapstart, self).to_rva(), data, overwrite=True)
 
     def _make_reloc(self, readelf_reloc, symbol, dest_section=None):
         addend = readelf_reloc.entry.r_addend if readelf_reloc.is_RELA() else None
@@ -1089,9 +1089,9 @@ class ELF(MetaELF):
             if section.occupies_memory:      # alloc flag - stick in memory maybe!
                 if AT.from_lva(section.vaddr, self).to_rva() not in self.memory:        # only allocate if not already allocated (i.e. by program header)
                     if section.type == 'SHT_NOBITS':
-                        self.memory.add_backer(AT.from_lva(section.vaddr, self).to_rva(), b'\0'*sec_readelf.header['sh_size'])
+                        self.memory.add_backer(AT.from_lva(section.vaddr, self).to_rva(), b'\0'*sec_readelf.header['sh_size'], overwrite=True)
                     else: #elif section.type == 'SHT_PROGBITS':
-                        self.memory.add_backer(AT.from_lva(section.vaddr, self).to_rva(), sec_readelf.data())
+                        self.memory.add_backer(AT.from_lva(section.vaddr, self).to_rva(), sec_readelf.data(), overwrite=True)
 
             if sec_readelf.header.sh_type == 'SHT_NOTE':
                 self.__register_notes(sec_readelf)
