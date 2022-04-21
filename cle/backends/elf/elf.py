@@ -469,7 +469,7 @@ class ELF(MetaELF):
             l.warning("Segment %s is empty at %#08x!", seg.header.p_type, mapstart)
             return
 
-        self.memory.add_backer(AT.from_lva(mapstart, self).to_rva(), data)
+        self.memory.add_backer(AT.from_lva(mapstart, self).to_rva(), data, overwrite=True)
 
     def _make_reloc(self, readelf_reloc, symbol, dest_section=None):
         addend = readelf_reloc.entry.r_addend if readelf_reloc.is_RELA() else None
@@ -801,96 +801,96 @@ class ELF(MetaELF):
         # TODO: pyelftools is less bad than it used to be. how much of this can go away?
         # None of the following things make sense without a string table or a symbol table
         if 'DT_STRTAB' in self._dynamic and 'DT_SYMTAB' in self._dynamic and 'DT_SYMENT' in self._dynamic:
-                # Construct our own symbol table to hack around pyreadelf assuming section headers are around
-                fakesymtabheader = {
-                    'sh_offset': AT.from_lva(self._dynamic['DT_SYMTAB'], self).to_rva(),
-                    'sh_entsize': self._dynamic['DT_SYMENT'],
-                    'sh_size': 0, # bogus size: no iteration allowed
+            # Construct our own symbol table to hack around pyreadelf assuming section headers are around
+            fakesymtabheader = {
+                'sh_offset': AT.from_lva(self._dynamic['DT_SYMTAB'], self).to_rva(),
+                'sh_entsize': self._dynamic['DT_SYMENT'],
+                'sh_size': 0, # bogus size: no iteration allowed
+                'sh_flags': 0,
+                'sh_addralign': 0,
+            }
+            dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self._reader, strtab)
+            dynsym.stream = self.memory
+            dynsym.elffile = None
+
+            # set up the hash table, preferring the gnu hash section to the old hash section
+            # the hash table lets you get any symbol given its name
+            if 'DT_GNU_HASH' in self._dynamic:
+                self.hashtable = GNUHashTable(
+                    dynsym, self.memory, AT.from_lva(self._dynamic['DT_GNU_HASH'], self).to_rva(), self.arch)
+            elif 'DT_HASH' in self._dynamic:
+                self.hashtable = ELFHashTable(
+                    dynsym, self.memory, AT.from_lva(self._dynamic['DT_HASH'], self).to_rva(), self.arch)
+            else:
+                l.warning("No hash table available in %s", self.binary)
+
+            # mips' relocations are absolutely screwed up, handle some of them here.
+            self.__relocate_mips(dynsym)
+
+            # perform a lot of checks to figure out what kind of relocation tables are around
+            self.rela_type = None
+            if 'DT_PLTREL' in self._dynamic:
+                if self._dynamic['DT_PLTREL'] == 7:
+                    self.rela_type = 'RELA'
+                    relentsz = self._reader.structs.Elf_Rela.sizeof()
+                elif self._dynamic['DT_PLTREL'] == 17:
+                    self.rela_type = 'REL'
+                    relentsz = self._reader.structs.Elf_Rel.sizeof()
+                else:
+                    raise CLEInvalidBinaryError('DT_PLTREL is not REL or RELA?')
+            else:
+                if 'DT_RELA' in self._dynamic:
+                    self.rela_type = 'RELA'
+                    relentsz = self._reader.structs.Elf_Rela.sizeof()
+                elif 'DT_REL' in self._dynamic:
+                    self.rela_type = 'REL'
+                    relentsz = self._reader.structs.Elf_Rel.sizeof()
+                else:
+                    return
+
+            # try to parse relocations out of a table of type DT_REL{,A}
+            rela_tag = 'DT_' + self.rela_type
+            relsz_tag = rela_tag + 'SZ'
+            if rela_tag in self._dynamic:
+                reloffset = AT.from_lva(self._dynamic[rela_tag], self).to_rva()
+                if relsz_tag not in self._dynamic:
+                    raise CLEInvalidBinaryError('Dynamic section contains %s but not %s' % (rela_tag, relsz_tag))
+                relsz = self._dynamic[relsz_tag]
+                fakerelheader = {
+                    'sh_offset': reloffset,
+                    'sh_type': 'SHT_' + self.rela_type,
+                    'sh_entsize': relentsz,
+                    'sh_size': relsz,
                     'sh_flags': 0,
                     'sh_addralign': 0,
                 }
-                dynsym = elffile.SymbolTableSection(fakesymtabheader, 'symtab_cle', self._reader, strtab)
-                dynsym.stream = self.memory
-                dynsym.elffile = None
+                readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self._reader)
+                # support multiple versions of pyelftools
+                readelf_relocsec.stream = self.memory
+                readelf_relocsec._stream = self.memory
+                readelf_relocsec.elffile = None
+                self.__register_relocs(readelf_relocsec, dynsym)
 
-                # set up the hash table, preferring the gnu hash section to the old hash section
-                # the hash table lets you get any symbol given its name
-                if 'DT_GNU_HASH' in self._dynamic:
-                    self.hashtable = GNUHashTable(
-                        dynsym, self.memory, AT.from_lva(self._dynamic['DT_GNU_HASH'], self).to_rva(), self.arch)
-                elif 'DT_HASH' in self._dynamic:
-                    self.hashtable = ELFHashTable(
-                        dynsym, self.memory, AT.from_lva(self._dynamic['DT_HASH'], self).to_rva(), self.arch)
-                else:
-                    l.warning("No hash table available in %s", self.binary)
-
-                # mips' relocations are absolutely screwed up, handle some of them here.
-                self.__relocate_mips(dynsym)
-
-                # perform a lot of checks to figure out what kind of relocation tables are around
-                self.rela_type = None
-                if 'DT_PLTREL' in self._dynamic:
-                    if self._dynamic['DT_PLTREL'] == 7:
-                        self.rela_type = 'RELA'
-                        relentsz = self._reader.structs.Elf_Rela.sizeof()
-                    elif self._dynamic['DT_PLTREL'] == 17:
-                        self.rela_type = 'REL'
-                        relentsz = self._reader.structs.Elf_Rel.sizeof()
-                    else:
-                        raise CLEInvalidBinaryError('DT_PLTREL is not REL or RELA?')
-                else:
-                    if 'DT_RELA' in self._dynamic:
-                        self.rela_type = 'RELA'
-                        relentsz = self._reader.structs.Elf_Rela.sizeof()
-                    elif 'DT_REL' in self._dynamic:
-                        self.rela_type = 'REL'
-                        relentsz = self._reader.structs.Elf_Rel.sizeof()
-                    else:
-                        return
-
-                # try to parse relocations out of a table of type DT_REL{,A}
-                rela_tag = 'DT_' + self.rela_type
-                relsz_tag = rela_tag + 'SZ'
-                if rela_tag in self._dynamic:
-                    reloffset = AT.from_lva(self._dynamic[rela_tag], self).to_rva()
-                    if relsz_tag not in self._dynamic:
-                        raise CLEInvalidBinaryError('Dynamic section contains %s but not %s' % (rela_tag, relsz_tag))
-                    relsz = self._dynamic[relsz_tag]
-                    fakerelheader = {
-                        'sh_offset': reloffset,
-                        'sh_type': 'SHT_' + self.rela_type,
-                        'sh_entsize': relentsz,
-                        'sh_size': relsz,
-                        'sh_flags': 0,
-                        'sh_addralign': 0,
-                    }
-                    readelf_relocsec = elffile.RelocationSection(fakerelheader, 'reloc_cle', self._reader)
-                    # support multiple versions of pyelftools
-                    readelf_relocsec.stream = self.memory
-                    readelf_relocsec._stream = self.memory
-                    readelf_relocsec.elffile = None
-                    self.__register_relocs(readelf_relocsec, dynsym)
-
-                # try to parse relocations out of a table of type DT_JMPREL
-                if 'DT_JMPREL' in self._dynamic:
-                    jmpreloffset = AT.from_lva(self._dynamic['DT_JMPREL'], self).to_rva()
-                    if 'DT_PLTRELSZ' not in self._dynamic:
-                        raise CLEInvalidBinaryError('Dynamic section contains DT_JMPREL but not DT_PLTRELSZ')
-                    jmprelsz = self._dynamic['DT_PLTRELSZ']
-                    fakejmprelheader = {
-                        'sh_offset': jmpreloffset,
-                        'sh_type': 'SHT_' + self.rela_type,
-                        'sh_entsize': relentsz,
-                        'sh_size': jmprelsz,
-                        'sh_flags': 0,
-                        'sh_addralign': 0,
-                    }
-                    readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self._reader)
-                    # support multiple versions of pyelftools
-                    readelf_jmprelsec.stream = self.memory
-                    readelf_jmprelsec._stream = self.memory
-                    readelf_jmprelsec.elffile = None
-                    self.__register_relocs(readelf_jmprelsec, dynsym, force_jmprel=True)
+            # try to parse relocations out of a table of type DT_JMPREL
+            if 'DT_JMPREL' in self._dynamic:
+                jmpreloffset = AT.from_lva(self._dynamic['DT_JMPREL'], self).to_rva()
+                if 'DT_PLTRELSZ' not in self._dynamic:
+                    raise CLEInvalidBinaryError('Dynamic section contains DT_JMPREL but not DT_PLTRELSZ')
+                jmprelsz = self._dynamic['DT_PLTRELSZ']
+                fakejmprelheader = {
+                    'sh_offset': jmpreloffset,
+                    'sh_type': 'SHT_' + self.rela_type,
+                    'sh_entsize': relentsz,
+                    'sh_size': jmprelsz,
+                    'sh_flags': 0,
+                    'sh_addralign': 0,
+                }
+                readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, 'jmprel_cle', self._reader)
+                # support multiple versions of pyelftools
+                readelf_jmprelsec.stream = self.memory
+                readelf_jmprelsec._stream = self.memory
+                readelf_jmprelsec.elffile = None
+                self.__register_relocs(readelf_jmprelsec, dynsym, force_jmprel=True)
 
     def __parse_rpath(self, runpath, rpath):
         """
@@ -1089,9 +1089,9 @@ class ELF(MetaELF):
             if section.occupies_memory:      # alloc flag - stick in memory maybe!
                 if AT.from_lva(section.vaddr, self).to_rva() not in self.memory:        # only allocate if not already allocated (i.e. by program header)
                     if section.type == 'SHT_NOBITS':
-                        self.memory.add_backer(AT.from_lva(section.vaddr, self).to_rva(), b'\0'*sec_readelf.header['sh_size'])
+                        self.memory.add_backer(AT.from_lva(section.vaddr, self).to_rva(), b'\0'*sec_readelf.header['sh_size'], overwrite=True)
                     else: #elif section.type == 'SHT_PROGBITS':
-                        self.memory.add_backer(AT.from_lva(section.vaddr, self).to_rva(), sec_readelf.data())
+                        self.memory.add_backer(AT.from_lva(section.vaddr, self).to_rva(), sec_readelf.data(), overwrite=True)
 
             if sec_readelf.header.sh_type == 'SHT_NOTE':
                 self.__register_notes(sec_readelf)
