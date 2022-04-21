@@ -290,22 +290,13 @@ class ELF(MetaELF):
     def initializers(self):
         if not self._inits_extracted: self._extract_init_fini()
         out = []
-        run_init_array = True
 
         if self.is_main_bin:
             # Preinitializers are ignored in shared objects.
             out.extend(self._preinit_arr)
-            # The init func and the init array in the dynamic section are only run by the dynamic loader in shared objects.
-            # In the main binary they are run by libc_csu_init.
-            run_init_array = False
-            # NEW as of glibc 2.34:
-            # init_array and friends actually ARE run by the dynamic loader now. we have to detect this somehow...
-            # TODO this will put them in the wrong order! they need to go at the end of the global initializers list!
-            lsm = self.get_symbol('__libc_start_main')
-            if lsm is not None and lsm.version == 'GLIBC_2.34':
-                run_init_array = True
-
-        if run_init_array:
+        else:
+            # The init func and the init array in the dynamic section are only run by the dynamic loader in shared
+            # objects. In the main binary they are run by libc_csu_init (or libc_start_main in newer glibc)
             if self._init_func is not None:
                 out.append(self._init_func)
             out.extend(self._init_arr)
@@ -320,8 +311,10 @@ class ELF(MetaELF):
         if not self._inits_extracted: self._extract_init_fini()
         out = []
         if self._fini_func is not None:
-            out.append(AT.from_lva(self._fini_func, self).to_mva())
-        out.extend(map(lambda x: AT.from_lva(x, self).to_mva(), self._fini_arr))
+            out.append(self._fini_func)
+        out.extend(self._fini_arr)
+        for i, x in enumerate(out):
+            out[i] = AT.from_lva(x, self).to_mva()
         return out
 
     @property
@@ -420,11 +413,14 @@ class ELF(MetaELF):
 
     def _extract_init_fini(self):
         # Extract the initializers and finalizers
+        # the arrays are actually mvas because they are in memory and thus relocated. turn them into lvas.
         if 'DT_PREINIT_ARRAY' in self._dynamic and 'DT_PREINIT_ARRAYSZ' in self._dynamic:
             arr_start = AT.from_lva(self._dynamic['DT_PREINIT_ARRAY'], self).to_rva()
             arr_end = arr_start + self._dynamic['DT_PREINIT_ARRAYSZ']
             arr_entsize = self.arch.bytes
             self._preinit_arr = list(map(self.memory.unpack_word, range(arr_start, arr_end, arr_entsize)))
+            for i, x in enumerate(self._preinit_arr):
+                self._preinit_arr[i] = AT.from_mva(x, self).to_lva()
         if 'DT_INIT' in self._dynamic:
             self._init_func = self._dynamic['DT_INIT']
         if 'DT_INIT_ARRAY' in self._dynamic and 'DT_INIT_ARRAYSZ' in self._dynamic:
@@ -432,6 +428,8 @@ class ELF(MetaELF):
             arr_end = arr_start + self._dynamic['DT_INIT_ARRAYSZ']
             arr_entsize = self.arch.bytes
             self._init_arr = list(map(self.memory.unpack_word, range(arr_start, arr_end, arr_entsize)))
+        for i, x in enumerate(self._init_arr):
+            self._init_arr[i] = AT.from_mva(x, self).to_lva()
         if 'DT_FINI' in self._dynamic:
             self._fini_func = self._dynamic['DT_FINI']
         if 'DT_FINI_ARRAY' in self._dynamic and 'DT_FINI_ARRAYSZ' in self._dynamic:
@@ -439,6 +437,8 @@ class ELF(MetaELF):
             arr_end = arr_start + self._dynamic['DT_FINI_ARRAYSZ']
             arr_entsize = self.arch.bytes
             self._fini_arr = list(map(self.memory.unpack_word, range(arr_start, arr_end, arr_entsize)))
+            for i, x in enumerate(self._fini_arr):
+                self._fini_arr[i] = AT.from_mva(x, self).to_lva()
         self._inits_extracted = True
 
     def _load_segment(self, seg):
