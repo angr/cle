@@ -6,7 +6,7 @@ from collections import OrderedDict, defaultdict
 from sortedcontainers import SortedDict
 
 import elftools
-from elftools.elf import elffile, sections, dynamic
+from elftools.elf import elffile, sections, dynamic, enums
 from elftools.dwarf import callframe
 from elftools.common.exceptions import ELFError, DWARFError
 from elftools.dwarf.dwarf_expr import DWARFExprParser
@@ -95,45 +95,46 @@ class ELF(MetaELF):
 
         self._addend = addend
 
-        self.hashtable = None
-
-        self._dynamic = {}
-        self.deps = []
-        self.rela_type = None
-
+        # initializers and finalizers
         self._inits_extracted = False
         self._preinit_arr = []
         self._init_func = None
         self._init_arr = []
         self._fini_func = None
         self._fini_arr = []
+
+        # symbols
         self._nullsymbol = Symbol(self, '', 0, 0, SymbolType.TYPE_NONE)
         self._nullsymbol.is_static = True
-
         self._symbol_cache = {}
         self._symbols_by_name = {}
         self._desperate_for_symbols = False
         self.imports = {}
         self.resolved_imports = []
-        self.tls_block_offset = None  # this is an ELF-only attribute
+        self.hashtable = None
+        self._versions = {0: '*local*', 1: '*global*'}
+        self._vertable = None
 
+        # relocations
         self.relocs = []
         self.jmprel = OrderedDict()
+        self.rela_type = None
+        self.__parsed_reloc_tables = set()
 
-        #
         # DWARF data
-        #
         self.has_dwarf_info = bool(self._reader.has_dwarf_info())
         self.build_id = None
         self.addr_to_line = SortedDict()
         self.variables: Optional[List[Variable]] = None
         self.compilation_units: Optional[List[CompilationUnit]] = None
 
+        # misc
         self._entry = self._reader.header.e_entry
         self.is_relocatable = self._reader.header.e_type == 'ET_REL'
         self.pic = self.pic or self._reader.header.e_type in ('ET_REL', 'ET_DYN')
-
-        self.__parsed_reloc_tables = set()
+        self.tls_block_offset = None  # this is an ELF-only attribute
+        self._dynamic = {}
+        self.deps = []
 
         # The linked image base should be evaluated before registering any segment or section due to
         # the fact that elffile, used by those methods, is working only with un-based virtual addresses, but Clemories
@@ -289,15 +290,29 @@ class ELF(MetaELF):
     def initializers(self):
         if not self._inits_extracted: self._extract_init_fini()
         out = []
+        run_init_array = True
+
         if self.is_main_bin:
             # Preinitializers are ignored in shared objects.
             out.extend(self._preinit_arr)
-        else:
             # The init func and the init array in the dynamic section are only run by the dynamic loader in shared objects.
             # In the main binary they are run by libc_csu_init.
+            run_init_array = False
+            # NEW as of glibc 2.34:
+            # init_array and friends actually ARE run by the dynamic loader now. we have to detect this somehow...
+            # TODO this will put them in the wrong order! they need to go at the end of the global initializers list!
+            lsm = self.get_symbol('__libc_start_main')
+            if lsm is not None and lsm.version == 'GLIBC_2.34':
+                run_init_array = True
+
+        if run_init_array:
             if self._init_func is not None:
-                out.append(AT.from_lva(self._init_func, self).to_mva())
+                out.append(self._init_func)
             out.extend(self._init_arr)
+
+        for i, x in enumerate(out):
+            out[i] = AT.from_lva(x, self).to_mva()
+
         return out
 
     @property
@@ -319,6 +334,7 @@ class ELF(MetaELF):
 
         :param symid: Either an index into .dynsym or the name of a symbol.
         """
+        version = None
         if type(symid) is int:
             if symid == 0:
                 # special case the null symbol, this is important for static binaries
@@ -334,10 +350,8 @@ class ELF(MetaELF):
             cached = self._symbol_cache.get(cache_key, None)
             if cached is not None:
                 return cached
-            symbol = ELFSymbol(self, re_sym)
-            self._symbol_cache[cache_key] = symbol
-            self._cache_symbol_name(symbol)
-            return symbol
+            if self.hashtable is not None and symbol_table is self.hashtable.symtab and self._vertable is not None:
+                version = self._vertable.get_symbol(symid).entry.ndx
         elif type(symid) is str:
             if not symid:
                 l.warning("Trying to resolve a symbol by its empty name")
@@ -347,24 +361,28 @@ class ELF(MetaELF):
                 return cached
             if self.hashtable is None:
                 return None
-            re_sym = self.hashtable.get(symid)
+            idx, re_sym = self.hashtable.get(symid)
             if re_sym is None:
                 return None
-            symbol = ELFSymbol(self, re_sym)
-            self._symbol_cache[self._symbol_to_tuple(re_sym)] = symbol
-            self._cache_symbol_name(symbol)
-            return symbol
+            cache_key = self._symbol_to_tuple(re_sym)
+            if self._vertable is not None:
+                version = self._vertable.get_symbol(idx).entry.ndx
         elif isinstance(symid, sections.Symbol):
             cache_key = self._symbol_to_tuple(symid)
             cached = self._symbol_cache.get(cache_key, None)
             if cached is not None:
                 return cached
-            symbol = ELFSymbol(self, symid)
-            self._symbol_cache[cache_key] = symbol
-            self._cache_symbol_name(symbol)
-            return symbol
+            re_sym = symid
         else:
             raise CLEError("Bad symbol identifier: %r" % (symid,))
+
+        symbol = ELFSymbol(self, re_sym)
+        if version is not None and self._versions is not None:
+            version = enums.ENUM_VERSYM.get(version, version) & 0x7fff
+            symbol.version = self._versions[version]
+        self._symbol_cache[cache_key] = symbol
+        self._cache_symbol_name(symbol)
+        return symbol
 
     def rebase(self, new_base):
         delta = new_base - self.linked_base
@@ -408,14 +426,14 @@ class ELF(MetaELF):
             arr_entsize = self.arch.bytes
             self._preinit_arr = list(map(self.memory.unpack_word, range(arr_start, arr_end, arr_entsize)))
         if 'DT_INIT' in self._dynamic:
-            self._init_func = AT.from_lva(self._dynamic['DT_INIT'], self).to_rva()
+            self._init_func = self._dynamic['DT_INIT']
         if 'DT_INIT_ARRAY' in self._dynamic and 'DT_INIT_ARRAYSZ' in self._dynamic:
             arr_start = AT.from_lva(self._dynamic['DT_INIT_ARRAY'], self).to_rva()
             arr_end = arr_start + self._dynamic['DT_INIT_ARRAYSZ']
             arr_entsize = self.arch.bytes
             self._init_arr = list(map(self.memory.unpack_word, range(arr_start, arr_end, arr_entsize)))
         if 'DT_FINI' in self._dynamic:
-            self._fini_func = AT.from_lva(self._dynamic['DT_FINI'], self).to_rva()
+            self._fini_func = self._dynamic['DT_FINI']
         if 'DT_FINI_ARRAY' in self._dynamic and 'DT_FINI_ARRAYSZ' in self._dynamic:
             arr_start = AT.from_lva(self._dynamic['DT_FINI_ARRAY'], self).to_rva()
             arr_end = arr_start + self._dynamic['DT_FINI_ARRAYSZ']
@@ -801,11 +819,14 @@ class ELF(MetaELF):
         # TODO: pyelftools is less bad than it used to be. how much of this can go away?
         # None of the following things make sense without a string table or a symbol table
         if 'DT_STRTAB' in self._dynamic and 'DT_SYMTAB' in self._dynamic and 'DT_SYMENT' in self._dynamic:
+            num_symbols = seg_readelf.num_symbols()  # this is not actually reliable
+
             # Construct our own symbol table to hack around pyreadelf assuming section headers are around
+            entsize = self._dynamic['DT_SYMENT']
             fakesymtabheader = {
                 'sh_offset': AT.from_lva(self._dynamic['DT_SYMTAB'], self).to_rva(),
-                'sh_entsize': self._dynamic['DT_SYMENT'],
-                'sh_size': 0, # bogus size: no iteration allowed
+                'sh_entsize': entsize,
+                'sh_size': entsize * num_symbols,
                 'sh_flags': 0,
                 'sh_addralign': 0,
             }
@@ -823,6 +844,55 @@ class ELF(MetaELF):
                     dynsym, self.memory, AT.from_lva(self._dynamic['DT_HASH'], self).to_rva(), self.arch)
             else:
                 l.warning("No hash table available in %s", self.binary)
+
+            # SYMBOL VERSIONING
+            # REJOICE
+            if 'DT_VERNEED' in self._dynamic and 'DT_VERNEEDNUM' in self._dynamic:
+                verneed_count = self._dynamic['DT_VERNEEDNUM']
+                verneed_entsize = self._reader.structs.Elf_Verneed.sizeof()
+                fake_verneed_header = {
+                    'sh_offset': AT.from_lva(self._dynamic['DT_VERNEED'], self).to_rva(),
+                    'sh_entsize': verneed_entsize,
+                    'sh_size': verneed_entsize * verneed_count,
+                    'sh_flags': 0,
+                    'sh_addralign': 0,
+                    'sh_info': verneed_count,
+                }
+                readelf_verneed = elffile.GNUVerNeedSection(fake_verneed_header, 'verneed_cle', self._reader, strtab)
+                for _, aux in readelf_verneed.iter_versions():
+                    for vaux in aux:
+                        self._versions[vaux.entry.vna_other] = vaux.name
+
+            if 'DT_VERDEF' in self._dynamic and 'DT_VERDEFNUM' in self._dynamic:
+                verdef_count = self._dynamic['DT_VERDEFNUM']
+                verdef_entsize = self._reader.structs.Elf_Verdef.sizeof()
+                fake_verdef_header = {
+                    'sh_offset': AT.from_lva(self._dynamic['DT_VERDEF'], self).to_rva(),
+                    'sh_entsize': verdef_entsize,
+                    'sh_size': verdef_entsize * verdef_count,
+                    'sh_flags': 0,
+                    'sh_addralign': 0,
+                    'sh_info': verdef_count,
+                }
+                readelf_verdef = elffile.GNUVerDefSection(fake_verdef_header, 'verdef_cle', self._reader, strtab)
+                for ver, aux in readelf_verdef.iter_versions():
+                    for vaux in aux:
+                        self._versions[ver.entry.vd_ndx] = vaux.name
+                        break  # not a typo - only the first aux entry has anything important (?)
+
+            if 'DT_VERSYM' in self._dynamic:
+                versym_entsize = self._reader.structs.Elf_Versym.sizeof()
+                fake_versym_header = {
+                    'sh_offset': AT.from_lva(self._dynamic['DT_VERSYM'], self).to_rva(),
+                    'sh_entsize': versym_entsize,
+                    'sh_size': versym_entsize * num_symbols,
+                    'sh_flags': 0,
+                    'sh_addralign': 0,
+                }
+                readelf_versym = elffile.GNUVerSymSection(fake_versym_header, 'versym_cle', self._reader, dynsym)
+                readelf_versym.stream = self.memory
+                readelf_versym.elffile = None
+                self._vertable = readelf_versym
 
             # mips' relocations are absolutely screwed up, handle some of them here.
             self.__relocate_mips(dynsym)
@@ -891,6 +961,8 @@ class ELF(MetaELF):
                 readelf_jmprelsec._stream = self.memory
                 readelf_jmprelsec.elffile = None
                 self.__register_relocs(readelf_jmprelsec, dynsym, force_jmprel=True)
+
+            self.__register_section_symbols(dynsym)
 
     def __parse_rpath(self, runpath, rpath):
         """
