@@ -46,6 +46,7 @@ class ELFSymbol(Symbol):
                          symb.entry.st_size,
                          self.type)
 
+        self.version = None
         self.binding = symb.entry.st_info.bind
         self.is_hidden = symb.entry['st_other']['visibility'] == 'STV_HIDDEN'
         self.section = sec_ndx if type(sec_ndx) is not str else None
