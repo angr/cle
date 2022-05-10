@@ -232,8 +232,8 @@ class Clemory(ClemoryBase):
             return
 
         self.remove_backer(start_addr)
-        self.add_backer(start_addr, backer[:start_addr - addr])
-        self.add_backer(addr, backer[start_addr - addr:])
+        self.add_backer(start_addr, backer[:addr - start_addr])
+        self.add_backer(addr, backer[addr - start_addr:])
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} [{hex(self.min_addr)}:{hex(self.max_addr)}]>"
