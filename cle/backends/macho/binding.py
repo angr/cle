@@ -3,23 +3,24 @@
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/) and updated in September 2019.
 
 import struct
+from typing import Callable, Dict, Tuple, TYPE_CHECKING
+import logging
 
 
 from ..relocation import Relocation
-from .. import Backend, Symbol
-from typing import Callable, Dict, Tuple
+from .. import Backend
 
-from .symbol import BindingSymbol, AbstractMachOSymbol, SymbolTableSymbol
+from .symbol import BindingSymbol, AbstractMachOSymbol, SymbolTableSymbol, DyldBoundSymbol
 
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from ... import MachO
+
 
 from ...errors import CLEInvalidBinaryError
 from ...address_translator import AT
 
-import logging
+if TYPE_CHECKING:
+    from ... import MachO
+
 l = logging.getLogger(name=__name__)
 
 OPCODE_MASK = 0xF0
@@ -98,7 +99,8 @@ class BindingState():
         self.segment_index = 0
         self.address = 0
         self.seg_end_address = 0  # TODO: no rebasing support
-        self.wraparound = 2 ** 64  # address is expected to properly overflow and address is uintptr_t (unsigned long according to _uintptr_t.h)
+        # address is expected to properly overflow and address is uintptr_t (unsigned long according to _uintptr_t.h)
+        self.wraparound = 2 ** 64
         self.sizeof_intptr_t = 8 if is_64 else 4  # experimentally determined
         self.bind_handler = None  # function(state,binary) => None
 
@@ -371,17 +373,19 @@ def n_opcode_do_bind_uleb_times_skipping_uleb(s: BindingState, b: 'MachO', _i: i
 
 
 class MachORelocation(Relocation):
-
+    """
+    Generic Relocation for MachO. For now it just deals with symbols
+    """
     def __init__(self, owner: Backend, symbol: AbstractMachOSymbol, relative_addr: int, data):
         super().__init__(owner, symbol, relative_addr)
         self.data = data
 
     def resolve_symbol(self, solist, thumb=False, extern_object=None, **kwargs):
-        if isinstance(self.symbol, BindingSymbol):
-            raise NotImplementedError("Doesn't seem to happen?")
-        elif isinstance(self.symbol, SymbolTableSymbol):
+        if isinstance(self.symbol, (SymbolTableSymbol, BindingSymbol, DyldBoundSymbol)):
             if self.symbol.library_name in [so.binary_basename for so in solist]:
-                raise NotImplementedError("Symbol could actually be resolved because we have the required library, but that isn't implemented yet")
+                raise NotImplementedError(
+                    "Symbol could actually be resolved because we have the required library,"
+                    " but that isn't implemented yet")
             else:
                 # Create an extern symbol for it
                 new_symbol = extern_object.make_extern(self.symbol.name, sym_type=self.symbol._type, thumb=thumb)

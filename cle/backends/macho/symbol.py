@@ -2,10 +2,14 @@
 
 # This file is part of Mach-O Loader for CLE.
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/) and updated in September 2019.
-
-from .. import Symbol, SymbolType
-
 import logging
+from typing import TYPE_CHECKING
+
+from .. import Symbol, SymbolType, Backend
+
+if TYPE_CHECKING:
+    from . import MachO
+
 l = logging.getLogger(name=__name__)
 
 # some constants:
@@ -16,10 +20,14 @@ SYMBOL_TYPE_PBUD = 0xc
 SYMBOL_TYPE_INDIR = 0xa
 
 LIBRARY_ORDINAL_SELF = 0x0
-LIBRARY_ORDINAL_MAX = 0xfd
 LIBRARY_ORDINAL_OLD_MAX = 0xfe
 LIBRARY_ORDINAL_DYN_LOOKUP = 0xfe
-LIBRARY_ORDINAL_EXECUTABLE = 0xff
+
+BIND_SPECIAL_DYLIB_SELF = 0x0
+BIND_SPECIAL_DYLIB_WEAK_LOOKUP = 0xfd
+BIND_SPECIAL_DYLIB_FLAT_LOOKUP = 0xfe
+BIND_SPECIAL_DYLIB_MAIN_EXECUTABLE = 0xff # technically -1
+
 
 class AbstractMachOSymbol(Symbol):
     """
@@ -27,8 +35,12 @@ class AbstractMachOSymbol(Symbol):
     Defines the minimum common properties all types of mach-o symbols must have
     """
 
-    def __init__(self, owner, name, relative_addr, size, sym_type):
-        super().__init__(owner,name,relative_addr,size,sym_type)
+    def __init__(self, owner: Backend,
+             name: str,
+             relative_addr: int,
+             size: int,
+             sym_type: SymbolType):
+        super().__init__(owner, name, relative_addr, size, sym_type)
 
         # additional properties
         self.bind_xrefs = []  # XREFs discovered during binding of the symbol
@@ -42,6 +54,10 @@ class AbstractMachOSymbol(Symbol):
     def is_stab(self):
         return False
 
+    @property
+    def library_name(self):
+        return None
+
 class SymbolTableSymbol(AbstractMachOSymbol):
     """
     "Regular" symbol. Made to be (somewhat) compatible with backends.Symbol.
@@ -53,15 +69,16 @@ class SymbolTableSymbol(AbstractMachOSymbol):
 
     Much of the code below is based on heuristics as official documentation is sparse, consider yourself warned!
     """
-
-    def __init__(self, owner, symtab_offset, n_strx, n_type, n_sect, n_desc, n_value):
+    owner: "MachO"
+    def __init__(self, owner: "MachO", symtab_offset, n_strx, n_type, n_sect, n_desc, n_value):
         # Note 1: Setting size = owner.arch.bytes has been directly taken over from the PE backend,
         # there is no meaningful definition of a symbol's size so I assume the size of an address counts here
-        # Note 2: relative_addr will be the address of a symbols __got or __nl_symbol_ptr entry, not the address of a stub
+        # Note 2: relative_addr will be the address of a symbols __got or __nl_symbol_ptr entry, not the addr of a stub
         # pointing to the symobl.
         # Stub addresses must be obtained through some sort of higher-level analysis
         # Note 3: A symbols name may not be unique!
-        # Note 4: The symbol type of all symbols is SymbolType.TYPE_OTHER because without docs I was unable to proplerly map Mach-O symbol types to CLE's notion of a symbol type
+        # Note 4: The symbol type of all symbols is SymbolType.TYPE_OTHER
+        # because without docs I was unable to proplerly map Mach-O symbol types to CLE's notion of a symbol type
 
         # store the mach-o properties, all these are raw values straight from the binary
         self.symtab_offset = symtab_offset # offset from the start of the symbol table
@@ -83,7 +100,9 @@ class SymbolTableSymbol(AbstractMachOSymbol):
                 SymbolType.TYPE_OTHER)
 
         # set further fields
-        self.is_import = self.sym_type == SYMBOL_TYPE_UNDEF and self.is_external and self.library_ordinal != LIBRARY_ORDINAL_SELF
+        self.is_import = (self.sym_type == SYMBOL_TYPE_UNDEF
+                          and self.is_external
+                          and self.library_ordinal != LIBRARY_ORDINAL_SELF)
         self.is_export = self.name in self.owner.exports_by_name
 
     @property
@@ -131,9 +150,10 @@ class SymbolTableSymbol(AbstractMachOSymbol):
         # compare https://developer.apple.com/library/mac/documentation/DeveloperTools/Conceptual/MachOTopics/1-Articles/executing_files.html
         return self.is_weak_referenced
 
+    @property
     def is_function(self):
         # Incompatibility to CLE
-        l.warning("It is not possible to decide wether a symbol is a function or not for MachOSymbols")
+        l.debug("It is not possible to decide wether a symbol is a function or not for MachOSymbols")
         return False
 
     @property
@@ -210,6 +230,59 @@ class SymbolTableSymbol(AbstractMachOSymbol):
         return self.n_desc & 0x0200
 
 
+class DyldBoundSymbol(AbstractMachOSymbol):
+    """
+    The new kind of symbol handling introduced with ios15
+    """
+    def __init__(self, owner, name, lib_ordinal):
+        """Based on the constructor of BindingSymbol"""
+
+        # store the mach-o properties, all these are raw values straight from the binary
+        self.lib_ordinal = lib_ordinal
+
+        super().__init__(owner,
+                         name,
+                         0,
+                         owner.arch.bytes,
+                         SymbolType.TYPE_OTHER)
+
+        # set further fields
+        self.is_import = True  # TODO: this is always an import for now
+        # with ios15 came a new load command LC_DYLD_EXPORTS_TRIE
+        # this isn't handled yet, so for now no symbol generated by the new dyld handling is an export
+        self.is_export = False
+
+    @property
+    def library_name(self):
+        if BIND_SPECIAL_DYLIB_FLAT_LOOKUP == self.lib_ordinal:
+            l.warning("BIND_SPECIAL_DYLIB_FLAT_LOOKUP found, cannot handle")
+            return None
+        elif BIND_SPECIAL_DYLIB_WEAK_LOOKUP == self.lib_ordinal:
+            return None
+        try:
+            return self.owner_obj.imported_libraries[self.lib_ordinal]
+        except IndexError:
+            l.error("Symbol %s has library ordinal %d, but there are only %d imported libraries", self,
+                    self.lib_ordinal, len(self.owner_obj.imported_libraries))
+            return None
+
+    @property
+    def is_function(self):
+        # Incompatibility to CLE
+        l.debug("It is not possible to decide wether a symbol is a function or not for MachOSymbols")
+        return False
+
+    @property
+    def rebased_addr(self):
+        return self.linked_addr
+
+    def demangled_name(self):
+        return self.name  # it is not THAT easy with Mach-O
+
+    @property
+    def library_ordinal(self):
+        return self.lib_ordinal
+
 class BindingSymbol(AbstractMachOSymbol):
     """
     "Binding" symbol. Made to be (somewhat) compatible with backends.Symbol.
@@ -227,7 +300,7 @@ class BindingSymbol(AbstractMachOSymbol):
     def __init__(self, owner, name,lib_ordinal):
         # Note 1: Setting size = owner.arch.bytes has been directly taken over from the PE backend,
         # there is no meaningful definition of a symbol's size so I assume the size of an address counts here
-        # Note 2: relative_addr will be the address of a symbols __got or __nl_symbol_ptr entry, not the address of a stub
+        # Note 2: relative_addr will be the address of a symbols __got or __nl_symbol_ptr entry, not the addr of a stub
         # pointing to the symobl.
         # Stub addresses must be obtained through some sort of higher-level analysis
         # Note 3: A symbols name may not be unique!
@@ -257,10 +330,10 @@ class BindingSymbol(AbstractMachOSymbol):
 
         return self.owner_obj.imported_libraries[self.lib_ordinal]
 
-
+    @property
     def is_function(self):
         # Incompatibility to CLE
-        l.warning("It is not possible to decide wether a symbol is a function or not for MachOSymbols")
+        l.debug("It is not possible to decide wether a symbol is a function or not for MachOSymbols")
         return False
 
     @property
