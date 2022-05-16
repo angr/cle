@@ -46,8 +46,8 @@ class Loader:
     :param rebase_granularity:  The alignment to use for rebasing shared objects
     :param except_missing_libs: Throw an exception when a shared library can't be found.
     :param aslr:                Load libraries in symbolic address space. Do not use this option.
-    :param page_size:           The granularity with which data is mapped into memory. Set to 1 if you are working
-                                in a non-paged environment.
+    :param page_size:           The granularity with which data is mapped into memory. Set to 0x1000 if you are working
+                                in an environment where data will always be memory mapped in a page-graunlar way.
     :param preload_libs:        Similar to `force_load_libs` but will provide for symbol resolution, with precedence
                                 over any dependencies.
     :ivar memory:               The loaded, rebased, and relocated memory of the program.
