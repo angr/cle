@@ -188,6 +188,10 @@ class ELF(MetaELF):
         self._ppc64_abiv1_entry_fix()
         self._load_plt()
 
+        # hack: set guess_simprocs = True for object files
+        if self.is_relocatable and self.imports and not self._dynamic:
+            self.guess_simprocs = True
+
         for offset, patch in patch_undo:
             self.memory.store(AT.from_lva(self.min_addr + offset, self).to_rva(), patch)
 
