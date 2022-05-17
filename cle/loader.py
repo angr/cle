@@ -427,6 +427,27 @@ class Loader:
 
         return obj.find_section_containing(addr)
 
+    def find_loadable_containing(self, addr, skip_pseudo_objects=True):
+        """
+        Find the section or segment object the address belongs to. Sections will only be used if the corresponding
+        object does not have segments.
+
+        :param addr: The address to test
+        :param skip_pseudo_objects: Skip objects that CLE adds during loading.
+        :return:  The section or segment that the address belongs to, or None if the address does not belong to any
+                    section or segment.
+        """
+        obj = self.find_object_containing(addr, membership_check=False)
+
+        if obj is None:
+            return None
+
+        if skip_pseudo_objects and isinstance(obj, (ExternObject, KernelObject, TLSObject)):
+            # the address is from a special CLE section
+            return None
+
+        return obj.find_loadable_containing(addr)
+
     def find_section_next_to(self, addr, skip_pseudo_objects=True):
         """
         Find the next section after the given address.
