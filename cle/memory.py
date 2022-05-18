@@ -1,5 +1,6 @@
 import bisect
 import struct
+from mmap import mmap
 from typing import Tuple, Union, List
 
 import archinfo
@@ -169,26 +170,73 @@ class Clemory(ClemoryBase):
         self.min_addr = 0
         self.max_addr = 0
 
-    def add_backer(self, start, data):
+    def add_backer(self, start, data, overwrite=False):
         """
         Adds a backer to the memory.
 
         :param start:   The address where the backer should be loaded.
         :param data:    The backer itself. Can be either a bytestring or another :class:`Clemory`.
+        :param overwrite:
+                        If True and the range overlaps any existing backer, the existing backer will be split up and
+                        the overlapping part will be replaced with the new backer.
         """
         if not data:
             raise ValueError("Backer is empty!")
 
-        if not isinstance(data, (bytes, bytearray, list, Clemory)):
+        if not isinstance(data, (bytes, bytearray, list, Clemory, mmap)):
             raise TypeError("Data must be a bytes, list, or Clemory object.")
-        if start in self:
-            raise ValueError("Address %#x is already backed!" % start)
+        if overwrite:
+            if isinstance(data, Clemory):
+                raise TypeError("Cannot perform an overwrite-add with a Clemory")
+            self.split_backer(start)
+            self.split_backer(start + len(data))
+            try:
+                self.remove_backer(start)
+            except ValueError:
+                pass
+            try:
+                existing, _ = next(self.backers(start + len(data)))
+            except StopIteration:
+                pass
+            else:
+                if existing < start + len(data):
+                    self.remove_backer(existing)
+        else:
+            try:
+                existing, _ = next(self.backers(start))
+            except StopIteration:
+                pass
+            else:
+                if existing <= start:
+                    raise ValueError("Address %#x is already backed!" % start)
         if isinstance(data, Clemory) and data._root:
             raise ValueError("Cannot add a root clemory as a backer!")
         if type(data) is bytes:
             data = bytearray(data)
         bisect.insort(self._backers, (start, data))
         self._update_min_max()
+
+    def split_backer(self, addr):
+        """
+        Ensures that ``addr`` is the start of a backer, if it is backed.
+        """
+        try:
+            start_addr, backer = next(self.backers(addr))
+        except StopIteration:
+            return
+        if addr <= start_addr:
+            return
+        if isinstance(backer, ClemoryBase):
+            raise ValueError("Cannot split a backer which is itself a clemory")
+        if addr >= start_addr + len(backer):
+            return
+
+        self.remove_backer(start_addr)
+        self.add_backer(start_addr, backer[:addr - start_addr])
+        self.add_backer(addr, backer[addr - start_addr:])
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} [{hex(self.min_addr)}:{hex(self.max_addr)}]>"
 
     def update_backer(self, start, data):
         if not isinstance(data, (bytes, list, Clemory)):
@@ -414,7 +462,7 @@ class Clemory(ClemoryBase):
                 if next_start != start:
                     is_consecutive = False
 
-            if isinstance(backer, (bytearray, list)):
+            if isinstance(backer, (bytearray, list, mmap)):
                 backer_length = len(backer)
                 # Update max_addr
                 if max_addr is None or start + backer_length > max_addr:

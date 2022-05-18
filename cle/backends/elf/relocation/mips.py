@@ -22,3 +22,19 @@ class R_MIPS_TLS_TPREL32(generic.GenericTLSOffsetReloc):
 
 class R_MIPS_TLS_DTPREL32(generic.GenericTLSDoffsetReloc):
     pass
+
+class R_MIPS_HI16(generic.GenericAbsoluteReloc):
+    def relocate(self):
+        if not self.resolved:
+            return False
+
+        self.owner.memory.pack_word(self.dest_addr, self.value >> 16, size=2)
+        return True
+
+class R_MIPS_LO16(generic.GenericAbsoluteReloc):
+    def relocate(self):
+        if not self.resolved:
+            return False
+
+        self.owner.memory.pack_word(self.dest_addr, self.value & 0xffff, size=2)
+        return True

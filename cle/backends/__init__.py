@@ -1,3 +1,4 @@
+# pylint:disable=wrong-import-position
 import os
 import logging
 import hashlib
@@ -16,6 +17,10 @@ from ..errors import CLEOperationError, CLEError
 
 l = logging.getLogger(name=__name__)
 
+import typing
+
+if typing.TYPE_CHECKING:
+    from .. import Loader
 
 class FunctionHintSource:
     """
@@ -113,6 +118,7 @@ class Backend:
                             define `min_addr` and `max_addr` even if `has_memory` is False.
     """
     is_default = False
+    loader: "Loader"
 
     def __init__(self,
             binary,
@@ -160,7 +166,8 @@ class Backend:
         self._segments = Regions() # List of segments
         self._sections = Regions() # List of sections
         self.sections_map = {}  # Mapping from section name to section
-        self.symbols: 'sortedcontainers.SortedKeyList[Symbol]' = sortedcontainers.SortedKeyList(key=self._get_symbol_relative_addr)
+        self.symbols: 'sortedcontainers.SortedKeyList[Symbol]' = sortedcontainers.SortedKeyList(
+            key=self._get_symbol_relative_addr)
         self.imports = {}
         self.resolved_imports = []
         self.relocs = []
@@ -262,7 +269,7 @@ class Backend:
         return AT.from_lva(self._entry, self).to_mva()
 
     @property
-    def segments(self):
+    def segments(self) -> Regions:
         return self._segments
 
     @segments.setter
@@ -289,7 +296,8 @@ class Backend:
 
     @property
     def symbols_by_addr(self):
-        l.critical("Deprecation warning: symbols_by_addr is deprecated - use loader.find_symbol() for lookup and .symbols for enumeration")
+        l.critical("Deprecation warning: symbols_by_addr is deprecated - use loader.find_symbol() for lookup "
+                   "and .symbols for enumeration")
         return {s.rebased_addr: s for s in self.symbols}
 
     def rebase(self, new_base):
@@ -438,7 +446,8 @@ class Backend:
         """
         Deprecated
         """
-        l.critical("Deprecation warning: initial_register_values is deprecated - use backend.thread_registers() instead")
+        l.critical("Deprecation warning: initial_register_values is deprecated - "
+                   "use backend.thread_registers() instead")
         return self.thread_registers().items()
 
     def get_symbol(self, name): # pylint: disable=no-self-use,unused-argument
@@ -493,14 +502,17 @@ class Backend:
             self.sha256 = hashlib.sha256(data).digest()
 
     def __getstate__(self):
-        return self.__dict__
+        state = self.__dict__.copy()
+        state['symbols'] = list(state['symbols'])
+        return state
 
     def __setstate__(self, state):
+        state['symbols'] = sortedcontainers.SortedKeyList(state['symbols'], key=self._get_symbol_relative_addr)
         self.__dict__.update(state)
         for sym in self.symbols:
             sym.owner = self
 
-ALL_BACKENDS = dict()
+ALL_BACKENDS = { }
 
 
 def register_backend(name, cls):
@@ -522,9 +534,5 @@ from .java.soot import Soot
 from .xbe import XBE
 from .static_archive import StaticArchive
 
-try:
-    from .binja import BinjaBin
-except Exception:  # pylint:disable=broad-except
-    l.warning("Binary Ninja is installed in the environment but the BinjaBin backend fails to initialize. Your Binary "
-              "Ninja might be too old.",
-              exc_info=True)
+# BinjaBin is not imported by default since importing it is too slow
+# you may manually import it by running `from cle.backends.binja import BinjaBin`

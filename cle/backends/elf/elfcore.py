@@ -20,10 +20,26 @@ l = logging.getLogger(name=__name__)
 class ELFCore(ELF):
     """
     Loader class for ELF core files.
+
+    One key pain point when analyzing a core dump generated on a remote machine is that the paths to binaries are
+    absolute (and may not exist or be the same on your local machine).
+
+    Therefore, you can use the options ```remote_file_mapping`` to specify a ``dict`` mapping (easy if there are a small
+    number of mappings) or ``remote_file_mapper`` to specify a function that accepts a remote file name and returns the
+    local file name (useful if there are many mappings).
+
+    If you specify both ``remote_file_mapping`` and ``remote_file_mapper``, ``remote_file_mapping`` is applied first,
+    then the result is passed to ``remote_file_mapper``.
+
+    :param executable:           Optional path to the main binary of the core dump. If not supplied, ELFCore will
+                                 attempt to figure it out automatically from the core dump.
+    :param remote_file_mapping:  Optional dict that maps specific file names in the core dump to other file names.
+    :param remote_file_mapper:   Optional function that is used to map every file name in the core dump to whatever is
+                                 returned from this function.
     """
     is_default = True # Tell CLE to automatically consider using the ELFCore backend
 
-    def __init__(self, *args, executable=None, remote_file_mapping=None, **kwargs):
+    def __init__(self, *args, executable=None, remote_file_mapping=None, remote_file_mapper=None, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.filename_lookup = []
@@ -32,9 +48,17 @@ class ELFCore(ELF):
         self.auxv = {}
         self.pr_fname = None
         self._main_filepath = executable
-        self._remote_file_mapping = remote_file_mapping if remote_file_mapping is not None else {}
         self._page_size = 0x1000 # a default page size, will be changed later by parsing notes
         self._main_object = None
+
+        if remote_file_mapping is not None:
+            self._remote_file_mapper = lambda x: remote_file_mapping.get(x, x)
+        else:
+            self._remote_file_mapper = lambda x: x
+
+        if remote_file_mapper is not None:
+            orig = self._remote_file_mapper
+            self._remote_file_mapper = lambda x: remote_file_mapper(orig(x))
 
         self.__extract_note_info()
 
@@ -74,15 +98,18 @@ class ELFCore(ELF):
                 for note in seg_readelf.iter_notes():
                     if note.n_type == 'NT_PRSTATUS':
                         self.__cycle_thread()
-                        self.__parse_prstatus(note.n_desc.encode('latin-1'))  # ???
+                        n_desc = note.n_desc.encode('latin-1') if isinstance(note.n_desc, str) else note.n_desc
+                        self.__parse_prstatus(n_desc)
                     elif note.n_type == 'NT_PRPSINFO':
                         self.__parse_prpsinfo(note.n_desc)
                     elif note.n_type == 'NT_AUXV':
-                        self.__parse_auxv(note.n_desc.encode('latin-1'))
+                        n_desc = note.n_desc.encode('latin-1') if isinstance(note.n_desc, str) else note.n_desc
+                        self.__parse_auxv(n_desc)
                     elif note.n_type == 'NT_FILE':
                         self.__parse_files(note.n_desc)
                     elif note.n_type == 512 and self.arch.name == 'X86':
-                        self.__parse_x86_tls(note.n_desc.encode('latin-1'))
+                        n_desc = note.n_desc.encode('latin-1') if isinstance(note.n_desc, str) else note.n_desc
+                        self.__parse_x86_tls(n_desc)
 
         self._replace_main_object_path()
 
@@ -222,11 +249,15 @@ class ELFCore(ELF):
         self.__current_thread.update(result)
 
     def __parse_prpsinfo(self, desc):
-        self.pr_fname = desc.pr_fname.split(b'\x00', 1)[0].decode()
+        pr_fname = desc.pr_fname.split(b'\x00', 1)[0]
+        try:
+            self.pr_fname = pr_fname.decode()
+        except UnicodeDecodeError:
+            self.pr_fname = repr(pr_fname)
 
     def __parse_files(self, desc):
         self._page_size = desc.page_size
-        self.filename_lookup = [(ent.vm_start, ent.vm_end, ent.page_offset * desc.page_size, self._remote_file_mapping.get(fn.decode(), fn.decode())) for ent, fn in zip(desc.Elf_Nt_File_Entry, desc.filename)]
+        self.filename_lookup = [(ent.vm_start, ent.vm_end, ent.page_offset * desc.page_size, self._remote_file_mapper(fn.decode())) for ent, fn in zip(desc.Elf_Nt_File_Entry, desc.filename)]
 
     def __parse_x86_tls(self, desc):
         self.__current_thread['segments'] = {}
@@ -280,8 +311,14 @@ class ELFCore(ELF):
             try:
                 with open(filename, 'rb') as fp:
                     obj = self.loader._load_object_isolated(fp)
-            except FileNotFoundError:
-                l.warning("Could not load %s; core may be incomplete", filename)
+            except (FileNotFoundError, CLECompatibilityError) as ex:
+                if isinstance(ex, FileNotFoundError):
+                    l.warning("Dependency %s does not exist on the current system; this core may be incomplete.",
+                              filename)
+                elif isinstance(ex, CLECompatibilityError):
+                    l.warning("Could not find a compatible loader for %s; this core may be incomplete.", filename)
+                else:
+                    l.warning("Could not load %s; this core may be incomplete.", filename)
                 if self.loader.main_object is self:
                     self.loader.main_object = None
                 self.child_objects.clear()

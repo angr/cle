@@ -11,11 +11,6 @@ from archinfo.arch_soot import ArchSoot
 from .address_translator import AT
 from .utils import ALIGN_UP, key_bisect_floor_key, key_bisect_insort_right
 
-try:
-    import claripy
-except ImportError:
-    claripy = None
-
 __all__ = ('Loader',)
 
 l = logging.getLogger(name=__name__)
@@ -51,8 +46,8 @@ class Loader:
     :param rebase_granularity:  The alignment to use for rebasing shared objects
     :param except_missing_libs: Throw an exception when a shared library can't be found.
     :param aslr:                Load libraries in symbolic address space. Do not use this option.
-    :param page_size:           The granularity with which data is mapped into memory. Set to 1 if you are working
-                                in a non-paged environment.
+    :param page_size:           The granularity with which data is mapped into memory. Set to 0x1000 if you are working
+                                in an environment where data will always be memory mapped in a page-graunlar way.
     :param preload_libs:        Similar to `force_load_libs` but will provide for symbol resolution, with precedence
                                 over any dependencies.
     :ivar memory:               The loaded, rebased, and relocated memory of the program.
@@ -610,6 +605,12 @@ class Loader:
         """
         if not self.aslr:
             return []
+
+        try:
+            import claripy  # pylint:disable=import-outside-toplevel
+        except ImportError:
+            claripy = None
+
         if not claripy:
             l.error("Please install claripy to get symbolic constraints")
             return []
@@ -909,7 +910,16 @@ class Loader:
                 gap_start = ALIGN_UP(o.max_addr + 1, self._rebase_granularity)
 
         if gap_start + size > 2**self.main_object.arch.bits:
-            raise CLEOperationError("Ran out of room in address space")
+            # this may happen when loading an ELF core whose main object may occupy a large range of memory addresses
+            # with large unoccupied holes left in the middle
+            # we fall back to finding unoccupied holes
+            for this_seg, next_seg in zip(self.main_object.segments.raw_list, self.main_object.segments.raw_list[1:]):
+                gap_start = ALIGN_UP(this_seg.vaddr + this_seg.memsize, self._rebase_granularity)
+                gap = next_seg.vaddr - gap_start
+                if gap >= size:
+                    break
+            else:
+                raise CLEOperationError("Ran out of room in address space")
 
         return gap_start
 

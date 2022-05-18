@@ -1,3 +1,5 @@
+from typing import Optional
+
 import logging
 
 from . import Backend
@@ -25,15 +27,15 @@ class Relocation:
         self.arch = owner.arch
         self.symbol = symbol
         self.relative_addr = relative_addr
-        self.resolvedby = None  # type: Symbol
-        self.resolved = False   # type: str
+        self.resolvedby = None  # type: Optional[Symbol]
+        self.resolved = False   # type: bool
         self.resolvewith = None
         if self.symbol is not None and self.symbol.is_import:
             self.owner.imports[self.symbol.name] = self
 
     AUTO_HANDLE_NONE = False
 
-    def resolve_symbol(self, solist, thumb=False, extern_object=None, **kwargs): # pylint: disable=unused-argument
+    def resolve_symbol(self, solist: "List[Any]", thumb=False, extern_object=None, **kwargs): # pylint: disable=unused-argument
         if self.resolved:
             return
 
