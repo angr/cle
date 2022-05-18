@@ -1,10 +1,25 @@
 import logging
 import os
 import tempfile
+from typing import List
 from zipfile import ZipFile
 
 from .. import register_backend
+from .android_lifecycle import callback
 from .soot import Soot
+
+try:
+    from pyaxmlparser import APK as APKParser
+    PYAXMLPARSER_INSTALLED = True
+except ImportError:
+    PYAXMLPARSER_INSTALLED = False
+
+try:
+    from pysoot.sootir.soot_method import SootMethod
+    from pysoot.sootir.soot_class import SootClass
+except ImportError:
+    SootMethod = None
+    SootClass = None
 
 l = logging.getLogger(name=__name__)
 
@@ -53,15 +68,16 @@ class Apk(Soot):
         else:
             l.info("Using user defined JNI lib(s) %s (load path(s) %s)", jni_libs, jni_libs_ld_path)
 
+        apk_parser = APKParser(apk_path) if PYAXMLPARSER_INSTALLED else None
+
         if not entry_point:
-            try:
-                from pyaxmlparser import APK as APKParser
-                apk_parser = APKParser(apk_path)
+            if apk_parser:
                 main_activity = apk_parser.get_main_activity()
                 entry_point = main_activity + '.' + 'onCreate'
                 entry_point_params = ('android.os.Bundle',)
-            except ImportError:
+            else:
                 l.error("Install pyaxmlparser to identify APK entry point.")
+                raise ImportError
 
         # the actual lifting is done by the Soot superclass
         super().__init__(apk_path, binary_stream,
@@ -73,6 +89,82 @@ class Apk(Soot):
                                   jni_libs_ld_path=jni_libs_ld_path,
                                   **options)
 
+        # the lifecycle needs to support of pyaxmlparser
+        if apk_parser:
+            self.components = {'activity': [], 'service': [], 'receiver': [], 'provider': []}
+            self.callbacks = {'activity': [], 'service': [], 'receiver': [], 'provider': []}
+            self._set_lifecycle(apk_parser)
+        else:
+            self.components = None
+            self.callbacks = None
+            l.warning("Install pyaxmlparser, if you want to identify components with callbacks.")
+
+    def _set_lifecycle(self, apk_parser):
+        """
+        Set components with callbacks of APK lifecycle.
+
+        :param pyaxmlparser apk_parser: XML Parser of the APK.
+        """
+
+        component_getter = {'activity': apk_parser.get_activities,
+                            'service': apk_parser.get_services,
+                            'receiver': apk_parser.get_receivers,
+                            'provider': apk_parser.get_providers}
+
+        for key, getter in component_getter.items():
+            class_names = getter()
+            self.components[key], self.callbacks[key] = self._extract_lifecycle(class_names, key)
+
+    def _extract_lifecycle(self, cls_name: List[str], component_kind: str) -> (List[SootClass], List[SootMethod]):
+        """
+        Extract components with callbacks from class names and component kind.
+        Use general callback name for each component by component kind
+
+        :param cls_name:        Name of the class.
+        :param component_kind:  Kind of the component. (activity, service, receiver, provider)
+        :return components:     The list of class objects which are components.
+        :return callbacks:      The list of method objects which are callbacks.
+        """
+
+        components = []
+        callbacks = []
+
+        for cls in cls_name:
+            components.append(self.classes[cls])
+            callbacks.extend(self.get_callbacks(cls, callback[component_kind]))
+
+        return components, callbacks
+
+    def get_callbacks(self, class_name: str, callback_names: List[str]) -> List[SootMethod]:
+        """
+        Get callback methods from the name of callback methods.
+
+        :param class_name:      Name of the class.
+        :param callback_names:  Name list of the callbacks.
+        :return:                The method object which is callback.
+        :rtype:                 list[pysoot.sootir.soot_method.SootMethod]
+        """
+
+        callback_methods = []
+
+        for callback_name in callback_names:
+            split_str = callback_name.split('(')
+            method_name = split_str[0]
+            param_str = split_str[1].rstrip(')')
+
+            if param_str == '':
+                params = tuple()
+            else:
+                params = tuple(param.strip() for param in param_str.split(','))
+
+            soot_method = self.get_soot_method(method_name,
+                                               class_name=class_name,
+                                               params=params,
+                                               none_if_missing=True)
+            if soot_method is not None:
+                callback_methods.append(soot_method)
+
+        return callback_methods
 
     @staticmethod
     def _extract_jni_libs(apk_path, supported_jni_archs):
