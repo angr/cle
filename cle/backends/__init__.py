@@ -1,10 +1,10 @@
 # pylint:disable=wrong-import-position
-from typing import Optional
 import os
 import logging
 import hashlib
 from io import BufferedReader
 from typing import List, Optional  # pylint:disable=unused-import
+import typing
 
 import sortedcontainers
 
@@ -18,7 +18,6 @@ from ..errors import CLEOperationError, CLEError
 
 l = logging.getLogger(name=__name__)
 
-import typing
 
 if typing.TYPE_CHECKING:
     from .. import Loader
