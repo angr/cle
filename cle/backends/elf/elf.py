@@ -50,10 +50,25 @@ additional_e_machine_mappings : Dict[int, str] = {
 class ELF(MetaELF):
     """
     The main loader class for statically loading ELF executables. Uses the pyreadelf library where useful.
+
+    Useful backend options:
+
+    - ``debug_symbols``: Provides the path to a separate file which contains the binary's debug symbols
+    - ``discard_section_headers``: Do not parse section headers. Use this if they are corrupted or malicious.
+    - ``discard_program_headers``: Do not parse program headers. Use this if the binary is for a platform whose ELF
+            loader only looks at section headers, but whose toolchain generates program headers anyway.
     """
     is_default = True  # Tell CLE to automatically consider using the ELF backend
 
-    def __init__(self, *args, addend=None, debug_symbols=None, **kwargs):
+    def __init__(
+            self,
+            *args,
+            addend=None,
+            debug_symbols=None,
+            discard_section_headers=False,
+            discard_program_headers=False,
+            **kwargs
+    ):
         super().__init__(*args, **kwargs)
         patch_undo = []
         try:
@@ -147,8 +162,10 @@ class ELF(MetaELF):
         except ValueError:
             l.info('no PT_LOAD segments identified')
 
-        self.__register_segments()
-        self.__register_sections()
+        if not discard_program_headers:
+            self.__register_segments()
+        if not discard_section_headers:
+            self.__register_sections()
 
         if not self.symbols:
             self._desperate_for_symbols = True
