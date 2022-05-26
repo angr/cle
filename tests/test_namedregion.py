@@ -21,8 +21,8 @@ def test_basic_named_region():
     # CLE what owns these addresses and get a valid answer.
     obj1 = l.find_object_containing(0x4000023C)
     obj2 = l.find_object_containing(0xE000ED08)
-    assert obj1 != None
-    assert obj2 != None
+    assert obj1 is not None
+    assert obj2 is not None
     assert obj1.name == "mmio"
     assert obj2.name == "sys"
 

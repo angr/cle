@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
-import archinfo
 import logging
 import os
 
+import archinfo
 import cle
 
 TEST_BASE = os.path.join(

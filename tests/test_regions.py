@@ -1,7 +1,6 @@
 import os
 import unittest
 
-
 import cle
 from cle.backends import Section, Segment
 from cle.address_translator import AT
@@ -55,6 +54,7 @@ groundtruth = {
     }
 }
 
+
 class TestRunSections(unittest.TestCase):
     def _run_sections(self, arch, filename, sections):
 
@@ -66,29 +66,48 @@ class TestRunSections(unittest.TestCase):
         for i, section in enumerate(ld.main_object.sections):
             self.assertEqual(section.name, sections[i].name)
             self.assertEqual(section.offset, sections[i].offset)
-            self.assertEqual(AT.from_mva(section.vaddr, ld.main_object).to_lva(), sections[i].vaddr)
+            self.assertEqual(
+                AT.from_mva(section.vaddr, ld.main_object).to_lva(), sections[i].vaddr
+            )
             self.assertEqual(section.memsize, sections[i].memsize)
 
         # address lookups
-        self.assert_is_none(ld.main_object.sections.find_region_containing(-1))
+        self.assertIsNone(ld.main_object.sections.find_region_containing(-1))
 
         # skip all sections that are not mapped into memory
-        mapped_sections = [ section for section in sections if section.vaddr != 0 ]
+        mapped_sections = [section for section in sections if section.vaddr != 0]
 
         for section in mapped_sections:
             self.assertEqual(
-                ld.main_object.find_section_containing(section.vaddr).name, section.name)
+                ld.main_object.find_section_containing(section.vaddr).name, section.name
+            )
             self.assertEqual(
-                ld.main_object.sections.find_region_containing(section.vaddr).name, section.name)
+                ld.main_object.sections.find_region_containing(section.vaddr).name,
+                section.name,
+            )
             if section.memsize > 0:
                 self.assertEqual(
-                    ld.main_object.find_section_containing(section.vaddr + 1).name, section.name)
+                    ld.main_object.find_section_containing(section.vaddr + 1).name,
+                    section.name,
+                )
                 self.assertEqual(
-                    ld.main_object.sections.find_region_containing(section.vaddr + 1).name, section.name)
+                    ld.main_object.sections.find_region_containing(
+                        section.vaddr + 1
+                    ).name,
+                    section.name,
+                )
                 self.assertEqual(
-                    ld.main_object.find_section_containing(section.vaddr + section.memsize - 1).name, section.name)
+                    ld.main_object.find_section_containing(
+                        section.vaddr + section.memsize - 1
+                    ).name,
+                    section.name,
+                )
                 self.assertEqual(
-                    ld.main_object.sections.find_region_containing(section.vaddr + section.memsize - 1).name, section.name)
+                    ld.main_object.sections.find_region_containing(
+                        section.vaddr + section.memsize - 1
+                    ).name,
+                    section.name,
+                )
 
         for i in range(len(mapped_sections) - 1):
             sec_a, sec_b = mapped_sections[i], mapped_sections[i + 1]
@@ -96,10 +115,10 @@ class TestRunSections(unittest.TestCase):
                 # there is a gap between sec_a and sec_b
                 for j in range(min(sec_b.vaddr - (sec_a.vaddr + sec_a.memsize), 20)):
                     a = sec_a.vaddr + sec_a.memsize + j
-                    self.assert_is_none(ld.main_object.find_section_containing(a))
-                    self.assert_is_none(ld.main_object.sections.find_region_containing(a))
+                    self.assertIsNone(ld.main_object.find_section_containing(a))
+                    self.assertIsNone(ld.main_object.sections.find_region_containing(a))
 
-        self.assert_is_none(ld.main_object.find_section_containing(0xffffffff), None)
+        self.assertIsNone(ld.main_object.find_section_containing(0xFFFFFFFF), None)
 
     def _run_segments(self, arch, filename, segments):
 
@@ -115,21 +134,43 @@ class TestRunSections(unittest.TestCase):
             self.assertEqual(segment.filesize, segments[i].filesize)
 
         # address lookups
-        self.assert_is_none(ld.main_object.segments.find_region_containing(-1))
+        self.assertIsNone(ld.main_object.segments.find_region_containing(-1))
 
         # skip all segments that are not mapped into memory
-        mapped_segments = [ segment for segment in segments if segment.vaddr != 0 ]
+        mapped_segments = [segment for segment in segments if segment.vaddr != 0]
 
         for segment in mapped_segments:
-            self.assertEqual(ld.main_object.find_segment_containing(segment.vaddr).vaddr, segment.vaddr)
-            self.assertEqual(ld.main_object.segments.find_region_containing(segment.vaddr).vaddr, segment.vaddr)
+            self.assertEqual(
+                ld.main_object.find_segment_containing(segment.vaddr).vaddr,
+                segment.vaddr,
+            )
+            self.assertEqual(
+                ld.main_object.segments.find_region_containing(segment.vaddr).vaddr,
+                segment.vaddr,
+            )
             if segment.memsize > 0:
-                self.assertEqual(ld.main_object.find_segment_containing(segment.vaddr + 1).vaddr, segment.vaddr)
-                self.assertEqual(ld.main_object.segments.find_region_containing(segment.vaddr + 1).vaddr, segment.vaddr)
-                self.assertEqual(ld.main_object.find_segment_containing(segment.vaddr + segment.memsize - 1).vaddr,
-                                        segment.vaddr)
                 self.assertEqual(
-                    ld.main_object.segments.find_region_containing(segment.vaddr + segment.memsize - 1).vaddr, segment.vaddr)
+                    ld.main_object.find_segment_containing(segment.vaddr + 1).vaddr,
+                    segment.vaddr,
+                )
+                self.assertEqual(
+                    ld.main_object.segments.find_region_containing(
+                        segment.vaddr + 1
+                    ).vaddr,
+                    segment.vaddr,
+                )
+                self.assertEqual(
+                    ld.main_object.find_segment_containing(
+                        segment.vaddr + segment.memsize - 1
+                    ).vaddr,
+                    segment.vaddr,
+                )
+                self.assertEqual(
+                    ld.main_object.segments.find_region_containing(
+                        segment.vaddr + segment.memsize - 1
+                    ).vaddr,
+                    segment.vaddr,
+                )
 
         for i in range(len(mapped_segments) - 1):
             seg_a, seg_b = mapped_segments[i], mapped_segments[i + 1]
@@ -137,18 +178,19 @@ class TestRunSections(unittest.TestCase):
                 # there is a gap between seg_a and seg_b
                 for j in range(min(seg_b.vaddr - (seg_a.vaddr + seg_a.memsize), 20)):
                     a = seg_a.vaddr + seg_a.memsize + j
-                    self.assert_is_none(ld.main_object.find_segment_containing(a))
-                    self.assert_is_none(ld.main_object.segments.find_region_containing(a))
+                    self.assertIsNone(ld.main_object.find_segment_containing(a))
+                    self.assertIsNone(ld.main_object.segments.find_region_containing(a))
 
-        self.assert_is_none(ld.main_object.find_segment_containing(0xffffffff), None)
+        self.assertIsNone(ld.main_object.find_segment_containing(0xFFFFFFFF), None)
 
     def test_sections(self):
         for (arch, filename), data in groundtruth.items():
-            self._run_sections(arch, filename, data['sections'])
+            self._run_sections(arch, filename, data["sections"])
 
     def test_segments(self):
         for (arch, filename), data in groundtruth.items():
-            self._run_segments(arch, filename, data['segments'])
+            self._run_segments(arch, filename, data["segments"])
+
 
 if __name__ == "__main__":
     unittest.main()

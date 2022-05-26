@@ -1,9 +1,11 @@
+import timeit
+
 import cffi
 
 import cle
 
 
-def test_cclemory():
+def test_cclemory(): # pylint: disable=no-member
     # This is a test case for C-backed Clemory.
 
     clemory = cle.Clemory(None, root=True)
@@ -72,14 +74,10 @@ def test_clemory():
 
 
 def performance_clemory_contains():
-
     # With the consecutive optimization:
     #   5.72 sec
     # Without the consecutive optimization:
     #   13.11 sec
-
-    import timeit
-
     t = timeit.timeit(
         "0x400002 in clemory",
         setup="import cle; clemory = cle.Clemory(None, root=True); clemory.add_backer(0x400000, 'A' * 200000)",
@@ -92,19 +90,19 @@ def test_clemory_contains():
     clemory = cle.Clemory(None, root=True)
     assert clemory.min_addr == 0
     assert clemory.max_addr == 0
-    assert clemory.consecutive == True
+    assert clemory.consecutive is True
 
     # Add one backer
     clemory.add_backer(0, b"A" * 10)
     assert clemory.min_addr == 0
     assert clemory.max_addr == 10
-    assert clemory.consecutive == True
+    assert clemory.consecutive is True
 
     # Add another backer
     clemory.add_backer(10, b"B" * 20)
     assert clemory.min_addr == 0
     assert clemory.max_addr == 30
-    assert clemory.consecutive == True
+    assert clemory.consecutive is True
 
     # Add one more
     clemory.add_backer(40, b"A" * 30)
@@ -116,7 +114,7 @@ def test_clemory_contains():
     clemory.add_backer(30, b"C" * 10)
     assert clemory.min_addr == 0
     assert clemory.max_addr == 70
-    assert clemory.consecutive == True
+    assert clemory.consecutive is True
 
 
 def main():

@@ -1,3 +1,4 @@
+# pylint: disable=missing-class-docstring
 import unittest
 
 import cle
@@ -26,11 +27,11 @@ class TestAddressTranslator(unittest.TestCase):
 
     def test_lva_mva_translation(self):
         assert AT.from_lva(0x8048000, self.owner).to_mva() == 0xA000000
-        assert AT.from_mva(0xA1B9A1B, self.to_lva() == 0x8201A1B)
+        assert AT.from_mva(0xA1B9A1B, self.owner).to_lva() == 0x8201A1B
 
     def test_va_rva_translation(self):
         assert AT.from_rva(0, self.owner).to_va() == 0xA000000
-        assert AT.from_va(0xA1B9A1B, self).to_rva() == 0x1B9A1B
+        assert AT.from_va(0xA1B9A1B, self.owner).to_rva() == 0x1B9A1B
 
     def test_valid_va_raw_translations(self):
         assert AT.from_raw(0x1B3260, self.owner).to_va() == 0xA1B4260
@@ -41,7 +42,7 @@ class TestAddressTranslator(unittest.TestCase):
             AT.from_raw(0x1B3000, self.owner).to_va()
 
     def test_invalid_va_raw(self):
-        assert AT.from_va(0xA1B6ED4, self.owner).to_raw() == None
+        assert AT.from_va(0xA1B6ED4, self.owner).to_raw() is None
 
 
 if __name__ == "__main__":

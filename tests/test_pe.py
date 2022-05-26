@@ -30,7 +30,7 @@ def test_exe():
     )
     assert ld.main_object.segments is ld.main_object.sections
     assert sorted(ld.main_object.deps) == sorted(
-        ["kernel32.dll", "vcruntime140d" ".dll", "ucrtbased.dll"]
+        ["kernel32.dll", "vcruntime140d.dll", "ucrtbased.dll"]
     )
     assert sorted(ld.main_object.imports) == sorted(
         [

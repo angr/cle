@@ -33,12 +33,12 @@ def test_gxx_exception_0():
     assert exception_handlings[0x400AB2].start_addr == 0x400AB2
     assert exception_handlings[0x400AB2].size == 0x5
     assert exception_handlings[0x400AB2].func_addr == 0x400A4A
-    assert exception_handlings[0x400AB2].handler_addr == None
+    assert exception_handlings[0x400AB2].handler_addr is None
     # 0x400ac7
     assert exception_handlings[0x400AC7].start_addr == 0x400AC7
     assert exception_handlings[0x400AC7].size == 0x5
     assert exception_handlings[0x400AC7].func_addr == 0x400A4A
-    assert exception_handlings[0x400AC7].handler_addr == None
+    assert exception_handlings[0x400AC7].handler_addr is None
 
 
 if __name__ == "__main__":
