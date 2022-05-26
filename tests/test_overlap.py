@@ -1,8 +1,8 @@
-import cle
 import os
 
+import cle
 
-class MockBackend(cle.backends.Backend):
+class MockBackend(cle.backends.Backend):  # pylint: disable=missing-class-docstring
     def __init__(self, linked_base, size, **kwargs):
         super().__init__("/dev/zero", None, **kwargs)
         self.mapped_base = self.linked_base = linked_base
