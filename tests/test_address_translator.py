@@ -1,3 +1,5 @@
+import unittest
+
 import cle
 
 from cle.address_translator import AT
@@ -18,41 +20,29 @@ class MockBackend(cle.Backend):
         self._is_mapped = True
 
 
-owner = MockBackend(0x8048000, 0xA000000)
+class TestAddressTranslator(unittest.TestCase):
+    def setUp(self):
+        self.owner = MockBackend(0x8048000, 0xA000000)
 
+    def test_lva_mva_translation(self):
+        assert AT.from_lva(0x8048000, self.owner).to_mva() == 0xA000000
+        assert AT.from_mva(0xA1B9A1B, self.to_lva() == 0x8201A1B)
 
-def test_lva_mva_translation():
-    assert AT.from_lva(0x8048000, owner).to_mva() == 0xA000000
-    assert AT.from_mva(0xA1B9A1B, owner).to_lva() == 0x8201A1B
+    def test_va_rva_translation(self):
+        assert AT.from_rva(0, self.owner).to_va() == 0xA000000
+        assert AT.from_va(0xA1B9A1B, self).to_rva() == 0x1B9A1B
 
+    def test_valid_va_raw_translations(self):
+        assert AT.from_raw(0x1B3260, self.owner).to_va() == 0xA1B4260
+        assert AT.from_va(0xA1B6ED3, self.owner).to_raw() == 0x1B5ED3
 
-def test_va_rva_translation():
-    assert AT.from_rva(0, owner).to_va() == 0xA000000
-    assert AT.from_va(0xA1B9A1B, owner).to_rva() == 0x1B9A1B
+    def test_invalid_intersegment_raw_va(self):
+        with self.assertRaises(TypeError):
+            AT.from_raw(0x1B3000, self.owner).to_va()
 
-
-def test_valid_va_raw_translations():
-    assert AT.from_raw(0x1B3260, owner).to_va() == 0xA1B4260
-    assert AT.from_va(0xA1B6ED3, owner).to_raw() == 0x1B5ED3
-
-
-def test_invalid_intersegment_raw_va():
-    AT.from_raw(0x1B3000, owner).to_va()
-
-
-def test_invalid_va_raw():
-    assert AT.from_va(0xA1B6ED4, owner).to_raw() == None
+    def test_invalid_va_raw(self):
+        assert AT.from_va(0xA1B6ED4, self.owner).to_raw() == None
 
 
 if __name__ == "__main__":
-    list(
-        map(
-            lambda x: x(),
-            filter(
-                lambda o: callable(o)
-                and o.__module__ == "__main__"
-                and o.__name__.startswith("test"),
-                globals().values(),
-            ),
-        )
-    )
+    unittest.main()

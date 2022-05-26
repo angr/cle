@@ -62,12 +62,12 @@ class TestRunSections(unittest.TestCase):
 
         ld = cle.Loader(binary_path, auto_load_libs=False)
 
-        self.assert_equal(len(ld.main_object.sections), len(sections))
+        self.assertEqual(len(ld.main_object.sections), len(sections))
         for i, section in enumerate(ld.main_object.sections):
-            self.assert_equal(section.name, sections[i].name)
-            self.assert_equal(section.offset, sections[i].offset)
-            self.assert_equal(AT.from_mva(section.vaddr, ld.main_object).to_lva(), sections[i].vaddr)
-            self.assert_equal(section.memsize, sections[i].memsize)
+            self.assertEqual(section.name, sections[i].name)
+            self.assertEqual(section.offset, sections[i].offset)
+            self.assertEqual(AT.from_mva(section.vaddr, ld.main_object).to_lva(), sections[i].vaddr)
+            self.assertEqual(section.memsize, sections[i].memsize)
 
         # address lookups
         self.assert_is_none(ld.main_object.sections.find_region_containing(-1))
@@ -76,18 +76,18 @@ class TestRunSections(unittest.TestCase):
         mapped_sections = [ section for section in sections if section.vaddr != 0 ]
 
         for section in mapped_sections:
-            self.assert_equal(
+            self.assertEqual(
                 ld.main_object.find_section_containing(section.vaddr).name, section.name)
-            self.assert_equal(
+            self.assertEqual(
                 ld.main_object.sections.find_region_containing(section.vaddr).name, section.name)
             if section.memsize > 0:
-                self.assert_equal(
+                self.assertEqual(
                     ld.main_object.find_section_containing(section.vaddr + 1).name, section.name)
-                self.assert_equal(
+                self.assertEqual(
                     ld.main_object.sections.find_region_containing(section.vaddr + 1).name, section.name)
-                self.assert_equal(
+                self.assertEqual(
                     ld.main_object.find_section_containing(section.vaddr + section.memsize - 1).name, section.name)
-                self.assert_equal(
+                self.assertEqual(
                     ld.main_object.sections.find_region_containing(section.vaddr + section.memsize - 1).name, section.name)
 
         for i in range(len(mapped_sections) - 1):
@@ -107,12 +107,12 @@ class TestRunSections(unittest.TestCase):
 
         ld = cle.Loader(binary_path, auto_load_libs=False)
 
-        self.assert_equal(len(ld.main_object.segments), len(segments))
+        self.assertEqual(len(ld.main_object.segments), len(segments))
         for i, segment in enumerate(ld.main_object.segments):
-            self.assert_equal(segment.offset, segments[i].offset)
-            self.assert_equal(segment.vaddr, segments[i].vaddr)
-            self.assert_equal(segment.memsize, segments[i].memsize)
-            self.assert_equal(segment.filesize, segments[i].filesize)
+            self.assertEqual(segment.offset, segments[i].offset)
+            self.assertEqual(segment.vaddr, segments[i].vaddr)
+            self.assertEqual(segment.memsize, segments[i].memsize)
+            self.assertEqual(segment.filesize, segments[i].filesize)
 
         # address lookups
         self.assert_is_none(ld.main_object.segments.find_region_containing(-1))
@@ -121,14 +121,14 @@ class TestRunSections(unittest.TestCase):
         mapped_segments = [ segment for segment in segments if segment.vaddr != 0 ]
 
         for segment in mapped_segments:
-            self.assert_equal(ld.main_object.find_segment_containing(segment.vaddr).vaddr, segment.vaddr)
-            self.assert_equal(ld.main_object.segments.find_region_containing(segment.vaddr).vaddr, segment.vaddr)
+            self.assertEqual(ld.main_object.find_segment_containing(segment.vaddr).vaddr, segment.vaddr)
+            self.assertEqual(ld.main_object.segments.find_region_containing(segment.vaddr).vaddr, segment.vaddr)
             if segment.memsize > 0:
-                self.assert_equal(ld.main_object.find_segment_containing(segment.vaddr + 1).vaddr, segment.vaddr)
-                self.assert_equal(ld.main_object.segments.find_region_containing(segment.vaddr + 1).vaddr, segment.vaddr)
-                self.assert_equal(ld.main_object.find_segment_containing(segment.vaddr + segment.memsize - 1).vaddr,
+                self.assertEqual(ld.main_object.find_segment_containing(segment.vaddr + 1).vaddr, segment.vaddr)
+                self.assertEqual(ld.main_object.segments.find_region_containing(segment.vaddr + 1).vaddr, segment.vaddr)
+                self.assertEqual(ld.main_object.find_segment_containing(segment.vaddr + segment.memsize - 1).vaddr,
                                         segment.vaddr)
-                self.assert_equal(
+                self.assertEqual(
                     ld.main_object.segments.find_region_containing(segment.vaddr + segment.memsize - 1).vaddr, segment.vaddr)
 
         for i in range(len(mapped_segments) - 1):
