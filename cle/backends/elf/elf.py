@@ -43,7 +43,8 @@ __all__ = ('ELFSymbol', 'ELF')
 additional_e_machine_mappings : Dict[int, str] = {
     247: 'Linux BPF - in-kernel virtual machine',
     252: 'C-SKY',
-    0x5441: 'Fujitsu FR-V'
+    0x5441: 'Fujitsu FR-V',
+    0x9026: 'DEC Alpha',
 }
 
 
