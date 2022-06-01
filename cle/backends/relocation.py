@@ -1,11 +1,14 @@
-from typing import Optional
-
 import logging
 
+from typing import TYPE_CHECKING, Optional
+
 from . import Backend
-from ..errors import CLEInvalidBinaryError
 from .symbol import Symbol, SymbolType
 from ..address_translator import AT
+
+if TYPE_CHECKING:
+    from typing import Any, List
+
 
 l = logging.getLogger(name=__name__)
 
