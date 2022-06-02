@@ -1,32 +1,52 @@
 # -*-coding:utf8 -*-
 # This file is part of Mach-O Loader for CLE.
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
+import ctypes
+import typing
 from collections import defaultdict
 from os import SEEK_CUR, SEEK_SET
 import struct
 import sys
 from io import BytesIO, BufferedReader
-from typing import Optional, DefaultDict, List, Tuple
+from typing import Optional, DefaultDict, List, Tuple, Dict, Union
+import logging
+from sortedcontainers import SortedKeyList
 
+from packaging.version import Version, LegacyVersion
+from packaging import version
 
 import archinfo
 
+from .macho_load_commands import LoadCommands as LC
+
 from .section import MachOSection
-from .symbol import SymbolTableSymbol, AbstractMachOSymbol
+from .symbol import SymbolTableSymbol, AbstractMachOSymbol, DyldBoundSymbol
 from .segment import MachOSegment
-from .binding import BindingHelper, read_uleb
+from .binding import BindingHelper, read_uleb, MachORelocation
 from .. import Backend, register_backend, AT
 from ...errors import CLEInvalidBinaryError, CLECompatibilityError, CLEOperationError
+from .structs import (
+    dyld_chained_fixups_header, dyld_chained_starts_in_segment,
+    ChainedFixupPointerOnDisk,
+    DyldImportStruct,
+    DyldChainedPtrFormats,
+    DYLD_CHAINED_PTR_START_NONE,
+    FileOffset,
+    FilePointer,
+    MemoryPointer,
+)
 
-import logging
 l = logging.getLogger(name=__name__)
 
 __all__ = ('MachO', 'MachOSection', 'MachOSegment')
 
-from sortedcontainers import SortedKeyList
 
 # pylint: disable=abstract-method
 class SymbolList(SortedKeyList):
+    """
+    Special data structure that extends SortedKeyList to allow looking up a MachO library by name and ordinal quickly
+    without having to iterate over the whole list
+    """
     _symbol_cache: DefaultDict[Tuple[str, int],
                                List[AbstractMachOSymbol]]
 
@@ -65,7 +85,8 @@ class MachO(Backend):
     MH_CIGAM_64 = 0xcffaedfe
     MH_MAGIC = 0xfeedface
     MH_CIGAM = 0xcefaedfe
-
+    ncmds: int
+    sizeofcmds: int
 
     def __init__(self, *args, **kwargs):
         l.warning('The Mach-O backend is not well-supported. Good luck!')
@@ -79,9 +100,7 @@ class MachO(Backend):
         self.cpusubtype = None
         self.filetype = None
         self.pie = None  # position independent executable?
-        self.ncmds = None  # number of load commands
         self.flags = None  # binary flags
-        self.sizeofcmds = None  # total size of load commands
         self.imported_libraries = ["Self"]  # ordinal 0 = SELF_LIBRARY_ORDINAL
         self.sections_by_ordinal = [None] # ordinal 0 = None == Self
         self.exports_by_name = {}  # note exports is currently a raw and unprocessed datastructure.
@@ -99,10 +118,16 @@ class MachO(Backend):
         self.symtab_offset = None # offset to the symtab
         self.symtab_nsyms = None # number of symbols in the symtab
         self.binding_done = False # if true binding was already done and do_bind will be a no-op
+        self._dyld_chained_fixups_offset: Optional[int] = None
+        self._dyld_rebases: Dict[MemoryPointer, MemoryPointer] = {}
+        self._dyld_imports: List[AbstractMachOSymbol] = []
 
         # For some analysis the insertion order of the symbols is relevant and needs to be kept.
         # This is has to be separate from self.symbols because the latter is sorted by address
-        self._ordered_symbols = []
+        self._ordered_symbols: List[AbstractMachOSymbol] = []
+
+        # The minimum version encoded by the LC_BUILD_VERSION command
+        self._minimum_version: Union[Version, LegacyVersion, None] = None
 
         # Begin parsing the file
         try:
@@ -112,8 +137,16 @@ class MachO(Backend):
             self.struct_byteorder = self._detect_byteorder(struct.unpack("=I", binary_file.read(4))[0])
 
             # parse the mach header:
-            # (ignore all irrelevant fiels)
-            self._parse_mach_header(binary_file)
+            # (ignore all irrelevant fields)
+            (_, self.cputype, self.cpusubtype, self.filetype, self.ncmds, self.sizeofcmds,
+             self.flags) = self._unpack("7I", binary_file, 0, 28)
+
+            self.pie = bool(self.flags & 0x200000)  # MH_PIE
+
+            if not bool(self.flags & 0x80):  # ensure MH_TWOLEVEL
+                l.error("Binary is not using MH_TWOLEVEL namespacing."
+                        "This isn't properly implemented yet and will degrade results in unpredictable ways."
+                        "Please open an issue if you encounter this with a binary you can share")
 
             # determine architecture
             arch_ident = self._detect_arch_ident()
@@ -133,7 +166,8 @@ class MachO(Backend):
             # Load commands have a common structure: First 4 bytes identify the command by a magic number
             # second 4 bytes determine the commands size. Everything after this generic "header" is command-specific
             # this makes parsing the commands easy.
-            # The documentation for Mach-O is at http://opensource.apple.com//source/xnu/xnu-1228.9.59/EXTERNAL_HEADERS/mach-o/loader.h
+            # The documentation for Mach-O is at
+            # http://opensource.apple.com//source/xnu/xnu-1228.9.59/EXTERNAL_HEADERS/mach-o/loader.h
             count = 0
             offset = lc_offset
             while count < self.ncmds and (offset - lc_offset) < self.sizeofcmds:
@@ -141,34 +175,55 @@ class MachO(Backend):
                 (cmd, size) = self._unpack("II", binary_file, offset, 8)
 
                 # check for segments that interest us
-                if cmd in [0x1, 0x19]:  # LC_SEGMENT,LC_SEGMENT_64
+                if cmd in [LC.LC_SEGMENT, LC.LC_SEGMENT_64]:  # LC_SEGMENT,LC_SEGMENT_64
                     l.debug("Found LC_SEGMENT(_64) @ %#x", offset)
                     self._load_segment(binary_file, offset)
-                elif cmd == 0x2:  # LC_SYMTAB
+                elif cmd == LC.LC_SYMTAB:  # LC_SYMTAB
                     l.debug("Found LC_SYMTAB @ %#x", offset)
                     self._load_symtab(binary_file, offset)
-                elif cmd in [0x22, 0x80000022]:  # LC_DYLD_INFO(_ONLY)
+                elif cmd in [LC.LC_DYLD_INFO, LC.LC_DYLD_INFO_ONLY]:  # LC_DYLD_INFO(_ONLY)
                     l.debug("Found LC_DYLD_INFO(_ONLY) @ %#x", offset)
                     self._load_dyld_info(binary_file, offset)
-                elif cmd in [0xc, 0x8000001c, 0x80000018]:  # LC_LOAD_DYLIB, LC_REEXPORT_DYLIB,LC_LOAD_WEAK_DYLIB
+                elif cmd in [LC.LC_LOAD_DYLIB, 0x8000001c, LC.LC_LOAD_WEAK_DYLIB]:
+                    # TODO: Old comment claimed that 0x8000001c is LC_REEXPORT_DYLIB
+                    #  but 0x8000001c should be LC_RPATH = 0x1C | LC_REQ_DYLD
+                    #  So there is something wrong here that might be harmless
+                    #  but it definitely doesn't seem correct
                     l.debug("Found LC_*_DYLIB @ %#x", offset)
                     self._load_dylib_info(binary_file, offset)
-                elif cmd == 0x80000028:  # LC_MAIN
+                elif cmd == LC.LC_MAIN:  # LC_MAIN
                     l.debug("Found LC_MAIN @ %#x", offset)
                     self._load_lc_main(binary_file, offset)
-                elif cmd == 0x5:  # LC_UNIXTHREAD
+                elif cmd == LC.LC_UNIXTHREAD:  # LC_UNIXTHREAD
                     l.debug("Found LC_UNIXTHREAD @ %#x", offset)
                     self._load_lc_unixthread(binary_file, offset)
-                elif cmd == 0x26:  # LC_FUNCTION_STARTS
+                elif cmd == LC.LC_FUNCTION_STARTS:  # LC_FUNCTION_STARTS
                     l.debug("Found LC_FUNCTION_STARTS @ %#x", offset)
                     self._load_lc_function_starts(binary_file, offset)
-                elif cmd == 0x29:  # LC_DATA_IN_CODE
+                elif cmd == LC.LC_DATA_IN_CODE:  # LC_DATA_IN_CODE
                     l.debug("Found LC_DATA_IN_CODE @ %#x", offset)
                     self._load_lc_data_in_code(binary_file, offset)
-                elif cmd in [0x21, 0x2c]:  # LC_ENCRYPTION_INFO(_64)
+                elif cmd in [LC.LC_ENCRYPTION_INFO, LC.LC_ENCRYPTION_INFO_64]:  # LC_ENCRYPTION_INFO(_64)
                     l.debug("Found LC_ENCRYPTION_INFO @ %#x", offset)
-                    self._assert_unencrypted(binary_file, offset)
-
+                    # self._assert_unencrypted(binary_file, offset)
+                elif cmd in [LC.LC_DYLD_CHAINED_FIXUPS]:
+                    l.info("Found LC_DYLD_CHAINED_FIXUPS @ %#x", offset)
+                    (_, _, dataoff, datasize) = self._unpack("4I", binary_file, offset, 16)
+                    self._dyld_chained_fixups_offset: int = dataoff
+                elif cmd in [LC.LC_BUILD_VERSION]:
+                    l.info("Found LC_BUILD_VERSION @ %#x", offset)
+                    (_, _, _platform, minos, _sdk, _ntools) = self._unpack("6I", binary_file, offset, 6 * 4)
+                    patch = (minos >> (8 * 0)) & 0xFF
+                    minor = (minos >> (8 * 1)) & 0xFF
+                    major = (minos >> (8 * 2)) & 0xFFFF
+                    self._minimum_version = version.parse(f"{major}.{minor}.{patch}")
+                    l.info("Found minimum version %s", self._minimum_version)
+                else:
+                    try:
+                        command_name = LC(cmd)
+                        l.warning(f"{str(command_name)} is not handled yet")
+                    except ValueError:
+                        l.error(f"Command {hex(cmd)} is not recognized!")
                 # update bookkeeping
                 offset += size
 
@@ -183,20 +238,27 @@ class MachO(Backend):
 
         # File is read, begin populating internal fields
         self._resolve_entry()
+        l.info("Parsing exports")
         self._parse_exports()
+        l.info(f"Parsing {self.symtab_nsyms} symbols")
         self._parse_symbols(binary_file)
+        l.info("Parsing module init/term function pointers")
         self._parse_mod_funcs()
 
         text_segment = self.find_segment_by_name("__TEXT")
         if not text_segment is None:
-            self.mapped_base = text_segment.vaddr
+            self.mapped_base: MemoryPointer = text_segment.vaddr
         else:
             l.warning("No text segment found")
+        if self._dyld_chained_fixups_offset:
+            l.info("Parsing dyld bound symbols and fixup chains (ios15 and above)")
+            self._parse_dyld_chained_fixups()
+        else:
+            l.info("Parsing binding bytecode stream")
+            self.do_binding()
 
-        self.do_binding()
-
-    @staticmethod
-    def is_compatible(stream):
+    @classmethod
+    def is_compatible(cls, stream):
         stream.seek(0)
         identstring = stream.read(0x5)
         stream.seek(0)
@@ -231,8 +293,8 @@ class MachO(Backend):
                 target.append(addr)
 
         for seg in self.segments:
+            seg: Union[MachOSection, MachOSegment]
             for sec in seg.sections:
-
                 if sec.type == 0x9:  # S_MOD_INIT_FUNC_POINTERS
                     l.debug("Section %s contains init pointers", sec.sectname)
                     parse_mod_funcs_internal(sec, self.mod_init_func_pointers)
@@ -244,6 +306,7 @@ class MachO(Backend):
 
     def find_segment_by_name(self, name):
         for s in self.segments:
+            s: Union[MachOSection, MachOSegment]
             if s.segname == name:
                 return s
         return None
@@ -268,34 +331,16 @@ class MachO(Backend):
         fp.seek(offset)
         return fp.read(size)
 
-    def _unpack_with_byteorder(self, fmt, data):
+    def _unpack_with_byteorder(self, fmt, data) -> Tuple[typing.Any, ...]:
         """
         Appends self.struct_byteorder before fmt to ensure usage of correct byteorder
         :return: struct.unpack(self.struct_byteorder+fmt,input)
         """
         return struct.unpack(self.struct_byteorder + fmt, data)
 
-    def _unpack(self, fmt, fp, offset, size):
+    def _unpack(self, fmt: str, fp: BufferedReader, offset: FilePointer, size: int) -> Tuple[typing.Any, ...]:
         """Convenience"""
         return self._unpack_with_byteorder(fmt, self._read(fp, offset, size))
-
-    def _parse_mach_header(self, f):
-        """
-        Parses the mach-o header and sets
-        self.cputype, self.cpusubtype, self.pie, self.ncmds,self.flags,self.sizeofcmds and self.filetype
-
-        Currently ignores any type of information that is not directly relevant to analyses
-        :param f: The binary as a file object
-        :return: None
-        """
-        # this method currently disregards any differences between 32 and 64 bit code
-        (_, self.cputype, self.cpusubtype, self.filetype, self.ncmds, self.sizeofcmds,
-         self.flags) = self._unpack("7I", f, 0, 28)
-
-        self.pie = bool(self.flags & 0x200000)  # MH_PIE
-
-        if not bool(self.flags & 0x80):  # ensure MH_TWOLEVEL
-            l.error("Binary is not using MH_TWOLEVEL namespacing. This isn't properly implemented yet and will degrade results in unpredictable ways. Please open an issue if you encounter this with a binary you can share")
 
     @staticmethod
     def _detect_byteorder(magic):
@@ -326,7 +371,6 @@ class MachO(Backend):
                 l.debug("Not a mach-o file")
                 raise CLECompatibilityError()
 
-
     def do_binding(self):
         # Perform binding
 
@@ -341,9 +385,7 @@ class MachO(Backend):
             l.info("Found weak binding blob. According to current state of knowledge, weak binding "
                    "is only sensible if multiple binaries are involved and is thus skipped.")
 
-
-        self.binding_done=True
-
+        self.binding_done = True
 
     def _parse_exports(self):
         """
@@ -416,7 +458,7 @@ class MachO(Backend):
                         tmp = read_uleb(blob, blob_f.tell())
                         blob_f.seek(tmp[1], SEEK_CUR)
                         symbol_offset = tmp[0] + self.segments[1].vaddr
-                        l.info("Found normal export %r: %#x", sym_str, symbol_offset)
+                        l.debug("Found normal export %r: %#x", sym_str, symbol_offset)
                         self.exports_by_name[sym_str.decode()] = (flags, symbol_offset)
 
                 child_count = struct.unpack("B", blob_f.read(1))[0]
@@ -526,7 +568,8 @@ class MachO(Backend):
         # TODO: This is the place to add x86 and x86_64 thread states
         if flavor == 1 and self.arch.bits != 64:  # ARM_THREAD_STATE or ARM_UNIFIED_THREAD_STATE or ARM_THREAD_STATE32
             blob = self._unpack("16I", f, offset + 16, 64)  # parses only until __pc
-        elif flavor == 1 and self.arch.bits == 64 or flavor == 6:  # ARM_THREAD_STATE or ARM_UNIFIED_THREAD_STATE or ARM_THREAD_STATE64
+        elif flavor == 1 and self.arch.bits == 64 or flavor == 6:
+            # ARM_THREAD_STATE or ARM_UNIFIED_THREAD_STATE or ARM_THREAD_STATE64
             blob = self._unpack("33Q", f, offset + 16, 264)  # parses only until __pc
         else:
             l.error("Unknown thread flavor: %d", flavor)
@@ -570,6 +613,14 @@ class MachO(Backend):
         # load string table
         self.strtab = self._read(f, stroff, strsize)
 
+        # Create Dictionary of offsets to strings for quick lookups e.g. during later symbol creation
+        _indexed_strtab: Dict[int, bytes] = {}
+        idx = 0
+        for s in self.strtab.split(b"\x00"):
+            _indexed_strtab[idx] = s
+            idx += len(s) + 1
+        self._indexed_strtab = _indexed_strtab
+
         # store symtab info
         self.symtab_nsyms = nsyms
         self.symtab_offset = symoff
@@ -596,10 +647,14 @@ class MachO(Backend):
             self.symbols.add(sym)
             self._ordered_symbols.append(sym)
 
-            l.debug("Symbol # %d @ %#x is '%s'",i,offset, sym.name)
+            l.debug("Symbol # %d @ %#x is '%s'", i, offset, sym.name)
 
     def get_string(self, start):
         """Loads a string from the string table"""
+
+        if start in self._indexed_strtab:
+            return self._indexed_strtab[start]
+
         end = start
         if end > len(self.strtab):
             raise ValueError()
@@ -610,7 +665,7 @@ class MachO(Backend):
             end += 1
         return self.strtab[start:]
 
-    def parse_lc_str(self, f, start, limit=None):
+    def parse_lc_str(self, f, start, limit: Optional[int] = None):
         """Parses a lc_str data structure"""
         tmp = self._unpack("c", f, start, 1)[0]
         s = b''
@@ -675,18 +730,20 @@ class MachO(Backend):
             # Create section
             sec = MachOSection(section_foff, section_vaddr, section_vsize, section_vsize, section_segname,
                                section_sectname,
-                               section_align, section_reloff, section_nreloc, section_flags, r1, r2)
+                               section_align, section_reloff, section_nreloc, section_flags, r1, r2, parent_segment=seg)
 
             # Store section
             seg.sections.append(sec)
+            self.sections.append(sec)
 
         # add to sections_by_ordinal
         self.sections_by_ordinal.extend(seg.sections)
 
         if segname == b"__PAGEZERO":
             # TODO: What we actually need at this point is some sort of smart on-demand string or memory
-            # This should not cause trouble because accesses to __PAGEZERO are SUPPOSED to crash (segment has access set to no access)
-            # This optimization is here as otherwise several GB worth of zeroes would clutter our memory
+            #  This should not cause trouble because accesses to __PAGEZERO are SUPPOSED to crash
+            #  (segment has access set to no access)
+            #  This optimization is here as otherwise several GB worth of zeroes would clutter our memory
             l.info("Found PAGEZERO, skipping backer for memory conservation")
         elif seg.filesize > 0:
             # Append segment data to memory
@@ -696,12 +753,123 @@ class MachO(Backend):
 
             # for some reason seg.offset is not always the same as seg.vaddr - baseaddress
             # when they differ the vaddr seems to be the correct choice according to loaders like in Ghidra
-            # but there isn't necessarily a clear definition of a baseaddress because the vmaddr just specifies the the address in the global memory space
+            # but there isn't necessarily a clear definition of a baseaddress
+            # because the vmaddr just specifies the the address in the global memory space
             vaddr_offset = AT.from_mva(seg.vaddr, self).to_rva()
             self.memory.add_backer(vaddr_offset, blob)
 
         # Store segment
         self.segments.append(seg)
+
+    S = typing.TypeVar("S", bound=Union[ctypes.Structure,ctypes.Union])
+    def _get_struct(self, struct: typing.Type[S], offset: int) -> S:
+        data = self._read(self._binary_stream, offset, ctypes.sizeof(struct))
+        return struct.from_buffer_copy(data)
+
+    def _read_cstring_from_file(self, start: FilePointer):
+        end = -1
+        buffer = b""
+        while end == -1:
+            buffer += self._read(self._binary_stream, start, 1024)
+            end = buffer.find(b'\x00')
+        return buffer[:end]
+
+
+    def _parse_dyld_chained_fixups(self):
+
+        header: dyld_chained_fixups_header = self._get_struct(dyld_chained_fixups_header, self._dyld_chained_fixups_offset)
+
+        if header.symbols_format != 0:
+            raise NotImplementedError("Dyld fixup symbols are compressed, this isn't supported yet")
+
+        # Address of Array of dyld_chained_import* structs
+        imports_start_addr: FilePointer = self._dyld_chained_fixups_offset + header.imports_offset
+        symbols_start_addr: FilePointer = self._dyld_chained_fixups_offset + header.symbols_offset
+
+        import_struct = DyldImportStruct.get_struct(header.imports_format)
+        # Parse Imports
+        for i in range(header.imports_count):
+            import_addr = imports_start_addr + i * ctypes.sizeof(import_struct)
+            imp = self._get_struct(import_struct, import_addr)
+            sym_name_addr = symbols_start_addr + imp.name_offset
+            sym_name = self._read_cstring_from_file(sym_name_addr).decode("utf-8")
+            symbols = self.symbols.get_by_name_and_ordinal(sym_name, imp.lib_ordinal)
+            if len(symbols) == 1:
+                self._dyld_imports.append(symbols[0])
+            elif len(symbols) == 0:
+                try:
+                    l.debug("Creating DyldBoundSymbol with name %s for library %s",
+                            sym_name, self.imported_libraries[imp.lib_ordinal])
+                except IndexError:
+                    l.debug("Creating DyldBoundSymbol with name %s and library ordinal %s (unknown library)",
+                            sym_name, imp.lib_ordinal)
+                sym = DyldBoundSymbol(self, sym_name, imp.lib_ordinal)
+                self.symbols.add(sym)
+                self._dyld_imports.append(sym)
+            else:
+                raise NotImplementedError(
+                    f"Multiple symbols with name {sym_name}"
+                    f"for library {self.imported_libraries[imp.lib_ordinal]}."
+                )
+
+        # Address of the dyld_chained_starts_in_image struct
+        segs_addr: FilePointer = self._dyld_chained_fixups_offset + header.starts_offset
+
+        # The struct isn't straightforward to parse with ctypes, so we do it manually
+        seg_count = self._unpack("I", self._binary_stream, segs_addr, 4)[0]
+
+        segs: List[FileOffset] = []
+        for i in range(seg_count):
+            s = self._unpack("I", self._binary_stream, (i * 4) + segs_addr + 4, 4)[0]
+            segs.append(s)
+
+            if segs[i] == 0:
+                continue
+
+            starts_addr: FilePointer = (
+                    segs_addr + segs[i]
+            )
+            starts = self._get_struct(dyld_chained_starts_in_segment, starts_addr)
+
+            page_starts_data = self._read(self._binary_stream, starts_addr + 22, starts.page_count * 2)
+            page_starts = struct.unpack("<" + ("H" * starts.page_count), page_starts_data)
+
+            pointer_format: DyldChainedPtrFormats = starts.pointer_format
+            l.info("Page has pointer_format: %s", pointer_format)
+            for (j, start) in enumerate(page_starts):
+                if start == DYLD_CHAINED_PTR_START_NONE:
+                    continue
+                chain_entry_addr = (starts.segment_offset + (j * starts.page_size) + start)
+                current_chain_addr = chain_entry_addr
+                l.info("Reading chain at %x", current_chain_addr)
+
+                while True:
+                    chained_rebase_ptr: ChainedFixupPointerOnDisk = self._get_struct(ChainedFixupPointerOnDisk, current_chain_addr)
+                    bind = chained_rebase_ptr.isBind(pointer_format)
+                    rebase = chained_rebase_ptr.isRebase(pointer_format, self.mapped_base)
+                    if bind is not None:
+                        libOrdinal, addend = bind
+                        import_symbol = self._dyld_imports[libOrdinal]
+                        reloc = MachORelocation(self, import_symbol, current_chain_addr, None)
+                        self.relocs.append(reloc)
+                        l.debug("Binding for %s found at %x", import_symbol, current_chain_addr)
+                    elif rebase is not None:
+                        target = self.mapped_base + rebase
+                        location: MemoryPointer = self.mapped_base + current_chain_addr
+                        self._dyld_rebases[location] = target
+                        # TODO: Technically this is basically a relocation, i.e. relevant for rebasing
+                        # But it isn't clear to me currently how relocations without a corresponding symbol would
+                        # be handled
+                        self.memory.store(location, struct.pack("Q", target))
+                        l.debug("Rebase to %x found at %x", target, location)
+
+                    else:
+                        raise CLEInvalidBinaryError("FixupPointer was neither bind nor rebase, that shouldn't happen")
+
+                    skip = chained_rebase_ptr.generic64.rebase.next * 4
+                    current_chain_addr += skip
+                    if skip == 0:
+                        break
 
     def get_symbol_by_address_fuzzy(self, address):
         """
@@ -713,7 +881,7 @@ class MachO(Backend):
                 return sym
         return None
 
-    def get_symbol(self, name, include_stab=False, fuzzy=False): # pylint: disable=arguments-differ
+    def get_symbol(self, name, include_stab=False, fuzzy=False):  # pylint: disable=arguments-differ
         """
         Returns all symbols matching name.
 
@@ -754,6 +922,7 @@ class MachO(Backend):
         :return: MachOSegment or None
         """
         for seg in self.segments:
+            seg: Union[MachOSection, MachOSegment]
             if seg.segname == name:
                 return seg
 

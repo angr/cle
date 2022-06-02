@@ -316,7 +316,7 @@ class TestBindingHelper(unittest.TestCase):
             TEST_BASE, "tests", "armhf", "FileProtection-05.armv7.macho"
         )
         ld = cle.Loader(machofile, auto_load_libs=False)
-        macho = ld.main_object
+        macho: MachO = ld.main_object
         macho.do_binding()
 
         expected = {

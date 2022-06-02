@@ -64,7 +64,9 @@ class Region:
         return addr
 
     def __repr__(self):
-        return '<{} {}>'.format(self.__class__.__name__, ', '.join(['{}=0x{:x}'.format(k, v) for k, v in self.__dict__.items()]))
+        return '<{} {}>'.format(self.__class__.__name__,
+                                ', '.join(['{}=0x{:x}'.format(k, v) for k, v in self.__dict__.items()])
+                                )
 
     @property
     def max_addr(self):
@@ -95,15 +97,18 @@ class Region:
 
     # EDG says: Blobs now have segments, and SimOS will get upset if these don't exist.  See simos.py line 107 for
     # some code you should probably fix if you don't like it.
-    def is_readable(self):
+    @property
+    def is_readable(self) -> bool:
         # pylint: disable=no-self-use
         return True
 
-    def is_writable(self):
+    @property
+    def is_writable(self) -> bool:
         # pylint: disable=no-self-use
         return True
 
-    def is_executable(self):
+    @property
+    def is_executable(self) -> bool:
         # pylint: disable=no-self-use
         return True
 
