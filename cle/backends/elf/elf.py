@@ -21,7 +21,7 @@ from .compilation_unit import CompilationUnit
 from .corpus import ElfCorpus
 
 from .variable import Variable
-from .variable_type import VariableType
+from .types import VariableType
 from .subprogram import Subprogram
 from .symbol import ELFSymbol, Symbol, SymbolType
 from .regions import ELFSection, ELFSegment
@@ -170,7 +170,7 @@ class ELF(MetaELF):
 
             if dwarf:
                 # Prepare a corpus to populate
-                self.corpus = ElfCorpus(self.binary)
+                self.corpus = ElfCorpus(self.binary, arch=self.arch)
                 # Load DIEs
                 self._load_dies(dwarf)
                 # Load function hints and exception handling artifacts

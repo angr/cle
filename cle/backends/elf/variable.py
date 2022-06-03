@@ -1,5 +1,5 @@
 from typing import Optional
-from .variable_type import VariableType
+from .types import VariableType
 
 
 class Variable:

@@ -3,10 +3,12 @@ from elftools.dwarf.descriptions import describe_form_class, describe_reg_name
 from elftools.dwarf.locationlists import LocationEntry, LocationExpr
 from elftools.dwarf.dwarf_expr import DWARFExprParser, DW_OP_name2opcode
 
+import cle.backends.elf.parser as abi_parser
 from .location import get_register_from_expr, get_dwarf_from_expr
-from .variable_type import VariableType
+from .types import VariableType, ClassType
 from ..corpus import Corpus
 
+import os
 import re
 import json
 import logging
@@ -22,9 +24,10 @@ class ElfCorpus(Corpus):
 
     def __init__(self, *args, **kwargs):
         self.loc_parser = None
-        self.arch = None
+        self.arch = kwargs.get('arch')
         super().__init__(*args, **kwargs)
         self.seen = set()
+        self.underlying_types = {}
 
         # Keep track of ids we have parsed before (underlying types)
         self.lookup = set()
@@ -252,15 +255,13 @@ class ElfCorpus(Corpus):
         Parse a structure type.
         """
         # The size here includes padding
-        entry = {"name": self.get_name(die), "size": self.get_size(die), "class": "Struct"}
-        
-        # Parse children (members of the union)
+        entry = {"name": self.get_name(die), "size": self.get_size(die), "class": "Struct"}        
         fields = []
         for child in die.iter_children():
             fields.append(self.parse_member(child))
-
         if fields:
             entry['fields'] = fields
+        self.underlying_types[die] = entry
         return entry
 
     def parse_base_type(self, die):
@@ -294,6 +295,34 @@ class ElfCorpus(Corpus):
         Look to see if the DIE has DW_AT_location, and if so, parse to get
         registers. The loc_parser is called by elf.py (once) and addde
         to the corpus here when it is parsing DIEs.
+        """
+        # Envar to control (force) using dwarf locations
+        experimental_parsing = os.environ.get('CLE_ELF_EXPERIMENTAL_PARSING') is not None        
+
+        # Can we parse based on an underlying type and arch?
+        if experimental_parsing:
+            parser = getattr(abi_parser, self.arch.name, None)
+            if not parser:
+                sys.exit("Experimental parsing selected by ABI for %s is not supported yet." % self.arch.name)            
+            if die.tag == "DW_AT_structure_type":
+                print('FOO')
+                import IPython
+                IPython.embed()
+            underlying_type = self.parse_underlying_type(die)
+            if underlying_type:
+                loc = parser.classify(underlying_type, die=die)
+                if loc:
+                    return loc
+            import IPython
+            IPython.embed()
+            sys.exit()
+
+        # Fallback to using dwarf location lists
+        return self.parse_dwarf_location(die)
+
+    def parse_dwarf_location(self, die):
+        """
+        Get location information from dwarf location lists
         """
         if "DW_AT_location" not in die.attributes:
             return
@@ -468,7 +497,10 @@ class ElfCorpus(Corpus):
     def parse_underlying_type(self, die, indirections=0):
         """
         Given a type, parse down to the underlying type (and count pointer indirections)
-        """
+        """       
+        if die in self.underlying_types:
+            return self.underlying_types[die]
+
         entry = {}
         if "DW_AT_type" not in die.attributes:
             return entry
@@ -476,8 +508,6 @@ class ElfCorpus(Corpus):
         # Can we get the underlying type?
         type_die = self.type_die_lookup.get(die.attributes["DW_AT_type"].value)
 
-        #if not type_die and die.tag == "DW_TAG_formal_parameter":
- 
         # TODO need another function to parse types but not call get_underlying_type?
         if not type_die:
             return {"type": "unknown"}
@@ -488,6 +518,10 @@ class ElfCorpus(Corpus):
             array_type = self.parse_underlying_type(type_die)
             entry.update({"name": self.get_name(die), "class": "Array", "type": array_type['type']})
             return entry
+
+        # Struct
+        elif type_die and type_die.tag == "DW_TAG_structure_type":
+            return self.parse_structure_type(type_die)
 
         # Otherwise, keep digging
         elif type_die:
@@ -501,12 +535,16 @@ class ElfCorpus(Corpus):
                     break
                 type_die = next_die
 
+
             # Parse the underlying bits
             # TODO need to sometimes parse deeper but not go recursive...
             entry = {"type": self.get_name(type_die), "size": self.get_size(type_die)}
             #updated = self.parse_die(type_die)
             #entry.update(updated)
-            
+
+            if type_die and type_die.tag == "DW_AT_structure_type":
+                entry = self.parse_structure_type(type_die)
+
             # Only add non zero indirections
             if indirections != 0:
                 entry['indirections'] = indirections
@@ -520,7 +558,7 @@ class ElfCorpus(Corpus):
         Given a type, add the class
         """
         if die.tag == "DW_TAG_base_type":
-            return "Scalar"
+            return ClassType.get(self.get_name(die))
         if die.tag == "DW_TAG_structure_type":
             return "Struct"
         if die.tag == "DW_TAG_array_type":

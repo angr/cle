@@ -8,7 +8,7 @@ class Corpus:
     """
     A Corpus is a set of DWARF DIEs (functions and other tags) parsed into json.
     """
-    def __init__(self, library):
+    def __init__(self, library, *args, **kwargs):
         self.library = library
         self.variables = []
         self.functions = []

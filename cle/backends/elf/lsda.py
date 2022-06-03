@@ -125,7 +125,7 @@ class LSDAExceptionTable:
                 lpstart += self.address + (self.stream.tell() - self.base_offset)
             # else:
                 # TODO normally this would raise the exception.
-                lpstart = None
+                #lpstart = None
                 #raise NotImplementedError("Unsupported modifier %#x." % modifier)
 
         else:
