@@ -1,0 +1,130 @@
+{
+    "library": "/home/vanessa/Desktop/Code/cle/examples/libtest.so",
+    "locations": [
+        {
+            "variables": [
+                {
+                    "name": "stdin",
+                    "size": 216,
+                    "type": "_IO_FILE",
+                    "indirections": 1,
+                    "class": "Struct"
+                },
+                {
+                    "name": "stdout",
+                    "size": 216,
+                    "type": "_IO_FILE",
+                    "indirections": 1,
+                    "class": "Struct"
+                },
+                {
+                    "name": "stderr",
+                    "size": 216,
+                    "type": "_IO_FILE",
+                    "indirections": 1,
+                    "class": "Struct"
+                },
+                {
+                    "name": "sys_nerr",
+                    "size": 4,
+                    "type": "int",
+                    "class": "Scalar"
+                },
+                {
+                    "name": "sys_errlist",
+                    "size": 1,
+                    "type": "char",
+                    "indirections": 1,
+                    "class": "Scalar"
+                },
+                {
+                    "name": "_sys_nerr",
+                    "size": 4,
+                    "type": "int",
+                    "class": "Scalar"
+                },
+                {
+                    "name": "_sys_errlist",
+                    "size": 1,
+                    "type": "char",
+                    "indirections": 1,
+                    "class": "Scalar"
+                }
+            ]
+        },
+        {
+            "function": {
+                "name": "printf",
+                "parameters": [
+                    {
+                        "name": "__fmt",
+                        "size": 1,
+                        "type": "char",
+                        "indirections": 1,
+                        "class": "Scalar"
+                    }
+                ],
+                "return": {
+                    "type": "int",
+                    "size": 4,
+                    "class": "Scalar",
+                    "location": "%rax"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "_Z7bigcallllllln",
+                "parameters": [
+                    {
+                        "name": "a",
+                        "size": 8,
+                        "location": "%rdi",
+                        "type": "long int",
+                        "class": "Scalar"
+                    },
+                    {
+                        "name": "b",
+                        "size": 8,
+                        "location": "%rsi",
+                        "type": "long int",
+                        "class": "Scalar"
+                    },
+                    {
+                        "name": "c",
+                        "size": 8,
+                        "location": "%rdx",
+                        "type": "long int",
+                        "class": "Scalar"
+                    },
+                    {
+                        "name": "d",
+                        "size": 8,
+                        "location": "%rcx",
+                        "type": "long int",
+                        "class": "Scalar"
+                    },
+                    {
+                        "name": "e",
+                        "size": 8,
+                        "location": "%r8",
+                        "type": "long int",
+                        "class": "Scalar"
+                    },
+                    {
+                        "name": "f",
+                        "size": 16,
+                        "location": "framebase+0",
+                        "type": "__int128",
+                        "class": "Scalar"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "__printf_chk"
+            }
+        }
+    ]
+}

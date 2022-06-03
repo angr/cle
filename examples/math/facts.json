@@ -1,0 +1,108 @@
+{
+    "library": "/home/vanessa/Desktop/Code/cle/examples/math/lib.so",
+    "locations": [
+        {
+            "variables": []
+        },
+        {
+            "function": {
+                "name": "_ZN11MathLibrary10Arithmetic3AddEdd",
+                "parameters": [
+                    {
+                        "name": "unknown",
+                        "size": 8,
+                        "type": "double",
+                        "class": "Scalar"
+                    },
+                    {
+                        "name": "unknown",
+                        "size": 8,
+                        "type": "double",
+                        "class": "Scalar"
+                    }
+                ],
+                "return": {
+                    "type": "double",
+                    "size": 8,
+                    "class": "Scalar",
+                    "location": "%rax"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "_ZN11MathLibrary10Arithmetic8SubtractEdd",
+                "parameters": [
+                    {
+                        "name": "unknown",
+                        "size": 8,
+                        "type": "double",
+                        "class": "Scalar"
+                    },
+                    {
+                        "name": "unknown",
+                        "size": 8,
+                        "type": "double",
+                        "class": "Scalar"
+                    }
+                ],
+                "return": {
+                    "type": "double",
+                    "size": 8,
+                    "class": "Scalar",
+                    "location": "%rax"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "_ZN11MathLibrary10Arithmetic8MultiplyEdd",
+                "parameters": [
+                    {
+                        "name": "unknown",
+                        "size": 8,
+                        "type": "double",
+                        "class": "Scalar"
+                    },
+                    {
+                        "name": "unknown",
+                        "size": 8,
+                        "type": "double",
+                        "class": "Scalar"
+                    }
+                ],
+                "return": {
+                    "type": "double",
+                    "size": 8,
+                    "class": "Scalar",
+                    "location": "%rax"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "_ZN11MathLibrary10Arithmetic6DivideEdd",
+                "parameters": [
+                    {
+                        "name": "unknown",
+                        "size": 8,
+                        "type": "double",
+                        "class": "Scalar"
+                    },
+                    {
+                        "name": "unknown",
+                        "size": 8,
+                        "type": "double",
+                        "class": "Scalar"
+                    }
+                ],
+                "return": {
+                    "type": "double",
+                    "size": 8,
+                    "class": "Scalar",
+                    "location": "%rax"
+                }
+            }
+        }
+    ]
+}

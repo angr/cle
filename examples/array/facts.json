@@ -1,0 +1,33 @@
+{
+    "library": "/home/vanessa/Desktop/Code/cle/examples/array/lib.so",
+    "locations": [
+        {
+            "variables": []
+        },
+        {
+            "function": {
+                "name": "main",
+                "return": {
+                    "type": "int",
+                    "size": 4,
+                    "class": "Scalar",
+                    "location": "%rax"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "_Z3foo3Foo",
+                "parameters": [
+                    {
+                        "name": "f",
+                        "size": 36,
+                        "location": "framebase0",
+                        "type": "Foo",
+                        "class": "Struct"
+                    }
+                ]
+            }
+        }
+    ]
+}

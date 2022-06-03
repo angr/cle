@@ -1,0 +1,29 @@
+{
+    "library": "/home/vanessa/Desktop/Code/cle/examples/pointer-struct/lib.so",
+    "locations": [
+        {
+            "variables": []
+        },
+        {
+            "function": {
+                "name": "_Z3fooP3Foo",
+                "parameters": [
+                    {
+                        "name": "f",
+                        "size": 16,
+                        "location": "framebase-24",
+                        "type": "Foo",
+                        "indirections": 1,
+                        "class": "Struct"
+                    }
+                ],
+                "return": {
+                    "type": "int",
+                    "size": 4,
+                    "class": "Scalar",
+                    "location": "%rax"
+                }
+            }
+        }
+    ]
+}

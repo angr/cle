@@ -1,0 +1,68 @@
+{
+    "library": "/home/vanessa/Desktop/Code/cle/examples/callsite/lib.so",
+    "locations": [
+        {
+            "variables": []
+        },
+        {
+            "function": {
+                "name": "_Z5startd",
+                "parameters": [
+                    {
+                        "name": "d",
+                        "size": 8,
+                        "location": "framebase-40",
+                        "type": "double",
+                        "class": "Scalar"
+                    }
+                ],
+                "return": {
+                    "type": "int",
+                    "size": 4,
+                    "class": "Scalar",
+                    "location": "%rax"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "_Z3bard",
+                "parameters": [
+                    {
+                        "name": "d",
+                        "size": 8,
+                        "location": "framebase-24",
+                        "type": "double",
+                        "class": "Scalar"
+                    }
+                ],
+                "return": {
+                    "type": "double",
+                    "size": 8,
+                    "class": "Scalar",
+                    "location": "%rax"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "_Z3fooi",
+                "parameters": [
+                    {
+                        "name": "x",
+                        "size": 4,
+                        "location": "framebase-20",
+                        "type": "int",
+                        "class": "Scalar"
+                    }
+                ],
+                "return": {
+                    "type": "int",
+                    "size": 4,
+                    "class": "Scalar",
+                    "location": "%rax"
+                }
+            }
+        }
+    ]
+}

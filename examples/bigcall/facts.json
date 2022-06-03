@@ -1,0 +1,36 @@
+{
+    "library": "/home/vanessa/Desktop/Code/cle/examples/bigcall/lib.so",
+    "locations": [
+        {
+            "variables": []
+        },
+        {
+            "function": {
+                "name": "main",
+                "parameters": [
+                    {
+                        "name": "argc",
+                        "size": 4,
+                        "location": "framebase-36",
+                        "type": "int",
+                        "class": "Scalar"
+                    },
+                    {
+                        "name": "argv",
+                        "size": 1,
+                        "location": "framebase-48",
+                        "type": "char",
+                        "indirections": 2,
+                        "class": "Scalar"
+                    }
+                ],
+                "return": {
+                    "type": "int",
+                    "size": 4,
+                    "class": "Scalar",
+                    "location": "%rax"
+                }
+            }
+        }
+    ]
+}

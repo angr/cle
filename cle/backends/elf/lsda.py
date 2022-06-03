@@ -123,10 +123,10 @@ class LSDAExceptionTable:
                 pass
             elif modifier == DW_EH_encoding_flags['DW_EH_PE_pcrel']:
                 lpstart += self.address + (self.stream.tell() - self.base_offset)
-            else:
-                import IPython
-                IPython.embed()
-                raise NotImplementedError("Unsupported modifier %#x." % modifier)
+            # else:
+                # TODO normally this would raise the exception.
+                lpstart = None
+                #raise NotImplementedError("Unsupported modifier %#x." % modifier)
 
         else:
             lpstart = None
