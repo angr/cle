@@ -19,7 +19,8 @@ setup(
     install_requires=[
         'pyelftools>=0.27',
         'cffi',
-        'pyvex==9.1.gitrolling',
+        'archinfo',
+        'pyvex',
         'pefile',
         'sortedcontainers>=2.0',
     ],
