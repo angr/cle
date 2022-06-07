@@ -607,12 +607,12 @@ class ELF(MetaELF):
                     filename = file_cache[line.state.file]
                 else:
                     file_entry = lineprog.header['file_entry'][line.state.file - 1]
-                    if file_entry["dir_index"] == 0:
+                    if file_entry.dir_index == 0:
                         filename = os.path.join(comp_dir, file_entry.name.decode())
                     else:
                         filename = os.path.join(
                             comp_dir,
-                            lineprog.header["include_directory"][file_entry["dir_index"] - 1].decode(),
+                            lineprog.header["include_directory"][file_entry.dir_index - 1].decode(),
                             file_entry.name.decode())
                     file_cache[line.state.file] = filename
 
