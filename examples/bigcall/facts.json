@@ -6,28 +6,65 @@
         },
         {
             "function": {
+                "name": "_Z7bigcallllllln",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "type": "long int",
+                        "class": "Integer"
+                    },
+                    {
+                        "size": 8,
+                        "type": "long int",
+                        "class": "Integer"
+                    },
+                    {
+                        "size": 8,
+                        "type": "long int",
+                        "class": "Integer"
+                    },
+                    {
+                        "size": 8,
+                        "type": "long int",
+                        "class": "Integer"
+                    },
+                    {
+                        "size": 8,
+                        "type": "long int",
+                        "class": "Integer"
+                    },
+                    {
+                        "size": 16,
+                        "type": "__int128",
+                        "class": "Integer"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
                 "name": "main",
                 "parameters": [
                     {
-                        "name": "argc",
                         "size": 4,
+                        "name": "argc",
                         "location": "framebase-36",
                         "type": "int",
-                        "class": "Scalar"
+                        "class": "Integer"
                     },
                     {
-                        "name": "argv",
                         "size": 1,
+                        "name": "argv",
                         "location": "framebase-48",
                         "type": "char",
                         "indirections": 2,
-                        "class": "Scalar"
+                        "class": "Integral"
                     }
                 ],
                 "return": {
                     "type": "int",
                     "size": 4,
-                    "class": "Scalar",
+                    "class": "Integer",
                     "location": "%rax"
                 }
             }

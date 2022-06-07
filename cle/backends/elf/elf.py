@@ -562,7 +562,10 @@ class ELF(MetaELF):
             die = cu.get_top_DIE()
             if 'DW_AT_comp_dir' in die.attributes:
                 comp_dir = die.attributes['DW_AT_comp_dir'].value.decode()
-            lineprog = dwarf.line_program_for_CU(cu)
+            try:
+                lineprog = dwarf.line_program_for_CU(cu)
+            except:
+                continue
             if lineprog is None:
                 continue
             file_cache = {}
@@ -671,9 +674,10 @@ class ELF(MetaELF):
             die_low_pc, die_high_pc = self._load_low_high_pc_form_die(top_die)
             die_lang = top_die.attributes.get('DW_AT_language', None)
 
-            if die_name is None or die_comp_dir is None or die_low_pc is None or die_high_pc is None or \
-                    die_lang is None:
-                continue
+            # NOTE: I commented this out because it was skipping the pointer case
+            #if die_name is None or die_comp_dir is None or die_low_pc is None or die_high_pc is None or \
+            #        die_lang is None:
+            #    continue
 
             die_name = die_name.value.decode('utf-8')
             die_comp_dir = die_comp_dir.value.decode('utf-8')

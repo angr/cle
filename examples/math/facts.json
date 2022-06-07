@@ -9,22 +9,20 @@
                 "name": "_ZN11MathLibrary10Arithmetic3AddEdd",
                 "parameters": [
                     {
-                        "name": "unknown",
                         "size": 8,
                         "type": "double",
-                        "class": "Scalar"
+                        "class": "Float"
                     },
                     {
-                        "name": "unknown",
                         "size": 8,
                         "type": "double",
-                        "class": "Scalar"
+                        "class": "Float"
                     }
                 ],
                 "return": {
                     "type": "double",
                     "size": 8,
-                    "class": "Scalar",
+                    "class": "Float",
                     "location": "%rax"
                 }
             }
@@ -34,22 +32,20 @@
                 "name": "_ZN11MathLibrary10Arithmetic8SubtractEdd",
                 "parameters": [
                     {
-                        "name": "unknown",
                         "size": 8,
                         "type": "double",
-                        "class": "Scalar"
+                        "class": "Float"
                     },
                     {
-                        "name": "unknown",
                         "size": 8,
                         "type": "double",
-                        "class": "Scalar"
+                        "class": "Float"
                     }
                 ],
                 "return": {
                     "type": "double",
                     "size": 8,
-                    "class": "Scalar",
+                    "class": "Float",
                     "location": "%rax"
                 }
             }
@@ -59,22 +55,20 @@
                 "name": "_ZN11MathLibrary10Arithmetic8MultiplyEdd",
                 "parameters": [
                     {
-                        "name": "unknown",
                         "size": 8,
                         "type": "double",
-                        "class": "Scalar"
+                        "class": "Float"
                     },
                     {
-                        "name": "unknown",
                         "size": 8,
                         "type": "double",
-                        "class": "Scalar"
+                        "class": "Float"
                     }
                 ],
                 "return": {
                     "type": "double",
                     "size": 8,
-                    "class": "Scalar",
+                    "class": "Float",
                     "location": "%rax"
                 }
             }
@@ -84,22 +78,20 @@
                 "name": "_ZN11MathLibrary10Arithmetic6DivideEdd",
                 "parameters": [
                     {
-                        "name": "unknown",
                         "size": 8,
                         "type": "double",
-                        "class": "Scalar"
+                        "class": "Float"
                     },
                     {
-                        "name": "unknown",
                         "size": 8,
                         "type": "double",
-                        "class": "Scalar"
+                        "class": "Float"
                     }
                 ],
                 "return": {
                     "type": "double",
                     "size": 8,
-                    "class": "Scalar",
+                    "class": "Float",
                     "location": "%rax"
                 }
             }

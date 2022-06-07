@@ -9,8 +9,8 @@
                 "name": "_Z3fooP3Foo",
                 "parameters": [
                     {
-                        "name": "f",
                         "size": 16,
+                        "name": "f",
                         "location": "framebase-24",
                         "type": "Foo",
                         "indirections": 1,
@@ -20,7 +20,7 @@
                 "return": {
                     "type": "int",
                     "size": 4,
-                    "class": "Scalar",
+                    "class": "Integer",
                     "location": "%rax"
                 }
             }

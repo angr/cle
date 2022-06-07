@@ -1,7 +1,7 @@
 # Smeagle Facts
 
 This is a variant of cle modified to generate json corpora. You can use the [dev.py](dev.py)
-script to run any particular example.
+script to run any particular example. First, install dependencies:
 
 ```bash
 $ python -m venv env
@@ -9,11 +9,33 @@ $ source env/bin/activate
 $ pip install -e .
 ```
 
+We need the latest of pyelftools:
+
+```bash
+$ git clone https://github.com/eliben/pyelftools /tmp/pyelftools
+$ cd /tmp/pyelftools
+$ pip install .
+```
+
 Then run targeting an example directory in [examples](examples)
 
 ```bash
 $ python dev.py examples/bigcall/test.so
 ```
+
+### Building
+
+It's important to use a newer version of gcc, so I've been using a container to build:
+
+```bash
+$ docker run -it -v $PWD:/code -it gcc:12.1 bash -c "cd /code && make"
+```
+This also means you should use the container for dwarfdump
+
+```bash
+$ docker run -it -v $PWD:/code -it gcc:12.1 bash -c "apt-get update && apt-get install -y dwarfdump && dwarfdump /code/examples/bigcall/lib.so"
+```
+
 
 ### Location Parsing
 

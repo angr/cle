@@ -9,17 +9,17 @@
                 "name": "_Z5startd",
                 "parameters": [
                     {
-                        "name": "d",
                         "size": 8,
+                        "name": "d",
                         "location": "framebase-40",
                         "type": "double",
-                        "class": "Scalar"
+                        "class": "Float"
                     }
                 ],
                 "return": {
                     "type": "int",
                     "size": 4,
-                    "class": "Scalar",
+                    "class": "Integer",
                     "location": "%rax"
                 }
             }
@@ -29,17 +29,17 @@
                 "name": "_Z3bard",
                 "parameters": [
                     {
-                        "name": "d",
                         "size": 8,
+                        "name": "d",
                         "location": "framebase-24",
                         "type": "double",
-                        "class": "Scalar"
+                        "class": "Float"
                     }
                 ],
                 "return": {
                     "type": "double",
                     "size": 8,
-                    "class": "Scalar",
+                    "class": "Float",
                     "location": "%rax"
                 }
             }
@@ -49,17 +49,17 @@
                 "name": "_Z3fooi",
                 "parameters": [
                     {
-                        "name": "x",
                         "size": 4,
+                        "name": "x",
                         "location": "framebase-20",
                         "type": "int",
-                        "class": "Scalar"
+                        "class": "Integer"
                     }
                 ],
                 "return": {
                     "type": "int",
                     "size": 4,
-                    "class": "Scalar",
+                    "class": "Integer",
                     "location": "%rax"
                 }
             }

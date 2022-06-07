@@ -2,7 +2,21 @@
     "library": "/home/vanessa/Desktop/Code/cle/examples/pointer/lib.so",
     "locations": [
         {
-            "variables": []
+            "variables": [
+                {
+                    "name": "x",
+                    "size": 4,
+                    "type": "int",
+                    "class": "Integer"
+                },
+                {
+                    "name": "px",
+                    "size": 4,
+                    "type": "int",
+                    "indirections": 1,
+                    "class": "Integer"
+                }
+            ]
         }
     ]
 }
