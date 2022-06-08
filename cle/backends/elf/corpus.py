@@ -144,6 +144,7 @@ class ElfCorpus(Corpus):
         if self.parser:
             allocator = self.parser.get_allocator()
 
+        # Parse the return value
         return_value = None
         if "DW_AT_type" in die.attributes:
             return_value = self.parse_underlying_type(die)

@@ -30,5 +30,4 @@ class Corpus:
         """
         Dump the corpus to json
         """
-        print(self.functions)
         return json.dumps(self.to_dict(), indent=4)
