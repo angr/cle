@@ -10,8 +10,7 @@
                 "return": {
                     "type": "int",
                     "size": 4,
-                    "class": "Integer",
-                    "location": "%rax"
+                    "class": "Integer"
                 }
             }
         },
@@ -38,7 +37,7 @@
                                 "type": "char"
                             }
                         ],
-                        "location": "%rdi"
+                        "location": "framebase0"
                     }
                 ]
             }

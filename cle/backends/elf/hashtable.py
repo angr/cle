@@ -27,15 +27,15 @@ class ELFHashTable(object):
         :param k:   The string to look up.
         """
         if self.nbuckets == 0:
-            return None
+            return None, None
         hval = self.elf_hash(k) % self.nbuckets
         symndx = self.buckets[hval]
         while symndx != 0:
             sym = self.symtab.get_symbol(symndx)
             if sym.name == k:
-                return sym
+                return symndx, sym
             symndx = self.chains[symndx]
-        return None
+        return None, None
 
     # from http://www.partow.net/programming/hashfunctions/
     @staticmethod
@@ -70,8 +70,6 @@ class GNUHashTable(object):
 
         stream.seek(offset)
         data = stream.read(16)
-        if len(data) != 16:
-            import ipdb; ipdb.set_trace()
         self.nbuckets, self.symndx, self.maskwords, self.shift2 = struct.unpack(fmt + 'IIII', data)
 
         self.bloom = struct.unpack(fmt + fmtsz*self.maskwords, stream.read(self.c*self.maskwords//8))
@@ -94,19 +92,19 @@ class GNUHashTable(object):
         """
         h = self.gnu_hash(k)
         if not self._matches_bloom(h):
-            return None
+            return None, None
         n = self.buckets[h % self.nbuckets]
         if n == 0:
-            return None
+            return None, None
         while True:
             sym = self.symtab.get_symbol(n)
             if sym.name == k:
-                return sym
+                return n, sym
             self.stream.seek(self.hash_ptr + 4*(n-self.symndx))
             if struct.unpack('I', self.stream.read(4))[0] & 1 == 1:
                 break
             n += 1
-        return None
+        return None, None
 
     @staticmethod
     def gnu_hash(key):

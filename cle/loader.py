@@ -46,8 +46,8 @@ class Loader:
     :param rebase_granularity:  The alignment to use for rebasing shared objects
     :param except_missing_libs: Throw an exception when a shared library can't be found.
     :param aslr:                Load libraries in symbolic address space. Do not use this option.
-    :param page_size:           The granularity with which data is mapped into memory. Set to 1 if you are working
-                                in a non-paged environment.
+    :param page_size:           The granularity with which data is mapped into memory. Set to 0x1000 if you are working
+                                in an environment where data will always be memory mapped in a page-graunlar way.
     :param preload_libs:        Similar to `force_load_libs` but will provide for symbol resolution, with precedence
                                 over any dependencies.
     :ivar memory:               The loaded, rebased, and relocated memory of the program.
@@ -270,7 +270,7 @@ class Loader:
     def auto_load_libs(self):
         return self._auto_load_libs
 
-    def describe_addr(self, addr):
+    def describe_addr(self, addr) -> str:
         """
         Returns a textual description of what's in memory at the provided address
         """
@@ -431,6 +431,27 @@ class Loader:
             return None
 
         return obj.find_section_containing(addr)
+
+    def find_loadable_containing(self, addr, skip_pseudo_objects=True):
+        """
+        Find the section or segment object the address belongs to. Sections will only be used if the corresponding
+        object does not have segments.
+
+        :param addr: The address to test
+        :param skip_pseudo_objects: Skip objects that CLE adds during loading.
+        :return:  The section or segment that the address belongs to, or None if the address does not belong to any
+                    section or segment.
+        """
+        obj = self.find_object_containing(addr, membership_check=False)
+
+        if obj is None:
+            return None
+
+        if skip_pseudo_objects and isinstance(obj, (ExternObject, KernelObject, TLSObject)):
+            # the address is from a special CLE section
+            return None
+
+        return obj.find_loadable_containing(addr)
 
     def find_section_next_to(self, addr, skip_pseudo_objects=True):
         """

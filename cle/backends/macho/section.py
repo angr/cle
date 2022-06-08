@@ -1,14 +1,16 @@
 # -*-coding:utf8 -*-
 # This file is part of Mach-O Loader for CLE.
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
+from typing import Optional
 
-from .. import Region
+from .segment import MachOSegment
+from .. import Section
 
 TYPE_MASK = 0x000000ff
 ATTRIBUTES_MASK = 0xffffff00
 
 
-class MachOSection(Region):
+class MachOSection(Section):
     """
     Mach-O Section, only defined within the context of a Mach-O Segment.
 
@@ -25,9 +27,11 @@ class MachOSection(Region):
         - r1 and r2 are values for the reserved1 and reserved2 fields respectively
     """
 
-    def __init__(self, offset, vaddr, size, vsize, segname, sectname, align, reloff, nreloc, flags, r1, r2):
-        super().__init__(offset, vaddr, size, vsize)
-
+    def __init__(self, offset, vaddr, size, vsize, segname, sectname, align, reloff, nreloc, flags, r1, r2,
+                 parent_segment: Optional[MachOSegment] = None):
+        super().__init__(sectname.decode(), offset, vaddr, size)
+        self.filesize = size
+        self.memsize = vsize
         self.segname = segname.decode()
         self.sectname = sectname.decode()
         self.align = align
@@ -36,6 +40,7 @@ class MachOSection(Region):
         self.flags = flags
         self.reserved1 = r1
         self.reserved2 = r2
+        self.parent_segment = parent_segment
 
     @property
     def type(self):
@@ -44,6 +49,38 @@ class MachOSection(Region):
     @property
     def attributes(self):
         return self.flags & ATTRIBUTES_MASK
+
+    @property
+    def is_readable(self):
+        """
+        Always true, because sections should always be readable
+        :return:
+        """
+        return True
+
+    @property
+    def is_writable(self):
+        """
+        Returns the permission of the parent segment, because MachO sections simply inherit that
+        :return:
+        """
+        return self.parent_segment.is_writable
+
+    @property
+    def is_executable(self):
+        """
+        Returns the permission of the parent segment, because MachO sections simply inherit that
+        :return:
+        """
+        return self.parent_segment.is_executable
+
+    @property
+    def only_contains_uninitialized_data(self):
+        """
+        I actually don't know if this is true, but it seems like a saner assumption than true
+        :return:
+        """
+        return False
 
     def __repr__(self):
         return "<Section: %s (part of Segment: %s)| offset %#x, vaddr %#x, size %#x>" % (

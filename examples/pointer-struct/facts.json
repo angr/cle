@@ -38,8 +38,7 @@
                 "return": {
                     "type": "int",
                     "size": 4,
-                    "class": "Integer",
-                    "location": "%rax"
+                    "class": "Integer"
                 }
             }
         }

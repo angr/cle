@@ -11,21 +11,18 @@
                     {
                         "size": 8,
                         "type": "double",
-                        "class": "Float",
-                        "location": "%xmm0"
+                        "class": "Float"
                     },
                     {
                         "size": 8,
                         "type": "double",
-                        "class": "Float",
-                        "location": "%xmm1"
+                        "class": "Float"
                     }
                 ],
                 "return": {
                     "type": "double",
                     "size": 8,
-                    "class": "Float",
-                    "location": "%xmm0"
+                    "class": "Float"
                 }
             }
         },
@@ -36,21 +33,18 @@
                     {
                         "size": 8,
                         "type": "double",
-                        "class": "Float",
-                        "location": "%xmm0"
+                        "class": "Float"
                     },
                     {
                         "size": 8,
                         "type": "double",
-                        "class": "Float",
-                        "location": "%xmm1"
+                        "class": "Float"
                     }
                 ],
                 "return": {
                     "type": "double",
                     "size": 8,
-                    "class": "Float",
-                    "location": "%xmm0"
+                    "class": "Float"
                 }
             }
         },
@@ -61,21 +55,18 @@
                     {
                         "size": 8,
                         "type": "double",
-                        "class": "Float",
-                        "location": "%xmm0"
+                        "class": "Float"
                     },
                     {
                         "size": 8,
                         "type": "double",
-                        "class": "Float",
-                        "location": "%xmm1"
+                        "class": "Float"
                     }
                 ],
                 "return": {
                     "type": "double",
                     "size": 8,
-                    "class": "Float",
-                    "location": "%xmm0"
+                    "class": "Float"
                 }
             }
         },
@@ -86,21 +77,18 @@
                     {
                         "size": 8,
                         "type": "double",
-                        "class": "Float",
-                        "location": "%xmm0"
+                        "class": "Float"
                     },
                     {
                         "size": 8,
                         "type": "double",
-                        "class": "Float",
-                        "location": "%xmm1"
+                        "class": "Float"
                     }
                 ],
                 "return": {
                     "type": "double",
                     "size": 8,
-                    "class": "Float",
-                    "location": "%xmm0"
+                    "class": "Float"
                 }
             }
         }

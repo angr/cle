@@ -4,6 +4,7 @@ import logging
 import hashlib
 from io import BufferedReader
 from typing import List, Optional  # pylint:disable=unused-import
+import typing
 
 import sortedcontainers
 
@@ -17,10 +18,9 @@ from ..errors import CLEOperationError, CLEError
 
 l = logging.getLogger(name=__name__)
 
-import typing
 
 if typing.TYPE_CHECKING:
-    from .. import Loader
+    from .. import Loader, Relocation
 
 class FunctionHintSource:
     """
@@ -168,12 +168,12 @@ class Backend:
         self.sections_map = {}  # Mapping from section name to section
         self.symbols: 'sortedcontainers.SortedKeyList[Symbol]' = sortedcontainers.SortedKeyList(
             key=self._get_symbol_relative_addr)
-        self.imports = {}
+        self.imports: typing.Dict[str, "Relocation"] = {}
         self.resolved_imports = []
-        self.relocs = []
+        self.relocs: "List[Relocation]" = []
         self.irelatives = []    # list of tuples (resolver, destination), dest w/o rebase
         self.jmprel = {}
-        self.arch = None
+        self.arch = None # type: Optional[archinfo.Arch]
         self.os = None  # Let other stuff override this
         self.compiler = None, None  # compiler name, version
         self._symbol_cache = {}

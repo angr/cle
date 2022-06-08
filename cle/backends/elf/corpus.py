@@ -5,7 +5,8 @@ from elftools.dwarf.dwarf_expr import DWARFExprParser, DW_OP_name2opcode
 
 import cle.backends.elf.parser as abi_parser
 from .location import get_register_from_expr, get_dwarf_from_expr
-from .types import VariableType, ClassType
+from .types import ClassType
+from .variable_type import VariableType
 from ..corpus import Corpus
 
 import os

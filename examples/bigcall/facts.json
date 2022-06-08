@@ -11,38 +11,32 @@
                     {
                         "size": 8,
                         "type": "long int",
-                        "class": "Integer",
-                        "location": "%rdi"
+                        "class": "Integer"
                     },
                     {
                         "size": 8,
                         "type": "long int",
-                        "class": "Integer",
-                        "location": "%rsi"
+                        "class": "Integer"
                     },
                     {
                         "size": 8,
                         "type": "long int",
-                        "class": "Integer",
-                        "location": "%rdx"
+                        "class": "Integer"
                     },
                     {
                         "size": 8,
                         "type": "long int",
-                        "class": "Integer",
-                        "location": "%rcx"
+                        "class": "Integer"
                     },
                     {
                         "size": 8,
                         "type": "long int",
-                        "class": "Integer",
-                        "location": "%r8"
+                        "class": "Integer"
                     },
                     {
                         "size": 16,
                         "type": "__int128",
-                        "class": "Integer",
-                        "location": "framebase+8"
+                        "class": "Integer"
                     }
                 ]
             }
@@ -56,7 +50,7 @@
                         "name": "argc",
                         "type": "int",
                         "class": "Integer",
-                        "location": "%rdi"
+                        "location": "framebase-36"
                     },
                     {
                         "size": 8,
@@ -69,14 +63,13 @@
                         },
                         "type": "*char",
                         "indirections": 2,
-                        "location": "%rsi"
+                        "location": "%rdi"
                     }
                 ],
                 "return": {
                     "type": "int",
                     "size": 4,
-                    "class": "Integer",
-                    "location": "%rax"
+                    "class": "Integer"
                 }
             }
         }

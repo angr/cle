@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import List
+from typing import List, Type, Optional
 
 from ...relocation import Relocation
 from ...symbol import Symbol, SymbolType
@@ -50,7 +50,8 @@ class SimData(Symbol):
 
 registered_data = defaultdict(list)
 
-def register(simdata_cls):
+
+def register(simdata_cls: Type[SimData]):
     """
     Register the given SimData class with CLE so it may be used during loading
     """
@@ -58,7 +59,8 @@ def register(simdata_cls):
         return
     registered_data[simdata_cls.name].append(simdata_cls)
 
-def lookup(name, libname):
+
+def lookup(name: str, libname) -> Optional[Type[SimData]]:
     weak_option = None
     for simdata_cls in registered_data[name]:
         if type(libname) is type(simdata_cls.libname) is str and simdata_cls.libname.startswith(libname):

@@ -13,14 +13,13 @@
                         "name": "d",
                         "type": "double",
                         "class": "Float",
-                        "location": "%xmm0"
+                        "location": "framebase-40"
                     }
                 ],
                 "return": {
                     "type": "int",
                     "size": 4,
-                    "class": "Integer",
-                    "location": "%rax"
+                    "class": "Integer"
                 }
             }
         },
@@ -33,14 +32,13 @@
                         "name": "d",
                         "type": "double",
                         "class": "Float",
-                        "location": "%xmm0"
+                        "location": "framebase-24"
                     }
                 ],
                 "return": {
                     "type": "double",
                     "size": 8,
-                    "class": "Float",
-                    "location": "%xmm0"
+                    "class": "Float"
                 }
             }
         },
@@ -53,14 +51,13 @@
                         "name": "x",
                         "type": "int",
                         "class": "Integer",
-                        "location": "%rdi"
+                        "location": "framebase-20"
                     }
                 ],
                 "return": {
                     "type": "int",
                     "size": 4,
-                    "class": "Integer",
-                    "location": "%rax"
+                    "class": "Integer"
                 }
             }
         }
