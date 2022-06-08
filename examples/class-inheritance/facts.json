@@ -1,0 +1,122 @@
+{
+    "library": "/home/vanessa/Desktop/Code/cle/examples/class-inheritance/lib.so",
+    "locations": [
+        {
+            "variables": []
+        },
+        {
+            "function": {
+                "name": "_Z4func1AP1B1C1D",
+                "parameters": [
+                    {
+                        "size": 4,
+                        "name": "A",
+                        "class": "Struct",
+                        "fields": [
+                            {
+                                "name": "x",
+                                "type": "int",
+                                "size": 4,
+                                "class": "Integer"
+                            }
+                        ],
+                        "location": "%rdi"
+                    },
+                    {
+                        "size": 8,
+                        "name": "b",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "name": "B",
+                            "size": 4,
+                            "class": "Struct",
+                            "fields": [
+                                {
+                                    "name": "y",
+                                    "type": "int",
+                                    "size": 4,
+                                    "class": "Integer"
+                                }
+                            ]
+                        },
+                        "indirections": 1,
+                        "location": "%rsi"
+                    },
+                    {
+                        "size": 4,
+                        "name": "C",
+                        "class": "Struct",
+                        "fields": [
+                            {
+                                "name": "z",
+                                "type": "int",
+                                "size": 4,
+                                "class": "Integer"
+                            }
+                        ],
+                        "location": "%rdx"
+                    },
+                    {
+                        "size": 16,
+                        "name": "D",
+                        "class": "Struct",
+                        "fields": [
+                            {
+                                "name": "A",
+                                "size": 4,
+                                "class": "Struct",
+                                "fields": [
+                                    {
+                                        "name": "x",
+                                        "type": "int",
+                                        "size": 4,
+                                        "class": "Integer"
+                                    }
+                                ]
+                            },
+                            {
+                                "name": "B",
+                                "size": 4,
+                                "class": "Struct",
+                                "fields": [
+                                    {
+                                        "name": "y",
+                                        "type": "int",
+                                        "size": 4,
+                                        "class": "Integer"
+                                    }
+                                ]
+                            },
+                            {
+                                "name": "C",
+                                "size": 4,
+                                "class": "Struct",
+                                "fields": [
+                                    {
+                                        "name": "z",
+                                        "type": "int",
+                                        "size": 4,
+                                        "class": "Integer"
+                                    }
+                                ]
+                            },
+                            {
+                                "name": "d",
+                                "type": "int",
+                                "size": 4,
+                                "class": "Integer"
+                            }
+                        ],
+                        "location": "%xmm0"
+                    }
+                ],
+                "return": {
+                    "type": "int",
+                    "size": 4,
+                    "class": "Integer",
+                    "location": "%rax"
+                }
+            }
+        }
+    ]
+}

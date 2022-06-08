@@ -11,9 +11,9 @@
                     {
                         "size": 8,
                         "name": "d",
-                        "location": "framebase-40",
                         "type": "double",
-                        "class": "Float"
+                        "class": "Float",
+                        "location": "%xmm0"
                     }
                 ],
                 "return": {
@@ -31,9 +31,9 @@
                     {
                         "size": 4,
                         "name": "x",
-                        "location": "framebase-20",
                         "type": "int",
-                        "class": "Integer"
+                        "class": "Integer",
+                        "location": "%rdi"
                     }
                 ],
                 "return": {

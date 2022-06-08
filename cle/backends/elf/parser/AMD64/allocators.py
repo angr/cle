@@ -1,6 +1,14 @@
 from .register_class import RegisterClass
 
 
+def get_allocator():
+    return RegisterAllocator()
+
+
+def get_return_allocator():
+    return ReturnValueAllocator()
+
+
 class FramebaseAllocator:
     """
     A FramebaseAllocator keeps track of framebase index
@@ -111,11 +119,11 @@ class RegisterAllocator:
 
 
 class ReturnValueAllocator:
-    def get_register_string(self, cls, param):
+    def get_register_string(self, lo, param, hi=None) -> str:
         """
         TODO: The standard does not describe how to return aggregates and unions
         """
-        if cls == RegisterClass.MEMORY:
+        if lo == RegisterClass.MEMORY:
             # If the type has class MEMORY, then the caller provides space for the return
             # value and passes the address of this storage in %rdi as if it were the first
             # argument to the function. In effect, this address becomes a “hidden” first ar-
@@ -125,29 +133,29 @@ class ReturnValueAllocator:
             # caller in %rdi.
             return "%rax"
 
-        if cls == RegisterClass.INTEGER:
+        if lo == RegisterClass.INTEGER:
             # If the class is INTEGER, the next available register of the sequence %rax, %rdx is used.
             if param.get("size", 0) > 64:
                 return "%rax|%rdx"
             return "%rax"
 
-        if cls == RegisterClass.SSE:
+        if lo == RegisterClass.SSE:
             #  If the class is SSE, the next available vector register of the sequence %xmm0, %xmm1 is used
             # TODO: larger vector types (ymm, zmm)
             if param.get("size", 0) > 64:
                 return "%xmm0|%xmm1"
             return "%xmm0"
 
-        if cls == RegisterClass.SSEUP:
+        if lo == RegisterClass.SSEUP:
             # If the class is SSEUP, the eightbyte is returned in the next available eightbyte
             # chunk of the last used vector register.
             return "SSEUP"
 
-        if cls == RegisterClass.X87 or cls == RegisterClass.X87UP:
+        if lo == RegisterClass.X87 or lo == RegisterClass.X87UP:
             # If the class is X87, the value is returned on the X87 stack in %st0 as 80-bit x87 number.
             return "%st0"
 
-        if cls == RegisterClass.COMPLEX_X87:
+        if lo == RegisterClass.COMPLEX_X87:
             # If the class is COMPLEX_X87, the real part of the value is returned in
             # %st0 and the imaginary part in %st1.
             return "%st0|%st1"

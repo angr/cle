@@ -1,0 +1,34 @@
+{
+    "library": "/home/vanessa/Desktop/Code/cle/examples/function-with-pointer/lib.so",
+    "locations": [
+        {
+            "variables": []
+        },
+        {
+            "function": {
+                "name": "_Z3fooPi",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "int",
+                            "size": 4,
+                            "class": "Integer"
+                        },
+                        "type": "*int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ],
+                "return": {
+                    "type": "int",
+                    "size": 4,
+                    "class": "Integer",
+                    "location": "%rax"
+                }
+            }
+        }
+    ]
+}

@@ -11,32 +11,38 @@
                     {
                         "size": 8,
                         "type": "long int",
-                        "class": "Integer"
+                        "class": "Integer",
+                        "location": "%rdi"
                     },
                     {
                         "size": 8,
                         "type": "long int",
-                        "class": "Integer"
+                        "class": "Integer",
+                        "location": "%rsi"
                     },
                     {
                         "size": 8,
                         "type": "long int",
-                        "class": "Integer"
+                        "class": "Integer",
+                        "location": "%rdx"
                     },
                     {
                         "size": 8,
                         "type": "long int",
-                        "class": "Integer"
+                        "class": "Integer",
+                        "location": "%rcx"
                     },
                     {
                         "size": 8,
                         "type": "long int",
-                        "class": "Integer"
+                        "class": "Integer",
+                        "location": "%r8"
                     },
                     {
                         "size": 16,
                         "type": "__int128",
-                        "class": "Integer"
+                        "class": "Integer",
+                        "location": "framebase+8"
                     }
                 ]
             }
@@ -48,17 +54,22 @@
                     {
                         "size": 4,
                         "name": "argc",
-                        "location": "framebase-36",
                         "type": "int",
-                        "class": "Integer"
+                        "class": "Integer",
+                        "location": "%rdi"
                     },
                     {
-                        "size": 1,
+                        "size": 8,
                         "name": "argv",
-                        "location": "framebase-48",
-                        "type": "char",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "char",
+                            "size": 1,
+                            "class": "Integral"
+                        },
+                        "type": "*char",
                         "indirections": 2,
-                        "class": "Integral"
+                        "location": "%rsi"
                     }
                 ],
                 "return": {

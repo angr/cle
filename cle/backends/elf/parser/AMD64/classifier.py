@@ -32,22 +32,19 @@ def classify_pointer(count):
     )
 
 
-def classify(typ, count=0, die=None):
+def classify(typ, count=0, die=None, return_classification=False, allocator=None):
     """
     Main entrypoint to clsasify something
     """
     cls = None
     count = count or typ.get("indirections", 0)
-
-    # TODO not sure if this is the right place to put this
-    allocator = RegisterAllocator()
     if count > 0:
         cls = classify_pointer(count)
 
     elif typ["class"] in ["Scalar", "Integer", "Integral", "Float"]:
         cls = classify_scalar(typ)
     elif typ["class"] == "Struct":
-        cls = classify_struct(typ)
+        cls = classify_struct(typ, allocator=allocator)
 
     if not cls:
         print("UNWRAP UNDERLYING TYPE IN CLASSIFY")
@@ -66,6 +63,14 @@ def classify(typ, count=0, die=None):
     #  return classify(t);
     # }
     # return {RegisterClass::NO_CLASS, RegisterClass::NO_CLASS, "Unknown"};
+    if isinstance(cls, Classification) and return_classification:
+        return cls
+
+    if isinstance(cls, list) and len(cls) == 1 and not return_classification:
+        cls = cls[0]
+
+    if isinstance(cls, list) and len(cls) == 2:
+        return allocator.get_register_string(cls[0], cls[1], typ)
 
     # If a classifier returns the location directly (e.g., struct)
     if not isinstance(cls, Classification):
@@ -74,8 +79,12 @@ def classify(typ, count=0, die=None):
     if count > 0:
         # Allocate space for the pointer (NOT the underlying type)
         # TODO this is probably wrong, doesn't distinguish from below
-        return allocator.get_register_string(cls.classes[0], cls.classes[1], typ)
-    return allocator.get_register_string(cls.classes[0], cls.classes[1], typ)
+        return allocator.get_register_string(
+            lo=cls.classes[0], hi=cls.classes[1], param=typ
+        )
+    return allocator.get_register_string(
+        lo=cls.classes[0], hi=cls.classes[1], param=typ
+    )
 
 
 def classify_scalar(typ):
@@ -209,7 +218,7 @@ def post_merge(lo, hi, size):
         hi = RegisterClass.SSE
 
 
-def classify_struct(typ):
+def classify_struct(typ, allocator=None, return_classification=False):
     size = typ.get("size", 0)
 
     # If an object is larger than eight eightbyes (i.e., 64) class MEMORY.
@@ -237,16 +246,18 @@ def classify_struct(typ):
         print("\n")
 
         # vector of temporary classifications
-        tmp = []
-        for f in eb.fields:
-            tmp.append(classify(f))
+        # tmp = []
+        # for f in eb.fields:
+        #    tmp.append(classify(f))
 
         if len(eb.fields) > 1:
-            c1 = classify(eb.fields[0])
-            c2 = classify(eb.fields[1])
-            classes.append(merge(c1[0], c2[1]))
+            c1 = classify(eb.fields[0], allocator=allocator, return_classification=True)
+            c2 = classify(eb.fields[1], allocator=allocator, return_classification=True)
+            classes.append(merge(c1, c2))
         else:
-            classes.append(classify(eb.fields[0]))
+            classes.append(
+                classify(eb.fields[0], return_classification=True, allocator=allocator)
+            )
 
     # for c in classes:
     #    print(c)

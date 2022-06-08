@@ -25,9 +25,13 @@ class ElfCorpus(Corpus):
     def __init__(self, *args, **kwargs):
         self.loc_parser = None
         self.arch = kwargs.get("arch")
+        self.parser = getattr(abi_parser, self.arch.name, None)
+        self.symbols = kwargs.get("symbols")
         super().__init__(*args, **kwargs)
         self.seen = set()
         self.underlying_types = {}
+        # Export and import lookup
+        # self.
 
         # Keep track of ids we have parsed before (underlying types)
         self.lookup = set()
@@ -132,14 +136,20 @@ class ElfCorpus(Corpus):
             return
 
         # TODO see page 92 of https://dwarfstd.org/doc/DWARF4.pdf
-        # need to parse virtual functions and other attributesls
+        # need to parse virtual functions and other attributes
         entry = {"name": self.get_name(die)}
+
+        # Set the allocator on the level of the function
+        allocator = None
+        if self.parser:
+            allocator = self.parser.get_allocator()
 
         return_value = None
         if "DW_AT_type" in die.attributes:
-            # TODO get register for this
             return_value = self.parse_underlying_type(die)
-            return_value["location"] = "%" + describe_reg_name(0)
+            loc = self.parse_location(die, underlying_type=return_value, is_return=True)
+            if loc:
+                return_value["location"] = loc
 
         params = []
 
@@ -155,16 +165,21 @@ class ElfCorpus(Corpus):
 
             # can either be inlined subroutine or format parameter
             if child.tag == "DW_TAG_formal_parameter":
-                loc = self.parse_location(child)
                 param = {"size": self.get_size(child)}
                 name = self.get_name(child)
                 if name != "unknown":
                     param["name"] = name
+                param.update(self.parse_underlying_type(child))
+
+                loc = None
+                if param.get("class") == "Pointer":
+                    loc = allocator.get_next_int_register()
+                else:
+                    loc = self.parse_location(child, allocator=allocator)
 
                 # Only add location if we know it!
                 if loc:
                     param["location"] = loc
-                param.update(self.parse_underlying_type(child))
 
             elif child.tag == "DW_TAG_inlined_subroutine":
                 # If we have an abstract origin we know type for
@@ -287,28 +302,35 @@ class ElfCorpus(Corpus):
             entry["fields"] = fields
         return entry
 
-    def parse_location(self, die):
+    def parse_location(
+        self, die, underlying_type=None, allocator=None, is_return=False
+    ):
         """
         Look to see if the DIE has DW_AT_location, and if so, parse to get
         registers. The loc_parser is called by elf.py (once) and addde
         to the corpus here when it is parsing DIEs.
         """
-        # Envar to control (force) using dwarf locations
+        # Envar to control (force) not using dwarf locations
         experimental_parsing = (
             os.environ.get("CLE_ELF_EXPERIMENTAL_PARSING") is not None
         )
 
         # Can we parse based on an underlying type and arch?
         if experimental_parsing:
-            parser = getattr(abi_parser, self.arch.name, None)
-            if not parser:
+            if not self.parser:
                 sys.exit(
                     "Experimental parsing selected by ABI for %s is not supported yet."
                     % self.arch.name
                 )
-            underlying_type = self.parse_underlying_type(die)
+            underlying_type = underlying_type or self.parse_underlying_type(die)
             if underlying_type:
-                loc = parser.classify(underlying_type, die=die)
+                loc = self.parser.classify(
+                    underlying_type,
+                    die=die,
+                    allocator=allocator
+                    if not is_return
+                    else self.parser.get_return_allocator(),
+                )
                 if loc:
                     return loc
             import IPython
@@ -532,6 +554,22 @@ class ElfCorpus(Corpus):
         if not type_die:
             return {"type": "unknown"}
 
+        if type_die and type_die.tag == "DW_TAG_pointer_type":
+            # If we've already seen a pointer
+            if "underlying_type" in entry:
+                entry["underlying_type"] = {
+                    "name": self.get_name(die),
+                    "class": "Pointer",
+                    "size": self.get_size(type_die),
+                }
+            else:
+                entry = {
+                    "name": self.get_name(die),
+                    "class": "Pointer",
+                    "size": self.get_size(type_die),
+                    "underlying_type": "unknown",
+                }
+
         # Case 1: It's an array (and type is for elements)
         if type_die and type_die.tag == "DW_TAG_array_type":
             entry = self.parse_array_type(type_die)
@@ -563,21 +601,38 @@ class ElfCorpus(Corpus):
                     break
                 type_die = next_die
 
+            # parse structure fields
+            if type_die and type_die.tag == "DW_TAG_structure_type":
+                if not entry:
+                    entry = self.parse_structure_type(type_die)
+                elif "underlying_type" in entry:
+                    entry["underlying_type"] = self.parse_structure_type(type_die)
+
             # Parse the underlying bits
-            # TODO need to sometimes parse deeper but not go recursive...
-            entry = {"type": self.get_name(type_die), "size": self.get_size(type_die)}
+            elif not entry:
+                entry = {
+                    "type": self.get_name(type_die),
+                    "size": self.get_size(type_die),
+                }
+            elif "underlying_type" in entry:
+                type_name = self.get_name(type_die)
+                entry["underlying_type"] = {
+                    "type": type_name,
+                    "size": self.get_size(type_die),
+                    "class": self.add_class(type_die),
+                }
+                entry["type"] = "*" + type_name
+
             # updated = self.parse_die(type_die)
             # entry.update(updated)
-
-            if type_die and type_die.tag == "DW_AT_structure_type":
-                entry = self.parse_structure_type(type_die)
 
             # Only add non zero indirections
             if indirections != 0:
                 entry["indirections"] = indirections
 
         # Based on the underlying type, add a class
-        entry["class"] = self.add_class(type_die)
+        if "class" not in entry:
+            entry["class"] = self.add_class(type_die)
         return entry
 
     def add_class(self, die):

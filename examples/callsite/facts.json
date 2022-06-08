@@ -11,9 +11,9 @@
                     {
                         "size": 8,
                         "name": "d",
-                        "location": "framebase-40",
                         "type": "double",
-                        "class": "Float"
+                        "class": "Float",
+                        "location": "%xmm0"
                     }
                 ],
                 "return": {
@@ -31,16 +31,16 @@
                     {
                         "size": 8,
                         "name": "d",
-                        "location": "framebase-24",
                         "type": "double",
-                        "class": "Float"
+                        "class": "Float",
+                        "location": "%xmm0"
                     }
                 ],
                 "return": {
                     "type": "double",
                     "size": 8,
                     "class": "Float",
-                    "location": "%rax"
+                    "location": "%xmm0"
                 }
             }
         },
@@ -51,9 +51,9 @@
                     {
                         "size": 4,
                         "name": "x",
-                        "location": "framebase-20",
                         "type": "int",
-                        "class": "Integer"
+                        "class": "Integer",
+                        "location": "%rdi"
                     }
                 ],
                 "return": {

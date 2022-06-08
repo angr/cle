@@ -22,7 +22,6 @@
                     {
                         "size": 36,
                         "name": "Foo",
-                        "location": "framebase0",
                         "class": "Struct",
                         "fields": [
                             {
@@ -38,7 +37,8 @@
                                 "count": 0,
                                 "type": "char"
                             }
-                        ]
+                        ],
+                        "location": "%rdi"
                     }
                 ]
             }

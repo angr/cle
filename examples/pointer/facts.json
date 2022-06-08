@@ -11,10 +11,15 @@
                 },
                 {
                     "name": "px",
-                    "size": 4,
-                    "type": "int",
-                    "indirections": 1,
-                    "class": "Integer"
+                    "size": 8,
+                    "class": "Pointer",
+                    "underlying_type": {
+                        "type": "int",
+                        "size": 4,
+                        "class": "Integer"
+                    },
+                    "type": "*int",
+                    "indirections": 1
                 }
             ]
         }
