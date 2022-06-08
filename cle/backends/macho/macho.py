@@ -12,9 +12,6 @@ from typing import Optional, DefaultDict, List, Tuple, Dict, Union
 import logging
 from sortedcontainers import SortedKeyList
 
-from packaging.version import Version, LegacyVersion
-from packaging import version
-
 import archinfo
 
 from .macho_load_commands import LoadCommands as LC
