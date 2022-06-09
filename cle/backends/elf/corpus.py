@@ -313,9 +313,9 @@ class ElfCorpus(Corpus):
         to the corpus here when it is parsing DIEs.
         """
         # Envar to control (force) not using dwarf locations
-        experimental_parsing = (
-            os.environ.get("CLE_ELF_EXPERIMENTAL_PARSING") is not None
-        )
+        experimental_parsing = True #(
+        #    os.environ.get("CLE_ELF_EXPERIMENTAL_PARSING") is not None
+        #)
 
         # Can we parse based on an underlying type and arch?
         if experimental_parsing:
