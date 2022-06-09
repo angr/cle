@@ -1,6 +1,6 @@
 from .register_class import RegisterClass
 from .allocators import RegisterAllocator
-
+from ...types import ClassType
 
 class Classification:
     def __init__(self, name, classes, count=0):
@@ -45,6 +45,10 @@ def classify(typ, count=0, die=None, return_classification=False, allocator=None
         cls = classify_scalar(typ)
     elif typ["class"] == "Struct":
         cls = classify_struct(typ, allocator=allocator)
+    elif typ["class"] == "Union":
+        cls = classify_union(typ, allocator=allocator)
+    elif typ["class"] == "Array":
+        cls = classify_array(typ, allocator=allocator)
 
     if not cls:
         print("UNWRAP UNDERLYING TYPE IN CLASSIFY")
@@ -87,12 +91,12 @@ def classify(typ, count=0, die=None, return_classification=False, allocator=None
     )
 
 
-def classify_scalar(typ):
+def classify_scalar(typ, size=None):
     """
     Classify a scalar type
     """
     # size in BITS
-    size = typ.get("size", 0) * 8
+    size = size or typ.get("size", 0) * 8
 
     # Integral types
     if typ["class"] in ["Integral", "Integer"]:  # TODO props.is_UTF?
@@ -273,41 +277,33 @@ def classify_fields(typ):
     return [classify(f) for f in typ.get("fields", [])]
 
 
-def classify_union(typ):
-
-    print("CLASSIFY UNION")
-    import IPython
-
-    IPython.embed()
-
+def classify_union(typ, allocator):
     size = typ.get("size", 0)
     if size > 64:
         return Classification("Union", [RegisterClass.MEMORY, RegisterClass.NO_CLASS])
 
     hi = RegisterClass.NO_CLASS
     lo = RegisterClass.NO_CLASS
-    for f in typ.get("members", []):
-        c = classify(f)
-        hi = merge(hi, c.hi)
-        lo = merge(lo, c.lo)
+
+    # We renamed members to fields
+    for f in typ.get("fields", []):
+        c = classify(f, allocator=allocator, return_classification=True)
+        hi = merge(hi, c.classes[1])
+        lo = merge(lo, c.classes[0])
 
     # Pass a reference so they are updated here, and we also need size
     post_merge(lo, hi, size)
     return Classification("Union", [lo, hi])
 
 
-def classify_array(typ):
-    print("CLASSIFY ARRAY")
-    import IPython
-
-    IPython.embed()
-
+def classify_array(typ, allocator):
     size = typ.get("size", 0)
     if size > 64:
         return Classification("Array", [RegisterClass.MEMORY, RegisterClass.NO_CLASS])
 
     # Just classify the base type
-    # return classify(t->getBaseType());
+    base_type = {"class": ClassType.get(typ.get('type')), "size": size}
+    return classify(base_type, allocator=allocator, return_classification=True)
 
 
 def classify_enum(typ):

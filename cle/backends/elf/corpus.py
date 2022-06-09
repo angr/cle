@@ -572,6 +572,9 @@ class ElfCorpus(Corpus):
                     "underlying_type": "unknown",
                 }
 
+        if type_die and type_die.tag == "DW_TAG_union_type":
+            return self.parse_union_type(type_die)
+
         # Case 1: It's an array (and type is for elements)
         if type_die and type_die.tag == "DW_TAG_array_type":
             entry = self.parse_array_type(type_die)

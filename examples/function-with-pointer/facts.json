@@ -25,7 +25,8 @@
                 "return": {
                     "type": "int",
                     "size": 4,
-                    "class": "Integer"
+                    "class": "Integer",
+                    "location": "%rax"
                 }
             }
         }

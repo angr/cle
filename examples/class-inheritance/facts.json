@@ -20,7 +20,7 @@
                                 "class": "Integer"
                             }
                         ],
-                        "location": "framebase-20"
+                        "location": "%rdi"
                     },
                     {
                         "size": 8,
@@ -40,7 +40,7 @@
                             ]
                         },
                         "indirections": 1,
-                        "location": "%rdi"
+                        "location": "%rsi"
                     },
                     {
                         "size": 4,
@@ -54,7 +54,7 @@
                                 "class": "Integer"
                             }
                         ],
-                        "location": "framebase-24"
+                        "location": "%rdx"
                     },
                     {
                         "size": 16,
@@ -107,13 +107,14 @@
                                 "class": "Integer"
                             }
                         ],
-                        "location": "framebase-48"
+                        "location": "%xmm0"
                     }
                 ],
                 "return": {
                     "type": "int",
                     "size": 4,
-                    "class": "Integer"
+                    "class": "Integer",
+                    "location": "%rax"
                 }
             }
         }

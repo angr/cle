@@ -1,5 +1,5 @@
 {
-    "library": "/home/vanessa/Desktop/Code/cle/examples/array/lib.so",
+    "library": "/home/vanessa/Desktop/Code/cle/examples/union/lib.so",
     "locations": [
         {
             "variables": []
@@ -17,12 +17,12 @@
         },
         {
             "function": {
-                "name": "_Z3foo3Foo",
+                "name": "_Z3foo1A",
                 "parameters": [
                     {
-                        "size": 36,
-                        "name": "Foo",
-                        "class": "Struct",
+                        "size": 16,
+                        "name": "A",
+                        "class": "Union",
                         "fields": [
                             {
                                 "name": "x",
@@ -31,11 +31,11 @@
                                 "class": "Integer"
                             },
                             {
-                                "name": "c",
+                                "name": "y",
                                 "class": "Array",
-                                "size": 248,
+                                "size": 24,
                                 "count": 0,
-                                "type": "char"
+                                "type": "int"
                             }
                         ],
                         "location": "%rdi"

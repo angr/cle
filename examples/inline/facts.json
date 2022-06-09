@@ -13,13 +13,14 @@
                         "name": "d",
                         "type": "double",
                         "class": "Float",
-                        "location": "framebase-40"
+                        "location": "%xmm0"
                     }
                 ],
                 "return": {
                     "type": "int",
                     "size": 4,
-                    "class": "Integer"
+                    "class": "Integer",
+                    "location": "%rax"
                 }
             }
         },
@@ -32,13 +33,14 @@
                         "name": "x",
                         "type": "int",
                         "class": "Integer",
-                        "location": "framebase-20"
+                        "location": "%rdi"
                     }
                 ],
                 "return": {
                     "type": "int",
                     "size": 4,
-                    "class": "Integer"
+                    "class": "Integer",
+                    "location": "%rax"
                 }
             }
         }
