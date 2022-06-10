@@ -113,6 +113,8 @@ class LSDAExceptionTable:
             base_encoding = lpstart_encoding & 0x0f
             modifier = lpstart_encoding & 0xf0
 
+            import IPython
+            IPython.embed()
             lpstart = struct_parse(
                 Struct('dummy',
                        self._formats[base_encoding]('LPStart')),

@@ -1,0 +1,21 @@
+{
+    "library": "/home/vanessa/Desktop/Code/cle/examples/const/example",
+    "locations": [
+        {
+            "variables": []
+        },
+        {
+            "function": {
+                "name": "main",
+                "direction": "export",
+                "return": {
+                    "type": "int",
+                    "size": 4,
+                    "class": "Integer",
+                    "direction": "export",
+                    "location": "%rax"
+                }
+            }
+        }
+    ]
+}

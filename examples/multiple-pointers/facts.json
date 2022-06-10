@@ -1,0 +1,43 @@
+{
+    "library": "/home/vanessa/Desktop/Code/cle/examples/multiple-pointers/example",
+    "locations": [
+        {
+            "variables": []
+        },
+        {
+            "function": {
+                "name": "main",
+                "direction": "export",
+                "return": {
+                    "type": "int",
+                    "size": 4,
+                    "class": "Integer",
+                    "direction": "export",
+                    "location": "%rax"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "_Z3fooPPi",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "int",
+                            "size": 4,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        }
+    ]
+}

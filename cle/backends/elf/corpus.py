@@ -153,13 +153,19 @@ class ElfCorpus(Corpus):
         functions, hence why we parse the subprogram children here to find
         the rest.
         """
+        name = self.get_name(die)
+        if self.symbols and name not in self.symbols:
+            return
+
         # If has DW_TAG_external, we know it's external outside of this CU
         if "DW_AT_external" not in die.attributes:
             return
 
         # TODO see page 92 of https://dwarfstd.org/doc/DWARF4.pdf
         # need to parse virtual functions and other attributes
-        entry = {"name": self.get_name(die)}
+        entry = {"name": name}
+        if name in self.symbols:
+            entry["direction"] = self.symbols[name]
 
         # Set the allocator on the level of the function
         allocator = None
@@ -185,6 +191,7 @@ class ElfCorpus(Corpus):
         # Hold previous child for modifiers
         param = None
         for child in die.iter_children():
+
             # can either be inlined subroutine or format parameter
             if child.tag == "DW_TAG_formal_parameter":
                 param = {"size": self.get_size(child)}
@@ -486,10 +493,10 @@ class ElfCorpus(Corpus):
         entry = {
             "name": self.get_name(die),
             "size": self.get_size(die),
-            "class": "Scalar",
         }
         underlying_type = self.parse_underlying_type(die)
         entry.update(underlying_type)
+        entry["class"] = "Enum"
 
         fields = []
         for child in die.iter_children():
@@ -565,14 +572,14 @@ class ElfCorpus(Corpus):
         return self.parse_underlying_type(sibling)
 
     @cache_type
-    def parse_underlying_type(self, die, indirections=0):
+    def parse_underlying_type(self, die, indirections=0, entry=None):
         """
         Given a type, parse down to the underlying type (and count pointer indirections)
         """
         if die in self.underlying_types:
             return self.underlying_types[die]
 
-        entry = {}
+        entry = entry or {}
         if "DW_AT_type" not in die.attributes:
             return entry
 
@@ -607,6 +614,9 @@ class ElfCorpus(Corpus):
         if type_die and type_die.tag == "DW_TAG_union_type":
             return self.parse_union_type(type_die)
 
+        if type_die and type_die.tag == "DW_TAG_enumeration_type":
+            return self.parse_enumeration_type(type_die)
+
         # Case 1: It's an array (and type is for elements)
         if type_die and type_die.tag == "DW_TAG_array_type":
             entry = self.parse_array_type(type_die)
@@ -615,9 +625,10 @@ class ElfCorpus(Corpus):
                 {
                     "name": self.get_name(die),
                     "class": "Array",
-                    "type": array_type["type"],
                 }
             )
+            if "type" in array_type:
+                entry["type"] = array_type["type"]
             return entry
 
         # Struct

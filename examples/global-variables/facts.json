@@ -39,7 +39,8 @@
         },
         {
             "function": {
-                "name": "_Z3foov"
+                "name": "_Z3foov",
+                "direction": "export"
             }
         }
     ]

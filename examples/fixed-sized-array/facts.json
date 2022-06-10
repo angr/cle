@@ -1,0 +1,53 @@
+{
+    "library": "/home/vanessa/Desktop/Code/cle/examples/fixed-sized-array/lib.so",
+    "locations": [
+        {
+            "variables": [
+                {
+                    "name": "fixedSizeArray",
+                    "size": 232,
+                    "location": "var",
+                    "class": "Array",
+                    "count": 0,
+                    "type": "int",
+                    "direction": "export"
+                }
+            ]
+        },
+        {
+            "function": {
+                "name": "main",
+                "direction": "export",
+                "return": {
+                    "type": "int",
+                    "size": 4,
+                    "class": "Integer",
+                    "direction": "export",
+                    "location": "%rax"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "_Z30function_with_fixed_size_arrayPi",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "array",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "int",
+                            "size": 4,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        }
+    ]
+}

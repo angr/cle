@@ -98,7 +98,7 @@ class RegisterAllocator:
             or lo == RegisterClass.COMPLEX_X87
             or hi == RegisterClass.X87UP
         ):
-            return fallocator.next_framebase_from_type(param)
+            return self.fallocator.next_framebase_from_type(param)
 
         # This should never be reached
         raise RuntimeError("Unknown classification")

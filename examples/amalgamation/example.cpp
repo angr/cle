@@ -5,10 +5,14 @@ static int inty = 2;
 bool booley = true;
 long double doubley = 1.0;
 
-extern int intyterny;
+//extern int intyterny;
 
 void foo() {
-  intyterny = 1;
+//  intyterny = 1;
+}
+
+int main(int argc, char * argv[]) {
+    return 0;
 }
 
 struct Structy {

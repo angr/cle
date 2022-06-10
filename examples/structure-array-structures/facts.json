@@ -1,0 +1,90 @@
+{
+    "library": "/home/vanessa/Desktop/Code/cle/examples/structure-array-structures/example",
+    "locations": [
+        {
+            "variables": []
+        },
+        {
+            "function": {
+                "name": "main",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 4,
+                        "name": "argc",
+                        "type": "int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    },
+                    {
+                        "size": 8,
+                        "name": "argv",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "char",
+                            "size": 1,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*char",
+                        "indirections": 2,
+                        "location": "%rsi"
+                    }
+                ],
+                "return": {
+                    "type": "int",
+                    "size": 4,
+                    "class": "Integer",
+                    "direction": "export",
+                    "location": "%rax"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "_Z3fooiPP7Structy",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 4,
+                        "name": "one",
+                        "type": "int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    },
+                    {
+                        "size": 8,
+                        "name": "arrayOfStructures",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "name": "Structy",
+                            "size": 40,
+                            "class": "Struct",
+                            "fields": [
+                                {
+                                    "name": "child",
+                                    "class": "Array",
+                                    "size": 32,
+                                    "count": 0,
+                                    "direction": "export"
+                                }
+                            ]
+                        },
+                        "direction": "both",
+                        "indirections": 2,
+                        "location": "%rsi"
+                    }
+                ],
+                "return": {
+                    "type": "int",
+                    "size": 4,
+                    "class": "Integer",
+                    "direction": "export",
+                    "location": "%rax"
+                }
+            }
+        }
+    ]
+}

@@ -90,16 +90,7 @@ tests.py /home/vanessa/Desktop/Code/cle/examples/callsite/lib.so
 
 ## TODO:
  - Vanessasaurus:
-   - Examples to add:
-     - enum as a parameter
-     - fixed size arrays
-     - structures of structures
-     - structures of arrays of structures
-     - structures of arrays of arrays
-     - complex types (look at unit tests)
-     - const versions of types (also in until tests)
-     - just review smeagle unit tests
-   - option to filter out some line programs based on location (to deal with unknown pointers) 
+   - option to filter out some line programs based on location (to deal with unknown pointers) - NOTE seems to be bug with new dwarf and DW_AT_stmt_list parsing
  - Tim:
    - Write out high level approach
    - need to complement this with C++ interface to get callsites into Python. Only need for callsites for now, unless speed is an issue in the future.

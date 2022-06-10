@@ -46,6 +46,8 @@ def run(name, lib):
     """
     path = os.path.join(examples_dir, name, lib)
     if not os.path.exists(path):
+        path = os.path.join(examples_dir, name, "example")
+    if not os.path.exists(path):
         sys.exit("%s does not exist" % path)
     ld = cle.Loader(path, load_debug_info=True, auto_load_libs=False)
     return ld.corpus

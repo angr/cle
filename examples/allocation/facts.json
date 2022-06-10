@@ -1,0 +1,3401 @@
+{
+    "library": "/home/vanessa/Desktop/Code/cle/examples/allocation/example",
+    "locations": [
+        {
+            "variables": [
+                {
+                    "name": "__dso_handle",
+                    "size": 8,
+                    "location": "var",
+                    "class": "Pointer",
+                    "underlying_type": {
+                        "type": "unknown",
+                        "size": 8,
+                        "class": "Pointer"
+                    },
+                    "direction": "import",
+                    "type": "*unknown"
+                }
+            ]
+        },
+        {
+            "function": {
+                "name": "main",
+                "direction": "export",
+                "return": {
+                    "type": "int",
+                    "size": 4,
+                    "class": "Integer",
+                    "direction": "export",
+                    "location": "%rax"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "test_void",
+                "direction": "export"
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_uint_least64_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long unsigned int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long unsigned int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_uint_least64_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long unsigned int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long unsigned int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_uint_least64_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "type": "long unsigned int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_uint_least32_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "unsigned int",
+                            "size": 4,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*unsigned int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_uint_least32_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "unsigned int",
+                            "size": 4,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*unsigned int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_uint_least32_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 4,
+                        "name": "x",
+                        "type": "unsigned int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_uint_least16_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "short unsigned int",
+                            "size": 2,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*short unsigned int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_uint_least16_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "short unsigned int",
+                            "size": 2,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*short unsigned int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_uint_least16_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 2,
+                        "name": "x",
+                        "type": "short unsigned int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_uint_least8_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "unsigned char",
+                            "size": 1,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*unsigned char",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_uint_least8_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "unsigned char",
+                            "size": 1,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*unsigned char",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_uint_least8_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 1,
+                        "name": "x",
+                        "type": "unsigned char",
+                        "class": "Integral",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_uint_fast64_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long unsigned int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long unsigned int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_uint_fast64_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long unsigned int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long unsigned int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_uint_fast64_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "type": "long unsigned int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_uint_fast32_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long unsigned int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long unsigned int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_uint_fast32_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long unsigned int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long unsigned int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_uint_fast32_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "type": "long unsigned int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_uint_fast16_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long unsigned int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long unsigned int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_uint_fast16_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long unsigned int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long unsigned int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_uint_fast16_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "type": "long unsigned int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_uint_fast8_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "unsigned char",
+                            "size": 1,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*unsigned char",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_uint_fast8_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "unsigned char",
+                            "size": 1,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*unsigned char",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_uint_fast8_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 1,
+                        "name": "x",
+                        "type": "unsigned char",
+                        "class": "Integral",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_uint64_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long unsigned int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long unsigned int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_uint64_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long unsigned int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long unsigned int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_uint64_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "type": "long unsigned int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_uint32_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "unsigned int",
+                            "size": 4,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*unsigned int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_uint32_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "unsigned int",
+                            "size": 4,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*unsigned int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_uint32_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 4,
+                        "name": "x",
+                        "type": "unsigned int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_uint16_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "short unsigned int",
+                            "size": 2,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*short unsigned int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_uint16_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "short unsigned int",
+                            "size": 2,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*short unsigned int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_uint16_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 2,
+                        "name": "x",
+                        "type": "short unsigned int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_uint8_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "unsigned char",
+                            "size": 1,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*unsigned char",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_uint8_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "unsigned char",
+                            "size": 1,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*unsigned char",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_uint8_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 1,
+                        "name": "x",
+                        "type": "unsigned char",
+                        "class": "Integral",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_int_least64_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_int_least64_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_int_least64_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "type": "long int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_int_least32_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "int",
+                            "size": 4,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_int_least32_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "int",
+                            "size": 4,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_int_least32_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 4,
+                        "name": "x",
+                        "type": "int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_int_least16_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "short int",
+                            "size": 2,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*short int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_int_least16_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "short int",
+                            "size": 2,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*short int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_int_least16_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 2,
+                        "name": "x",
+                        "type": "short int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_int_least8_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "signed char",
+                            "size": 1,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*signed char",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_int_least8_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "signed char",
+                            "size": 1,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*signed char",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_int_least8_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 1,
+                        "name": "x",
+                        "type": "signed char",
+                        "class": "Integral",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_int_fast64_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_int_fast64_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_int_fast64_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "type": "long int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_int_fast32_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_int_fast32_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_int_fast32_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "type": "long int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_int_fast16_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_int_fast16_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_int_fast16_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "type": "long int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_int_fast8_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "signed char",
+                            "size": 1,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*signed char",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_int_fast8_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "signed char",
+                            "size": 1,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*signed char",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_int_fast8_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 1,
+                        "name": "x",
+                        "type": "signed char",
+                        "class": "Integral",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_int64_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_int64_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_int64_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "type": "long int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_int32_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "int",
+                            "size": 4,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_int32_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "int",
+                            "size": 4,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_int32_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 4,
+                        "name": "x",
+                        "type": "int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_int16_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "short int",
+                            "size": 2,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*short int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_int16_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "short int",
+                            "size": 2,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*short int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_int16_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 2,
+                        "name": "x",
+                        "type": "short int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_int8_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "signed char",
+                            "size": 1,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*signed char",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_int8_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "signed char",
+                            "size": 1,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*signed char",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_int8_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 1,
+                        "name": "x",
+                        "type": "signed char",
+                        "class": "Integral",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_uintptr_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long unsigned int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long unsigned int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_uintptr_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long unsigned int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long unsigned int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_uintptr_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "type": "long unsigned int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_intptr_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_intptr_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_intptr_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "type": "long int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_uintmax_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long unsigned int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long unsigned int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_uintmax_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long unsigned int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long unsigned int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_uintmax_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "type": "long unsigned int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_intmax_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_intmax_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_intmax_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "type": "long int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_size_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long unsigned int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long unsigned int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_size_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long unsigned int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long unsigned int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_size_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "type": "long unsigned int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_char32_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "char32_t",
+                            "size": 4,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*char32_t",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_char32_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "char32_t",
+                            "size": 4,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*char32_t",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_char32_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 4,
+                        "name": "x",
+                        "type": "char32_t",
+                        "class": "Integral",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_char16_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "char16_t",
+                            "size": 2,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*char16_t",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_char16_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "char16_t",
+                            "size": 2,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*char16_t",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_char16_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 2,
+                        "name": "x",
+                        "type": "char16_t",
+                        "class": "Integral",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_wchar_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "wchar_t",
+                            "size": 4,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*wchar_t",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_wchar_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "wchar_t",
+                            "size": 4,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*wchar_t",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_wchar_t",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 4,
+                        "name": "x",
+                        "type": "wchar_t",
+                        "class": "Integral",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_long_double__Complex",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "complex long double",
+                            "size": 32,
+                            "class": "ComplexFloat"
+                        },
+                        "direction": "both",
+                        "type": "*complex long double",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_long_double__Complex",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "complex long double",
+                            "size": 32,
+                            "class": "ComplexFloat"
+                        },
+                        "direction": "both",
+                        "type": "*complex long double",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_long_double__Complex",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 32,
+                        "name": "x",
+                        "type": "complex long double",
+                        "class": "ComplexFloat",
+                        "direction": "import",
+                        "location": "framebase+8"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_double__Complex",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "complex double",
+                            "size": 16,
+                            "class": "ComplexFloat"
+                        },
+                        "direction": "both",
+                        "type": "*complex double",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_double__Complex",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "complex double",
+                            "size": 16,
+                            "class": "ComplexFloat"
+                        },
+                        "direction": "both",
+                        "type": "*complex double",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_double__Complex",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 16,
+                        "name": "x",
+                        "type": "complex double",
+                        "class": "ComplexFloat",
+                        "direction": "import",
+                        "location": "framebase+8"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_float__Complex",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "complex float",
+                            "size": 8,
+                            "class": "ComplexFloat"
+                        },
+                        "direction": "both",
+                        "type": "*complex float",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_float__Complex",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "complex float",
+                            "size": 8,
+                            "class": "ComplexFloat"
+                        },
+                        "direction": "both",
+                        "type": "*complex float",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_float__Complex",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "type": "complex float",
+                        "class": "ComplexFloat",
+                        "direction": "import",
+                        "location": "framebase+8"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_long_double",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long double",
+                            "size": 16,
+                            "class": "Float"
+                        },
+                        "direction": "both",
+                        "type": "*long double",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_long_double",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long double",
+                            "size": 16,
+                            "class": "Float"
+                        },
+                        "direction": "both",
+                        "type": "*long double",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_long_double",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 16,
+                        "name": "x",
+                        "type": "long double",
+                        "class": "Float",
+                        "direction": "import",
+                        "location": "framebase+8"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_double",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "double",
+                            "size": 8,
+                            "class": "Float"
+                        },
+                        "direction": "both",
+                        "type": "*double",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_double",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "double",
+                            "size": 8,
+                            "class": "Float"
+                        },
+                        "direction": "both",
+                        "type": "*double",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_double",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "type": "double",
+                        "class": "Float",
+                        "direction": "import",
+                        "location": "%xmm0"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_float",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "float",
+                            "size": 4,
+                            "class": "Float"
+                        },
+                        "direction": "both",
+                        "type": "*float",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_float",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "float",
+                            "size": 4,
+                            "class": "Float"
+                        },
+                        "direction": "both",
+                        "type": "*float",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_float",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 4,
+                        "name": "x",
+                        "type": "float",
+                        "class": "Float",
+                        "direction": "import",
+                        "location": "%xmm0"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_unsigned_long_long",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long long unsigned int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long long unsigned int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_unsigned_long_long",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long long unsigned int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long long unsigned int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_unsigned_long_long",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "type": "long long unsigned int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_unsigned_long",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long unsigned int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long unsigned int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_unsigned_long",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long unsigned int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long unsigned int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_unsigned_long",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "type": "long unsigned int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_unsigned_int",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "unsigned int",
+                            "size": 4,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*unsigned int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_unsigned_int",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "unsigned int",
+                            "size": 4,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*unsigned int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_unsigned_int",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 4,
+                        "name": "x",
+                        "type": "unsigned int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_unsigned_short",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "short unsigned int",
+                            "size": 2,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*short unsigned int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_unsigned_short",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "short unsigned int",
+                            "size": 2,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*short unsigned int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_unsigned_short",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 2,
+                        "name": "x",
+                        "type": "short unsigned int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_unsigned_char",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "unsigned char",
+                            "size": 1,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*unsigned char",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_unsigned_char",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "unsigned char",
+                            "size": 1,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*unsigned char",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_unsigned_char",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 1,
+                        "name": "x",
+                        "type": "unsigned char",
+                        "class": "Integral",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_unsigned",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "unsigned int",
+                            "size": 4,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*unsigned int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_unsigned",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "unsigned int",
+                            "size": 4,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*unsigned int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_unsigned",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 4,
+                        "name": "x",
+                        "type": "unsigned int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_signed_long_long",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long long int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long long int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_signed_long_long",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long long int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long long int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_signed_long_long",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "type": "long long int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_signed_long",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_signed_long",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_signed_long",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "type": "long int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_signed_int",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "int",
+                            "size": 4,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_signed_int",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "int",
+                            "size": 4,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_signed_int",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 4,
+                        "name": "x",
+                        "type": "int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_signed_short",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "short int",
+                            "size": 2,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*short int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_signed_short",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "short int",
+                            "size": 2,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*short int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_signed_short",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 2,
+                        "name": "x",
+                        "type": "short int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_signed_char",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "signed char",
+                            "size": 1,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*signed char",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_signed_char",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "signed char",
+                            "size": 1,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*signed char",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_signed_char",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 1,
+                        "name": "x",
+                        "type": "signed char",
+                        "class": "Integral",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_signed",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "int",
+                            "size": 4,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_signed",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "int",
+                            "size": 4,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_signed",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 4,
+                        "name": "x",
+                        "type": "int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_long_long",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long long int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long long int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_long_long",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long long int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long long int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_long_long",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "type": "long long int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_long",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_long",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "long int",
+                            "size": 8,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*long int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_long",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "type": "long int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_int",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "int",
+                            "size": 4,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_int",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "int",
+                            "size": 4,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_int",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 4,
+                        "name": "x",
+                        "type": "int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_short",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "short int",
+                            "size": 2,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*short int",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_short",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "short int",
+                            "size": 2,
+                            "class": "Integer"
+                        },
+                        "direction": "both",
+                        "type": "*short int",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_short",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 2,
+                        "name": "x",
+                        "type": "short int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_char",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "char",
+                            "size": 1,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*char",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_char",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "char",
+                            "size": 1,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*char",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_char",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 1,
+                        "name": "x",
+                        "type": "char",
+                        "class": "Integral",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_ptr_bool",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "bool",
+                            "size": 1,
+                            "class": "Boolean"
+                        },
+                        "direction": "both",
+                        "type": "*bool",
+                        "indirections": 2,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_ptr_bool",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 8,
+                        "name": "x",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "bool",
+                            "size": 1,
+                            "class": "Boolean"
+                        },
+                        "direction": "both",
+                        "type": "*bool",
+                        "indirections": 1,
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        },
+        {
+            "function": {
+                "name": "test_bool",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 1,
+                        "name": "x",
+                        "type": "bool",
+                        "class": "Boolean",
+                        "direction": "import",
+                        "location": "%rdi"
+                    }
+                ]
+            }
+        }
+    ]
+}

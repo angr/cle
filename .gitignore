@@ -5,6 +5,7 @@
 build
 __pycache__
 dist
+example
 MANIFEST
 
 ccle/armel

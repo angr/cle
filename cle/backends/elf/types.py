@@ -6,6 +6,7 @@ class ClassType:
         "int": "Integer",
         "long int": "Integer",
         "unsigned int": "Integer",
+        "unsigned char": "Integral",
         "signed char": "Integral",
         "short unsigned int": "Integer",
         "long long int": "Integer",
@@ -22,20 +23,33 @@ class ClassType:
         "long double": "Float",
     }
 
+    patterns = {
+      "int": "Integer",
+      "char": "Integral",
+      "float": "Float",
+      "double": "Float",
+    }
     @classmethod
     def get(cls, typename):
         """
         Given a class name, return the type
         """
-        if typename not in cls.types:
-            print("classtype")
-            print(typename)
-            import IPython
+        classname = None
+        for pattern in cls.patterns:
+            if pattern in typename:
+                classname = cls.patterns[pattern]
+                break
 
-            IPython.embed()
-        name = cls.types[typename]
+        if not classname:
+            if typename not in cls.types:
+                print("classtype")
+                print(typename)
+                import IPython
+
+                IPython.embed()
+            classname = cls.types[typename]
 
         # Prefix with complex
         if "complex" in typename.lower():
-            return "Complex%s" % name
-        return name
+            return "Complex%s" % classname
+        return classname

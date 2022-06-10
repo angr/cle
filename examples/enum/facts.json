@@ -1,0 +1,59 @@
+{
+    "library": "/home/vanessa/Desktop/Code/cle/examples/enum/lib.so",
+    "locations": [
+        {
+            "variables": []
+        },
+        {
+            "function": {
+                "name": "_Z11print_color5Color",
+                "parameters": [
+                    {
+                        "size": 4,
+                        "name": "Color",
+                        "type": "unsigned int",
+                        "class": "Enum",
+                        "direction": "import",
+                        "fields": [
+                            {
+                                "name": "red",
+                                "value": 0
+                            },
+                            {
+                                "name": "green",
+                                "value": 1
+                            },
+                            {
+                                "name": "blue",
+                                "value": 2
+                            }
+                        ],
+                        "location": "%rdi"
+                    }
+                ],
+                "return": {
+                    "name": "Color",
+                    "size": 4,
+                    "type": "unsigned int",
+                    "class": "Enum",
+                    "direction": "export",
+                    "fields": [
+                        {
+                            "name": "red",
+                            "value": 0
+                        },
+                        {
+                            "name": "green",
+                            "value": 1
+                        },
+                        {
+                            "name": "blue",
+                            "value": 2
+                        }
+                    ],
+                    "location": "%rax"
+                }
+            }
+        }
+    ]
+}

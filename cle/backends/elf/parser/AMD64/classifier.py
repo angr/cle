@@ -46,8 +46,17 @@ def classify(typ, count=0, die=None, return_classification=False, allocator=None
     if count > 0 or typ.get("class") == "Pointer":
         cls = classify_pointer(count)
 
-    elif typ["class"] in ["Scalar", "Integer", "Integral", "Float", "Boolean"]:
+    elif typ["class"] in [
+        "Scalar",
+        "Integer",
+        "Integral",
+        "Float",
+        "ComplexFloat",
+        "Boolean",
+    ]:
         cls = classify_scalar(typ)
+    elif typ["class"] == "Enum":
+        cls = classify_enum(typ)
     elif typ["class"] == "Struct":
         cls = classify_struct(typ, allocator=allocator)
     elif typ["class"] == "Union":
@@ -320,7 +329,7 @@ def classify_array(typ, allocator):
 
 
 def classify_enum(typ):
-    return Classification("Enum", RegisterClass.INTEGER, RegisterClass.NO_CLASS)
+    return Classification("Enum", [RegisterClass.INTEGER, RegisterClass.NO_CLASS])
 
 
 def classify_function(typ):

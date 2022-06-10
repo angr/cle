@@ -188,8 +188,10 @@ class ELF(MetaELF):
                 self.has_dwarf_info = False
 
             if dwarf:
+                # Prepare exported symbols
+                dynamic_symbols = self._load_dynamic_symbols()
                 # Prepare a corpus to populate
-                self.corpus = ElfCorpus(self.binary, arch=self.arch)
+                self.corpus = ElfCorpus(self.binary, arch=self.arch, symbols=dynamic_symbols)
                 # Load DIEs
                 self._load_dies(dwarf)
                 # Load function hints and exception handling artifacts
@@ -219,7 +221,6 @@ class ELF(MetaELF):
 
         for offset, patch in patch_undo:
             self.memory.store(AT.from_lva(self.min_addr + offset, self).to_rva(), patch)
-
 
     #
     # Properties and Public Methods
@@ -349,6 +350,23 @@ class ELF(MetaELF):
     @property
     def symbols_by_name(self):
         return self._symbols_by_name.copy()
+
+    def _load_dynamic_symbols(self):
+        """
+        We only care about dynamic symbols
+        """
+        dynamic_symbols = {}
+        for section in self._reader.iter_sections():
+            if section.name == ".dynsym":              
+                for symbol in section.iter_symbols():
+                    if symbol.entry['st_info']['bind'] != "STB_GLOBAL" or symbol.entry['st_info']['type'] == "STT_DELETED":
+                        continue
+                    # undefined is import, and everything else is export
+                    direction = "export"
+                    if symbol.entry['st_shndx'] == 'SHN_UNDEF':
+                        direction = "import"
+                    dynamic_symbols[symbol.name] = direction
+        return dynamic_symbols
 
     def get_symbol(self, symid, symbol_table=None): # pylint: disable=arguments-differ
         """
@@ -600,16 +618,22 @@ class ELF(MetaELF):
         for cu in dwarf.iter_CUs():
             comp_dir = '.'
             die = cu.get_top_DIE()
+            
             if 'DW_AT_comp_dir' in die.attributes:
                 comp_dir = die.attributes['DW_AT_comp_dir'].value.decode()
+
+            # NOTE there seems to be a bug when it's parsed with this,
+            # although it still returns None
+            if "DW_AT_stmt_list" in die.attributes:
+                del die.attributes["DW_AT_stmt_list"]
 
             # Added because this fails sometimes, along with lineprog.get_entries()
             try:
                 lineprog = dwarf.line_program_for_CU(cu)
+                if lineprog is None:
+                    continue
                 entries = lineprog.get_entries()
-            except:
-                continue
-            if lineprog is None:
+            except Exception as e:
                 continue
             file_cache = {}
             for line in entries:

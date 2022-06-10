@@ -1,0 +1,197 @@
+{
+    "library": "/home/vanessa/Desktop/Code/cle/examples/structure-with-structure/example",
+    "locations": [
+        {
+            "variables": []
+        },
+        {
+            "function": {
+                "name": "main",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 4,
+                        "name": "argc",
+                        "type": "int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    },
+                    {
+                        "size": 8,
+                        "name": "argv",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "type": "char",
+                            "size": 1,
+                            "class": "Integral"
+                        },
+                        "direction": "both",
+                        "type": "*char",
+                        "indirections": 2,
+                        "location": "%rsi"
+                    }
+                ],
+                "return": {
+                    "type": "int",
+                    "size": 4,
+                    "class": "Integer",
+                    "direction": "export",
+                    "location": "%rax"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "_Z3fooiP12StructyChildP13StructyParent",
+                "direction": "export",
+                "parameters": [
+                    {
+                        "size": 4,
+                        "name": "one",
+                        "type": "int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    },
+                    {
+                        "size": 8,
+                        "name": "two",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "name": "StructyChild",
+                            "size": 32,
+                            "class": "Struct",
+                            "fields": [
+                                {
+                                    "name": "one",
+                                    "type": "int",
+                                    "size": 4,
+                                    "class": "Integer",
+                                    "direction": "export"
+                                },
+                                {
+                                    "name": "two",
+                                    "type": "double",
+                                    "size": 8,
+                                    "class": "Float",
+                                    "direction": "export"
+                                },
+                                {
+                                    "name": "three",
+                                    "class": "Pointer",
+                                    "size": 8,
+                                    "underlying_type": {
+                                        "type": "char",
+                                        "size": 1,
+                                        "class": "Integral"
+                                    },
+                                    "direction": "both",
+                                    "type": "*char",
+                                    "indirections": 1
+                                },
+                                {
+                                    "name": "useless",
+                                    "class": "Pointer",
+                                    "size": 8,
+                                    "underlying_type": {
+                                        "name": "StructyNested",
+                                        "size": 1,
+                                        "class": "Struct"
+                                    },
+                                    "direction": "both",
+                                    "indirections": 1
+                                }
+                            ]
+                        },
+                        "direction": "both",
+                        "indirections": 1,
+                        "location": "%rsi"
+                    },
+                    {
+                        "size": 8,
+                        "name": "three",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "name": "StructyParent",
+                            "size": 16,
+                            "class": "Struct",
+                            "fields": [
+                                {
+                                    "name": "child",
+                                    "class": "Pointer",
+                                    "size": 8,
+                                    "underlying_type": {
+                                        "name": "StructyChild",
+                                        "size": 32,
+                                        "class": "Struct",
+                                        "fields": [
+                                            {
+                                                "name": "one",
+                                                "type": "int",
+                                                "size": 4,
+                                                "class": "Integer",
+                                                "direction": "export"
+                                            },
+                                            {
+                                                "name": "two",
+                                                "type": "double",
+                                                "size": 8,
+                                                "class": "Float",
+                                                "direction": "export"
+                                            },
+                                            {
+                                                "name": "three",
+                                                "class": "Pointer",
+                                                "size": 8,
+                                                "underlying_type": {
+                                                    "type": "char",
+                                                    "size": 1,
+                                                    "class": "Integral"
+                                                },
+                                                "direction": "both",
+                                                "type": "*char",
+                                                "indirections": 1
+                                            },
+                                            {
+                                                "name": "useless",
+                                                "class": "Pointer",
+                                                "size": 8,
+                                                "underlying_type": {
+                                                    "name": "StructyNested",
+                                                    "size": 1,
+                                                    "class": "Struct"
+                                                },
+                                                "direction": "both",
+                                                "indirections": 1
+                                            }
+                                        ]
+                                    },
+                                    "direction": "both",
+                                    "indirections": 1
+                                },
+                                {
+                                    "name": "wonka",
+                                    "type": "bool",
+                                    "size": 1,
+                                    "class": "Boolean",
+                                    "direction": "export"
+                                }
+                            ]
+                        },
+                        "direction": "both",
+                        "indirections": 1,
+                        "location": "%rdx"
+                    }
+                ],
+                "return": {
+                    "type": "int",
+                    "size": 4,
+                    "class": "Integer",
+                    "direction": "export",
+                    "location": "%rax"
+                }
+            }
+        }
+    ]
+}
