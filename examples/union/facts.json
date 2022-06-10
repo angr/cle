@@ -11,6 +11,7 @@
                     "type": "int",
                     "size": 4,
                     "class": "Integer",
+                    "direction": "export",
                     "location": "%rax"
                 }
             }
@@ -28,7 +29,8 @@
                                 "name": "x",
                                 "type": "int",
                                 "size": 4,
-                                "class": "Integer"
+                                "class": "Integer",
+                                "direction": "import"
                             },
                             {
                                 "name": "y",

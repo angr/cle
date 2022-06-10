@@ -12,36 +12,42 @@
                         "size": 8,
                         "type": "long int",
                         "class": "Integer",
+                        "direction": "import",
                         "location": "%rdi"
                     },
                     {
                         "size": 8,
                         "type": "long int",
                         "class": "Integer",
+                        "direction": "import",
                         "location": "%rsi"
                     },
                     {
                         "size": 8,
                         "type": "long int",
                         "class": "Integer",
+                        "direction": "import",
                         "location": "%rdx"
                     },
                     {
                         "size": 8,
                         "type": "long int",
                         "class": "Integer",
+                        "direction": "import",
                         "location": "%rcx"
                     },
                     {
                         "size": 8,
                         "type": "long int",
                         "class": "Integer",
+                        "direction": "import",
                         "location": "%r8"
                     },
                     {
                         "size": 16,
                         "type": "__int128",
                         "class": "Integer",
+                        "direction": "import",
                         "location": "framebase+8"
                     }
                 ]
@@ -56,6 +62,7 @@
                         "name": "argc",
                         "type": "int",
                         "class": "Integer",
+                        "direction": "import",
                         "location": "%rdi"
                     },
                     {
@@ -67,6 +74,7 @@
                             "size": 1,
                             "class": "Integral"
                         },
+                        "direction": "both",
                         "type": "*char",
                         "indirections": 2,
                         "location": "%rsi"
@@ -76,6 +84,7 @@
                     "type": "int",
                     "size": 4,
                     "class": "Integer",
+                    "direction": "export",
                     "location": "%rax"
                 }
             }

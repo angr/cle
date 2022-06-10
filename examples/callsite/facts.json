@@ -13,6 +13,7 @@
                         "name": "d",
                         "type": "double",
                         "class": "Float",
+                        "direction": "import",
                         "location": "%xmm0"
                     }
                 ],
@@ -20,6 +21,7 @@
                     "type": "int",
                     "size": 4,
                     "class": "Integer",
+                    "direction": "export",
                     "location": "%rax"
                 }
             }
@@ -33,6 +35,7 @@
                         "name": "d",
                         "type": "double",
                         "class": "Float",
+                        "direction": "import",
                         "location": "%xmm0"
                     }
                 ],
@@ -40,6 +43,7 @@
                     "type": "double",
                     "size": 8,
                     "class": "Float",
+                    "direction": "export",
                     "location": "%xmm0"
                 }
             }
@@ -53,6 +57,7 @@
                         "name": "x",
                         "type": "int",
                         "class": "Integer",
+                        "direction": "import",
                         "location": "%rdi"
                     }
                 ],
@@ -60,6 +65,7 @@
                     "type": "int",
                     "size": 4,
                     "class": "Integer",
+                    "direction": "export",
                     "location": "%rax"
                 }
             }

@@ -8,6 +8,7 @@ from .location import get_register_from_expr, get_dwarf_from_expr
 from .types import ClassType
 from .variable_type import VariableType
 from ..corpus import Corpus
+from .decorator import cache_type
 
 import os
 import re
@@ -31,8 +32,10 @@ class ElfCorpus(Corpus):
         super().__init__(*args, **kwargs)
         self.seen = set()
         self.underlying_types = {}
-        # Export and import lookup
-        # self.
+
+        # Types cache of die -> json
+        self.types = {}
+        self.types_seen = set()
 
         # Keep track of ids we have parsed before (underlying types)
         self.lookup = set()
@@ -41,11 +44,29 @@ class ElfCorpus(Corpus):
         """
         Add a global variable parsed from the dwarf.
         """
-        # DW_AT_external attribute if the variable is visible outside of its enclosing CU
-        if not "DW_AT_external" in die.attributes:
+        # static globals - internal linkage but file scope, only seen by CU where declared
+        # This variable cannot be part of an ABI discussion, like a local variable
+        if ("DW_AT_external" not in die.attributes) or (
+            "DW_AT_external" in die.attributes
+            and die.attributes["DW_AT_external"].value == 0
+        ):
+            direction = "none"
             return
-        entry = {"name": self.get_name(die), "size": self.get_size(die)}
+
+        # DW_AT_external attribute if the variable is visible outside of its enclosing CU
+        entry = {
+            "name": self.get_name(die),
+            "size": self.get_size(die),
+            "location": "var",
+        }
         entry.update(self.parse_underlying_type(die))
+
+        # DW_AT_declaration if present is an export, otherwise is an import
+        direction = "export"
+        if "DW_AT_declaration" in die.attributes:
+            direction = "import"
+
+        entry["direction"] = direction
         self.variables.append(entry)
 
     def add_dwarf_information_entry(self, die):
@@ -149,6 +170,7 @@ class ElfCorpus(Corpus):
         return_value = None
         if "DW_AT_type" in die.attributes:
             return_value = self.parse_underlying_type(die)
+            return_value["direction"] = "export"
             loc = self.parse_location(die, underlying_type=return_value, is_return=True)
             if loc:
                 return_value["location"] = loc
@@ -162,9 +184,7 @@ class ElfCorpus(Corpus):
 
         # Hold previous child for modifiers
         param = None
-
         for child in die.iter_children():
-
             # can either be inlined subroutine or format parameter
             if child.tag == "DW_TAG_formal_parameter":
                 param = {"size": self.get_size(child)}
@@ -206,10 +226,6 @@ class ElfCorpus(Corpus):
                 param = self.parse_enumeration_type(child)
 
             elif child.tag == "DW_TAG_array_type":
-                print("ARRAY")
-                import IPython
-
-                IPython.embed()
                 param = self.parse_array_type(child)
 
             elif child.tag == "DW_TAG_structure_type":
@@ -223,9 +239,16 @@ class ElfCorpus(Corpus):
             elif child.tag == "DW_TAG_lexical_block":
                 self.parse_lexical_block(child)
 
-            # Skip these
-            elif child.tag in ["DW_TAG_const_type", "DW_TAG_typedef", "DW_TAG_label"]:
+            # Skip these for now (we will likely need to re-add some to parse)
+            elif child.tag in [
+                "DW_TAG_const_type",
+                "DW_TAG_typedef",
+                "DW_TAG_label",
+                "DW_TAG_template_type_param",
+                "DW_TAG_subroutine_type",
+            ]:
                 continue
+
             else:
                 raise Exception("Found new tag with subprogram children:\n%s" % child)
             if param:
@@ -235,6 +258,7 @@ class ElfCorpus(Corpus):
             entry["parameters"] = params
         if return_value:
             entry["return"] = return_value
+
         self.functions.append(entry)
 
     # TAGs to parse
@@ -264,7 +288,12 @@ class ElfCorpus(Corpus):
         }
         fields = []
         for child in die.iter_children():
-            fields.append(self.parse_member(child))
+            field = self.parse_member(child)
+
+            # Our default is import but Matt wants struct param fields to be exports
+            if "direction" not in field or field["direction"] != "both":
+                field["direction"] = "export"
+            fields.append(field)
         if fields:
             entry["fields"] = fields
         self.underlying_types[die] = entry
@@ -313,34 +342,26 @@ class ElfCorpus(Corpus):
         to the corpus here when it is parsing DIEs.
         """
         # Envar to control (force) not using dwarf locations
-        experimental_parsing = True #(
-        #    os.environ.get("CLE_ELF_EXPERIMENTAL_PARSING") is not None
-        #)
+        experimental_parsing = True
+        # = os.environ.get("CLE_ELF_EXPERIMENTAL_PARSING") is not None
 
         # Can we parse based on an underlying type and arch?
         if experimental_parsing:
+            loc = None
             if not self.parser:
                 sys.exit(
                     "Experimental parsing selected by ABI for %s is not supported yet."
                     % self.arch.name
                 )
             underlying_type = underlying_type or self.parse_underlying_type(die)
+            allocator = allocator or self.parser.get_return_allocator()
             if underlying_type:
                 loc = self.parser.classify(
-                    underlying_type,
-                    die=die,
-                    allocator=allocator
-                    if not is_return
-                    else self.parser.get_return_allocator(),
+                    underlying_type, die=die, allocator=allocator
                 )
-                if loc:
-                    return loc
-            import IPython
+            return loc
 
-            IPython.embed()
-            sys.exit()
-
-        # Fallback to using dwarf location lists
+        # Without experimental uses dwarf location lists
         return self.parse_dwarf_location(die)
 
     def parse_dwarf_location(self, die):
@@ -517,18 +538,23 @@ class ElfCorpus(Corpus):
             entry["count"] = "unknown"
         return entry
 
-    def parse_pointer(self, die):
+    def parse_class_type(self, die):
         """
-        Parse a pointer.
+        Parse a class type
         """
-        if "DW_AT_type" not in die.attributes:
-            l.debug("Cannot parse pointer %s without a type." % die)
-            return
-
-        entry = {"class": "Pointer", "size": self.get_size(die)}
-
-        # We already have one pointer indirection
-        entry["underlying_type"] = self.parse_underlying_type(die, 1)
+        entry = {
+            "name": self.get_name(die),
+            "size": self.get_size(die),
+            "class": "Class",
+        }
+        fields = []
+        for child in die.iter_children():
+            if "DW_AT_external" in child.attributes:
+                continue
+            fields.append(self.parse_member(child))
+        if fields:
+            entry["fields"] = fields
+        self.underlying_types[die] = entry
         return entry
 
     def parse_sibling(self, die):
@@ -538,6 +564,7 @@ class ElfCorpus(Corpus):
         sibling = self.type_die_lookup.get(die.attributes["DW_AT_sibling"].value)
         return self.parse_underlying_type(sibling)
 
+    @cache_type
     def parse_underlying_type(self, die, indirections=0):
         """
         Given a type, parse down to the underlying type (and count pointer indirections)
@@ -563,6 +590,7 @@ class ElfCorpus(Corpus):
                     "name": self.get_name(die),
                     "class": "Pointer",
                     "size": self.get_size(type_die),
+                    "direction": "both",
                 }
             else:
                 entry = {
@@ -570,7 +598,11 @@ class ElfCorpus(Corpus):
                     "class": "Pointer",
                     "size": self.get_size(type_die),
                     "underlying_type": "unknown",
+                    "direction": "both",
                 }
+
+        if type_die and type_die.tag == "DW_TAG_class_type":
+            return self.parse_class_type(type_die)
 
         if type_die and type_die.tag == "DW_TAG_union_type":
             return self.parse_union_type(type_die)
@@ -589,7 +621,7 @@ class ElfCorpus(Corpus):
             return entry
 
         # Struct
-        elif type_die and type_die.tag == "DW_TAG_structure_type":
+        if type_die and type_die.tag == "DW_TAG_structure_type":
             return self.parse_structure_type(type_die)
 
         # Otherwise, keep digging
@@ -612,6 +644,12 @@ class ElfCorpus(Corpus):
                     entry = self.parse_structure_type(type_die)
                 elif "underlying_type" in entry:
                     entry["underlying_type"] = self.parse_structure_type(type_die)
+
+            elif type_die and type_die.tag == "DW_TAG_class_type":
+                if not entry:
+                    entry = self.parse_class_type(type_die)
+                elif "underlying_type" in entry:
+                    entry["underlying_type"] = self.parse_class_type(type_die)
 
             # Parse the underlying bits
             elif not entry:
@@ -638,6 +676,8 @@ class ElfCorpus(Corpus):
         # Based on the underlying type, add a class
         if "class" not in entry:
             entry["class"] = self.add_class(type_die)
+        if "direction" not in entry:
+            entry["direction"] = "import"
         return entry
 
     def add_class(self, die):
@@ -650,6 +690,24 @@ class ElfCorpus(Corpus):
             return "Struct"
         if die.tag == "DW_TAG_array_type":
             return "Array"
+        if die.tag == "DW_TAG_class_type":
+            return "Class"
+        if die.tag == "DW_TAG_pointer_type":
+            return "Pointer"
+        if die.tag == "DW_TAG_unspecified_type":
+            return "Unspecified"
+        if die.tag == "DW_TAG_typedef":
+            return "TypeDef"
+        if die.tag == "DW_TAG_subroutine_type":
+            return "Function"
+        if die.tag == "DW_TAG_const_type":
+            return "Constant"
+
+        print("UNKNOWN DIE CLASS")
+        import IPython
+
+        IPython.embed()
+        sys.exit()
         return "Unknown"
 
     def get_size(self, die):

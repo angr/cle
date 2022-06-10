@@ -6,18 +6,22 @@
                 {
                     "name": "x",
                     "size": 4,
+                    "location": "var",
                     "type": "int",
-                    "class": "Integer"
+                    "class": "Integer",
+                    "direction": "export"
                 },
                 {
                     "name": "px",
                     "size": 8,
+                    "location": "var",
                     "class": "Pointer",
                     "underlying_type": {
                         "type": "int",
                         "size": 4,
                         "class": "Integer"
                     },
+                    "direction": "export",
                     "type": "*int",
                     "indirections": 1
                 }

@@ -17,7 +17,8 @@
                                 "name": "x",
                                 "type": "int",
                                 "size": 4,
-                                "class": "Integer"
+                                "class": "Integer",
+                                "direction": "export"
                             }
                         ],
                         "location": "%rdi"
@@ -35,10 +36,12 @@
                                     "name": "y",
                                     "type": "int",
                                     "size": 4,
-                                    "class": "Integer"
+                                    "class": "Integer",
+                                    "direction": "export"
                                 }
                             ]
                         },
+                        "direction": "both",
                         "indirections": 1,
                         "location": "%rsi"
                     },
@@ -51,7 +54,8 @@
                                 "name": "z",
                                 "type": "int",
                                 "size": 4,
-                                "class": "Integer"
+                                "class": "Integer",
+                                "direction": "export"
                             }
                         ],
                         "location": "%rdx"
@@ -70,9 +74,11 @@
                                         "name": "x",
                                         "type": "int",
                                         "size": 4,
-                                        "class": "Integer"
+                                        "class": "Integer",
+                                        "direction": "export"
                                     }
-                                ]
+                                ],
+                                "direction": "export"
                             },
                             {
                                 "name": "B",
@@ -83,9 +89,11 @@
                                         "name": "y",
                                         "type": "int",
                                         "size": 4,
-                                        "class": "Integer"
+                                        "class": "Integer",
+                                        "direction": "export"
                                     }
-                                ]
+                                ],
+                                "direction": "export"
                             },
                             {
                                 "name": "C",
@@ -96,15 +104,18 @@
                                         "name": "z",
                                         "type": "int",
                                         "size": 4,
-                                        "class": "Integer"
+                                        "class": "Integer",
+                                        "direction": "export"
                                     }
-                                ]
+                                ],
+                                "direction": "export"
                             },
                             {
                                 "name": "d",
                                 "type": "int",
                                 "size": 4,
-                                "class": "Integer"
+                                "class": "Integer",
+                                "direction": "export"
                             }
                         ],
                         "location": "%xmm0"
@@ -114,6 +125,7 @@
                     "type": "int",
                     "size": 4,
                     "class": "Integer",
+                    "direction": "export",
                     "location": "%rax"
                 }
             }

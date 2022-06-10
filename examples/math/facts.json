@@ -12,12 +12,14 @@
                         "size": 8,
                         "type": "double",
                         "class": "Float",
+                        "direction": "import",
                         "location": "%xmm0"
                     },
                     {
                         "size": 8,
                         "type": "double",
                         "class": "Float",
+                        "direction": "import",
                         "location": "%xmm1"
                     }
                 ],
@@ -25,6 +27,7 @@
                     "type": "double",
                     "size": 8,
                     "class": "Float",
+                    "direction": "export",
                     "location": "%xmm0"
                 }
             }
@@ -37,12 +40,14 @@
                         "size": 8,
                         "type": "double",
                         "class": "Float",
+                        "direction": "import",
                         "location": "%xmm0"
                     },
                     {
                         "size": 8,
                         "type": "double",
                         "class": "Float",
+                        "direction": "import",
                         "location": "%xmm1"
                     }
                 ],
@@ -50,6 +55,7 @@
                     "type": "double",
                     "size": 8,
                     "class": "Float",
+                    "direction": "export",
                     "location": "%xmm0"
                 }
             }
@@ -62,12 +68,14 @@
                         "size": 8,
                         "type": "double",
                         "class": "Float",
+                        "direction": "import",
                         "location": "%xmm0"
                     },
                     {
                         "size": 8,
                         "type": "double",
                         "class": "Float",
+                        "direction": "import",
                         "location": "%xmm1"
                     }
                 ],
@@ -75,6 +83,7 @@
                     "type": "double",
                     "size": 8,
                     "class": "Float",
+                    "direction": "export",
                     "location": "%xmm0"
                 }
             }
@@ -87,12 +96,14 @@
                         "size": 8,
                         "type": "double",
                         "class": "Float",
+                        "direction": "import",
                         "location": "%xmm0"
                     },
                     {
                         "size": 8,
                         "type": "double",
                         "class": "Float",
+                        "direction": "import",
                         "location": "%xmm1"
                     }
                 ],
@@ -100,6 +111,7 @@
                     "type": "double",
                     "size": 8,
                     "class": "Float",
+                    "direction": "export",
                     "location": "%xmm0"
                 }
             }

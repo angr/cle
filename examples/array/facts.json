@@ -11,6 +11,7 @@
                     "type": "int",
                     "size": 4,
                     "class": "Integer",
+                    "direction": "export",
                     "location": "%rax"
                 }
             }
@@ -28,14 +29,16 @@
                                 "name": "x",
                                 "type": "int",
                                 "size": 4,
-                                "class": "Integer"
+                                "class": "Integer",
+                                "direction": "export"
                             },
                             {
                                 "name": "c",
                                 "class": "Array",
                                 "size": 248,
                                 "count": 0,
-                                "type": "char"
+                                "type": "char",
+                                "direction": "export"
                             }
                         ],
                         "location": "%rdi"

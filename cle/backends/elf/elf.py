@@ -602,14 +602,17 @@ class ELF(MetaELF):
             die = cu.get_top_DIE()
             if 'DW_AT_comp_dir' in die.attributes:
                 comp_dir = die.attributes['DW_AT_comp_dir'].value.decode()
+
+            # Added because this fails sometimes, along with lineprog.get_entries()
             try:
                 lineprog = dwarf.line_program_for_CU(cu)
+                entries = lineprog.get_entries()
             except:
                 continue
             if lineprog is None:
                 continue
             file_cache = {}
-            for line in lineprog.get_entries():
+            for line in entries:
                 if line.state is None:
                     continue
                 if line.state.file in file_cache:

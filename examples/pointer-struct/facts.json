@@ -21,16 +21,19 @@
                                     "name": "i",
                                     "type": "int",
                                     "size": 4,
-                                    "class": "Integer"
+                                    "class": "Integer",
+                                    "direction": "export"
                                 },
                                 {
                                     "name": "d",
                                     "type": "double",
                                     "size": 8,
-                                    "class": "Float"
+                                    "class": "Float",
+                                    "direction": "export"
                                 }
                             ]
                         },
+                        "direction": "both",
                         "indirections": 1,
                         "location": "%rdi"
                     }
@@ -39,6 +42,7 @@
                     "type": "int",
                     "size": 4,
                     "class": "Integer",
+                    "direction": "export",
                     "location": "%rax"
                 }
             }

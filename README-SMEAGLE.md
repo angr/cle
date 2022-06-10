@@ -89,6 +89,24 @@ tests.py /home/vanessa/Desktop/Code/cle/examples/callsite/lib.so
 ```
 
 ## TODO:
-
- - can we implement different parsing for registers based on type?
+ - Vanessasaurus:
+   - Examples to add:
+     - enum as a parameter
+     - fixed size arrays
+     - structures of structures
+     - structures of arrays of structures
+     - structures of arrays of arrays
+     - complex types (look at unit tests)
+     - const versions of types (also in until tests)
+     - just review smeagle unit tests
+   - option to filter out some line programs based on location (to deal with unknown pointers) 
+ - Tim:
+   - Write out high level approach
+   - need to complement this with C++ interface to get callsites into Python. Only need for callsites for now, unless speed is an issue in the future.
+ - void pointers don't seem to show up in dwarf with global variables, without they do.
+ - function as parameter doesn't have name, variable info, nothing, empty subroutine. We think there is missing dwarf information.
+ - need to look again at 8 byte analysis (not entirely right)
+ - eventually will want wrapper that uses cle to do Matt's special location parsing - "offsets"
+ - bit fields - not a priority because uncommon
+ - exceptions also need to wait
  - Take a look at exceptions example - in lsda.py I commnted out else case that is triggered

@@ -1,0 +1,46 @@
+{
+    "library": "/home/vanessa/Desktop/Code/cle/examples/global-variables/lib.so",
+    "locations": [
+        {
+            "variables": [
+                {
+                    "name": "inty",
+                    "size": 4,
+                    "location": "var",
+                    "type": "int",
+                    "class": "Integer",
+                    "direction": "export"
+                },
+                {
+                    "name": "booley",
+                    "size": 1,
+                    "location": "var",
+                    "type": "bool",
+                    "class": "Boolean",
+                    "direction": "export"
+                },
+                {
+                    "name": "doubley",
+                    "size": 16,
+                    "location": "var",
+                    "type": "long double",
+                    "class": "Float",
+                    "direction": "export"
+                },
+                {
+                    "name": "intyterny",
+                    "size": 4,
+                    "location": "var",
+                    "type": "int",
+                    "class": "Integer",
+                    "direction": "import"
+                }
+            ]
+        },
+        {
+            "function": {
+                "name": "_Z3foov"
+            }
+        }
+    ]
+}

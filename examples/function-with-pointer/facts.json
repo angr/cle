@@ -17,6 +17,7 @@
                             "size": 4,
                             "class": "Integer"
                         },
+                        "direction": "both",
                         "type": "*int",
                         "indirections": 1,
                         "location": "%rdi"
@@ -26,6 +27,7 @@
                     "type": "int",
                     "size": 4,
                     "class": "Integer",
+                    "direction": "export",
                     "location": "%rax"
                 }
             }

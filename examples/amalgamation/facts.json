@@ -1,0 +1,102 @@
+{
+    "library": "/home/vanessa/Desktop/Code/cle/examples/amalgamation/lib.so",
+    "locations": [
+        {
+            "variables": [
+                {
+                    "name": "booley",
+                    "size": 1,
+                    "location": "var",
+                    "type": "bool",
+                    "class": "Boolean",
+                    "direction": "export"
+                },
+                {
+                    "name": "doubley",
+                    "size": 16,
+                    "location": "var",
+                    "type": "long double",
+                    "class": "Float",
+                    "direction": "export"
+                },
+                {
+                    "name": "intyterny",
+                    "size": 4,
+                    "location": "var",
+                    "type": "int",
+                    "class": "Integer",
+                    "direction": "import"
+                }
+            ]
+        },
+        {
+            "function": {
+                "name": "_Z9fooreturniP7Structy",
+                "parameters": [
+                    {
+                        "size": 4,
+                        "name": "one",
+                        "type": "int",
+                        "class": "Integer",
+                        "direction": "import",
+                        "location": "%rdi"
+                    },
+                    {
+                        "size": 8,
+                        "name": "two",
+                        "class": "Pointer",
+                        "underlying_type": {
+                            "name": "Structy",
+                            "size": 24,
+                            "class": "Struct",
+                            "fields": [
+                                {
+                                    "name": "one",
+                                    "type": "int",
+                                    "size": 4,
+                                    "class": "Integer",
+                                    "direction": "export"
+                                },
+                                {
+                                    "name": "two",
+                                    "type": "double",
+                                    "size": 8,
+                                    "class": "Float",
+                                    "direction": "export"
+                                },
+                                {
+                                    "name": "three",
+                                    "class": "Pointer",
+                                    "size": 8,
+                                    "underlying_type": {
+                                        "type": "char",
+                                        "size": 1,
+                                        "class": "Integral"
+                                    },
+                                    "direction": "both",
+                                    "type": "*char",
+                                    "indirections": 1
+                                }
+                            ]
+                        },
+                        "direction": "both",
+                        "indirections": 1,
+                        "location": "%rsi"
+                    }
+                ],
+                "return": {
+                    "type": "int",
+                    "size": 4,
+                    "class": "Integer",
+                    "direction": "export",
+                    "location": "%rax"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "_Z3foov"
+            }
+        }
+    ]
+}
