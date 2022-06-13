@@ -2,52 +2,31 @@
     "library": "/home/vanessa/Desktop/Code/cle/examples/bigcall/lib.so",
     "locations": [
         {
-            "variables": []
-        },
-        {
             "function": {
                 "name": "_Z7bigcallllllln",
                 "parameters": [
                     {
-                        "size": 8,
-                        "type": "long int",
-                        "class": "Integer",
-                        "direction": "import",
+                        "type": "832037bcbd004730c7738b05d956e54e",
                         "location": "%rdi"
                     },
                     {
-                        "size": 8,
-                        "type": "long int",
-                        "class": "Integer",
-                        "direction": "import",
+                        "type": "832037bcbd004730c7738b05d956e54e",
                         "location": "%rsi"
                     },
                     {
-                        "size": 8,
-                        "type": "long int",
-                        "class": "Integer",
-                        "direction": "import",
+                        "type": "832037bcbd004730c7738b05d956e54e",
                         "location": "%rdx"
                     },
                     {
-                        "size": 8,
-                        "type": "long int",
-                        "class": "Integer",
-                        "direction": "import",
+                        "type": "832037bcbd004730c7738b05d956e54e",
                         "location": "%rcx"
                     },
                     {
-                        "size": 8,
-                        "type": "long int",
-                        "class": "Integer",
-                        "direction": "import",
+                        "type": "832037bcbd004730c7738b05d956e54e",
                         "location": "%r8"
                     },
                     {
-                        "size": 16,
-                        "type": "__int128",
-                        "class": "Integer",
-                        "direction": "import",
+                        "type": "01733fcc0cdb3228cddebbe14f8728bf",
                         "location": "framebase+8"
                     }
                 ]
@@ -58,36 +37,55 @@
                 "name": "main",
                 "parameters": [
                     {
-                        "size": 4,
                         "name": "argc",
-                        "type": "int",
-                        "class": "Integer",
-                        "direction": "import",
+                        "type": "1fd8c01bdca094933f920b41375cfed0",
                         "location": "%rdi"
                     },
                     {
-                        "size": 8,
                         "name": "argv",
-                        "class": "Pointer",
-                        "underlying_type": {
-                            "type": "char",
-                            "size": 1,
-                            "class": "Integral"
-                        },
-                        "direction": "both",
-                        "type": "*char",
-                        "indirections": 2,
+                        "type": "8f2ec41872f539c9775c4888a8fcb8c8",
                         "location": "%rsi"
                     }
                 ],
                 "return": {
-                    "type": "int",
-                    "size": 4,
-                    "class": "Integer",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
                     "direction": "export",
                     "location": "%rax"
                 }
             }
         }
-    ]
+    ],
+    "types": {
+        "832037bcbd004730c7738b05d956e54e": {
+            "type": "long int",
+            "size": 8,
+            "class": "Integer",
+            "direction": "import"
+        },
+        "01733fcc0cdb3228cddebbe14f8728bf": {
+            "type": "__int128",
+            "size": 16,
+            "class": "Integer",
+            "direction": "import"
+        },
+        "1fd8c01bdca094933f920b41375cfed0": {
+            "type": "int",
+            "size": 4,
+            "class": "Integer",
+            "direction": "import"
+        },
+        "8f2ec41872f539c9775c4888a8fcb8c8": {
+            "name": "argv",
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "char",
+                "size": 1,
+                "class": "Integral"
+            },
+            "direction": "both",
+            "type": "*char",
+            "indirections": 2
+        }
+    }
 }

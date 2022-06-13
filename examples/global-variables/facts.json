@@ -5,34 +5,26 @@
             "variables": [
                 {
                     "name": "inty",
-                    "size": 4,
                     "location": "var",
-                    "type": "int",
-                    "class": "Integer",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
                     "direction": "export"
                 },
                 {
                     "name": "booley",
-                    "size": 1,
                     "location": "var",
-                    "type": "bool",
-                    "class": "Boolean",
+                    "type": "5f699718a0f73b64af5190e051839f93",
                     "direction": "export"
                 },
                 {
                     "name": "doubley",
-                    "size": 16,
                     "location": "var",
-                    "type": "long double",
-                    "class": "Float",
+                    "type": "308ad8129cac3a0bb414c01987309d1b",
                     "direction": "export"
                 },
                 {
                     "name": "intyterny",
-                    "size": 4,
                     "location": "var",
-                    "type": "int",
-                    "class": "Integer",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
                     "direction": "import"
                 }
             ]
@@ -43,5 +35,25 @@
                 "direction": "export"
             }
         }
-    ]
+    ],
+    "types": {
+        "1fd8c01bdca094933f920b41375cfed0": {
+            "type": "int",
+            "size": 4,
+            "class": "Integer",
+            "direction": "import"
+        },
+        "5f699718a0f73b64af5190e051839f93": {
+            "type": "bool",
+            "size": 1,
+            "class": "Boolean",
+            "direction": "import"
+        },
+        "308ad8129cac3a0bb414c01987309d1b": {
+            "type": "long double",
+            "size": 16,
+            "class": "Float",
+            "direction": "import"
+        }
+    }
 }

@@ -2,58 +2,49 @@
     "library": "/home/vanessa/Desktop/Code/cle/examples/enum/lib.so",
     "locations": [
         {
-            "variables": []
-        },
-        {
             "function": {
                 "name": "_Z11print_color5Color",
                 "parameters": [
                     {
-                        "size": 4,
-                        "name": "Color",
-                        "type": "unsigned int",
-                        "class": "Enum",
-                        "direction": "import",
-                        "fields": [
-                            {
-                                "name": "red",
-                                "value": 0
-                            },
-                            {
-                                "name": "green",
-                                "value": 1
-                            },
-                            {
-                                "name": "blue",
-                                "value": 2
-                            }
-                        ],
+                        "name": "r",
+                        "type": "d2198c7c311b1ad8b126ca67f7eb9344",
                         "location": "%rdi"
                     }
                 ],
                 "return": {
-                    "name": "Color",
-                    "size": 4,
-                    "type": "unsigned int",
-                    "class": "Enum",
+                    "type": "d2198c7c311b1ad8b126ca67f7eb9344",
                     "direction": "export",
-                    "fields": [
-                        {
-                            "name": "red",
-                            "value": 0
-                        },
-                        {
-                            "name": "green",
-                            "value": 1
-                        },
-                        {
-                            "name": "blue",
-                            "value": 2
-                        }
-                    ],
                     "location": "%rax"
                 }
             }
         }
-    ]
+    ],
+    "types": {
+        "724f0b94c416f03c89c16150cf866e00": {
+            "type": "unsigned int",
+            "size": 4,
+            "class": "Integer",
+            "direction": "import"
+        },
+        "d2198c7c311b1ad8b126ca67f7eb9344": {
+            "name": "Color",
+            "size": 4,
+            "type": "724f0b94c416f03c89c16150cf866e00",
+            "class": "Enum",
+            "fields": [
+                {
+                    "name": "red",
+                    "value": 0
+                },
+                {
+                    "name": "green",
+                    "value": 1
+                },
+                {
+                    "name": "blue",
+                    "value": 2
+                }
+            ]
+        }
+    }
 }

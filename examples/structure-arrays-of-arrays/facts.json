@@ -2,40 +2,23 @@
     "library": "/home/vanessa/Desktop/Code/cle/examples/structure-arrays-of-arrays/example",
     "locations": [
         {
-            "variables": []
-        },
-        {
             "function": {
                 "name": "main",
                 "direction": "export",
                 "parameters": [
                     {
-                        "size": 4,
                         "name": "argc",
-                        "type": "int",
-                        "class": "Integer",
-                        "direction": "import",
+                        "type": "1fd8c01bdca094933f920b41375cfed0",
                         "location": "%rdi"
                     },
                     {
-                        "size": 8,
                         "name": "argv",
-                        "class": "Pointer",
-                        "underlying_type": {
-                            "type": "char",
-                            "size": 1,
-                            "class": "Integral"
-                        },
-                        "direction": "both",
-                        "type": "*char",
-                        "indirections": 2,
+                        "type": "8f2ec41872f539c9775c4888a8fcb8c8",
                         "location": "%rsi"
                     }
                 ],
                 "return": {
-                    "type": "int",
-                    "size": 4,
-                    "class": "Integer",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
                     "direction": "export",
                     "location": "%rax"
                 }
@@ -47,53 +30,87 @@
                 "direction": "export",
                 "parameters": [
                     {
-                        "size": 4,
                         "name": "one",
-                        "type": "int",
-                        "class": "Integer",
-                        "direction": "import",
+                        "type": "1fd8c01bdca094933f920b41375cfed0",
                         "location": "%rdi"
                     },
                     {
-                        "size": 8,
                         "name": "array",
-                        "class": "Pointer",
-                        "underlying_type": {
-                            "name": "Structy",
-                            "size": 24100,
-                            "class": "Struct",
-                            "fields": [
-                                {
-                                    "name": "two_d",
-                                    "class": "Array",
-                                    "size": 64,
-                                    "count": 0,
-                                    "type": "int",
-                                    "direction": "export"
-                                },
-                                {
-                                    "name": "three_d",
-                                    "class": "Array",
-                                    "size": 456,
-                                    "count": 0,
-                                    "type": "int",
-                                    "direction": "export"
-                                }
-                            ]
-                        },
-                        "direction": "both",
-                        "indirections": 1,
+                        "type": "ef10d59be69329dafed968d03d500fc7",
                         "location": "%rsi"
                     }
                 ],
                 "return": {
-                    "type": "int",
-                    "size": 4,
-                    "class": "Integer",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
                     "direction": "export",
                     "location": "%rax"
                 }
             }
         }
-    ]
+    ],
+    "types": {
+        "1fd8c01bdca094933f920b41375cfed0": {
+            "type": "int",
+            "size": 4,
+            "class": "Integer",
+            "direction": "import"
+        },
+        "8f2ec41872f539c9775c4888a8fcb8c8": {
+            "name": "argv",
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "char",
+                "size": 1,
+                "class": "Integral"
+            },
+            "direction": "both",
+            "type": "*char",
+            "indirections": 2
+        },
+        "6d168f46b7d9e8b96a1ff9b171e0ad48": {
+            "type": "long unsigned int",
+            "size": 8,
+            "class": "Integer",
+            "direction": "import"
+        },
+        "d449d18ab3dce375e0f01aa2fe82d92c": {
+            "class": "Array",
+            "name": "two_d",
+            "size": 0,
+            "count": 0,
+            "type": "1fd8c01bdca094933f920b41375cfed0"
+        },
+        "b50f361252ff85eedc7459a5572d2093": {
+            "class": "Array",
+            "name": "three_d",
+            "size": 0,
+            "count": 0,
+            "type": "1fd8c01bdca094933f920b41375cfed0"
+        },
+        "ef10d59be69329dafed968d03d500fc7": {
+            "name": "array",
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "name": "Structy",
+                "size": 24100,
+                "class": "Struct",
+                "fields": [
+                    {
+                        "name": "two_d",
+                        "type": "d449d18ab3dce375e0f01aa2fe82d92c",
+                        "direction": "export"
+                    },
+                    {
+                        "name": "three_d",
+                        "type": "b50f361252ff85eedc7459a5572d2093",
+                        "direction": "export"
+                    }
+                ]
+            },
+            "direction": "both",
+            "indirections": 1
+        }
+    }
 }

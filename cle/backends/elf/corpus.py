@@ -33,9 +33,10 @@ class ElfCorpus(Corpus):
         self.seen = set()
         self.underlying_types = {}
 
-        # Types cache of die -> json
-        self.types = {}
-        self.types_seen = set()
+        # self.types is cache of type id -> json
+        # Types cache of die.offset -> type id
+        self._types = {}
+        self._types_seen = set()
 
         # Keep track of ids we have parsed before (underlying types)
         self.lookup = set()
@@ -56,9 +57,13 @@ class ElfCorpus(Corpus):
         # DW_AT_external attribute if the variable is visible outside of its enclosing CU
         entry = {
             "name": self.get_name(die),
-            "size": self.get_size(die),
             "location": "var",
         }
+
+        # Stop parsing if we've seen it before
+        if entry["name"] in self.variables:
+            return
+
         entry.update(self.parse_underlying_type(die))
 
         # DW_AT_declaration if present is an export, otherwise is an import
@@ -67,7 +72,7 @@ class ElfCorpus(Corpus):
             direction = "import"
 
         entry["direction"] = direction
-        self.variables.append(entry)
+        self.variables[entry["name"]] = entry
 
     def add_dwarf_information_entry(self, die):
         """
@@ -102,6 +107,8 @@ class ElfCorpus(Corpus):
 
     def parse_children(self, die):
         for child in die.iter_children():
+            if not child.tag:
+                continue
             self.parse_die(child)
 
     def parse_call_site(self, die, parent):
@@ -192,9 +199,14 @@ class ElfCorpus(Corpus):
         param = None
         for child in die.iter_children():
 
+            if not child.tag:
+                continue
+
             # can either be inlined subroutine or format parameter
             if child.tag == "DW_TAG_formal_parameter":
-                param = {"size": self.get_size(child)}
+
+                # Size isn't included here because will be present with underlying type
+                param = {}
                 name = self.get_name(child)
                 if name != "unknown":
                     param["name"] = name
@@ -247,13 +259,17 @@ class ElfCorpus(Corpus):
                 self.parse_lexical_block(child)
 
             # Skip these for now (we will likely need to re-add some to parse)
-            elif child.tag in [
-                "DW_TAG_const_type",
-                "DW_TAG_typedef",
-                "DW_TAG_label",
-                "DW_TAG_template_type_param",
-                "DW_TAG_subroutine_type",
-            ]:
+            elif (
+                child.tag
+                in [
+                    "DW_TAG_const_type",
+                    "DW_TAG_typedef",
+                    "DW_TAG_label",
+                    "DW_TAG_template_type_param",
+                    "DW_TAG_subroutine_type",
+                ]
+                or not child.tag
+            ):
                 continue
 
             else:
@@ -295,6 +311,11 @@ class ElfCorpus(Corpus):
         }
         fields = []
         for child in die.iter_children():
+
+            # DIE None
+            if not child.tag:
+                continue
+
             field = self.parse_member(child)
 
             # Our default is import but Matt wants struct param fields to be exports
@@ -334,6 +355,8 @@ class ElfCorpus(Corpus):
         # Parse children (members of the union)
         fields = []
         for child in die.iter_children():
+            if not child.tag:
+                continue
             fields.append(self.parse_member(child))
 
         if fields:
@@ -362,10 +385,10 @@ class ElfCorpus(Corpus):
                 )
             underlying_type = underlying_type or self.parse_underlying_type(die)
             allocator = allocator or self.parser.get_return_allocator()
-            if underlying_type:
-                loc = self.parser.classify(
-                    underlying_type, die=die, allocator=allocator
-                )
+            if underlying_type:         
+                # Get the actual type information                
+                typ = self.types[underlying_type['type']]
+                loc = self.parser.classify(typ, die=die, allocator=allocator, types=self.types)
             return loc
 
         # Without experimental uses dwarf location lists
@@ -466,6 +489,8 @@ class ElfCorpus(Corpus):
         total_size = 0
         total_count = 0
         for child in children:
+            if not child.tag:
+                continue
             member = None
 
             # Each array dimension is DW_TAG_subrange_type or DW_TAG_enumeration_type
@@ -500,6 +525,8 @@ class ElfCorpus(Corpus):
 
         fields = []
         for child in die.iter_children():
+            if not die.tag:
+                continue
             field = {
                 "name": self.get_name(child),
                 "value": child.attributes["DW_AT_const_value"].value,
@@ -556,6 +583,8 @@ class ElfCorpus(Corpus):
         }
         fields = []
         for child in die.iter_children():
+            if not child.tag:
+                continue
             if "DW_AT_external" in child.attributes:
                 continue
             fields.append(self.parse_member(child))
@@ -649,6 +678,10 @@ class ElfCorpus(Corpus):
                     break
                 type_die = next_die
 
+            # DW_TAG None
+            if not type_die.tag:
+                return entry
+
             # parse structure fields
             if type_die and type_die.tag == "DW_TAG_structure_type":
                 if not entry:
@@ -699,6 +732,8 @@ class ElfCorpus(Corpus):
             return ClassType.get(self.get_name(die))
         if die.tag == "DW_TAG_structure_type":
             return "Struct"
+        if die.tag == "DW_TAG_union_type":
+            return "Union"
         if die.tag == "DW_TAG_array_type":
             return "Array"
         if die.tag == "DW_TAG_class_type":
@@ -713,6 +748,10 @@ class ElfCorpus(Corpus):
             return "Function"
         if die.tag == "DW_TAG_const_type":
             return "Constant"
+
+        # libtcl has an empty tag like this under array type
+        if die.tag == "DW_TAG_subrange_type":
+            return "Subrange"
 
         print("UNKNOWN DIE CLASS")
         import IPython

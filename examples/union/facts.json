@@ -2,15 +2,10 @@
     "library": "/home/vanessa/Desktop/Code/cle/examples/union/lib.so",
     "locations": [
         {
-            "variables": []
-        },
-        {
             "function": {
                 "name": "main",
                 "return": {
-                    "type": "int",
-                    "size": 4,
-                    "class": "Integer",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
                     "direction": "export",
                     "location": "%rax"
                 }
@@ -21,29 +16,48 @@
                 "name": "_Z3foo1A",
                 "parameters": [
                     {
-                        "size": 16,
-                        "name": "A",
-                        "class": "Union",
-                        "fields": [
-                            {
-                                "name": "x",
-                                "type": "int",
-                                "size": 4,
-                                "class": "Integer",
-                                "direction": "import"
-                            },
-                            {
-                                "name": "y",
-                                "class": "Array",
-                                "size": 24,
-                                "count": 0,
-                                "type": "int"
-                            }
-                        ],
+                        "name": "a",
+                        "type": "9dea60e00439aa141cb1c0fd76a1a4c2",
                         "location": "%rdi"
                     }
                 ]
             }
         }
-    ]
+    ],
+    "types": {
+        "1fd8c01bdca094933f920b41375cfed0": {
+            "type": "int",
+            "size": 4,
+            "class": "Integer",
+            "direction": "import"
+        },
+        "6d168f46b7d9e8b96a1ff9b171e0ad48": {
+            "type": "long unsigned int",
+            "size": 8,
+            "class": "Integer",
+            "direction": "import"
+        },
+        "34622c797e6ddbdbb5eb666df5f4add2": {
+            "class": "Array",
+            "name": "y",
+            "size": 0,
+            "count": 0,
+            "type": "1fd8c01bdca094933f920b41375cfed0"
+        },
+        "9dea60e00439aa141cb1c0fd76a1a4c2": {
+            "name": "A",
+            "size": 16,
+            "class": "Union",
+            "fields": [
+                {
+                    "name": "x",
+                    "type": "1fd8c01bdca094933f920b41375cfed0"
+                },
+                {
+                    "name": "y",
+                    "type": "34622c797e6ddbdbb5eb666df5f4add2"
+                }
+            ]
+        }
+    }
 }

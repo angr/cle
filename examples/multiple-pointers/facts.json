@@ -2,16 +2,11 @@
     "library": "/home/vanessa/Desktop/Code/cle/examples/multiple-pointers/example",
     "locations": [
         {
-            "variables": []
-        },
-        {
             "function": {
                 "name": "main",
                 "direction": "export",
                 "return": {
-                    "type": "int",
-                    "size": 4,
-                    "class": "Integer",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
                     "direction": "export",
                     "location": "%rax"
                 }
@@ -23,21 +18,33 @@
                 "direction": "export",
                 "parameters": [
                     {
-                        "size": 8,
                         "name": "x",
-                        "class": "Pointer",
-                        "underlying_type": {
-                            "type": "int",
-                            "size": 4,
-                            "class": "Integer"
-                        },
-                        "direction": "both",
-                        "type": "*int",
-                        "indirections": 2,
+                        "type": "ecd9d4ce937d63d69c2f95b986aea161",
                         "location": "%rdi"
                     }
                 ]
             }
         }
-    ]
+    ],
+    "types": {
+        "1fd8c01bdca094933f920b41375cfed0": {
+            "type": "int",
+            "size": 4,
+            "class": "Integer",
+            "direction": "import"
+        },
+        "ecd9d4ce937d63d69c2f95b986aea161": {
+            "name": "x",
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "int",
+                "size": 4,
+                "class": "Integer"
+            },
+            "direction": "both",
+            "type": "*int",
+            "indirections": 2
+        }
+    }
 }

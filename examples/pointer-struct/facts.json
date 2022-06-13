@@ -2,50 +2,59 @@
     "library": "/home/vanessa/Desktop/Code/cle/examples/pointer-struct/lib.so",
     "locations": [
         {
-            "variables": []
-        },
-        {
             "function": {
                 "name": "_Z3fooP3Foo",
                 "parameters": [
                     {
-                        "size": 8,
                         "name": "f",
-                        "class": "Pointer",
-                        "underlying_type": {
-                            "name": "Foo",
-                            "size": 16,
-                            "class": "Struct",
-                            "fields": [
-                                {
-                                    "name": "i",
-                                    "type": "int",
-                                    "size": 4,
-                                    "class": "Integer",
-                                    "direction": "export"
-                                },
-                                {
-                                    "name": "d",
-                                    "type": "double",
-                                    "size": 8,
-                                    "class": "Float",
-                                    "direction": "export"
-                                }
-                            ]
-                        },
-                        "direction": "both",
-                        "indirections": 1,
+                        "type": "76f7a23e00ddf383600a69b9c2cce30f",
                         "location": "%rdi"
                     }
                 ],
                 "return": {
-                    "type": "int",
-                    "size": 4,
-                    "class": "Integer",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
                     "direction": "export",
                     "location": "%rax"
                 }
             }
         }
-    ]
+    ],
+    "types": {
+        "1fd8c01bdca094933f920b41375cfed0": {
+            "type": "int",
+            "size": 4,
+            "class": "Integer",
+            "direction": "import"
+        },
+        "5f66ab77d11088555799b0da0fbee9bf": {
+            "type": "double",
+            "size": 8,
+            "class": "Float",
+            "direction": "import"
+        },
+        "76f7a23e00ddf383600a69b9c2cce30f": {
+            "name": "f",
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "name": "Foo",
+                "size": 16,
+                "class": "Struct",
+                "fields": [
+                    {
+                        "name": "i",
+                        "type": "1fd8c01bdca094933f920b41375cfed0",
+                        "direction": "export"
+                    },
+                    {
+                        "name": "d",
+                        "type": "5f66ab77d11088555799b0da0fbee9bf",
+                        "direction": "export"
+                    }
+                ]
+            },
+            "direction": "both",
+            "indirections": 1
+        }
+    }
 }

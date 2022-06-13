@@ -2,35 +2,42 @@
     "library": "/home/vanessa/Desktop/Code/cle/examples/function-with-pointer/lib.so",
     "locations": [
         {
-            "variables": []
-        },
-        {
             "function": {
                 "name": "_Z3fooPi",
                 "parameters": [
                     {
-                        "size": 8,
                         "name": "x",
-                        "class": "Pointer",
-                        "underlying_type": {
-                            "type": "int",
-                            "size": 4,
-                            "class": "Integer"
-                        },
-                        "direction": "both",
-                        "type": "*int",
-                        "indirections": 1,
+                        "type": "c41b8a141bcad4a428605abf45e1d143",
                         "location": "%rdi"
                     }
                 ],
                 "return": {
-                    "type": "int",
-                    "size": 4,
-                    "class": "Integer",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
                     "direction": "export",
                     "location": "%rax"
                 }
             }
         }
-    ]
+    ],
+    "types": {
+        "1fd8c01bdca094933f920b41375cfed0": {
+            "type": "int",
+            "size": 4,
+            "class": "Integer",
+            "direction": "import"
+        },
+        "c41b8a141bcad4a428605abf45e1d143": {
+            "name": "x",
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "int",
+                "size": 4,
+                "class": "Integer"
+            },
+            "direction": "both",
+            "type": "*int",
+            "indirections": 1
+        }
+    }
 }

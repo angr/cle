@@ -2,20 +2,23 @@
     "library": "/home/vanessa/Desktop/Code/cle/examples/const/example",
     "locations": [
         {
-            "variables": []
-        },
-        {
             "function": {
                 "name": "main",
                 "direction": "export",
                 "return": {
-                    "type": "int",
-                    "size": 4,
-                    "class": "Integer",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
                     "direction": "export",
                     "location": "%rax"
                 }
             }
         }
-    ]
+    ],
+    "types": {
+        "1fd8c01bdca094933f920b41375cfed0": {
+            "type": "int",
+            "size": 4,
+            "class": "Integer",
+            "direction": "import"
+        }
+    }
 }

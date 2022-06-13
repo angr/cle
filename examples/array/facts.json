@@ -2,15 +2,10 @@
     "library": "/home/vanessa/Desktop/Code/cle/examples/array/lib.so",
     "locations": [
         {
-            "variables": []
-        },
-        {
             "function": {
                 "name": "main",
                 "return": {
-                    "type": "int",
-                    "size": 4,
-                    "class": "Integer",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
                     "direction": "export",
                     "location": "%rax"
                 }
@@ -21,30 +16,56 @@
                 "name": "_Z3foo3Foo",
                 "parameters": [
                     {
-                        "size": 36,
-                        "name": "Foo",
-                        "class": "Struct",
-                        "fields": [
-                            {
-                                "name": "x",
-                                "type": "int",
-                                "size": 4,
-                                "class": "Integer",
-                                "direction": "export"
-                            },
-                            {
-                                "name": "c",
-                                "class": "Array",
-                                "size": 248,
-                                "count": 0,
-                                "type": "char",
-                                "direction": "export"
-                            }
-                        ],
-                        "location": "%rdi"
+                        "name": "f",
+                        "type": "546c513ca34a3298a3f0540500c438cd",
+                        "location": "%xmm0"
                     }
                 ]
             }
         }
-    ]
+    ],
+    "types": {
+        "1fd8c01bdca094933f920b41375cfed0": {
+            "type": "int",
+            "size": 4,
+            "class": "Integer",
+            "direction": "import"
+        },
+        "ee8eaa81ccacc2d49d87afa5ca1148a8": {
+            "type": "char",
+            "size": 1,
+            "class": "Integral",
+            "direction": "import"
+        },
+        "6d168f46b7d9e8b96a1ff9b171e0ad48": {
+            "type": "long unsigned int",
+            "size": 8,
+            "class": "Integer",
+            "direction": "import"
+        },
+        "a577ccf4dfcba55c299a5e6b401951d1": {
+            "class": "Array",
+            "name": "c",
+            "size": 0,
+            "count": 0,
+            "type": "ee8eaa81ccacc2d49d87afa5ca1148a8"
+        },
+        "546c513ca34a3298a3f0540500c438cd": {
+            "name": "Foo",
+            "size": 36,
+            "class": "Struct",
+            "fields": [
+                {
+                    "name": "x",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "direction": "export"
+                },
+                {
+                    "name": "c",
+                    "type": "a577ccf4dfcba55c299a5e6b401951d1",
+                    "direction": "export"
+                }
+            ]
+        }
+    }
 }

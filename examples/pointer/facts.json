@@ -5,27 +5,38 @@
             "variables": [
                 {
                     "name": "x",
-                    "size": 4,
                     "location": "var",
-                    "type": "int",
-                    "class": "Integer",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
                     "direction": "export"
                 },
                 {
                     "name": "px",
-                    "size": 8,
                     "location": "var",
-                    "class": "Pointer",
-                    "underlying_type": {
-                        "type": "int",
-                        "size": 4,
-                        "class": "Integer"
-                    },
-                    "direction": "export",
-                    "type": "*int",
-                    "indirections": 1
+                    "type": "8f8ff3c9556390acc2ada555545d172c",
+                    "direction": "export"
                 }
             ]
         }
-    ]
+    ],
+    "types": {
+        "1fd8c01bdca094933f920b41375cfed0": {
+            "type": "int",
+            "size": 4,
+            "class": "Integer",
+            "direction": "import"
+        },
+        "8f8ff3c9556390acc2ada555545d172c": {
+            "name": "px",
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "int",
+                "size": 4,
+                "class": "Integer"
+            },
+            "direction": "both",
+            "type": "*int",
+            "indirections": 1
+        }
+    }
 }

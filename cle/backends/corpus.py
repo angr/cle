@@ -11,21 +11,32 @@ class Corpus:
 
     def __init__(self, library, *args, **kwargs):
         self.library = library
-        self.variables = []
         self.functions = []
         self.callsites = []
+
+        # Lookup of variables by name, and types by some other identifier
+        self.variables = {}
+        self.types = {}
 
     def to_dict(self):
         """
         Return the corpus as a dictionary (we can decide on a standard structure)
         """
         locations = []
-        locations.append({"variables": self.variables})
+
+        if self.variables:
+            variables = list(self.variables.values())
+            locations.append({"variables": variables})
         for func in self.functions:
             locations.append({"function": func})
         for site in self.callsites:
             locations.append({"callsite": site})
-        return {"library": self.library, "locations": locations}
+        corpus = {"library": self.library, "locations": locations}
+
+        # If the parser chooses to replicate dwarf, so be it
+        if self.types:
+            corpus["types"] = self.types
+        return corpus
 
     def to_json(self):
         """

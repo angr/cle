@@ -2,133 +2,126 @@
     "library": "/home/vanessa/Desktop/Code/cle/examples/class-inheritance/lib.so",
     "locations": [
         {
-            "variables": []
-        },
-        {
             "function": {
                 "name": "_Z4func1AP1B1C1D",
                 "parameters": [
                     {
-                        "size": 4,
-                        "name": "A",
-                        "class": "Struct",
-                        "fields": [
-                            {
-                                "name": "x",
-                                "type": "int",
-                                "size": 4,
-                                "class": "Integer",
-                                "direction": "export"
-                            }
-                        ],
+                        "name": "a",
+                        "type": "308e7c0c4ed84449b2850937c1b6329e",
                         "location": "%rdi"
                     },
                     {
-                        "size": 8,
                         "name": "b",
-                        "class": "Pointer",
-                        "underlying_type": {
-                            "name": "B",
-                            "size": 4,
-                            "class": "Struct",
-                            "fields": [
-                                {
-                                    "name": "y",
-                                    "type": "int",
-                                    "size": 4,
-                                    "class": "Integer",
-                                    "direction": "export"
-                                }
-                            ]
-                        },
-                        "direction": "both",
-                        "indirections": 1,
+                        "type": "23d73fd3bf1db9d21069f0bcbcf6c1de",
                         "location": "%rsi"
                     },
                     {
-                        "size": 4,
-                        "name": "C",
-                        "class": "Struct",
-                        "fields": [
-                            {
-                                "name": "z",
-                                "type": "int",
-                                "size": 4,
-                                "class": "Integer",
-                                "direction": "export"
-                            }
-                        ],
+                        "name": "c",
+                        "type": "0cc8ef179bac97bee2058ee65dadaaea",
                         "location": "%rdx"
                     },
                     {
-                        "size": 16,
-                        "name": "D",
-                        "class": "Struct",
-                        "fields": [
-                            {
-                                "name": "A",
-                                "size": 4,
-                                "class": "Struct",
-                                "fields": [
-                                    {
-                                        "name": "x",
-                                        "type": "int",
-                                        "size": 4,
-                                        "class": "Integer",
-                                        "direction": "export"
-                                    }
-                                ],
-                                "direction": "export"
-                            },
-                            {
-                                "name": "B",
-                                "size": 4,
-                                "class": "Struct",
-                                "fields": [
-                                    {
-                                        "name": "y",
-                                        "type": "int",
-                                        "size": 4,
-                                        "class": "Integer",
-                                        "direction": "export"
-                                    }
-                                ],
-                                "direction": "export"
-                            },
-                            {
-                                "name": "C",
-                                "size": 4,
-                                "class": "Struct",
-                                "fields": [
-                                    {
-                                        "name": "z",
-                                        "type": "int",
-                                        "size": 4,
-                                        "class": "Integer",
-                                        "direction": "export"
-                                    }
-                                ],
-                                "direction": "export"
-                            },
-                            {
-                                "name": "d",
-                                "type": "int",
-                                "size": 4,
-                                "class": "Integer",
-                                "direction": "export"
-                            }
-                        ],
+                        "name": "d",
+                        "type": "1e5ede4f6075bc5cdc8192cfdc757df9",
                         "location": "%xmm0"
                     }
                 ],
                 "return": {
-                    "type": "int",
-                    "size": 4,
-                    "class": "Integer",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
                     "direction": "export",
                     "location": "%rax"
                 }
             }
         }
-    ]
+    ],
+    "types": {
+        "1fd8c01bdca094933f920b41375cfed0": {
+            "type": "int",
+            "size": 4,
+            "class": "Integer",
+            "direction": "import"
+        },
+        "308e7c0c4ed84449b2850937c1b6329e": {
+            "name": "A",
+            "size": 4,
+            "class": "Struct",
+            "fields": [
+                {
+                    "name": "x",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "direction": "export"
+                }
+            ]
+        },
+        "23d73fd3bf1db9d21069f0bcbcf6c1de": {
+            "name": "b",
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "name": "B",
+                "size": 4,
+                "class": "Struct",
+                "fields": [
+                    {
+                        "name": "y",
+                        "type": "1fd8c01bdca094933f920b41375cfed0",
+                        "direction": "export"
+                    }
+                ]
+            },
+            "direction": "both",
+            "indirections": 1
+        },
+        "0cc8ef179bac97bee2058ee65dadaaea": {
+            "name": "C",
+            "size": 4,
+            "class": "Struct",
+            "fields": [
+                {
+                    "name": "z",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "direction": "export"
+                }
+            ]
+        },
+        "3b92f99410a6dae32be62e61c114908a": {
+            "name": "B",
+            "size": 4,
+            "class": "Struct",
+            "fields": [
+                {
+                    "name": "y",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "direction": "export"
+                }
+            ]
+        },
+        "1e5ede4f6075bc5cdc8192cfdc757df9": {
+            "name": "D",
+            "size": 16,
+            "class": "Struct",
+            "fields": [
+                {
+                    "name": "unknown",
+                    "type": "308e7c0c4ed84449b2850937c1b6329e",
+                    "direction": "export"
+                },
+                {
+                    "name": "unknown",
+                    "type": "3b92f99410a6dae32be62e61c114908a",
+                    "direction": "export"
+                },
+                {
+                    "name": "unknown",
+                    "type": "0cc8ef179bac97bee2058ee65dadaaea",
+                    "direction": "export"
+                },
+                {
+                    "name": "d",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "direction": "export"
+                }
+            ]
+        }
+    }
 }

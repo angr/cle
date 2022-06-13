@@ -2,31 +2,20 @@
     "library": "/home/vanessa/Desktop/Code/cle/examples/math/lib.so",
     "locations": [
         {
-            "variables": []
-        },
-        {
             "function": {
                 "name": "_ZN11MathLibrary10Arithmetic3AddEdd",
                 "parameters": [
                     {
-                        "size": 8,
-                        "type": "double",
-                        "class": "Float",
-                        "direction": "import",
+                        "type": "5f66ab77d11088555799b0da0fbee9bf",
                         "location": "%xmm0"
                     },
                     {
-                        "size": 8,
-                        "type": "double",
-                        "class": "Float",
-                        "direction": "import",
+                        "type": "5f66ab77d11088555799b0da0fbee9bf",
                         "location": "%xmm1"
                     }
                 ],
                 "return": {
-                    "type": "double",
-                    "size": 8,
-                    "class": "Float",
+                    "type": "5f66ab77d11088555799b0da0fbee9bf",
                     "direction": "export",
                     "location": "%xmm0"
                 }
@@ -37,24 +26,16 @@
                 "name": "_ZN11MathLibrary10Arithmetic8SubtractEdd",
                 "parameters": [
                     {
-                        "size": 8,
-                        "type": "double",
-                        "class": "Float",
-                        "direction": "import",
+                        "type": "5f66ab77d11088555799b0da0fbee9bf",
                         "location": "%xmm0"
                     },
                     {
-                        "size": 8,
-                        "type": "double",
-                        "class": "Float",
-                        "direction": "import",
+                        "type": "5f66ab77d11088555799b0da0fbee9bf",
                         "location": "%xmm1"
                     }
                 ],
                 "return": {
-                    "type": "double",
-                    "size": 8,
-                    "class": "Float",
+                    "type": "5f66ab77d11088555799b0da0fbee9bf",
                     "direction": "export",
                     "location": "%xmm0"
                 }
@@ -65,24 +46,16 @@
                 "name": "_ZN11MathLibrary10Arithmetic8MultiplyEdd",
                 "parameters": [
                     {
-                        "size": 8,
-                        "type": "double",
-                        "class": "Float",
-                        "direction": "import",
+                        "type": "5f66ab77d11088555799b0da0fbee9bf",
                         "location": "%xmm0"
                     },
                     {
-                        "size": 8,
-                        "type": "double",
-                        "class": "Float",
-                        "direction": "import",
+                        "type": "5f66ab77d11088555799b0da0fbee9bf",
                         "location": "%xmm1"
                     }
                 ],
                 "return": {
-                    "type": "double",
-                    "size": 8,
-                    "class": "Float",
+                    "type": "5f66ab77d11088555799b0da0fbee9bf",
                     "direction": "export",
                     "location": "%xmm0"
                 }
@@ -93,28 +66,28 @@
                 "name": "_ZN11MathLibrary10Arithmetic6DivideEdd",
                 "parameters": [
                     {
-                        "size": 8,
-                        "type": "double",
-                        "class": "Float",
-                        "direction": "import",
+                        "type": "5f66ab77d11088555799b0da0fbee9bf",
                         "location": "%xmm0"
                     },
                     {
-                        "size": 8,
-                        "type": "double",
-                        "class": "Float",
-                        "direction": "import",
+                        "type": "5f66ab77d11088555799b0da0fbee9bf",
                         "location": "%xmm1"
                     }
                 ],
                 "return": {
-                    "type": "double",
-                    "size": 8,
-                    "class": "Float",
+                    "type": "5f66ab77d11088555799b0da0fbee9bf",
                     "direction": "export",
                     "location": "%xmm0"
                 }
             }
         }
-    ]
+    ],
+    "types": {
+        "5f66ab77d11088555799b0da0fbee9bf": {
+            "type": "double",
+            "size": 8,
+            "class": "Float",
+            "direction": "import"
+        }
+    }
 }

@@ -5,11 +5,8 @@
             "variables": [
                 {
                     "name": "fixedSizeArray",
-                    "size": 232,
                     "location": "var",
-                    "class": "Array",
-                    "count": 0,
-                    "type": "int",
+                    "type": "6dd3e0b89ad7707fa4a10ea61767519f",
                     "direction": "export"
                 }
             ]
@@ -19,9 +16,7 @@
                 "name": "main",
                 "direction": "export",
                 "return": {
-                    "type": "int",
-                    "size": 4,
-                    "class": "Integer",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
                     "direction": "export",
                     "location": "%rax"
                 }
@@ -33,21 +28,46 @@
                 "direction": "export",
                 "parameters": [
                     {
-                        "size": 8,
                         "name": "array",
-                        "class": "Pointer",
-                        "underlying_type": {
-                            "type": "int",
-                            "size": 4,
-                            "class": "Integer"
-                        },
-                        "direction": "both",
-                        "type": "*int",
-                        "indirections": 1,
+                        "type": "2a0e64d89aa0a822e3108b3df8bc98c3",
                         "location": "%rdi"
                     }
                 ]
             }
         }
-    ]
+    ],
+    "types": {
+        "1fd8c01bdca094933f920b41375cfed0": {
+            "type": "int",
+            "size": 4,
+            "class": "Integer",
+            "direction": "import"
+        },
+        "6d168f46b7d9e8b96a1ff9b171e0ad48": {
+            "type": "long unsigned int",
+            "size": 8,
+            "class": "Integer",
+            "direction": "import"
+        },
+        "6dd3e0b89ad7707fa4a10ea61767519f": {
+            "class": "Array",
+            "name": "fixedSizeArray",
+            "size": 0,
+            "count": 0,
+            "type": "1fd8c01bdca094933f920b41375cfed0"
+        },
+        "2a0e64d89aa0a822e3108b3df8bc98c3": {
+            "name": "array",
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "int",
+                "size": 4,
+                "class": "Integer"
+            },
+            "direction": "both",
+            "type": "*int",
+            "indirections": 1
+        }
+    }
 }
