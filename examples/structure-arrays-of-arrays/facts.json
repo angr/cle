@@ -4,17 +4,20 @@
         {
             "function": {
                 "name": "main",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "argc",
                         "type": "1fd8c01bdca094933f920b41375cfed0",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     },
                     {
                         "name": "argv",
-                        "type": "8f2ec41872f539c9775c4888a8fcb8c8",
-                        "location": "%rsi"
+                        "type": "fc120637f1c544d02555884cff0da54b",
+                        "location": "%rsi",
+                        "direction": "import"
                     }
                 ],
                 "return": {
@@ -27,17 +30,20 @@
         {
             "function": {
                 "name": "_Z3fooiP7Structy",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "one",
                         "type": "1fd8c01bdca094933f920b41375cfed0",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     },
                     {
                         "name": "array",
-                        "type": "ef10d59be69329dafed968d03d500fc7",
-                        "location": "%rsi"
+                        "type": "66aea84f8bf2f889f2df5d1e80a45e57",
+                        "location": "%rsi",
+                        "direction": "import"
                     }
                 ],
                 "return": {
@@ -55,18 +61,28 @@
             "class": "Integer",
             "direction": "import"
         },
-        "8f2ec41872f539c9775c4888a8fcb8c8": {
-            "name": "argv",
+        "ee8eaa81ccacc2d49d87afa5ca1148a8": {
+            "type": "char",
+            "size": 1,
+            "class": "Integral",
+            "direction": "import"
+        },
+        "c85bcac8ca48727eb84d73d743bfb8cd": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "char",
-                "size": 1,
-                "class": "Integral"
+                "type": "ee8eaa81ccacc2d49d87afa5ca1148a8"
+            },
+            "direction": "both"
+        },
+        "fc120637f1c544d02555884cff0da54b": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "c85bcac8ca48727eb84d73d743bfb8cd"
             },
             "direction": "both",
-            "type": "*char",
-            "indirections": 2
+            "name": "argv"
         },
         "6d168f46b7d9e8b96a1ff9b171e0ad48": {
             "type": "long unsigned int",
@@ -88,29 +104,31 @@
             "count": 0,
             "type": "1fd8c01bdca094933f920b41375cfed0"
         },
-        "ef10d59be69329dafed968d03d500fc7": {
-            "name": "array",
+        "9ffd15560f149b239367223323613a38": {
+            "name": "Structy",
+            "size": 24100,
+            "class": "Struct",
+            "fields": [
+                {
+                    "name": "two_d",
+                    "type": "d449d18ab3dce375e0f01aa2fe82d92c",
+                    "direction": "export"
+                },
+                {
+                    "name": "three_d",
+                    "type": "b50f361252ff85eedc7459a5572d2093",
+                    "direction": "export"
+                }
+            ]
+        },
+        "66aea84f8bf2f889f2df5d1e80a45e57": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "name": "Structy",
-                "size": 24100,
-                "class": "Struct",
-                "fields": [
-                    {
-                        "name": "two_d",
-                        "type": "d449d18ab3dce375e0f01aa2fe82d92c",
-                        "direction": "export"
-                    },
-                    {
-                        "name": "three_d",
-                        "type": "b50f361252ff85eedc7459a5572d2093",
-                        "direction": "export"
-                    }
-                ]
+                "type": "9ffd15560f149b239367223323613a38"
             },
             "direction": "both",
-            "indirections": 1
+            "name": "array"
         }
     }
 }

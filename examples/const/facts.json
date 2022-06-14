@@ -4,6 +4,7 @@
         {
             "function": {
                 "name": "main",
+                "class": "Function",
                 "direction": "export",
                 "return": {
                     "type": "1fd8c01bdca094933f920b41375cfed0",

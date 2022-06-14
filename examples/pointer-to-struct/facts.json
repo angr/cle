@@ -4,11 +4,13 @@
         {
             "function": {
                 "name": "_Z4FuncP8MyStruct",
+                "class": "Function",
                 "parameters": [
                     {
                         "name": "m",
-                        "type": "8b829ee2cbb35040e95870030045427f",
-                        "location": "%rdi"
+                        "type": "934f84b8fe9d7f38bf90af011ba3be6d",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ],
                 "return": {
@@ -32,29 +34,31 @@
             "class": "Float",
             "direction": "import"
         },
-        "8b829ee2cbb35040e95870030045427f": {
-            "name": "m",
+        "55fab040caad2cfb953cf90dc5f69169": {
+            "name": "MyStruct",
+            "size": 16,
+            "class": "Struct",
+            "fields": [
+                {
+                    "name": "a",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "direction": "export"
+                },
+                {
+                    "name": "b",
+                    "type": "5f66ab77d11088555799b0da0fbee9bf",
+                    "direction": "export"
+                }
+            ]
+        },
+        "934f84b8fe9d7f38bf90af011ba3be6d": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "name": "MyStruct",
-                "size": 16,
-                "class": "Struct",
-                "fields": [
-                    {
-                        "name": "a",
-                        "type": "1fd8c01bdca094933f920b41375cfed0",
-                        "direction": "export"
-                    },
-                    {
-                        "name": "b",
-                        "type": "5f66ab77d11088555799b0da0fbee9bf",
-                        "direction": "export"
-                    }
-                ]
+                "type": "55fab040caad2cfb953cf90dc5f69169"
             },
             "direction": "both",
-            "indirections": 1
+            "name": "m"
         }
     }
 }

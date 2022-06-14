@@ -4,11 +4,13 @@
         {
             "function": {
                 "name": "_Z3fooPi",
+                "class": "Function",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "c41b8a141bcad4a428605abf45e1d143",
-                        "location": "%rdi"
+                        "type": "f89d73568e60860d05c051da731ba3bc",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ],
                 "return": {
@@ -26,18 +28,14 @@
             "class": "Integer",
             "direction": "import"
         },
-        "c41b8a141bcad4a428605abf45e1d143": {
-            "name": "x",
+        "f89d73568e60860d05c051da731ba3bc": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "int",
-                "size": 4,
-                "class": "Integer"
+                "type": "1fd8c01bdca094933f920b41375cfed0"
             },
             "direction": "both",
-            "type": "*int",
-            "indirections": 1
+            "name": "x"
         }
     }
 }

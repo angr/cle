@@ -4,6 +4,7 @@
         {
             "function": {
                 "name": "main",
+                "class": "Function",
                 "direction": "export",
                 "return": {
                     "type": "1fd8c01bdca094933f920b41375cfed0",
@@ -15,12 +16,14 @@
         {
             "function": {
                 "name": "_Z3fooPPi",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "ecd9d4ce937d63d69c2f95b986aea161",
-                        "location": "%rdi"
+                        "type": "967ad9d95fc9df609ed595aac306126a",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -33,18 +36,22 @@
             "class": "Integer",
             "direction": "import"
         },
-        "ecd9d4ce937d63d69c2f95b986aea161": {
-            "name": "x",
+        "bea2891fe3f129d605a82945c88b6461": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "int",
-                "size": 4,
-                "class": "Integer"
+                "type": "1fd8c01bdca094933f920b41375cfed0"
+            },
+            "direction": "both"
+        },
+        "967ad9d95fc9df609ed595aac306126a": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "bea2891fe3f129d605a82945c88b6461"
             },
             "direction": "both",
-            "type": "*int",
-            "indirections": 2
+            "name": "x"
         }
     }
 }

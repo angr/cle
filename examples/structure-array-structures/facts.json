@@ -4,17 +4,20 @@
         {
             "function": {
                 "name": "main",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "argc",
                         "type": "1fd8c01bdca094933f920b41375cfed0",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     },
                     {
                         "name": "argv",
-                        "type": "8f2ec41872f539c9775c4888a8fcb8c8",
-                        "location": "%rsi"
+                        "type": "fc120637f1c544d02555884cff0da54b",
+                        "location": "%rsi",
+                        "direction": "import"
                     }
                 ],
                 "return": {
@@ -27,17 +30,20 @@
         {
             "function": {
                 "name": "_Z3fooiPP7Structy",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "one",
                         "type": "1fd8c01bdca094933f920b41375cfed0",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     },
                     {
                         "name": "arrayOfStructures",
-                        "type": "e77246b1d2bf9e524ab809347b77f22c",
-                        "location": "%rsi"
+                        "type": "699419e33c0eaa54f10403b70264bf02",
+                        "location": "%rsi",
+                        "direction": "import"
                     }
                 ],
                 "return": {
@@ -55,37 +61,48 @@
             "class": "Integer",
             "direction": "import"
         },
-        "8f2ec41872f539c9775c4888a8fcb8c8": {
-            "name": "argv",
-            "class": "Pointer",
-            "size": 8,
-            "underlying_type": {
-                "type": "char",
-                "size": 1,
-                "class": "Integral"
-            },
-            "direction": "both",
-            "type": "*char",
-            "indirections": 2
+        "ee8eaa81ccacc2d49d87afa5ca1148a8": {
+            "type": "char",
+            "size": 1,
+            "class": "Integral",
+            "direction": "import"
         },
-        "196bc870647f4720cf8f6b086fe9b26b": {
-            "name": "unknown",
+        "c85bcac8ca48727eb84d73d743bfb8cd": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "name": "StructyChild",
-                "size": 4,
-                "class": "Struct",
-                "fields": [
-                    {
-                        "name": "one",
-                        "type": "1fd8c01bdca094933f920b41375cfed0",
-                        "direction": "export"
-                    }
-                ]
+                "type": "ee8eaa81ccacc2d49d87afa5ca1148a8"
+            },
+            "direction": "both"
+        },
+        "fc120637f1c544d02555884cff0da54b": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "c85bcac8ca48727eb84d73d743bfb8cd"
             },
             "direction": "both",
-            "indirections": 1
+            "name": "argv"
+        },
+        "995f9d70d54b4e6215f9a4c8cb6e80c8": {
+            "name": "StructyChild",
+            "size": 4,
+            "class": "Struct",
+            "fields": [
+                {
+                    "name": "one",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "direction": "export"
+                }
+            ]
+        },
+        "96e526a3667770094ef3695bc4ab24d3": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "995f9d70d54b4e6215f9a4c8cb6e80c8"
+            },
+            "direction": "both"
         },
         "6d168f46b7d9e8b96a1ff9b171e0ad48": {
             "type": "long unsigned int",
@@ -93,31 +110,41 @@
             "class": "Integer",
             "direction": "import"
         },
-        "523fe282ed9c27e79b6b5ab08ff8f655": {
+        "a7e6e317b19b7d578151a2774b06e1f0": {
             "class": "Array",
             "name": "child",
             "size": 0,
             "count": 0,
-            "type": "196bc870647f4720cf8f6b086fe9b26b"
+            "type": "96e526a3667770094ef3695bc4ab24d3"
         },
-        "e77246b1d2bf9e524ab809347b77f22c": {
-            "name": "arrayOfStructures",
+        "5ec2732ee1c2c230f6e62d63fb7df06b": {
+            "name": "Structy",
+            "size": 40,
+            "class": "Struct",
+            "fields": [
+                {
+                    "name": "child",
+                    "type": "a7e6e317b19b7d578151a2774b06e1f0",
+                    "direction": "export"
+                }
+            ]
+        },
+        "4c6286723afd4cbb96b37633eb2d45a6": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "name": "Structy",
-                "size": 40,
-                "class": "Struct",
-                "fields": [
-                    {
-                        "name": "child",
-                        "type": "523fe282ed9c27e79b6b5ab08ff8f655",
-                        "direction": "export"
-                    }
-                ]
+                "type": "5ec2732ee1c2c230f6e62d63fb7df06b"
+            },
+            "direction": "both"
+        },
+        "699419e33c0eaa54f10403b70264bf02": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "4c6286723afd4cbb96b37633eb2d45a6"
             },
             "direction": "both",
-            "indirections": 2
+            "name": "arrayOfStructures"
         }
     }
 }

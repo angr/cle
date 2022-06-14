@@ -29,9 +29,9 @@ class ElfCorpus(Corpus):
         self.arch = kwargs.get("arch")
         self.parser = getattr(abi_parser, self.arch.name, None)
         self.symbols = kwargs.get("symbols")
+        # Default don't include double underscore (private) variables
+        self.include_private = kwargs.get("include_private", False)
         super().__init__(*args, **kwargs)
-        self.seen = set()
-        self.underlying_types = {}
 
         # self.types is cache of type id -> json
         # Types cache of die.offset -> type id
@@ -41,7 +41,7 @@ class ElfCorpus(Corpus):
         # Keep track of ids we have parsed before (underlying types)
         self.lookup = set()
 
-    def parse_variable(self, die):
+    def parse_variable(self, die, flags=None):
         """
         Add a global variable parsed from the dwarf.
         """
@@ -59,7 +59,6 @@ class ElfCorpus(Corpus):
             "name": self.get_name(die),
             "location": "var",
         }
-
         # Stop parsing if we've seen it before
         if entry["name"] in self.variables:
             return
@@ -72,7 +71,9 @@ class ElfCorpus(Corpus):
             direction = "import"
 
         entry["direction"] = direction
+        entry = self.add_flags(entry, flags)
         self.variables[entry["name"]] = entry
+        return entry
 
     def add_dwarf_information_entry(self, die):
         """
@@ -81,7 +82,6 @@ class ElfCorpus(Corpus):
         I started parsing recursively here, but I think each type function
         should handle parsing its own children.
         """
-        # And TODO variables
         self.parse_die(die)
         if die.has_children:
             for child in die.iter_children():
@@ -111,32 +111,68 @@ class ElfCorpus(Corpus):
                 continue
             self.parse_die(child)
 
+    def add_flags(self, entry, flags=None):
+        """
+        Given a list of string flags, add them to an entry with value True
+        """
+        if not flags:
+            return entry
+        for flag in flags:
+            entry[flag] = True
+        return entry
+
     def parse_call_site(self, die, parent):
         """
         Parse a call site
         """
-        entry = {}
-
+        entry = {"class": "Function"}
         # The abstract origin points to the function
         if "DW_AT_abstract_origin" in die.attributes:
             origin = self.type_die_lookup.get(
                 die.attributes["DW_AT_abstract_origin"].value
             )
-            entry.update({"name": self.get_name(origin)})
+
+            # We can't look up the callsite in this dwarf info
+            if origin:
+                entry.update({"name": self.get_name(origin)})
 
         params = []
         for child in die.iter_children():
-            # TODO need better param parsing
-            if child.tag == "DW_TAG_GNU_call_site_parameter":
+            if child.tag in [
+                "DW_TAG_GNU_call_site_parameter",
+                "DW_TAG_call_site_parameter",
+            ]:
                 param = self.parse_call_site_parameter(child)
                 if param:
                     params.append(param)
             else:
                 raise Exception("Unknown call site parameter!:\n%s" % child)
 
-        if entry and params:
+        if params:
             entry["params"] = params
-            self.callsites.append(entry)
+        self.callsites.append(entry)
+        return entry
+
+    def parse_inlined_subroutine(self, die):
+        """
+        Parse an inlined suboutine
+        """
+        if "DW_AT_abstract_origin" in die.attributes:
+            origin = self.type_die_lookup.get(
+                die.attributes["DW_AT_abstract_origin"].value
+            )
+            if origin:
+                return self.parse_subprogram(origin)
+            # We cannot trace the abstract origin
+            else:
+                return {"type": "unknown"}
+
+        print("inlined subroutine")
+        print(die)
+        import IPython
+
+        IPython.embed()
+        sys.exit()
 
     def parse_call_site_parameter(self, die):
         """
@@ -144,13 +180,84 @@ class ElfCorpus(Corpus):
         """
         param = {}
         loc = self.parse_location(die)
+
+        # Most callsite params just have a location and value
+        if not loc:
+            loc = self.parse_dwarf_location(die)
         if loc:
             param["location"] = loc
-        if "DW_AT_GNU_call_site_value" in die.attributes:
-            expr_parser = DWARFExprParser(die.dwarfinfo.structs)
-            expr = die.attributes["DW_AT_GNU_call_site_value"].value
-            # print(get_dwarf_from_expr(expr, die.dwarfinfo.structs, cu_offset=die.cu.cu_offset))
+
+        # Each DW_TAG_call_site_parameter entry may have a DW_AT_call_value
+        # attribute which is a DWARF expression which when evaluated yields the value
+        # of the parameter at the time of the call. Note that these can return
+        # registers, address, or values, we can parse further if needed.
+        # https://dwarfstd.org/doc/DWARF5.pdf#chap%3ADWOPlitzero
+        # The location imho seems sufficient for now.
+        # if "DW_AT_GNU_call_site_value" in die.attributes:
+        #    expr_parser = DWARFExprParser(die.dwarfinfo.structs)
+        #    expr = die.attributes["DW_AT_GNU_call_site_value"].value
+        #    print(get_dwarf_from_expr(expr, die.dwarfinfo.structs, cu_offset=die.cu.cu_offset))
         return param
+
+    def parse_reference_type(self, die):
+        """
+        Parse a reference type
+        """
+        return self.parse_underlying_type(die)
+
+    def parse_pointer_type(self, die, parent, allocator=None, flags=None):
+        """
+        This is hit parsing a pointer function param
+
+        The parent (from the type) will have the name
+        """
+        parent = parent or die
+
+        # Use the parent for name or the die
+        name = self.get_name(parent)
+        if name == "unknown":
+            name = self.get_name(die)
+
+        entry = {
+            "class": "Pointer",
+            "size": self.get_size(die),
+            "underlying_type": self.parse_underlying_type(die, allocator=allocator),
+            "direction": "both",
+        }
+        if name != "unknown":
+            entry["name"] = name
+        entry = self.add_flags(entry, flags)
+
+        # If we have an allocator passed from parsing a subprogram
+        if allocator:
+            entry["location"] = allocator.get_next_int_register()
+        return entry
+
+    def parse_formal_parameter(self, die, allocator, flags=None):
+        """
+        Parse a formal parameter
+        """
+        # Size isn't included here because will be present with underlying type
+        entry = {}
+        name = self.get_name(die)
+        if name != "unknown":
+            entry["name"] = name
+
+        # It looks like there are cases of formal parameter having type of
+        # a formal parameter - see libgettext.so
+        entry.update(self.parse_underlying_type(die))
+
+        loc = None
+        if entry.get("class") == "Pointer":
+            loc = allocator.get_next_int_register()
+        else:
+            loc = self.parse_location(die, allocator=allocator)
+
+        # Only add location if we know it!
+        if loc:
+            entry["location"] = loc
+        entry = self.add_flags(entry, flags)
+        return entry
 
     def parse_subprogram(self, die):
         """
@@ -161,7 +268,12 @@ class ElfCorpus(Corpus):
         the rest.
         """
         name = self.get_name(die)
-        if self.symbols and name not in self.symbols:
+        if (
+            self.symbols
+            and name not in self.symbols
+            or not self.include_private
+            and name.startswith("__")
+        ):
             return
 
         # If has DW_TAG_external, we know it's external outside of this CU
@@ -170,7 +282,7 @@ class ElfCorpus(Corpus):
 
         # TODO see page 92 of https://dwarfstd.org/doc/DWARF4.pdf
         # need to parse virtual functions and other attributes
-        entry = {"name": name}
+        entry = {"name": name, "class": "Function"}
         if name in self.symbols:
             entry["direction"] = self.symbols[name]
 
@@ -190,11 +302,6 @@ class ElfCorpus(Corpus):
 
         params = []
 
-        # Don't add die offsets we've seen before
-        # if die.offset in self.seen:
-        #    return
-        self.seen.add(die.offset)
-
         # Hold previous child for modifiers
         param = None
         for child in die.iter_children():
@@ -204,31 +311,27 @@ class ElfCorpus(Corpus):
 
             # can either be inlined subroutine or format parameter
             if child.tag == "DW_TAG_formal_parameter":
-
-                # Size isn't included here because will be present with underlying type
-                param = {}
-                name = self.get_name(child)
-                if name != "unknown":
-                    param["name"] = name
-                param.update(self.parse_underlying_type(child))
-
-                loc = None
-                if param.get("class") == "Pointer":
-                    loc = allocator.get_next_int_register()
-                else:
-                    loc = self.parse_location(child, allocator=allocator)
-
-                # Only add location if we know it!
-                if loc:
-                    param["location"] = loc
+                param = self.parse_formal_parameter(child, allocator=allocator)
 
             elif child.tag == "DW_TAG_inlined_subroutine":
                 # If we have an abstract origin we know type for
                 child = self.type_die_lookup.get(
                     child.attributes["DW_AT_abstract_origin"].value
                 )
-                if child:
+
+                if not child:
+                    continue
+
+                # This isn't a parameter but a subroutine, separate
+                if child.tag == "DW_TAG_subprogram":
                     self.parse_subprogram(child)
+
+                # subprogram -> child inline subroutine -> call site parameter
+                elif child.tag in [
+                    "DW_TAG_GNU_call_site_parameter",
+                    "DW_TAG_call_site_parameter",
+                ]:
+                    param = self.parse_call_site_parameter(child)
 
             # Variable parameter list? E.g., this is present for print after a formal param
             elif child.tag == "DW_TAG_unspecified_parameters":
@@ -247,8 +350,18 @@ class ElfCorpus(Corpus):
             elif child.tag == "DW_TAG_array_type":
                 param = self.parse_array_type(child)
 
+            elif child.tag == "DW_TAG_const_type":
+                param = self.parse_underlying_type(child, flags=["constant"])
+            elif child.tag == "DW_TAG_volatile_type":
+                param = self.parse_underlying_type(child, flags=["volatile"])
+            elif child.tag == "DW_TAG_restrictive_type":
+                param = self.parse_underlying_type(child, flags=["restrictive"])
+
             elif child.tag == "DW_TAG_structure_type":
                 param = self.parse_structure_type(child)
+
+            elif child.tag == "DW_TAG_pointer_type":
+                param = self.parse_pointer_type(child, allocator=allocator)
 
             # Call sites
             elif child.tag in ["DW_TAG_GNU_call_site", "DW_TAG_call_site"]:
@@ -262,7 +375,6 @@ class ElfCorpus(Corpus):
             elif (
                 child.tag
                 in [
-                    "DW_TAG_const_type",
                     "DW_TAG_typedef",
                     "DW_TAG_label",
                     "DW_TAG_template_type_param",
@@ -275,6 +387,9 @@ class ElfCorpus(Corpus):
             else:
                 raise Exception("Found new tag with subprogram children:\n%s" % child)
             if param:
+                if "direction" not in param:
+                    param["direction"] = "import"
+
                 params.append(param)
                 param = None
         if params:
@@ -283,23 +398,32 @@ class ElfCorpus(Corpus):
             entry["return"] = return_value
 
         self.functions.append(entry)
+        return entry
 
     # TAGs to parse
     def parse_lexical_block(self, die, code=None):
         """
         Lexical blocks typically have variable children?
+
+        A lexical block is a bracketed sequence of source statements that may contain any number
+        of declarations. In some languages (including C and C++), blocks can be nested within3
+        other blocks to any depth.
         """
         for child in die.iter_children():
             if child.tag == "DW_TAG_variable":
                 self.parse_variable(child)
+            elif child.tag in ["DW_TAG_GNU_call_site", "DW_TAG_call_site"]:
+                self.parse_call_site(child, parent=die)
+            elif child.tag == "DW_TAG_subprogram":
+                self.parse_subprogram(child)
 
             # We found a loop
             elif child.tag == "DW_AT_lexical_block":
                 if code == die.abbrev_code:
                     return
-                return self.parse_lexical_block(die)
+                return self.parse_lexical_block(child, die.abbrev_code)
 
-    def parse_structure_type(self, die):
+    def parse_structure_type(self, die, flags=None):
         """
         Parse a structure type.
         """
@@ -324,21 +448,24 @@ class ElfCorpus(Corpus):
             fields.append(field)
         if fields:
             entry["fields"] = fields
-        self.underlying_types[die] = entry
+        entry = self.add_flags(entry, flags)
         return entry
 
-    def parse_base_type(self, die):
+    def parse_base_type(self, die, flags=None):
         """
         Parse a base type.
         """
         # The size here includes padding
-        return {
+        entry = {
             "type": self.get_name(die),
             "size": self.get_size(die),
-            "class": "Scalar",
+            "class": self.add_class(die),
+            "direction": "import",
         }
+        entry = self.add_flags(entry, flags)
+        return entry
 
-    def parse_union_type(self, die):
+    def parse_union_type(self, die, flags=None):
         """
         Parse a union type.
         """
@@ -361,6 +488,7 @@ class ElfCorpus(Corpus):
 
         if fields:
             entry["fields"] = fields
+        entry = self.add_flags(entry, flags)
         return entry
 
     def parse_location(
@@ -383,12 +511,16 @@ class ElfCorpus(Corpus):
                     "Experimental parsing selected by ABI for %s is not supported yet."
                     % self.arch.name
                 )
-            underlying_type = underlying_type or self.parse_underlying_type(die)
+            underlying_type = underlying_type or self.parse_underlying_type(
+                die, allocator=allocator
+            )
             allocator = allocator or self.parser.get_return_allocator()
-            if underlying_type:         
-                # Get the actual type information                
-                typ = self.types[underlying_type['type']]
-                loc = self.parser.classify(typ, die=die, allocator=allocator, types=self.types)
+            if underlying_type:
+                # Get the actual type information
+                typ = self.types[underlying_type["type"]]
+                loc = self.parser.classify(
+                    typ, die=die, allocator=allocator, types=self.types
+                )
             return loc
 
         # Without experimental uses dwarf location lists
@@ -462,15 +594,17 @@ class ElfCorpus(Corpus):
             entry.update(underlying_type)
         return entry
 
-    def parse_array_type(self, die):
+    def parse_array_type(self, die, parent=None, flags=None):
         """
         Get an entry for an array.
         """
+        parent = parent or die
+
         # TODO what should I do if there is DW_AT_sibling? Use it for something instead?
         entry = {"class": "Array", "name": self.get_name(die)}
 
         # Get the type of the members
-        member_type = self.parse_underlying_type(die)
+        array_type = self.parse_underlying_type(die)
 
         # TODO we might want to handle order
         # This can be DW_AT_col_order or DW_AT_row_order, and if not present
@@ -512,9 +646,23 @@ class ElfCorpus(Corpus):
 
         entry["size"] = total_size
         entry["count"] = total_count
+
+        # Update info with the parent
+        entry.update(
+            {
+                "name": self.get_name(parent),
+                "class": "Array",
+            }
+        )
+        entry = self.add_flags(entry, flags)
+        if "type" in array_type:
+            entry["type"] = array_type["type"]
         return entry
 
-    def parse_enumeration_type(self, die):
+    def parse_enumeration_type(self, die, flags=None):
+        """
+        Parse an enumeration type
+        """
         entry = {
             "name": self.get_name(die),
             "size": self.get_size(die),
@@ -534,9 +682,10 @@ class ElfCorpus(Corpus):
             fields.append(field)
         if fields:
             entry["fields"] = fields
+        entry = self.add_flags(entry, flags)
         return entry
 
-    def parse_subrange_type(self, die):
+    def parse_subrange_type(self, die, flags=None):
         """
         Parse a subrange type
         """
@@ -570,9 +719,10 @@ class ElfCorpus(Corpus):
         # If the upper bound and count are missing, then the upper bound value is unknown.
         else:
             entry["count"] = "unknown"
+        entry = self.add_flags(entry, flags)
         return entry
 
-    def parse_class_type(self, die):
+    def parse_class_type(self, die, flags=None):
         """
         Parse a class type
         """
@@ -590,139 +740,135 @@ class ElfCorpus(Corpus):
             fields.append(self.parse_member(child))
         if fields:
             entry["fields"] = fields
-        self.underlying_types[die] = entry
+        entry = self.add_flags(entry, flags)
         return entry
 
-    def parse_sibling(self, die):
+    def parse_typedef(self, die, flags=None):
         """
-        Try parsing a sibling.
+        Parse a type definition
         """
-        sibling = self.type_die_lookup.get(die.attributes["DW_AT_sibling"].value)
-        return self.parse_underlying_type(sibling)
+        entry = {"name": self.get_name(die)}
+        underlying_type = self.parse_underlying_type(die)
+        entry.update(underlying_type)
+        entry = self.add_flags(entry, flags)
+        return entry
 
     @cache_type
-    def parse_underlying_type(self, die, indirections=0, entry=None):
+    def parse_underlying_type(self, die, allocator=None, flags=None):
         """
-        Given a type, parse down to the underlying type (and count pointer indirections)
+        Given a type, parse down to the underlying type
         """
-        if die in self.underlying_types:
-            return self.underlying_types[die]
-
-        entry = entry or {}
         if "DW_AT_type" not in die.attributes:
-            return entry
+            return {"type": "unknown"}
+
+        # constant or volatile
+        flags = flags or []
 
         # Can we get the underlying type?
         type_die = self.type_die_lookup.get(die.attributes["DW_AT_type"].value)
 
-        # TODO need another function to parse types but not call get_underlying_type?
-        if not type_die:
-            return {"type": "unknown"}
+        # Each of functions below can call this recursively
+        # there was a formal parameter with a type as a compile unit in libgettext
+        if (
+            not type_die
+            or not type_die.tag
+            or type_die.tag in ["DW_TAG_compile_unit", "DW_TAG_unspecified_parameters"]
+        ):
+            return self.add_flags({"type": "unknown"}, flags)
 
         if type_die and type_die.tag == "DW_TAG_pointer_type":
-            # If we've already seen a pointer
-            if "underlying_type" in entry:
-                entry["underlying_type"] = {
-                    "name": self.get_name(die),
-                    "class": "Pointer",
-                    "size": self.get_size(type_die),
-                    "direction": "both",
-                }
-            else:
-                entry = {
-                    "name": self.get_name(die),
-                    "class": "Pointer",
-                    "size": self.get_size(type_die),
-                    "underlying_type": "unknown",
-                    "direction": "both",
-                }
+            return self.parse_pointer_type(type_die, parent=die, flags=flags)
 
         if type_die and type_die.tag == "DW_TAG_class_type":
-            return self.parse_class_type(type_die)
+            return self.parse_class_type(type_die, flags=flags)
+
+        # formal param had type call site in libcurses.so
+        if type_die and type_die.tag in ["DW_TAG_call_site", "DW_TAG_GNU_call_site"]:
+            return self.parse_call_site(type_die, parent=die)
+
+        # formal param had type call site param in libcrypto (libssl).so
+        if type_die and type_die.tag in [
+            "DW_TAG_call_site_parameter",
+            "DW_TAG_GNU_call_site_parameter",
+        ]:
+            return self.parse_call_site_parameter(type_die)
 
         if type_die and type_die.tag == "DW_TAG_union_type":
-            return self.parse_union_type(type_die)
+            return self.parse_union_type(type_die, flags=flags)
 
-        if type_die and type_die.tag == "DW_TAG_enumeration_type":
-            return self.parse_enumeration_type(type_die)
+        if type_die and type_die.tag in [
+            "DW_TAG_enumeration_type",
+            "DW_TAG_enumerator",
+        ]:
+            return self.parse_enumeration_type(type_die, flags=flags)
 
         # Case 1: It's an array (and type is for elements)
         if type_die and type_die.tag == "DW_TAG_array_type":
-            entry = self.parse_array_type(type_die)
-            array_type = self.parse_underlying_type(type_die)
-            entry.update(
-                {
-                    "name": self.get_name(die),
-                    "class": "Array",
-                }
-            )
-            if "type" in array_type:
-                entry["type"] = array_type["type"]
-            return entry
+            return self.parse_array_type(type_die, parent=die, flags=flags)
+
+        if type_die and type_die.tag == "DW_TAG_subprogram":
+            return self.parse_subprogram(type_die)
 
         # Struct
         if type_die and type_die.tag == "DW_TAG_structure_type":
-            return self.parse_structure_type(type_die)
+            return self.parse_structure_type(type_die, flags=flags)
 
-        # Otherwise, keep digging
-        elif type_die:
-            while "DW_AT_type" in type_die.attributes:
+        # A variable being used as a formal parameter? see bzip main so
+        if type_die and type_die.tag == "DW_TAG_variable":
+            return self.parse_variable(type_die, flags=flags)
 
-                # Having indirections means we have a pointer somewhere
-                if type_die.tag == "DW_TAG_pointer_type":
-                    indirections += 1
-                next_die = self.type_die_lookup.get(
-                    type_die.attributes["DW_AT_type"].value
-                )
-                if not next_die:
-                    break
-                type_die = next_die
+        if type_die and type_die.tag == "DW_TAG_inlined_subroutine":
+            return self.parse_inlined_subroutine(type_die)
 
-            # DW_TAG None
-            if not type_die.tag:
-                return entry
+        # See libcrypto.so for this case
+        if type_die and type_die.tag == "DW_TAG_lexical_block":
+            self.parse_lexical_block(type_die)
+            return self.add_flags({"type": "unknown"}, flags)
 
-            # parse structure fields
-            if type_die and type_die.tag == "DW_TAG_structure_type":
-                if not entry:
-                    entry = self.parse_structure_type(type_die)
-                elif "underlying_type" in entry:
-                    entry["underlying_type"] = self.parse_structure_type(type_die)
+        if type_die and type_die.tag == "DW_TAG_typedef":
+            return self.parse_typedef(type_die, flags=flags)
 
-            elif type_die and type_die.tag == "DW_TAG_class_type":
-                if not entry:
-                    entry = self.parse_class_type(type_die)
-                elif "underlying_type" in entry:
-                    entry["underlying_type"] = self.parse_class_type(type_die)
+        # DW_TAG None, we can't know
+        if type_die and not type_die.tag:
+            return self.add_flags({"type": "unknown"}, flags)
 
-            # Parse the underlying bits
-            elif not entry:
-                entry = {
-                    "type": self.get_name(type_die),
-                    "size": self.get_size(type_die),
-                }
-            elif "underlying_type" in entry:
-                type_name = self.get_name(type_die)
-                entry["underlying_type"] = {
-                    "type": type_name,
-                    "size": self.get_size(type_die),
-                    "class": self.add_class(type_die),
-                }
-                entry["type"] = "*" + type_name
+        # Note that if we see DW_TAG_member it means next_die for the DW_AT_type was empty
+        if type_die and type_die.tag == "DW_TAG_class_type":
+            return self.parse_class_type(type_die, flags=flags)
 
-            # updated = self.parse_die(type_die)
-            # entry.update(updated)
+        # parse the underlying type, and add the appropriate flag
+        if type_die and type_die.tag == "DW_TAG_const_type":
+            flags.append("constant")
+            return self.parse_underlying_type(type_die, flags=flags)
+        if type_die and type_die.tag == "DW_TAG_volatile_type":
+            flags.append("volatile")
+            return self.parse_underlying_type(type_die, flags=flags)
 
-            # Only add non zero indirections
-            if indirections != 0:
-                entry["indirections"] = indirections
+        if type_die and type_die.tag == "DW_TAG_restrict_type":
+            flags.append("restrict")
+            return self.parse_underlying_type(type_die, flags=flags)
 
-        # Based on the underlying type, add a class
-        if "class" not in entry:
-            entry["class"] = self.add_class(type_die)
-        if "direction" not in entry:
-            entry["direction"] = "import"
-        return entry
+        if type_die and type_die.tag == "DW_TAG_base_type":
+            return self.parse_base_type(type_die, flags=flags)
+
+        # These are essentially skipped over to get to underlying type
+        if type_die and type_die.tag in [
+            "DW_TAG_formal_parameter",
+            "DW_TAG_member",
+            "DW_TAG_reference_type",
+            "DW_TAG_rvalue_reference_type",
+            "DW_TAG_subrange_type",
+            "DW_TAG_subroutine_type",
+            "DW_TAG_template_type_param",
+            "DW_TAG_unspecified_type",
+        ]:
+            return self.parse_underlying_type(type_die, flags=flags)
+
+        print("NOT SEEN TYPE DIE")
+        import IPython
+
+        IPython.embed()
+        sys.exit()
 
     def add_class(self, die):
         """
@@ -730,28 +876,6 @@ class ElfCorpus(Corpus):
         """
         if die.tag == "DW_TAG_base_type":
             return ClassType.get(self.get_name(die))
-        if die.tag == "DW_TAG_structure_type":
-            return "Struct"
-        if die.tag == "DW_TAG_union_type":
-            return "Union"
-        if die.tag == "DW_TAG_array_type":
-            return "Array"
-        if die.tag == "DW_TAG_class_type":
-            return "Class"
-        if die.tag == "DW_TAG_pointer_type":
-            return "Pointer"
-        if die.tag == "DW_TAG_unspecified_type":
-            return "Unspecified"
-        if die.tag == "DW_TAG_typedef":
-            return "TypeDef"
-        if die.tag == "DW_TAG_subroutine_type":
-            return "Function"
-        if die.tag == "DW_TAG_const_type":
-            return "Constant"
-
-        # libtcl has an empty tag like this under array type
-        if die.tag == "DW_TAG_subrange_type":
-            return "Subrange"
 
         print("UNKNOWN DIE CLASS")
         import IPython

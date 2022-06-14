@@ -100,8 +100,9 @@ class RegisterAllocator:
         ):
             return self.fallocator.next_framebase_from_type(param)
 
-        # This should never be reached
-        raise RuntimeError("Unknown classification")
+        # This should never be reached - bug in CORE/libperl.so
+        # raise RuntimeError("Unknown classification")
+        return "unknown"
 
     def get_next_int_register(self):
         """

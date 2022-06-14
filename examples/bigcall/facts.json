@@ -4,30 +4,37 @@
         {
             "function": {
                 "name": "_Z7bigcallllllln",
+                "class": "Function",
                 "parameters": [
                     {
                         "type": "832037bcbd004730c7738b05d956e54e",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     },
                     {
                         "type": "832037bcbd004730c7738b05d956e54e",
-                        "location": "%rsi"
+                        "location": "%rsi",
+                        "direction": "import"
                     },
                     {
                         "type": "832037bcbd004730c7738b05d956e54e",
-                        "location": "%rdx"
+                        "location": "%rdx",
+                        "direction": "import"
                     },
                     {
                         "type": "832037bcbd004730c7738b05d956e54e",
-                        "location": "%rcx"
+                        "location": "%rcx",
+                        "direction": "import"
                     },
                     {
                         "type": "832037bcbd004730c7738b05d956e54e",
-                        "location": "%r8"
+                        "location": "%r8",
+                        "direction": "import"
                     },
                     {
                         "type": "01733fcc0cdb3228cddebbe14f8728bf",
-                        "location": "framebase+8"
+                        "location": "framebase+8",
+                        "direction": "import"
                     }
                 ]
             }
@@ -35,16 +42,19 @@
         {
             "function": {
                 "name": "main",
+                "class": "Function",
                 "parameters": [
                     {
                         "name": "argc",
                         "type": "1fd8c01bdca094933f920b41375cfed0",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     },
                     {
                         "name": "argv",
-                        "type": "8f2ec41872f539c9775c4888a8fcb8c8",
-                        "location": "%rsi"
+                        "type": "fc120637f1c544d02555884cff0da54b",
+                        "location": "%rsi",
+                        "direction": "import"
                     }
                 ],
                 "return": {
@@ -74,18 +84,28 @@
             "class": "Integer",
             "direction": "import"
         },
-        "8f2ec41872f539c9775c4888a8fcb8c8": {
-            "name": "argv",
+        "ee8eaa81ccacc2d49d87afa5ca1148a8": {
+            "type": "char",
+            "size": 1,
+            "class": "Integral",
+            "direction": "import"
+        },
+        "c85bcac8ca48727eb84d73d743bfb8cd": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "char",
-                "size": 1,
-                "class": "Integral"
+                "type": "ee8eaa81ccacc2d49d87afa5ca1148a8"
+            },
+            "direction": "both"
+        },
+        "fc120637f1c544d02555884cff0da54b": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "c85bcac8ca48727eb84d73d743bfb8cd"
             },
             "direction": "both",
-            "type": "*char",
-            "indirections": 2
+            "name": "argv"
         }
     }
 }

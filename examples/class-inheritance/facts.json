@@ -4,26 +4,31 @@
         {
             "function": {
                 "name": "_Z4func1AP1B1C1D",
+                "class": "Function",
                 "parameters": [
                     {
                         "name": "a",
                         "type": "308e7c0c4ed84449b2850937c1b6329e",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     },
                     {
                         "name": "b",
-                        "type": "23d73fd3bf1db9d21069f0bcbcf6c1de",
-                        "location": "%rsi"
+                        "type": "1810b04a5ecd33dde09c8feaf6f6ea2a",
+                        "location": "%rsi",
+                        "direction": "import"
                     },
                     {
                         "name": "c",
                         "type": "0cc8ef179bac97bee2058ee65dadaaea",
-                        "location": "%rdx"
+                        "location": "%rdx",
+                        "direction": "import"
                     },
                     {
                         "name": "d",
                         "type": "1e5ede4f6075bc5cdc8192cfdc757df9",
-                        "location": "%xmm0"
+                        "location": "%xmm0",
+                        "direction": "import"
                     }
                 ],
                 "return": {
@@ -53,24 +58,26 @@
                 }
             ]
         },
-        "23d73fd3bf1db9d21069f0bcbcf6c1de": {
-            "name": "b",
+        "3b92f99410a6dae32be62e61c114908a": {
+            "name": "B",
+            "size": 4,
+            "class": "Struct",
+            "fields": [
+                {
+                    "name": "y",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "direction": "export"
+                }
+            ]
+        },
+        "1810b04a5ecd33dde09c8feaf6f6ea2a": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "name": "B",
-                "size": 4,
-                "class": "Struct",
-                "fields": [
-                    {
-                        "name": "y",
-                        "type": "1fd8c01bdca094933f920b41375cfed0",
-                        "direction": "export"
-                    }
-                ]
+                "type": "3b92f99410a6dae32be62e61c114908a"
             },
             "direction": "both",
-            "indirections": 1
+            "name": "b"
         },
         "0cc8ef179bac97bee2058ee65dadaaea": {
             "name": "C",
@@ -79,18 +86,6 @@
             "fields": [
                 {
                     "name": "z",
-                    "type": "1fd8c01bdca094933f920b41375cfed0",
-                    "direction": "export"
-                }
-            ]
-        },
-        "3b92f99410a6dae32be62e61c114908a": {
-            "name": "B",
-            "size": 4,
-            "class": "Struct",
-            "fields": [
-                {
-                    "name": "y",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
                     "direction": "export"
                 }

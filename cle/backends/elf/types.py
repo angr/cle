@@ -17,6 +17,7 @@ class ClassType:
         "size_t": "Integer",
         "__int128": "Integer",
         "bool": "Boolean",
+        "_Bool": "Boolean",
         "char": "Integral",
         "float": "Float",
         "double": "Float",
@@ -24,11 +25,12 @@ class ClassType:
     }
 
     patterns = {
-      "int": "Integer",
-      "char": "Integral",
-      "float": "Float",
-      "double": "Float",
+        "int": "Integer",
+        "char": "Integral",
+        "float": "Float",
+        "double": "Float",
     }
+
     @classmethod
     def get(cls, typename):
         """

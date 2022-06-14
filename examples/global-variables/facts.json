@@ -32,6 +32,7 @@
         {
             "function": {
                 "name": "_Z3foov",
+                "class": "Function",
                 "direction": "export"
             }
         }

@@ -2,18 +2,9 @@
     "library": "/home/vanessa/Desktop/Code/cle/examples/allocation/example",
     "locations": [
         {
-            "variables": [
-                {
-                    "name": "__dso_handle",
-                    "location": "var",
-                    "type": "a8bbba2375a5aa6921e80adb72718e60",
-                    "direction": "import"
-                }
-            ]
-        },
-        {
             "function": {
                 "name": "main",
+                "class": "Function",
                 "direction": "export",
                 "return": {
                     "type": "1fd8c01bdca094933f920b41375cfed0",
@@ -25,18 +16,21 @@
         {
             "function": {
                 "name": "test_void",
+                "class": "Function",
                 "direction": "export"
             }
         },
         {
             "function": {
                 "name": "test_ptr_ptr_uint_least64_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "15d2efb6673435469a47f902144f0572",
-                        "location": "%rdi"
+                        "type": "f7dd204f40a774a850a6956ddae6dcd6",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -44,12 +38,14 @@
         {
             "function": {
                 "name": "test_ptr_uint_least64_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "1f8d28737b9fb588436bc74f1014194d",
-                        "location": "%rdi"
+                        "type": "de89892b033176d354df6aaa06c9844a",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -57,12 +53,13 @@
         {
             "function": {
                 "name": "test_uint_least64_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "6d168f46b7d9e8b96a1ff9b171e0ad48",
-                        "location": "%rdi"
+                        "type": "ae3ac55eb567301e100fca21ce368bef",
+                        "direction": "import"
                     }
                 ]
             }
@@ -70,12 +67,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_uint_least32_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "f27deb18b4e22124900df0f1858d0fd8",
-                        "location": "%rdi"
+                        "type": "bfd5d3d9ce3d0626bd190fedb9c25059",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -83,12 +82,14 @@
         {
             "function": {
                 "name": "test_ptr_uint_least32_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "3f8196f185d35e2551d50d0542caf4ae",
-                        "location": "%rdi"
+                        "type": "558d66e20942ffcd7cc6c6f8d57e6ee0",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -96,12 +97,13 @@
         {
             "function": {
                 "name": "test_uint_least32_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "724f0b94c416f03c89c16150cf866e00",
-                        "location": "%rdi"
+                        "type": "21a1264cacdbf5e0fd46aff9b67846a8",
+                        "direction": "import"
                     }
                 ]
             }
@@ -109,12 +111,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_uint_least16_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "338a9d48579ba9cdc8ca1045ed8a53cb",
-                        "location": "%rdi"
+                        "type": "6e734122da7cddf26d4fe5f0a39894ed",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -122,12 +126,14 @@
         {
             "function": {
                 "name": "test_ptr_uint_least16_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "74e3bcdba928cd6901ec6f13628a72a4",
-                        "location": "%rdi"
+                        "type": "e12efb27783e2f0e279ccfd336dab26f",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -135,12 +141,13 @@
         {
             "function": {
                 "name": "test_uint_least16_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "251ba5521033493f21e959542089468c",
-                        "location": "%rdi"
+                        "type": "78f32e14f652278892c69b1bf43d3168",
+                        "direction": "import"
                     }
                 ]
             }
@@ -148,12 +155,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_uint_least8_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "e9c162be4d91116f11d3115b3c19b3fb",
-                        "location": "%rdi"
+                        "type": "5c18d186f1f0e68cf1f7fae2460dd3a7",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -161,12 +170,14 @@
         {
             "function": {
                 "name": "test_ptr_uint_least8_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "dd8e53d310fc0bfa78f853163dc86f8f",
-                        "location": "%rdi"
+                        "type": "962788c44f6d807249a77f38fcd58dd4",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -174,12 +185,13 @@
         {
             "function": {
                 "name": "test_uint_least8_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "e7efc874c18fbe691d0385ff3fc9f954",
-                        "location": "%rdi"
+                        "type": "2150bf959b8374a5091a410f1bab4bb0",
+                        "direction": "import"
                     }
                 ]
             }
@@ -187,12 +199,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_uint_fast64_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "15d2efb6673435469a47f902144f0572",
-                        "location": "%rdi"
+                        "type": "5a042b8b17173624903635c060bfcd8d",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -200,12 +214,14 @@
         {
             "function": {
                 "name": "test_ptr_uint_fast64_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "1f8d28737b9fb588436bc74f1014194d",
-                        "location": "%rdi"
+                        "type": "d1b283f8df62f4bb95088baf7a80e4f6",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -213,12 +229,13 @@
         {
             "function": {
                 "name": "test_uint_fast64_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "6d168f46b7d9e8b96a1ff9b171e0ad48",
-                        "location": "%rdi"
+                        "type": "eb6eb11649e90705971142d316939f69",
+                        "direction": "import"
                     }
                 ]
             }
@@ -226,12 +243,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_uint_fast32_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "15d2efb6673435469a47f902144f0572",
-                        "location": "%rdi"
+                        "type": "9c6f3872dd3166fd8250f7977312dbc3",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -239,12 +258,14 @@
         {
             "function": {
                 "name": "test_ptr_uint_fast32_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "1f8d28737b9fb588436bc74f1014194d",
-                        "location": "%rdi"
+                        "type": "355a231029310f75c423fce880c89024",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -252,12 +273,13 @@
         {
             "function": {
                 "name": "test_uint_fast32_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "6d168f46b7d9e8b96a1ff9b171e0ad48",
-                        "location": "%rdi"
+                        "type": "a20c83bd99fa3ca484e45a2103efcc6a",
+                        "direction": "import"
                     }
                 ]
             }
@@ -265,12 +287,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_uint_fast16_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "15d2efb6673435469a47f902144f0572",
-                        "location": "%rdi"
+                        "type": "7cbc31b210a104fecd7ee1a7e8c0fe08",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -278,12 +302,14 @@
         {
             "function": {
                 "name": "test_ptr_uint_fast16_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "1f8d28737b9fb588436bc74f1014194d",
-                        "location": "%rdi"
+                        "type": "5d835f95ca2632efa3147b430a0c673d",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -291,12 +317,13 @@
         {
             "function": {
                 "name": "test_uint_fast16_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "6d168f46b7d9e8b96a1ff9b171e0ad48",
-                        "location": "%rdi"
+                        "type": "5fe5bc80a0785eb975a22286fb3d2528",
+                        "direction": "import"
                     }
                 ]
             }
@@ -304,12 +331,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_uint_fast8_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "e9c162be4d91116f11d3115b3c19b3fb",
-                        "location": "%rdi"
+                        "type": "769bb2645b9ae3d63808ebd00cd9858d",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -317,12 +346,14 @@
         {
             "function": {
                 "name": "test_ptr_uint_fast8_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "dd8e53d310fc0bfa78f853163dc86f8f",
-                        "location": "%rdi"
+                        "type": "f7e1252f2b7abca9188b6ad3c07fbc33",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -330,12 +361,13 @@
         {
             "function": {
                 "name": "test_uint_fast8_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "e7efc874c18fbe691d0385ff3fc9f954",
-                        "location": "%rdi"
+                        "type": "642ea7046bbc7222f7df97ec1284daa7",
+                        "direction": "import"
                     }
                 ]
             }
@@ -343,12 +375,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_uint64_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "15d2efb6673435469a47f902144f0572",
-                        "location": "%rdi"
+                        "type": "44ceebb43b5431ca825bc73a42d6a60e",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -356,12 +390,14 @@
         {
             "function": {
                 "name": "test_ptr_uint64_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "1f8d28737b9fb588436bc74f1014194d",
-                        "location": "%rdi"
+                        "type": "ebe179b8a19d49775c78c390caf02b93",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -369,12 +405,13 @@
         {
             "function": {
                 "name": "test_uint64_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "6d168f46b7d9e8b96a1ff9b171e0ad48",
-                        "location": "%rdi"
+                        "type": "602539e1041821ed49fe876d48c9311c",
+                        "direction": "import"
                     }
                 ]
             }
@@ -382,12 +419,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_uint32_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "f27deb18b4e22124900df0f1858d0fd8",
-                        "location": "%rdi"
+                        "type": "1de49e2b4405bebbdbfe8f445153a60b",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -395,12 +434,14 @@
         {
             "function": {
                 "name": "test_ptr_uint32_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "3f8196f185d35e2551d50d0542caf4ae",
-                        "location": "%rdi"
+                        "type": "37076ee97f4cd57ed0e1e0dbc17f6363",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -408,12 +449,13 @@
         {
             "function": {
                 "name": "test_uint32_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "724f0b94c416f03c89c16150cf866e00",
-                        "location": "%rdi"
+                        "type": "aff25c67015926c625b216d204d2fa01",
+                        "direction": "import"
                     }
                 ]
             }
@@ -421,12 +463,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_uint16_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "338a9d48579ba9cdc8ca1045ed8a53cb",
-                        "location": "%rdi"
+                        "type": "63749611d0668be4bc69be7d041d5e56",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -434,12 +478,14 @@
         {
             "function": {
                 "name": "test_ptr_uint16_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "74e3bcdba928cd6901ec6f13628a72a4",
-                        "location": "%rdi"
+                        "type": "cb0a7d0287feb60569fcb997bef62726",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -447,12 +493,13 @@
         {
             "function": {
                 "name": "test_uint16_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "251ba5521033493f21e959542089468c",
-                        "location": "%rdi"
+                        "type": "f5d9745188a3340062c0ab5d44f69620",
+                        "direction": "import"
                     }
                 ]
             }
@@ -460,12 +507,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_uint8_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "e9c162be4d91116f11d3115b3c19b3fb",
-                        "location": "%rdi"
+                        "type": "99411d46a28e903e5271d029d9cc304b",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -473,12 +522,14 @@
         {
             "function": {
                 "name": "test_ptr_uint8_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "dd8e53d310fc0bfa78f853163dc86f8f",
-                        "location": "%rdi"
+                        "type": "5301b9a8b185aec4fd8ad80aedbc77f0",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -486,12 +537,13 @@
         {
             "function": {
                 "name": "test_uint8_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "e7efc874c18fbe691d0385ff3fc9f954",
-                        "location": "%rdi"
+                        "type": "98d635306267c8a76d7a7dbad55fa095",
+                        "direction": "import"
                     }
                 ]
             }
@@ -499,12 +551,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_int_least64_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "9e8d137b4ee3d16b512a8e930a6e1651",
-                        "location": "%rdi"
+                        "type": "ec09e6ea245b98a308f82a0ba7028d43",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -512,12 +566,14 @@
         {
             "function": {
                 "name": "test_ptr_int_least64_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "aa40a6dca73ca108911ead6891cccf92",
-                        "location": "%rdi"
+                        "type": "7788b0a260b18f60ed542b16613742ab",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -525,12 +581,13 @@
         {
             "function": {
                 "name": "test_int_least64_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "832037bcbd004730c7738b05d956e54e",
-                        "location": "%rdi"
+                        "type": "824cb75000f3eb556c40dd73f73231c8",
+                        "direction": "import"
                     }
                 ]
             }
@@ -538,12 +595,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_int_least32_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "ecd9d4ce937d63d69c2f95b986aea161",
-                        "location": "%rdi"
+                        "type": "4a74516cd3980ce34e382450b576fa46",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -551,12 +610,14 @@
         {
             "function": {
                 "name": "test_ptr_int_least32_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "c41b8a141bcad4a428605abf45e1d143",
-                        "location": "%rdi"
+                        "type": "664dc38ca74ea0ceebcb19e4cd17452e",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -564,12 +625,13 @@
         {
             "function": {
                 "name": "test_int_least32_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "1fd8c01bdca094933f920b41375cfed0",
-                        "location": "%rdi"
+                        "type": "df0d3ed836023bfae19cae94194ab50f",
+                        "direction": "import"
                     }
                 ]
             }
@@ -577,12 +639,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_int_least16_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "d39da115c19907353d4cd80c8b4aa0bb",
-                        "location": "%rdi"
+                        "type": "fba0a4489e21eb8461ca91e24b2ecdda",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -590,12 +654,14 @@
         {
             "function": {
                 "name": "test_ptr_int_least16_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "19e98565cba533f4b1132dab88970610",
-                        "location": "%rdi"
+                        "type": "80a5a92206e29a29e23d6f666f956fbe",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -603,12 +669,13 @@
         {
             "function": {
                 "name": "test_int_least16_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "cb0dd2f169dfa3b7b6cd32e3a051de77",
-                        "location": "%rdi"
+                        "type": "c62ecf646716be895ba461dea4a4efb7",
+                        "direction": "import"
                     }
                 ]
             }
@@ -616,12 +683,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_int_least8_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "c93b1d5ac52aca88c6f9d23ef5aa4617",
-                        "location": "%rdi"
+                        "type": "94a76df39ac1250cd3eedd93502c7723",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -629,12 +698,14 @@
         {
             "function": {
                 "name": "test_ptr_int_least8_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "bb1eececa2f4da5d5122aa4f9724a636",
-                        "location": "%rdi"
+                        "type": "d5cbb97e67c50e25a6dd020dee5d34af",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -642,12 +713,13 @@
         {
             "function": {
                 "name": "test_int_least8_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "b54b4317e56dcaace25c0b0efdc93d40",
-                        "location": "%rdi"
+                        "type": "ebe414f08c223af4dd5bceb86d769094",
+                        "direction": "import"
                     }
                 ]
             }
@@ -655,12 +727,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_int_fast64_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "9e8d137b4ee3d16b512a8e930a6e1651",
-                        "location": "%rdi"
+                        "type": "231de08c8c0ae74a08c7f682ff449e8e",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -668,12 +742,14 @@
         {
             "function": {
                 "name": "test_ptr_int_fast64_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "aa40a6dca73ca108911ead6891cccf92",
-                        "location": "%rdi"
+                        "type": "75cd3143f1efba496ce544bbdb8ccc24",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -681,12 +757,13 @@
         {
             "function": {
                 "name": "test_int_fast64_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "832037bcbd004730c7738b05d956e54e",
-                        "location": "%rdi"
+                        "type": "b18ead685607f739a05783571c7f3e58",
+                        "direction": "import"
                     }
                 ]
             }
@@ -694,12 +771,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_int_fast32_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "9e8d137b4ee3d16b512a8e930a6e1651",
-                        "location": "%rdi"
+                        "type": "5a640ebf0babcbd97408997832cfd1dd",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -707,12 +786,14 @@
         {
             "function": {
                 "name": "test_ptr_int_fast32_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "aa40a6dca73ca108911ead6891cccf92",
-                        "location": "%rdi"
+                        "type": "db38f3d1fb647022d481cda04cc7f9cc",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -720,12 +801,13 @@
         {
             "function": {
                 "name": "test_int_fast32_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "832037bcbd004730c7738b05d956e54e",
-                        "location": "%rdi"
+                        "type": "a3070ac41d788988829f57fc1ca33a8b",
+                        "direction": "import"
                     }
                 ]
             }
@@ -733,12 +815,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_int_fast16_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "9e8d137b4ee3d16b512a8e930a6e1651",
-                        "location": "%rdi"
+                        "type": "e6d06263a3298f5fa11f0c32bf1fee79",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -746,12 +830,14 @@
         {
             "function": {
                 "name": "test_ptr_int_fast16_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "aa40a6dca73ca108911ead6891cccf92",
-                        "location": "%rdi"
+                        "type": "cf344e88297e65f5a1a8220ff4a570a3",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -759,12 +845,13 @@
         {
             "function": {
                 "name": "test_int_fast16_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "832037bcbd004730c7738b05d956e54e",
-                        "location": "%rdi"
+                        "type": "6129a8fb00c958a954db9faf4b11be4f",
+                        "direction": "import"
                     }
                 ]
             }
@@ -772,12 +859,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_int_fast8_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "c93b1d5ac52aca88c6f9d23ef5aa4617",
-                        "location": "%rdi"
+                        "type": "5bbb9cdb3400509410f01220216df20f",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -785,12 +874,14 @@
         {
             "function": {
                 "name": "test_ptr_int_fast8_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "bb1eececa2f4da5d5122aa4f9724a636",
-                        "location": "%rdi"
+                        "type": "0f2709958c54ba32efb41ba8245f1ba3",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -798,12 +889,13 @@
         {
             "function": {
                 "name": "test_int_fast8_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "b54b4317e56dcaace25c0b0efdc93d40",
-                        "location": "%rdi"
+                        "type": "f39191a0b501453f394783b9a270bc7f",
+                        "direction": "import"
                     }
                 ]
             }
@@ -811,12 +903,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_int64_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "9e8d137b4ee3d16b512a8e930a6e1651",
-                        "location": "%rdi"
+                        "type": "81b543cacc86bd400658d27bb4632976",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -824,12 +918,14 @@
         {
             "function": {
                 "name": "test_ptr_int64_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "aa40a6dca73ca108911ead6891cccf92",
-                        "location": "%rdi"
+                        "type": "c9c5348891dc672e09050c548bc856f4",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -837,12 +933,13 @@
         {
             "function": {
                 "name": "test_int64_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "832037bcbd004730c7738b05d956e54e",
-                        "location": "%rdi"
+                        "type": "cda0d033ecbe58d2aa09b585e0c6582b",
+                        "direction": "import"
                     }
                 ]
             }
@@ -850,12 +947,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_int32_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "ecd9d4ce937d63d69c2f95b986aea161",
-                        "location": "%rdi"
+                        "type": "36784eeccb27d9096aa58675082d928d",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -863,12 +962,14 @@
         {
             "function": {
                 "name": "test_ptr_int32_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "c41b8a141bcad4a428605abf45e1d143",
-                        "location": "%rdi"
+                        "type": "7ca5697627d273e1e7e5fd87c5732a51",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -876,12 +977,13 @@
         {
             "function": {
                 "name": "test_int32_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "1fd8c01bdca094933f920b41375cfed0",
-                        "location": "%rdi"
+                        "type": "89ffd45336a54ba23a404831d7ea9096",
+                        "direction": "import"
                     }
                 ]
             }
@@ -889,12 +991,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_int16_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "d39da115c19907353d4cd80c8b4aa0bb",
-                        "location": "%rdi"
+                        "type": "f8f41f7802269779cb0b9b398dc76faa",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -902,12 +1006,14 @@
         {
             "function": {
                 "name": "test_ptr_int16_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "19e98565cba533f4b1132dab88970610",
-                        "location": "%rdi"
+                        "type": "6d53ef8e43169a20f6d5315ce518d02d",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -915,12 +1021,13 @@
         {
             "function": {
                 "name": "test_int16_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "cb0dd2f169dfa3b7b6cd32e3a051de77",
-                        "location": "%rdi"
+                        "type": "b71607ee357280fd36c5e13fc772cd9d",
+                        "direction": "import"
                     }
                 ]
             }
@@ -928,12 +1035,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_int8_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "c93b1d5ac52aca88c6f9d23ef5aa4617",
-                        "location": "%rdi"
+                        "type": "7ee292aee9bbcf13d393f89614e58074",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -941,12 +1050,14 @@
         {
             "function": {
                 "name": "test_ptr_int8_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "bb1eececa2f4da5d5122aa4f9724a636",
-                        "location": "%rdi"
+                        "type": "65e1e25fee7236ecd1231756ed292719",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -954,12 +1065,13 @@
         {
             "function": {
                 "name": "test_int8_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "b54b4317e56dcaace25c0b0efdc93d40",
-                        "location": "%rdi"
+                        "type": "435b444d07d9aa01c5c968a581b64819",
+                        "direction": "import"
                     }
                 ]
             }
@@ -967,12 +1079,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_uintptr_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "15d2efb6673435469a47f902144f0572",
-                        "location": "%rdi"
+                        "type": "21e8e49486972cd05ef8ab32b82586e0",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -980,12 +1094,14 @@
         {
             "function": {
                 "name": "test_ptr_uintptr_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "1f8d28737b9fb588436bc74f1014194d",
-                        "location": "%rdi"
+                        "type": "683c781aac6b674be46ec5281a932adb",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -993,12 +1109,13 @@
         {
             "function": {
                 "name": "test_uintptr_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "6d168f46b7d9e8b96a1ff9b171e0ad48",
-                        "location": "%rdi"
+                        "type": "b0a2cd94793a6d1c677d8eeedee11233",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1006,12 +1123,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_intptr_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "9e8d137b4ee3d16b512a8e930a6e1651",
-                        "location": "%rdi"
+                        "type": "803fe7f64dd0e170cfc0da0ecfc0e2cc",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1019,12 +1138,14 @@
         {
             "function": {
                 "name": "test_ptr_intptr_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "aa40a6dca73ca108911ead6891cccf92",
-                        "location": "%rdi"
+                        "type": "cb2aa110317e4e9c36478ea24bcda286",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1032,12 +1153,13 @@
         {
             "function": {
                 "name": "test_intptr_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "832037bcbd004730c7738b05d956e54e",
-                        "location": "%rdi"
+                        "type": "d2424a276621a682be94e762cf27f248",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1045,12 +1167,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_uintmax_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "15d2efb6673435469a47f902144f0572",
-                        "location": "%rdi"
+                        "type": "d36f6d88486466beb5c195bebfe8fce0",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1058,12 +1182,14 @@
         {
             "function": {
                 "name": "test_ptr_uintmax_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "1f8d28737b9fb588436bc74f1014194d",
-                        "location": "%rdi"
+                        "type": "d5df4b7be6a7ee614c9753b337740879",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1071,12 +1197,13 @@
         {
             "function": {
                 "name": "test_uintmax_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "6d168f46b7d9e8b96a1ff9b171e0ad48",
-                        "location": "%rdi"
+                        "type": "7aaa813c12351fd5118d99bfd0ff8aa2",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1084,12 +1211,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_intmax_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "9e8d137b4ee3d16b512a8e930a6e1651",
-                        "location": "%rdi"
+                        "type": "24834228a27cc577e2cf8cf00e43500a",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1097,12 +1226,14 @@
         {
             "function": {
                 "name": "test_ptr_intmax_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "aa40a6dca73ca108911ead6891cccf92",
-                        "location": "%rdi"
+                        "type": "6be73943a9ffeace177074a245554cb7",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1110,12 +1241,13 @@
         {
             "function": {
                 "name": "test_intmax_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "832037bcbd004730c7738b05d956e54e",
-                        "location": "%rdi"
+                        "type": "b913953d3cc05314dd43fcb946de86c8",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1123,12 +1255,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_size_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "15d2efb6673435469a47f902144f0572",
-                        "location": "%rdi"
+                        "type": "22b1eb254e8311c52d70adacb4e53bdb",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1136,12 +1270,14 @@
         {
             "function": {
                 "name": "test_ptr_size_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "1f8d28737b9fb588436bc74f1014194d",
-                        "location": "%rdi"
+                        "type": "35c6a8cd8ed7389c339e98a0bd740191",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1149,12 +1285,13 @@
         {
             "function": {
                 "name": "test_size_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "6d168f46b7d9e8b96a1ff9b171e0ad48",
-                        "location": "%rdi"
+                        "type": "2b7927ac6886d6f780cffd9e51ebbc49",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1162,12 +1299,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_char32_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "05555f37102b4a3ff6e0a3cd939b9c3d",
-                        "location": "%rdi"
+                        "type": "b534dcd5436f12d50da42ec2dba52db9",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1175,12 +1314,14 @@
         {
             "function": {
                 "name": "test_ptr_char32_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "2e95ed4c955e2798f6ae3a0660cfe583",
-                        "location": "%rdi"
+                        "type": "1eb33692dedf97058b14a9313309f116",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1188,12 +1329,14 @@
         {
             "function": {
                 "name": "test_char32_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "23865a59934a660b69c7be67220867af",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1201,12 +1344,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_char16_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "a440a74f8f213542db1cbe638e67177f",
-                        "location": "%rdi"
+                        "type": "75c07d4ee766c667fce4a03e7692fb4f",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1214,12 +1359,14 @@
         {
             "function": {
                 "name": "test_ptr_char16_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "51c16d3c75cb304ec151139a6bbf037f",
-                        "location": "%rdi"
+                        "type": "c0a464508b784ad2f8a8828849019344",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1227,12 +1374,14 @@
         {
             "function": {
                 "name": "test_char16_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "bba7d17abb7fe8f4ed1cd4169646fbac",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1240,12 +1389,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_wchar_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "ebcb50c3973ad6e6c4e87ce454c0df09",
-                        "location": "%rdi"
+                        "type": "e614d0cae6a6687f7c4f7dcfb6b854de",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1253,12 +1404,14 @@
         {
             "function": {
                 "name": "test_ptr_wchar_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "5fdd2f03c1b3bc2e0cb9aef6850a6d8e",
-                        "location": "%rdi"
+                        "type": "8e5e20ac4b6518973a49d8f707a3a2f9",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1266,12 +1419,14 @@
         {
             "function": {
                 "name": "test_wchar_t",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "f73e244851d6839dcfa1ecd120238860",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1279,12 +1434,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_long_double__Complex",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "2d3c98b256f8c9d491b7397779672578",
-                        "location": "%rdi"
+                        "type": "0d4b953d83149baabe2825bd8c0c0fc1",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1292,12 +1449,14 @@
         {
             "function": {
                 "name": "test_ptr_long_double__Complex",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "cf7a0dfcafd87f6b4b9d277a9e6b0ba8",
-                        "location": "%rdi"
+                        "type": "1f376fd05cadeab68729f9c0f795453d",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1305,12 +1464,14 @@
         {
             "function": {
                 "name": "test_long_double__Complex",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "c431870fc760f3907c508fad72d661b4",
-                        "location": "framebase+8"
+                        "location": "framebase+8",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1318,12 +1479,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_double__Complex",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "bd668c17b568c6ef7558ce6c1411b11d",
-                        "location": "%rdi"
+                        "type": "7fcfeefc05bd7777941d37746cc3c2b1",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1331,12 +1494,14 @@
         {
             "function": {
                 "name": "test_ptr_double__Complex",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "9fd6eb9137cff8f68223d735d2b3eedd",
-                        "location": "%rdi"
+                        "type": "f682d38cf4d3ac9b5e72b2731a1e6e0a",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1344,12 +1509,14 @@
         {
             "function": {
                 "name": "test_double__Complex",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "9eb6b166561b8985e3296616cde50464",
-                        "location": "framebase+8"
+                        "location": "framebase+8",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1357,12 +1524,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_float__Complex",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "fdc5211544b45d762ae1988b1e5e8ca8",
-                        "location": "%rdi"
+                        "type": "081f37295ab4cab464d531950eb97257",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1370,12 +1539,14 @@
         {
             "function": {
                 "name": "test_ptr_float__Complex",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "42efda69970250ad861fc08821748ba3",
-                        "location": "%rdi"
+                        "type": "21e74791f3a4c45d6e21eb94257612ee",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1383,12 +1554,14 @@
         {
             "function": {
                 "name": "test_float__Complex",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "c36ad66c4ad0c427b0051ec0a7a92553",
-                        "location": "framebase+8"
+                        "location": "framebase+8",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1396,12 +1569,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_long_double",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "b819b153397c4765c72365a30484bd74",
-                        "location": "%rdi"
+                        "type": "4573c80caf1dbe14ef737db8b603f8d3",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1409,12 +1584,14 @@
         {
             "function": {
                 "name": "test_ptr_long_double",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "6bdc0bbf37803adce8cc3395cc21fe2d",
-                        "location": "%rdi"
+                        "type": "ee15b5f52631156709dec2caaf9d7bab",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1422,12 +1599,14 @@
         {
             "function": {
                 "name": "test_long_double",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "308ad8129cac3a0bb414c01987309d1b",
-                        "location": "framebase+8"
+                        "location": "framebase+8",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1435,12 +1614,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_double",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "cf68c028257bec12b7cd9bbc3454a93f",
-                        "location": "%rdi"
+                        "type": "e18f20c95ae3d8e30cfc83c5827198d5",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1448,12 +1629,14 @@
         {
             "function": {
                 "name": "test_ptr_double",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "ab1cfdab3f1edfc9322725e4011b0681",
-                        "location": "%rdi"
+                        "type": "6f6081638895dc839c2ebcbb794fbefa",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1461,12 +1644,14 @@
         {
             "function": {
                 "name": "test_double",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "5f66ab77d11088555799b0da0fbee9bf",
-                        "location": "%xmm0"
+                        "location": "%xmm0",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1474,12 +1659,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_float",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "947af566732f8678c97c38893be4614d",
-                        "location": "%rdi"
+                        "type": "94799f94c5ed4de464f6d77a7fab2c93",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1487,12 +1674,14 @@
         {
             "function": {
                 "name": "test_ptr_float",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "92d834b75b46e68855294c8f5f9e1943",
-                        "location": "%rdi"
+                        "type": "9afd9cae1f12ed951c2dd206e5f023cb",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1500,12 +1689,14 @@
         {
             "function": {
                 "name": "test_float",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "65548ffbcaadd70764058ff4b5097cfb",
-                        "location": "%xmm0"
+                        "location": "%xmm0",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1513,12 +1704,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_unsigned_long_long",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "61b8618144ef6f2604670c94e888875d",
-                        "location": "%rdi"
+                        "type": "4a30a175bf67ced143d78f375e7eb5fe",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1526,12 +1719,14 @@
         {
             "function": {
                 "name": "test_ptr_unsigned_long_long",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "5b1c25262139cefe13a077d7d4c8a282",
-                        "location": "%rdi"
+                        "type": "192b568dfaa910c245a7d3cb8f1e3f0d",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1539,12 +1734,14 @@
         {
             "function": {
                 "name": "test_unsigned_long_long",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "6c50d3a67c64cc4cdfbee700b946253a",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1552,12 +1749,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_unsigned_long",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "15d2efb6673435469a47f902144f0572",
-                        "location": "%rdi"
+                        "type": "c0669ef9c3728e73b5baeedb93822a90",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1565,12 +1764,14 @@
         {
             "function": {
                 "name": "test_ptr_unsigned_long",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "1f8d28737b9fb588436bc74f1014194d",
-                        "location": "%rdi"
+                        "type": "a12f051c63b4556698d5cc6d1e5e3c62",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1578,12 +1779,14 @@
         {
             "function": {
                 "name": "test_unsigned_long",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "6d168f46b7d9e8b96a1ff9b171e0ad48",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1591,12 +1794,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_unsigned_int",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "f27deb18b4e22124900df0f1858d0fd8",
-                        "location": "%rdi"
+                        "type": "1d4ea44a54e662b96aff4cf66a89d174",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1604,12 +1809,14 @@
         {
             "function": {
                 "name": "test_ptr_unsigned_int",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "3f8196f185d35e2551d50d0542caf4ae",
-                        "location": "%rdi"
+                        "type": "d470ee86ab9349d7e9d58b8b70801eaf",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1617,12 +1824,14 @@
         {
             "function": {
                 "name": "test_unsigned_int",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "724f0b94c416f03c89c16150cf866e00",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1630,12 +1839,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_unsigned_short",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "338a9d48579ba9cdc8ca1045ed8a53cb",
-                        "location": "%rdi"
+                        "type": "de33fb4229594b98f6ca1ef53e356709",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1643,12 +1854,14 @@
         {
             "function": {
                 "name": "test_ptr_unsigned_short",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "74e3bcdba928cd6901ec6f13628a72a4",
-                        "location": "%rdi"
+                        "type": "9bfc446c25fe95ad3e3bb6911e4e1fdc",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1656,12 +1869,14 @@
         {
             "function": {
                 "name": "test_unsigned_short",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "251ba5521033493f21e959542089468c",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1669,12 +1884,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_unsigned_char",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "e9c162be4d91116f11d3115b3c19b3fb",
-                        "location": "%rdi"
+                        "type": "ce35a1612f5894b18d1cddafa11df18b",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1682,12 +1899,14 @@
         {
             "function": {
                 "name": "test_ptr_unsigned_char",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "dd8e53d310fc0bfa78f853163dc86f8f",
-                        "location": "%rdi"
+                        "type": "4f67cc93456b1f97a39d9f2def145ac6",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1695,12 +1914,14 @@
         {
             "function": {
                 "name": "test_unsigned_char",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "e7efc874c18fbe691d0385ff3fc9f954",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1708,12 +1929,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_unsigned",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "f27deb18b4e22124900df0f1858d0fd8",
-                        "location": "%rdi"
+                        "type": "1d4ea44a54e662b96aff4cf66a89d174",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1721,12 +1944,14 @@
         {
             "function": {
                 "name": "test_ptr_unsigned",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "3f8196f185d35e2551d50d0542caf4ae",
-                        "location": "%rdi"
+                        "type": "d470ee86ab9349d7e9d58b8b70801eaf",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1734,12 +1959,14 @@
         {
             "function": {
                 "name": "test_unsigned",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "724f0b94c416f03c89c16150cf866e00",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1747,12 +1974,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_signed_long_long",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "5a5fb8d5857027a8ddbae2431267d535",
-                        "location": "%rdi"
+                        "type": "f2c78e4a66d497308b60a1714724a18d",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1760,12 +1989,14 @@
         {
             "function": {
                 "name": "test_ptr_signed_long_long",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "299374d0ec5c95a296075a28cd15f805",
-                        "location": "%rdi"
+                        "type": "74fe189cff155c70fed03f73ab7f9b5d",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1773,12 +2004,14 @@
         {
             "function": {
                 "name": "test_signed_long_long",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "a44bf8971dc4a612236c2e4dccc1cd7e",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1786,12 +2019,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_signed_long",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "9e8d137b4ee3d16b512a8e930a6e1651",
-                        "location": "%rdi"
+                        "type": "7ec5255ee5e5ad5967635e32ded32f64",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1799,12 +2034,14 @@
         {
             "function": {
                 "name": "test_ptr_signed_long",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "aa40a6dca73ca108911ead6891cccf92",
-                        "location": "%rdi"
+                        "type": "9c4e7ec68566c8965cc819959f7f3bbf",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1812,12 +2049,14 @@
         {
             "function": {
                 "name": "test_signed_long",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "832037bcbd004730c7738b05d956e54e",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1825,12 +2064,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_signed_int",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "ecd9d4ce937d63d69c2f95b986aea161",
-                        "location": "%rdi"
+                        "type": "967ad9d95fc9df609ed595aac306126a",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1838,12 +2079,14 @@
         {
             "function": {
                 "name": "test_ptr_signed_int",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "c41b8a141bcad4a428605abf45e1d143",
-                        "location": "%rdi"
+                        "type": "f89d73568e60860d05c051da731ba3bc",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1851,12 +2094,14 @@
         {
             "function": {
                 "name": "test_signed_int",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "1fd8c01bdca094933f920b41375cfed0",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1864,12 +2109,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_signed_short",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "d39da115c19907353d4cd80c8b4aa0bb",
-                        "location": "%rdi"
+                        "type": "2c5b9c8baa99829e802fb4fb37da45a2",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1877,12 +2124,14 @@
         {
             "function": {
                 "name": "test_ptr_signed_short",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "19e98565cba533f4b1132dab88970610",
-                        "location": "%rdi"
+                        "type": "801c79f5e910ad40dfafe34df3976d0b",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1890,12 +2139,14 @@
         {
             "function": {
                 "name": "test_signed_short",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "cb0dd2f169dfa3b7b6cd32e3a051de77",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1903,12 +2154,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_signed_char",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "c93b1d5ac52aca88c6f9d23ef5aa4617",
-                        "location": "%rdi"
+                        "type": "50781d48e5366233079d74131d818a69",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1916,12 +2169,14 @@
         {
             "function": {
                 "name": "test_ptr_signed_char",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "bb1eececa2f4da5d5122aa4f9724a636",
-                        "location": "%rdi"
+                        "type": "1b0937e255b2d0c3f9daeb49fcd769c1",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1929,12 +2184,14 @@
         {
             "function": {
                 "name": "test_signed_char",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "b54b4317e56dcaace25c0b0efdc93d40",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1942,12 +2199,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_signed",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "ecd9d4ce937d63d69c2f95b986aea161",
-                        "location": "%rdi"
+                        "type": "967ad9d95fc9df609ed595aac306126a",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1955,12 +2214,14 @@
         {
             "function": {
                 "name": "test_ptr_signed",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "c41b8a141bcad4a428605abf45e1d143",
-                        "location": "%rdi"
+                        "type": "f89d73568e60860d05c051da731ba3bc",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1968,12 +2229,14 @@
         {
             "function": {
                 "name": "test_signed",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "1fd8c01bdca094933f920b41375cfed0",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1981,12 +2244,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_long_long",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "5a5fb8d5857027a8ddbae2431267d535",
-                        "location": "%rdi"
+                        "type": "f2c78e4a66d497308b60a1714724a18d",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -1994,12 +2259,14 @@
         {
             "function": {
                 "name": "test_ptr_long_long",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "299374d0ec5c95a296075a28cd15f805",
-                        "location": "%rdi"
+                        "type": "74fe189cff155c70fed03f73ab7f9b5d",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -2007,12 +2274,14 @@
         {
             "function": {
                 "name": "test_long_long",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "a44bf8971dc4a612236c2e4dccc1cd7e",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -2020,12 +2289,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_long",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "9e8d137b4ee3d16b512a8e930a6e1651",
-                        "location": "%rdi"
+                        "type": "7ec5255ee5e5ad5967635e32ded32f64",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -2033,12 +2304,14 @@
         {
             "function": {
                 "name": "test_ptr_long",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "aa40a6dca73ca108911ead6891cccf92",
-                        "location": "%rdi"
+                        "type": "9c4e7ec68566c8965cc819959f7f3bbf",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -2046,12 +2319,14 @@
         {
             "function": {
                 "name": "test_long",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "832037bcbd004730c7738b05d956e54e",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -2059,12 +2334,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_int",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "ecd9d4ce937d63d69c2f95b986aea161",
-                        "location": "%rdi"
+                        "type": "967ad9d95fc9df609ed595aac306126a",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -2072,12 +2349,14 @@
         {
             "function": {
                 "name": "test_ptr_int",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "c41b8a141bcad4a428605abf45e1d143",
-                        "location": "%rdi"
+                        "type": "f89d73568e60860d05c051da731ba3bc",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -2085,12 +2364,14 @@
         {
             "function": {
                 "name": "test_int",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "1fd8c01bdca094933f920b41375cfed0",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -2098,12 +2379,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_short",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "d39da115c19907353d4cd80c8b4aa0bb",
-                        "location": "%rdi"
+                        "type": "2c5b9c8baa99829e802fb4fb37da45a2",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -2111,12 +2394,14 @@
         {
             "function": {
                 "name": "test_ptr_short",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "19e98565cba533f4b1132dab88970610",
-                        "location": "%rdi"
+                        "type": "801c79f5e910ad40dfafe34df3976d0b",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -2124,12 +2409,14 @@
         {
             "function": {
                 "name": "test_short",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "cb0dd2f169dfa3b7b6cd32e3a051de77",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -2137,12 +2424,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_char",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "6dbff68c12094247be5b232b61c78fe1",
-                        "location": "%rdi"
+                        "type": "c78ec3e373f6e0c1ad079edfdcbe2a6b",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -2150,12 +2439,14 @@
         {
             "function": {
                 "name": "test_ptr_char",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "4a2a0e7178f9dd7856d4950e57957ded",
-                        "location": "%rdi"
+                        "type": "0831182da83dfecbc033431726309c80",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -2163,12 +2454,14 @@
         {
             "function": {
                 "name": "test_char",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "ee8eaa81ccacc2d49d87afa5ca1148a8",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -2176,12 +2469,14 @@
         {
             "function": {
                 "name": "test_ptr_ptr_bool",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "e68d507fc2a904939b3d5ce726935f92",
-                        "location": "%rdi"
+                        "type": "36266863e3642ac241536972cbbb0b47",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -2189,12 +2484,14 @@
         {
             "function": {
                 "name": "test_ptr_bool",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
-                        "type": "7b83152c088c4d5ef7cb159dd503209d",
-                        "location": "%rdi"
+                        "type": "eab001f95ab313dd0f1600382b683279",
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
@@ -2202,61 +2499,25 @@
         {
             "function": {
                 "name": "test_bool",
+                "class": "Function",
                 "direction": "export",
                 "parameters": [
                     {
                         "name": "x",
                         "type": "5f699718a0f73b64af5190e051839f93",
-                        "location": "%rdi"
+                        "location": "%rdi",
+                        "direction": "import"
                     }
                 ]
             }
         }
     ],
     "types": {
-        "a8bbba2375a5aa6921e80adb72718e60": {
-            "name": "__dso_handle",
-            "class": "Pointer",
-            "size": 8,
-            "underlying_type": {
-                "type": "unknown",
-                "size": 8,
-                "class": "Pointer"
-            },
-            "direction": "both",
-            "type": "*unknown"
-        },
         "1fd8c01bdca094933f920b41375cfed0": {
             "type": "int",
             "size": 4,
             "class": "Integer",
             "direction": "import"
-        },
-        "15d2efb6673435469a47f902144f0572": {
-            "name": "x",
-            "class": "Pointer",
-            "size": 8,
-            "underlying_type": {
-                "type": "long unsigned int",
-                "size": 8,
-                "class": "Integer"
-            },
-            "direction": "both",
-            "type": "*long unsigned int",
-            "indirections": 2
-        },
-        "1f8d28737b9fb588436bc74f1014194d": {
-            "name": "x",
-            "class": "Pointer",
-            "size": 8,
-            "underlying_type": {
-                "type": "long unsigned int",
-                "size": 8,
-                "class": "Integer"
-            },
-            "direction": "both",
-            "type": "*long unsigned int",
-            "indirections": 1
         },
         "6d168f46b7d9e8b96a1ff9b171e0ad48": {
             "type": "long unsigned int",
@@ -2264,31 +2525,43 @@
             "class": "Integer",
             "direction": "import"
         },
-        "f27deb18b4e22124900df0f1858d0fd8": {
-            "name": "x",
-            "class": "Pointer",
-            "size": 8,
-            "underlying_type": {
-                "type": "unsigned int",
-                "size": 4,
-                "class": "Integer"
-            },
-            "direction": "both",
-            "type": "*unsigned int",
-            "indirections": 2
+        "7aa77da63b09f31a8d2d91ea23ff952d": {
+            "name": "__uint64_t",
+            "type": "6d168f46b7d9e8b96a1ff9b171e0ad48"
         },
-        "3f8196f185d35e2551d50d0542caf4ae": {
-            "name": "x",
+        "f32589462ab5e980b67b467629b67fc7": {
+            "name": "__uint_least64_t",
+            "type": "7aa77da63b09f31a8d2d91ea23ff952d"
+        },
+        "ae3ac55eb567301e100fca21ce368bef": {
+            "name": "uint_least64_t",
+            "type": "f32589462ab5e980b67b467629b67fc7"
+        },
+        "51567860dc0bb7c1e205ffd6a50cec2f": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "unsigned int",
-                "size": 4,
-                "class": "Integer"
+                "type": "ae3ac55eb567301e100fca21ce368bef"
+            },
+            "direction": "both"
+        },
+        "f7dd204f40a774a850a6956ddae6dcd6": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "51567860dc0bb7c1e205ffd6a50cec2f"
             },
             "direction": "both",
-            "type": "*unsigned int",
-            "indirections": 1
+            "name": "x"
+        },
+        "de89892b033176d354df6aaa06c9844a": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "ae3ac55eb567301e100fca21ce368bef"
+            },
+            "direction": "both",
+            "name": "x"
         },
         "724f0b94c416f03c89c16150cf866e00": {
             "type": "unsigned int",
@@ -2296,31 +2569,43 @@
             "class": "Integer",
             "direction": "import"
         },
-        "338a9d48579ba9cdc8ca1045ed8a53cb": {
-            "name": "x",
-            "class": "Pointer",
-            "size": 8,
-            "underlying_type": {
-                "type": "short unsigned int",
-                "size": 2,
-                "class": "Integer"
-            },
-            "direction": "both",
-            "type": "*short unsigned int",
-            "indirections": 2
+        "b6ba28c8ac72049e4cd210932380e049": {
+            "name": "__uint32_t",
+            "type": "724f0b94c416f03c89c16150cf866e00"
         },
-        "74e3bcdba928cd6901ec6f13628a72a4": {
-            "name": "x",
+        "d1988316d07f8e29635121d5e618d9de": {
+            "name": "__uint_least32_t",
+            "type": "b6ba28c8ac72049e4cd210932380e049"
+        },
+        "21a1264cacdbf5e0fd46aff9b67846a8": {
+            "name": "uint_least32_t",
+            "type": "d1988316d07f8e29635121d5e618d9de"
+        },
+        "86d46ba5d2bbe6ab826d18836c2cf016": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "short unsigned int",
-                "size": 2,
-                "class": "Integer"
+                "type": "21a1264cacdbf5e0fd46aff9b67846a8"
+            },
+            "direction": "both"
+        },
+        "bfd5d3d9ce3d0626bd190fedb9c25059": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "86d46ba5d2bbe6ab826d18836c2cf016"
             },
             "direction": "both",
-            "type": "*short unsigned int",
-            "indirections": 1
+            "name": "x"
+        },
+        "558d66e20942ffcd7cc6c6f8d57e6ee0": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "21a1264cacdbf5e0fd46aff9b67846a8"
+            },
+            "direction": "both",
+            "name": "x"
         },
         "251ba5521033493f21e959542089468c": {
             "type": "short unsigned int",
@@ -2328,31 +2613,43 @@
             "class": "Integer",
             "direction": "import"
         },
-        "e9c162be4d91116f11d3115b3c19b3fb": {
-            "name": "x",
-            "class": "Pointer",
-            "size": 8,
-            "underlying_type": {
-                "type": "unsigned char",
-                "size": 1,
-                "class": "Integral"
-            },
-            "direction": "both",
-            "type": "*unsigned char",
-            "indirections": 2
+        "a2748f21bbe7cd4f34df74bc4d25cff2": {
+            "name": "__uint16_t",
+            "type": "251ba5521033493f21e959542089468c"
         },
-        "dd8e53d310fc0bfa78f853163dc86f8f": {
-            "name": "x",
+        "6015f69bd465eb96c4d9b33f8d0f5574": {
+            "name": "__uint_least16_t",
+            "type": "a2748f21bbe7cd4f34df74bc4d25cff2"
+        },
+        "78f32e14f652278892c69b1bf43d3168": {
+            "name": "uint_least16_t",
+            "type": "6015f69bd465eb96c4d9b33f8d0f5574"
+        },
+        "06d596cce2b0f8ec107df4bb4d331145": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "unsigned char",
-                "size": 1,
-                "class": "Integral"
+                "type": "78f32e14f652278892c69b1bf43d3168"
+            },
+            "direction": "both"
+        },
+        "6e734122da7cddf26d4fe5f0a39894ed": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "06d596cce2b0f8ec107df4bb4d331145"
             },
             "direction": "both",
-            "type": "*unsigned char",
-            "indirections": 1
+            "name": "x"
+        },
+        "e12efb27783e2f0e279ccfd336dab26f": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "78f32e14f652278892c69b1bf43d3168"
+            },
+            "direction": "both",
+            "name": "x"
         },
         "e7efc874c18fbe691d0385ff3fc9f954": {
             "type": "unsigned char",
@@ -2360,31 +2657,283 @@
             "class": "Integral",
             "direction": "import"
         },
-        "9e8d137b4ee3d16b512a8e930a6e1651": {
-            "name": "x",
-            "class": "Pointer",
-            "size": 8,
-            "underlying_type": {
-                "type": "long int",
-                "size": 8,
-                "class": "Integer"
-            },
-            "direction": "both",
-            "type": "*long int",
-            "indirections": 2
+        "072431482dd45ccd1298576beb5d9467": {
+            "name": "__uint8_t",
+            "type": "e7efc874c18fbe691d0385ff3fc9f954"
         },
-        "aa40a6dca73ca108911ead6891cccf92": {
-            "name": "x",
+        "e9fbfb6640d0088ccece719f39f3280c": {
+            "name": "__uint_least8_t",
+            "type": "072431482dd45ccd1298576beb5d9467"
+        },
+        "2150bf959b8374a5091a410f1bab4bb0": {
+            "name": "uint_least8_t",
+            "type": "e9fbfb6640d0088ccece719f39f3280c"
+        },
+        "5ad529e9c198f8a170457c2b6bf2cf48": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "long int",
-                "size": 8,
-                "class": "Integer"
+                "type": "2150bf959b8374a5091a410f1bab4bb0"
+            },
+            "direction": "both"
+        },
+        "5c18d186f1f0e68cf1f7fae2460dd3a7": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "5ad529e9c198f8a170457c2b6bf2cf48"
             },
             "direction": "both",
-            "type": "*long int",
-            "indirections": 1
+            "name": "x"
+        },
+        "962788c44f6d807249a77f38fcd58dd4": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "2150bf959b8374a5091a410f1bab4bb0"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "eb6eb11649e90705971142d316939f69": {
+            "name": "uint_fast64_t",
+            "type": "6d168f46b7d9e8b96a1ff9b171e0ad48"
+        },
+        "dd9511250bda6a2a44e1c7418454ce43": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "eb6eb11649e90705971142d316939f69"
+            },
+            "direction": "both"
+        },
+        "5a042b8b17173624903635c060bfcd8d": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "dd9511250bda6a2a44e1c7418454ce43"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "d1b283f8df62f4bb95088baf7a80e4f6": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "eb6eb11649e90705971142d316939f69"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "a20c83bd99fa3ca484e45a2103efcc6a": {
+            "name": "uint_fast32_t",
+            "type": "6d168f46b7d9e8b96a1ff9b171e0ad48"
+        },
+        "4572465aff5941f0a3baa32c7fa6f753": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "a20c83bd99fa3ca484e45a2103efcc6a"
+            },
+            "direction": "both"
+        },
+        "9c6f3872dd3166fd8250f7977312dbc3": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "4572465aff5941f0a3baa32c7fa6f753"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "355a231029310f75c423fce880c89024": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "a20c83bd99fa3ca484e45a2103efcc6a"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "5fe5bc80a0785eb975a22286fb3d2528": {
+            "name": "uint_fast16_t",
+            "type": "6d168f46b7d9e8b96a1ff9b171e0ad48"
+        },
+        "36fb5f6c89938a7c3abf4491a19ac36f": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "5fe5bc80a0785eb975a22286fb3d2528"
+            },
+            "direction": "both"
+        },
+        "7cbc31b210a104fecd7ee1a7e8c0fe08": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "36fb5f6c89938a7c3abf4491a19ac36f"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "5d835f95ca2632efa3147b430a0c673d": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "5fe5bc80a0785eb975a22286fb3d2528"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "642ea7046bbc7222f7df97ec1284daa7": {
+            "name": "uint_fast8_t",
+            "type": "e7efc874c18fbe691d0385ff3fc9f954"
+        },
+        "3599ec692d86968837fc1db148cd3942": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "642ea7046bbc7222f7df97ec1284daa7"
+            },
+            "direction": "both"
+        },
+        "769bb2645b9ae3d63808ebd00cd9858d": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "3599ec692d86968837fc1db148cd3942"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "f7e1252f2b7abca9188b6ad3c07fbc33": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "642ea7046bbc7222f7df97ec1284daa7"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "602539e1041821ed49fe876d48c9311c": {
+            "name": "uint64_t",
+            "type": "7aa77da63b09f31a8d2d91ea23ff952d"
+        },
+        "c170db6eb7b922f4f41a77f3737d12a1": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "602539e1041821ed49fe876d48c9311c"
+            },
+            "direction": "both"
+        },
+        "44ceebb43b5431ca825bc73a42d6a60e": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "c170db6eb7b922f4f41a77f3737d12a1"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "ebe179b8a19d49775c78c390caf02b93": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "602539e1041821ed49fe876d48c9311c"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "aff25c67015926c625b216d204d2fa01": {
+            "name": "uint32_t",
+            "type": "b6ba28c8ac72049e4cd210932380e049"
+        },
+        "3391577105e767d92c7bb534095c0f07": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "aff25c67015926c625b216d204d2fa01"
+            },
+            "direction": "both"
+        },
+        "1de49e2b4405bebbdbfe8f445153a60b": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "3391577105e767d92c7bb534095c0f07"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "37076ee97f4cd57ed0e1e0dbc17f6363": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "aff25c67015926c625b216d204d2fa01"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "f5d9745188a3340062c0ab5d44f69620": {
+            "name": "uint16_t",
+            "type": "a2748f21bbe7cd4f34df74bc4d25cff2"
+        },
+        "334a392a69bfebdbf9b88651fa3facfb": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "f5d9745188a3340062c0ab5d44f69620"
+            },
+            "direction": "both"
+        },
+        "63749611d0668be4bc69be7d041d5e56": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "334a392a69bfebdbf9b88651fa3facfb"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "cb0a7d0287feb60569fcb997bef62726": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "f5d9745188a3340062c0ab5d44f69620"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "98d635306267c8a76d7a7dbad55fa095": {
+            "name": "uint8_t",
+            "type": "072431482dd45ccd1298576beb5d9467"
+        },
+        "8278f87a2bce762ba10af5ffe9500abd": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "98d635306267c8a76d7a7dbad55fa095"
+            },
+            "direction": "both"
+        },
+        "99411d46a28e903e5271d029d9cc304b": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "8278f87a2bce762ba10af5ffe9500abd"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "5301b9a8b185aec4fd8ad80aedbc77f0": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "98d635306267c8a76d7a7dbad55fa095"
+            },
+            "direction": "both",
+            "name": "x"
         },
         "832037bcbd004730c7738b05d956e54e": {
             "type": "long int",
@@ -2392,57 +2941,81 @@
             "class": "Integer",
             "direction": "import"
         },
-        "ecd9d4ce937d63d69c2f95b986aea161": {
-            "name": "x",
-            "class": "Pointer",
-            "size": 8,
-            "underlying_type": {
-                "type": "int",
-                "size": 4,
-                "class": "Integer"
-            },
-            "direction": "both",
-            "type": "*int",
-            "indirections": 2
+        "93c5846706e43ce7208308706060ade6": {
+            "name": "__int64_t",
+            "type": "832037bcbd004730c7738b05d956e54e"
         },
-        "c41b8a141bcad4a428605abf45e1d143": {
-            "name": "x",
-            "class": "Pointer",
-            "size": 8,
-            "underlying_type": {
-                "type": "int",
-                "size": 4,
-                "class": "Integer"
-            },
-            "direction": "both",
-            "type": "*int",
-            "indirections": 1
+        "e24b950232e40dcd8f860a8c90ce0efe": {
+            "name": "__int_least64_t",
+            "type": "93c5846706e43ce7208308706060ade6"
         },
-        "d39da115c19907353d4cd80c8b4aa0bb": {
-            "name": "x",
-            "class": "Pointer",
-            "size": 8,
-            "underlying_type": {
-                "type": "short int",
-                "size": 2,
-                "class": "Integer"
-            },
-            "direction": "both",
-            "type": "*short int",
-            "indirections": 2
+        "824cb75000f3eb556c40dd73f73231c8": {
+            "name": "int_least64_t",
+            "type": "e24b950232e40dcd8f860a8c90ce0efe"
         },
-        "19e98565cba533f4b1132dab88970610": {
-            "name": "x",
+        "a04e51b4866d7d780eb9ddc080fddf6f": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "short int",
-                "size": 2,
-                "class": "Integer"
+                "type": "824cb75000f3eb556c40dd73f73231c8"
+            },
+            "direction": "both"
+        },
+        "ec09e6ea245b98a308f82a0ba7028d43": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "a04e51b4866d7d780eb9ddc080fddf6f"
             },
             "direction": "both",
-            "type": "*short int",
-            "indirections": 1
+            "name": "x"
+        },
+        "7788b0a260b18f60ed542b16613742ab": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "824cb75000f3eb556c40dd73f73231c8"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "c55177d4ec35847b6960cd23aadc2b9f": {
+            "name": "__int32_t",
+            "type": "1fd8c01bdca094933f920b41375cfed0"
+        },
+        "7ff766a2c9e052efb6ae23b93dbe64cc": {
+            "name": "__int_least32_t",
+            "type": "c55177d4ec35847b6960cd23aadc2b9f"
+        },
+        "df0d3ed836023bfae19cae94194ab50f": {
+            "name": "int_least32_t",
+            "type": "7ff766a2c9e052efb6ae23b93dbe64cc"
+        },
+        "f5116d5353ce84b94daed2e2f9175f40": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "df0d3ed836023bfae19cae94194ab50f"
+            },
+            "direction": "both"
+        },
+        "4a74516cd3980ce34e382450b576fa46": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "f5116d5353ce84b94daed2e2f9175f40"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "664dc38ca74ea0ceebcb19e4cd17452e": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "df0d3ed836023bfae19cae94194ab50f"
+            },
+            "direction": "both",
+            "name": "x"
         },
         "cb0dd2f169dfa3b7b6cd32e3a051de77": {
             "type": "short int",
@@ -2450,31 +3023,43 @@
             "class": "Integer",
             "direction": "import"
         },
-        "c93b1d5ac52aca88c6f9d23ef5aa4617": {
-            "name": "x",
-            "class": "Pointer",
-            "size": 8,
-            "underlying_type": {
-                "type": "signed char",
-                "size": 1,
-                "class": "Integral"
-            },
-            "direction": "both",
-            "type": "*signed char",
-            "indirections": 2
+        "d836fabe8ddfe8a203735ebd7d4822e6": {
+            "name": "__int16_t",
+            "type": "cb0dd2f169dfa3b7b6cd32e3a051de77"
         },
-        "bb1eececa2f4da5d5122aa4f9724a636": {
-            "name": "x",
+        "c291e42de63767fad0f19e5609b9b4d6": {
+            "name": "__int_least16_t",
+            "type": "d836fabe8ddfe8a203735ebd7d4822e6"
+        },
+        "c62ecf646716be895ba461dea4a4efb7": {
+            "name": "int_least16_t",
+            "type": "c291e42de63767fad0f19e5609b9b4d6"
+        },
+        "adeb30323cb77dfc89d7b914ce8e512b": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "signed char",
-                "size": 1,
-                "class": "Integral"
+                "type": "c62ecf646716be895ba461dea4a4efb7"
+            },
+            "direction": "both"
+        },
+        "fba0a4489e21eb8461ca91e24b2ecdda": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "adeb30323cb77dfc89d7b914ce8e512b"
             },
             "direction": "both",
-            "type": "*signed char",
-            "indirections": 1
+            "name": "x"
+        },
+        "80a5a92206e29a29e23d6f666f956fbe": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "c62ecf646716be895ba461dea4a4efb7"
+            },
+            "direction": "both",
+            "name": "x"
         },
         "b54b4317e56dcaace25c0b0efdc93d40": {
             "type": "signed char",
@@ -2482,31 +3067,441 @@
             "class": "Integral",
             "direction": "import"
         },
-        "05555f37102b4a3ff6e0a3cd939b9c3d": {
-            "name": "x",
-            "class": "Pointer",
-            "size": 8,
-            "underlying_type": {
-                "type": "char32_t",
-                "size": 4,
-                "class": "Integral"
-            },
-            "direction": "both",
-            "type": "*char32_t",
-            "indirections": 2
+        "a3ab827f75786f0e6a469329f57b61e0": {
+            "name": "__int8_t",
+            "type": "b54b4317e56dcaace25c0b0efdc93d40"
         },
-        "2e95ed4c955e2798f6ae3a0660cfe583": {
-            "name": "x",
+        "115c771516d4b17f8f57a726f14ebf27": {
+            "name": "__int_least8_t",
+            "type": "a3ab827f75786f0e6a469329f57b61e0"
+        },
+        "ebe414f08c223af4dd5bceb86d769094": {
+            "name": "int_least8_t",
+            "type": "115c771516d4b17f8f57a726f14ebf27"
+        },
+        "73412ccc686946a92b9e6ce4c6b3eb47": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "char32_t",
-                "size": 4,
-                "class": "Integral"
+                "type": "ebe414f08c223af4dd5bceb86d769094"
+            },
+            "direction": "both"
+        },
+        "94a76df39ac1250cd3eedd93502c7723": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "73412ccc686946a92b9e6ce4c6b3eb47"
             },
             "direction": "both",
-            "type": "*char32_t",
-            "indirections": 1
+            "name": "x"
+        },
+        "d5cbb97e67c50e25a6dd020dee5d34af": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "ebe414f08c223af4dd5bceb86d769094"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "b18ead685607f739a05783571c7f3e58": {
+            "name": "int_fast64_t",
+            "type": "832037bcbd004730c7738b05d956e54e"
+        },
+        "46832ef86cfd7f42cb1e37eaf03dd84a": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "b18ead685607f739a05783571c7f3e58"
+            },
+            "direction": "both"
+        },
+        "231de08c8c0ae74a08c7f682ff449e8e": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "46832ef86cfd7f42cb1e37eaf03dd84a"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "75cd3143f1efba496ce544bbdb8ccc24": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "b18ead685607f739a05783571c7f3e58"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "a3070ac41d788988829f57fc1ca33a8b": {
+            "name": "int_fast32_t",
+            "type": "832037bcbd004730c7738b05d956e54e"
+        },
+        "80a31ba8028416140cba54cbcc2c6eb9": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "a3070ac41d788988829f57fc1ca33a8b"
+            },
+            "direction": "both"
+        },
+        "5a640ebf0babcbd97408997832cfd1dd": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "80a31ba8028416140cba54cbcc2c6eb9"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "db38f3d1fb647022d481cda04cc7f9cc": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "a3070ac41d788988829f57fc1ca33a8b"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "6129a8fb00c958a954db9faf4b11be4f": {
+            "name": "int_fast16_t",
+            "type": "832037bcbd004730c7738b05d956e54e"
+        },
+        "9a008441d010769d06550c3878b8b41d": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "6129a8fb00c958a954db9faf4b11be4f"
+            },
+            "direction": "both"
+        },
+        "e6d06263a3298f5fa11f0c32bf1fee79": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "9a008441d010769d06550c3878b8b41d"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "cf344e88297e65f5a1a8220ff4a570a3": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "6129a8fb00c958a954db9faf4b11be4f"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "f39191a0b501453f394783b9a270bc7f": {
+            "name": "int_fast8_t",
+            "type": "b54b4317e56dcaace25c0b0efdc93d40"
+        },
+        "24bd6db13e1f24528d48a4fc1ba3a8a2": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "f39191a0b501453f394783b9a270bc7f"
+            },
+            "direction": "both"
+        },
+        "5bbb9cdb3400509410f01220216df20f": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "24bd6db13e1f24528d48a4fc1ba3a8a2"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "0f2709958c54ba32efb41ba8245f1ba3": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "f39191a0b501453f394783b9a270bc7f"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "cda0d033ecbe58d2aa09b585e0c6582b": {
+            "name": "int64_t",
+            "type": "93c5846706e43ce7208308706060ade6"
+        },
+        "fae44e9e3afe8749922bf9fece789082": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "cda0d033ecbe58d2aa09b585e0c6582b"
+            },
+            "direction": "both"
+        },
+        "81b543cacc86bd400658d27bb4632976": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "fae44e9e3afe8749922bf9fece789082"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "c9c5348891dc672e09050c548bc856f4": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "cda0d033ecbe58d2aa09b585e0c6582b"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "89ffd45336a54ba23a404831d7ea9096": {
+            "name": "int32_t",
+            "type": "c55177d4ec35847b6960cd23aadc2b9f"
+        },
+        "66fd58bfffb892dac88f9b02194b7418": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "89ffd45336a54ba23a404831d7ea9096"
+            },
+            "direction": "both"
+        },
+        "36784eeccb27d9096aa58675082d928d": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "66fd58bfffb892dac88f9b02194b7418"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "7ca5697627d273e1e7e5fd87c5732a51": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "89ffd45336a54ba23a404831d7ea9096"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "b71607ee357280fd36c5e13fc772cd9d": {
+            "name": "int16_t",
+            "type": "d836fabe8ddfe8a203735ebd7d4822e6"
+        },
+        "49a1b3eeb52345e9628945467f93e1c8": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "b71607ee357280fd36c5e13fc772cd9d"
+            },
+            "direction": "both"
+        },
+        "f8f41f7802269779cb0b9b398dc76faa": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "49a1b3eeb52345e9628945467f93e1c8"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "6d53ef8e43169a20f6d5315ce518d02d": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "b71607ee357280fd36c5e13fc772cd9d"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "435b444d07d9aa01c5c968a581b64819": {
+            "name": "int8_t",
+            "type": "a3ab827f75786f0e6a469329f57b61e0"
+        },
+        "68e0b23fea19499aac414ba577993e5a": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "435b444d07d9aa01c5c968a581b64819"
+            },
+            "direction": "both"
+        },
+        "7ee292aee9bbcf13d393f89614e58074": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "68e0b23fea19499aac414ba577993e5a"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "65e1e25fee7236ecd1231756ed292719": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "435b444d07d9aa01c5c968a581b64819"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "b0a2cd94793a6d1c677d8eeedee11233": {
+            "name": "uintptr_t",
+            "type": "6d168f46b7d9e8b96a1ff9b171e0ad48"
+        },
+        "8387dab2f7213b250c90064de1b13b68": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "b0a2cd94793a6d1c677d8eeedee11233"
+            },
+            "direction": "both"
+        },
+        "21e8e49486972cd05ef8ab32b82586e0": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "8387dab2f7213b250c90064de1b13b68"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "683c781aac6b674be46ec5281a932adb": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "b0a2cd94793a6d1c677d8eeedee11233"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "d2424a276621a682be94e762cf27f248": {
+            "name": "intptr_t",
+            "type": "832037bcbd004730c7738b05d956e54e"
+        },
+        "7c3e05f983eec6c484365bffd1b5f378": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "d2424a276621a682be94e762cf27f248"
+            },
+            "direction": "both"
+        },
+        "803fe7f64dd0e170cfc0da0ecfc0e2cc": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "7c3e05f983eec6c484365bffd1b5f378"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "cb2aa110317e4e9c36478ea24bcda286": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "d2424a276621a682be94e762cf27f248"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "60f8359ccca499075bf928beb1b3b42b": {
+            "name": "__uintmax_t",
+            "type": "6d168f46b7d9e8b96a1ff9b171e0ad48"
+        },
+        "7aaa813c12351fd5118d99bfd0ff8aa2": {
+            "name": "uintmax_t",
+            "type": "60f8359ccca499075bf928beb1b3b42b"
+        },
+        "e2565a42abebfdf9a6e3de89990e7c18": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "7aaa813c12351fd5118d99bfd0ff8aa2"
+            },
+            "direction": "both"
+        },
+        "d36f6d88486466beb5c195bebfe8fce0": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "e2565a42abebfdf9a6e3de89990e7c18"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "d5df4b7be6a7ee614c9753b337740879": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "7aaa813c12351fd5118d99bfd0ff8aa2"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "0ddb1eaf8d1dbd34f8a24e899ec7f606": {
+            "name": "__intmax_t",
+            "type": "832037bcbd004730c7738b05d956e54e"
+        },
+        "b913953d3cc05314dd43fcb946de86c8": {
+            "name": "intmax_t",
+            "type": "0ddb1eaf8d1dbd34f8a24e899ec7f606"
+        },
+        "a5c409c5f544a32ed95b3d8b5bcd6ae1": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "b913953d3cc05314dd43fcb946de86c8"
+            },
+            "direction": "both"
+        },
+        "24834228a27cc577e2cf8cf00e43500a": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "a5c409c5f544a32ed95b3d8b5bcd6ae1"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "6be73943a9ffeace177074a245554cb7": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "b913953d3cc05314dd43fcb946de86c8"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "2b7927ac6886d6f780cffd9e51ebbc49": {
+            "name": "size_t",
+            "type": "6d168f46b7d9e8b96a1ff9b171e0ad48"
+        },
+        "1fc0872308944a5463a25c903449d624": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "2b7927ac6886d6f780cffd9e51ebbc49"
+            },
+            "direction": "both"
+        },
+        "22b1eb254e8311c52d70adacb4e53bdb": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "1fc0872308944a5463a25c903449d624"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "35c6a8cd8ed7389c339e98a0bd740191": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "2b7927ac6886d6f780cffd9e51ebbc49"
+            },
+            "direction": "both",
+            "name": "x"
         },
         "23865a59934a660b69c7be67220867af": {
             "type": "char32_t",
@@ -2514,31 +3509,31 @@
             "class": "Integral",
             "direction": "import"
         },
-        "a440a74f8f213542db1cbe638e67177f": {
-            "name": "x",
+        "2186ac22041fdebcb36d01d2a35a6fe7": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "char16_t",
-                "size": 2,
-                "class": "Integral"
+                "type": "23865a59934a660b69c7be67220867af"
             },
-            "direction": "both",
-            "type": "*char16_t",
-            "indirections": 2
+            "direction": "both"
         },
-        "51c16d3c75cb304ec151139a6bbf037f": {
-            "name": "x",
+        "b534dcd5436f12d50da42ec2dba52db9": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "char16_t",
-                "size": 2,
-                "class": "Integral"
+                "type": "2186ac22041fdebcb36d01d2a35a6fe7"
             },
             "direction": "both",
-            "type": "*char16_t",
-            "indirections": 1
+            "name": "x"
+        },
+        "1eb33692dedf97058b14a9313309f116": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "23865a59934a660b69c7be67220867af"
+            },
+            "direction": "both",
+            "name": "x"
         },
         "bba7d17abb7fe8f4ed1cd4169646fbac": {
             "type": "char16_t",
@@ -2546,31 +3541,31 @@
             "class": "Integral",
             "direction": "import"
         },
-        "ebcb50c3973ad6e6c4e87ce454c0df09": {
-            "name": "x",
+        "865117cd4927f1c5675afe4225931472": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "wchar_t",
-                "size": 4,
-                "class": "Integral"
+                "type": "bba7d17abb7fe8f4ed1cd4169646fbac"
             },
-            "direction": "both",
-            "type": "*wchar_t",
-            "indirections": 2
+            "direction": "both"
         },
-        "5fdd2f03c1b3bc2e0cb9aef6850a6d8e": {
-            "name": "x",
+        "75c07d4ee766c667fce4a03e7692fb4f": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "wchar_t",
-                "size": 4,
-                "class": "Integral"
+                "type": "865117cd4927f1c5675afe4225931472"
             },
             "direction": "both",
-            "type": "*wchar_t",
-            "indirections": 1
+            "name": "x"
+        },
+        "c0a464508b784ad2f8a8828849019344": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "bba7d17abb7fe8f4ed1cd4169646fbac"
+            },
+            "direction": "both",
+            "name": "x"
         },
         "f73e244851d6839dcfa1ecd120238860": {
             "type": "wchar_t",
@@ -2578,31 +3573,31 @@
             "class": "Integral",
             "direction": "import"
         },
-        "2d3c98b256f8c9d491b7397779672578": {
-            "name": "x",
+        "f2dd35c4afae84c05807e1b0a489c81d": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "complex long double",
-                "size": 32,
-                "class": "ComplexFloat"
+                "type": "f73e244851d6839dcfa1ecd120238860"
             },
-            "direction": "both",
-            "type": "*complex long double",
-            "indirections": 2
+            "direction": "both"
         },
-        "cf7a0dfcafd87f6b4b9d277a9e6b0ba8": {
-            "name": "x",
+        "e614d0cae6a6687f7c4f7dcfb6b854de": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "complex long double",
-                "size": 32,
-                "class": "ComplexFloat"
+                "type": "f2dd35c4afae84c05807e1b0a489c81d"
             },
             "direction": "both",
-            "type": "*complex long double",
-            "indirections": 1
+            "name": "x"
+        },
+        "8e5e20ac4b6518973a49d8f707a3a2f9": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "f73e244851d6839dcfa1ecd120238860"
+            },
+            "direction": "both",
+            "name": "x"
         },
         "c431870fc760f3907c508fad72d661b4": {
             "type": "complex long double",
@@ -2610,31 +3605,31 @@
             "class": "ComplexFloat",
             "direction": "import"
         },
-        "bd668c17b568c6ef7558ce6c1411b11d": {
-            "name": "x",
+        "1c8ca56edc46746f5fcfbdc02c7b702d": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "complex double",
-                "size": 16,
-                "class": "ComplexFloat"
+                "type": "c431870fc760f3907c508fad72d661b4"
             },
-            "direction": "both",
-            "type": "*complex double",
-            "indirections": 2
+            "direction": "both"
         },
-        "9fd6eb9137cff8f68223d735d2b3eedd": {
-            "name": "x",
+        "0d4b953d83149baabe2825bd8c0c0fc1": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "complex double",
-                "size": 16,
-                "class": "ComplexFloat"
+                "type": "1c8ca56edc46746f5fcfbdc02c7b702d"
             },
             "direction": "both",
-            "type": "*complex double",
-            "indirections": 1
+            "name": "x"
+        },
+        "1f376fd05cadeab68729f9c0f795453d": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "c431870fc760f3907c508fad72d661b4"
+            },
+            "direction": "both",
+            "name": "x"
         },
         "9eb6b166561b8985e3296616cde50464": {
             "type": "complex double",
@@ -2642,31 +3637,31 @@
             "class": "ComplexFloat",
             "direction": "import"
         },
-        "fdc5211544b45d762ae1988b1e5e8ca8": {
-            "name": "x",
+        "4f0f3647f27d279f779952827f823d41": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "complex float",
-                "size": 8,
-                "class": "ComplexFloat"
+                "type": "9eb6b166561b8985e3296616cde50464"
             },
-            "direction": "both",
-            "type": "*complex float",
-            "indirections": 2
+            "direction": "both"
         },
-        "42efda69970250ad861fc08821748ba3": {
-            "name": "x",
+        "7fcfeefc05bd7777941d37746cc3c2b1": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "complex float",
-                "size": 8,
-                "class": "ComplexFloat"
+                "type": "4f0f3647f27d279f779952827f823d41"
             },
             "direction": "both",
-            "type": "*complex float",
-            "indirections": 1
+            "name": "x"
+        },
+        "f682d38cf4d3ac9b5e72b2731a1e6e0a": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "9eb6b166561b8985e3296616cde50464"
+            },
+            "direction": "both",
+            "name": "x"
         },
         "c36ad66c4ad0c427b0051ec0a7a92553": {
             "type": "complex float",
@@ -2674,31 +3669,31 @@
             "class": "ComplexFloat",
             "direction": "import"
         },
-        "b819b153397c4765c72365a30484bd74": {
-            "name": "x",
+        "4d0a772932088da080fcb9f8bcbeb65c": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "long double",
-                "size": 16,
-                "class": "Float"
+                "type": "c36ad66c4ad0c427b0051ec0a7a92553"
             },
-            "direction": "both",
-            "type": "*long double",
-            "indirections": 2
+            "direction": "both"
         },
-        "6bdc0bbf37803adce8cc3395cc21fe2d": {
-            "name": "x",
+        "081f37295ab4cab464d531950eb97257": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "long double",
-                "size": 16,
-                "class": "Float"
+                "type": "4d0a772932088da080fcb9f8bcbeb65c"
             },
             "direction": "both",
-            "type": "*long double",
-            "indirections": 1
+            "name": "x"
+        },
+        "21e74791f3a4c45d6e21eb94257612ee": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "c36ad66c4ad0c427b0051ec0a7a92553"
+            },
+            "direction": "both",
+            "name": "x"
         },
         "308ad8129cac3a0bb414c01987309d1b": {
             "type": "long double",
@@ -2706,31 +3701,31 @@
             "class": "Float",
             "direction": "import"
         },
-        "cf68c028257bec12b7cd9bbc3454a93f": {
-            "name": "x",
+        "50584f3c6cebf6d769023665e53f1c7e": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "double",
-                "size": 8,
-                "class": "Float"
+                "type": "308ad8129cac3a0bb414c01987309d1b"
             },
-            "direction": "both",
-            "type": "*double",
-            "indirections": 2
+            "direction": "both"
         },
-        "ab1cfdab3f1edfc9322725e4011b0681": {
-            "name": "x",
+        "4573c80caf1dbe14ef737db8b603f8d3": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "double",
-                "size": 8,
-                "class": "Float"
+                "type": "50584f3c6cebf6d769023665e53f1c7e"
             },
             "direction": "both",
-            "type": "*double",
-            "indirections": 1
+            "name": "x"
+        },
+        "ee15b5f52631156709dec2caaf9d7bab": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "308ad8129cac3a0bb414c01987309d1b"
+            },
+            "direction": "both",
+            "name": "x"
         },
         "5f66ab77d11088555799b0da0fbee9bf": {
             "type": "double",
@@ -2738,31 +3733,31 @@
             "class": "Float",
             "direction": "import"
         },
-        "947af566732f8678c97c38893be4614d": {
-            "name": "x",
+        "1d95c34502e8bccf25cdaa2663575f88": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "float",
-                "size": 4,
-                "class": "Float"
+                "type": "5f66ab77d11088555799b0da0fbee9bf"
             },
-            "direction": "both",
-            "type": "*float",
-            "indirections": 2
+            "direction": "both"
         },
-        "92d834b75b46e68855294c8f5f9e1943": {
-            "name": "x",
+        "e18f20c95ae3d8e30cfc83c5827198d5": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "float",
-                "size": 4,
-                "class": "Float"
+                "type": "1d95c34502e8bccf25cdaa2663575f88"
             },
             "direction": "both",
-            "type": "*float",
-            "indirections": 1
+            "name": "x"
+        },
+        "6f6081638895dc839c2ebcbb794fbefa": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "5f66ab77d11088555799b0da0fbee9bf"
+            },
+            "direction": "both",
+            "name": "x"
         },
         "65548ffbcaadd70764058ff4b5097cfb": {
             "type": "float",
@@ -2770,31 +3765,31 @@
             "class": "Float",
             "direction": "import"
         },
-        "61b8618144ef6f2604670c94e888875d": {
-            "name": "x",
+        "9159636b3443a04e884d0821bc59c1fc": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "long long unsigned int",
-                "size": 8,
-                "class": "Integer"
+                "type": "65548ffbcaadd70764058ff4b5097cfb"
             },
-            "direction": "both",
-            "type": "*long long unsigned int",
-            "indirections": 2
+            "direction": "both"
         },
-        "5b1c25262139cefe13a077d7d4c8a282": {
-            "name": "x",
+        "94799f94c5ed4de464f6d77a7fab2c93": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "long long unsigned int",
-                "size": 8,
-                "class": "Integer"
+                "type": "9159636b3443a04e884d0821bc59c1fc"
             },
             "direction": "both",
-            "type": "*long long unsigned int",
-            "indirections": 1
+            "name": "x"
+        },
+        "9afd9cae1f12ed951c2dd206e5f023cb": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "65548ffbcaadd70764058ff4b5097cfb"
+            },
+            "direction": "both",
+            "name": "x"
         },
         "6c50d3a67c64cc4cdfbee700b946253a": {
             "type": "long long unsigned int",
@@ -2802,31 +3797,135 @@
             "class": "Integer",
             "direction": "import"
         },
-        "5a5fb8d5857027a8ddbae2431267d535": {
-            "name": "x",
+        "3809f6f53976d4f2864ff1d6855d3cb1": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "long long int",
-                "size": 8,
-                "class": "Integer"
+                "type": "6c50d3a67c64cc4cdfbee700b946253a"
             },
-            "direction": "both",
-            "type": "*long long int",
-            "indirections": 2
+            "direction": "both"
         },
-        "299374d0ec5c95a296075a28cd15f805": {
-            "name": "x",
+        "4a30a175bf67ced143d78f375e7eb5fe": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "long long int",
-                "size": 8,
-                "class": "Integer"
+                "type": "3809f6f53976d4f2864ff1d6855d3cb1"
             },
             "direction": "both",
-            "type": "*long long int",
-            "indirections": 1
+            "name": "x"
+        },
+        "192b568dfaa910c245a7d3cb8f1e3f0d": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "6c50d3a67c64cc4cdfbee700b946253a"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "67a62893317d241effb194650a177485": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "6d168f46b7d9e8b96a1ff9b171e0ad48"
+            },
+            "direction": "both"
+        },
+        "c0669ef9c3728e73b5baeedb93822a90": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "67a62893317d241effb194650a177485"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "a12f051c63b4556698d5cc6d1e5e3c62": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "6d168f46b7d9e8b96a1ff9b171e0ad48"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "785f2ff3bbabb9c1bc5549a47e47ad53": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "724f0b94c416f03c89c16150cf866e00"
+            },
+            "direction": "both"
+        },
+        "1d4ea44a54e662b96aff4cf66a89d174": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "785f2ff3bbabb9c1bc5549a47e47ad53"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "d470ee86ab9349d7e9d58b8b70801eaf": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "724f0b94c416f03c89c16150cf866e00"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "60350d93b11e4250e32688c499572b88": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "251ba5521033493f21e959542089468c"
+            },
+            "direction": "both"
+        },
+        "de33fb4229594b98f6ca1ef53e356709": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "60350d93b11e4250e32688c499572b88"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "9bfc446c25fe95ad3e3bb6911e4e1fdc": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "251ba5521033493f21e959542089468c"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "2cc4938ce9eb458cba61d872e424505c": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "e7efc874c18fbe691d0385ff3fc9f954"
+            },
+            "direction": "both"
+        },
+        "ce35a1612f5894b18d1cddafa11df18b": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "2cc4938ce9eb458cba61d872e424505c"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "4f67cc93456b1f97a39d9f2def145ac6": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "e7efc874c18fbe691d0385ff3fc9f954"
+            },
+            "direction": "both",
+            "name": "x"
         },
         "a44bf8971dc4a612236c2e4dccc1cd7e": {
             "type": "long long int",
@@ -2834,31 +3933,135 @@
             "class": "Integer",
             "direction": "import"
         },
-        "6dbff68c12094247be5b232b61c78fe1": {
-            "name": "x",
+        "35d2569b163a76ae32218b5a4802687a": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "char",
-                "size": 1,
-                "class": "Integral"
+                "type": "a44bf8971dc4a612236c2e4dccc1cd7e"
             },
-            "direction": "both",
-            "type": "*char",
-            "indirections": 2
+            "direction": "both"
         },
-        "4a2a0e7178f9dd7856d4950e57957ded": {
-            "name": "x",
+        "f2c78e4a66d497308b60a1714724a18d": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "char",
-                "size": 1,
-                "class": "Integral"
+                "type": "35d2569b163a76ae32218b5a4802687a"
             },
             "direction": "both",
-            "type": "*char",
-            "indirections": 1
+            "name": "x"
+        },
+        "74fe189cff155c70fed03f73ab7f9b5d": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "a44bf8971dc4a612236c2e4dccc1cd7e"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "f8c4500b5ee267dca825738a7c6a0ad0": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "832037bcbd004730c7738b05d956e54e"
+            },
+            "direction": "both"
+        },
+        "7ec5255ee5e5ad5967635e32ded32f64": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "f8c4500b5ee267dca825738a7c6a0ad0"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "9c4e7ec68566c8965cc819959f7f3bbf": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "832037bcbd004730c7738b05d956e54e"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "bea2891fe3f129d605a82945c88b6461": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "1fd8c01bdca094933f920b41375cfed0"
+            },
+            "direction": "both"
+        },
+        "967ad9d95fc9df609ed595aac306126a": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "bea2891fe3f129d605a82945c88b6461"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "f89d73568e60860d05c051da731ba3bc": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "1fd8c01bdca094933f920b41375cfed0"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "9f5ae57cf0d1a66b34b5153165926152": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "cb0dd2f169dfa3b7b6cd32e3a051de77"
+            },
+            "direction": "both"
+        },
+        "2c5b9c8baa99829e802fb4fb37da45a2": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "9f5ae57cf0d1a66b34b5153165926152"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "801c79f5e910ad40dfafe34df3976d0b": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "cb0dd2f169dfa3b7b6cd32e3a051de77"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "3ee5550657b1511bd08b460d66bfbe3c": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "b54b4317e56dcaace25c0b0efdc93d40"
+            },
+            "direction": "both"
+        },
+        "50781d48e5366233079d74131d818a69": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "3ee5550657b1511bd08b460d66bfbe3c"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "1b0937e255b2d0c3f9daeb49fcd769c1": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "b54b4317e56dcaace25c0b0efdc93d40"
+            },
+            "direction": "both",
+            "name": "x"
         },
         "ee8eaa81ccacc2d49d87afa5ca1148a8": {
             "type": "char",
@@ -2866,37 +4069,63 @@
             "class": "Integral",
             "direction": "import"
         },
-        "e68d507fc2a904939b3d5ce726935f92": {
-            "name": "x",
+        "c85bcac8ca48727eb84d73d743bfb8cd": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "bool",
-                "size": 1,
-                "class": "Boolean"
+                "type": "ee8eaa81ccacc2d49d87afa5ca1148a8"
             },
-            "direction": "both",
-            "type": "*bool",
-            "indirections": 2
+            "direction": "both"
         },
-        "7b83152c088c4d5ef7cb159dd503209d": {
-            "name": "x",
+        "c78ec3e373f6e0c1ad079edfdcbe2a6b": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "bool",
-                "size": 1,
-                "class": "Boolean"
+                "type": "c85bcac8ca48727eb84d73d743bfb8cd"
             },
             "direction": "both",
-            "type": "*bool",
-            "indirections": 1
+            "name": "x"
+        },
+        "0831182da83dfecbc033431726309c80": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "ee8eaa81ccacc2d49d87afa5ca1148a8"
+            },
+            "direction": "both",
+            "name": "x"
         },
         "5f699718a0f73b64af5190e051839f93": {
             "type": "bool",
             "size": 1,
             "class": "Boolean",
             "direction": "import"
+        },
+        "df8d04ccdcce0b13661e71628900ca7c": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "5f699718a0f73b64af5190e051839f93"
+            },
+            "direction": "both"
+        },
+        "36266863e3642ac241536972cbbb0b47": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "df8d04ccdcce0b13661e71628900ca7c"
+            },
+            "direction": "both",
+            "name": "x"
+        },
+        "eab001f95ab313dd0f1600382b683279": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "5f699718a0f73b64af5190e051839f93"
+            },
+            "direction": "both",
+            "name": "x"
         }
     }
 }

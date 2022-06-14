@@ -38,10 +38,12 @@ class cache_type:
         # Keep track of seen by offset
         cls._types_seen.add(die.offset)
         typ = self.func(cls, *args, **kwargs)
+        if not typ:
+            typ = {"type": "unknown"}
 
         # Hash id is based on hash of type content
-        uid = self.hash(typ)
-        
+        uid = self.hash(typ) 
+      
         # Top level types holds the uid -> type
         cls.types[uid] = typ
         

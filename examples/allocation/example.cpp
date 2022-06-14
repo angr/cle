@@ -1,7 +1,6 @@
 // Functions to test register allocation
 #include <complex.h>
-
-#include <iostream>
+#include <cstdint>
 
 // Integral Types
 extern "C" void test_bool(bool x) {}

@@ -75,7 +75,6 @@ class ELF(MetaELF):
     ):
         super().__init__(*args, **kwargs)
         patch_undo = []
-        print(self.binary)
         try:
             self._reader = elffile.ELFFile(self._binary_stream)
             list(self._reader.iter_sections())
