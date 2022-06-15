@@ -1,0 +1,25 @@
+name: ELF ABI Parsing Basic Tests
+on: 
+  pull_request: []
+
+jobs:
+  test-basic:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install Spack and Dependencies
+      run: |
+        git clone --depth 1 https://github.com/spack/spack /opt/spack
+        echo "/opt/spack/bin" >> $GITHUB_PATH
+      uses: actions/checkout@v3        
+
+    - name: Install Library
+      run: |
+        # archinfo, pyvex, pyelftools, then cle
+        pip install git+https://github.com/angr/archinfo
+        pip install git+https://github.com/angr/pyvex
+        pip install git+https://github.com/eliben/pyelftools
+        pip install -e .
+        pip install pytest
+         
+    - name: Run Examples
+      run: pytest -xs tests.py
