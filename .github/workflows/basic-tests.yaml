@@ -18,7 +18,7 @@ jobs:
         pip install git+https://github.com/angr/pyvex
         pip install git+https://github.com/eliben/pyelftools
         pip install .
-        pip install pytest
+        pip install pytest deepdiff
          
     - name: Run Examples
       run: pytest -xs tests.py
