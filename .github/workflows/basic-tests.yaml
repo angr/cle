@@ -10,8 +10,7 @@ jobs:
       run: |
         git clone --depth 1 https://github.com/spack/spack /opt/spack
         echo "/opt/spack/bin" >> $GITHUB_PATH
-      uses: actions/checkout@v3        
-
+    - uses: actions/checkout@v3        
     - name: Install Library
       run: |
         # archinfo, pyvex, pyelftools, then cle
