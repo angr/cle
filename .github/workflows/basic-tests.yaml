@@ -6,10 +6,6 @@ jobs:
   test-basic:
     runs-on: ubuntu-latest
     steps:
-    - name: Install Spack and Dependencies
-      run: |
-        git clone --depth 1 https://github.com/spack/spack /opt/spack
-        echo "/opt/spack/bin" >> $GITHUB_PATH
     - uses: actions/checkout@v3        
     - name: Install Library
       run: |
@@ -21,4 +17,6 @@ jobs:
         pip install pytest deepdiff
          
     - name: Run Examples
-      run: pytest -xs tests.py
+      run: |
+        make
+        pytest -xs tests.py
