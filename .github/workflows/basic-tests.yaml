@@ -18,5 +18,5 @@ jobs:
          
     - name: Run Examples
       run: |
-        docker run -it -v $PWD:/code -it gcc:12.1 bash -c "cd /code && make"
+        docker run -t -v $PWD:/code -it gcc:12.1 bash -c "cd /code && make"
         pytest -xs tests.py
