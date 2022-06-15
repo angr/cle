@@ -22,9 +22,11 @@ for name in os.listdir(examples_dir):
     if not name.startswith("_"):
         tests.append((name, "lib.so"))
 
+
 def write_json(data, filename):
-    with open(filename, 'w') as fd:
+    with open(filename, "w") as fd:
         fd.write(json.dumps(data, indent=4))
+
 
 def read_json(filename):
     with open(filename, "r") as fd:
@@ -34,10 +36,19 @@ def read_json(filename):
 
 def check_facts(expected, facts):
     expected = read_json(expected)
+    # This will vary based on the host
+    libA = expected["library"]
+    libB = facts["library"]
+    del expected["library"]
+    del facts["library"]
     res = DeepDiff(expected, facts)
     if res:
         print(res)
     assert not res
+
+    # Not sure that we need to restore this, but I felt the desire to :)
+    expected["library"] = libA
+    facts["library"] = libA
 
 
 def run(name, lib):
