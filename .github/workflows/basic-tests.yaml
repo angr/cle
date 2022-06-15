@@ -17,7 +17,7 @@ jobs:
         pip install git+https://github.com/angr/archinfo
         pip install git+https://github.com/angr/pyvex
         pip install git+https://github.com/eliben/pyelftools
-        pip install -e .
+        pip install .
         pip install pytest
          
     - name: Run Examples
