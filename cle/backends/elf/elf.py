@@ -823,7 +823,12 @@ class ELF(MetaELF):
         )
 
         if 'DW_AT_location' in die.attributes and die.attributes['DW_AT_location'].form == 'DW_FORM_exprloc':
-            parsed_exprs = expr_parser.parse_expr(die.attributes['DW_AT_location'].value)
+
+            # Key Error 160
+            try:
+                parsed_exprs = expr_parser.parse_expr(die.attributes['DW_AT_location'].value)
+            except:
+                return v
             if len(parsed_exprs) == 1 and parsed_exprs[0].op_name == 'DW_OP_addr':
                 v.sort, v.addr = "global", parsed_exprs[0].args[0]
             elif len(parsed_exprs) == 1 and parsed_exprs[0].op_name == 'DW_OP_fbreg':

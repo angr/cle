@@ -1,6 +1,7 @@
 from .register_class import RegisterClass
 from .allocators import RegisterAllocator
 from ...types import ClassType
+import copy
 
 
 class Classification:
@@ -43,7 +44,7 @@ def classify(
     types = types or {}
 
     # Don't handle this case right now
-    if not typ or "class" not in typ or typ["class"] == "Unknown":
+    if not typ or "class" not in typ or typ["class"] in ["Unknown", "ComplexUnknown"]:
         return
 
     cls = None
@@ -91,6 +92,7 @@ def classify(
         print("UNWRAP UNDERLYING TYPE IN CLASSIFY")
         import IPython
 
+        return
         IPython.embed()
 
     # } else if (auto *t = underlying_type->getEnumType()) {
@@ -106,7 +108,7 @@ def classify(
         cls = cls[0]
 
     if isinstance(cls, list) and len(cls) == 2:
-        return allocator.get_register_string(cls[0], cls[1], typ)
+        return allocator.get_register_string(lo=cls[0], hi=cls[1], param=typ)
 
     # If a classifier returns the location directly (e.g., struct)
     if not isinstance(cls, Classification):
@@ -268,10 +270,18 @@ def classify_aggregate(
     ebs = []
     cur = Eightbyte()
     added = False
-    for f in typ.get("fields", []):
+    fields = copy.deepcopy(typ.get("fields", []))
+    while fields:
+        f = fields.pop(0)
         field = types.get(f.get("type"))
         if not field:
             continue
+
+        # If we have another aggregate (I'm not sure this is correct)
+        if field.get("class") in ["Union", "Struct", "Class"]:
+            fields = copy.deepcopy(field.get("fields", [])) + fields
+            continue
+
         added = False
         if not cur.has_space_for(field):
             added = True
@@ -285,11 +295,6 @@ def classify_aggregate(
 
     classes = []
     for eb in ebs:
-        # vector of temporary classifications
-        # tmp = []
-        # for f in eb.fields:
-        #    tmp.append(classify(f))
-
         if len(eb.fields) > 1:
             c1 = classify(
                 eb.fields[0],

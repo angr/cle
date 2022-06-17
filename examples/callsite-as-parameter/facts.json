@@ -1,0 +1,93 @@
+{
+    "library": "/home/vanessa/Desktop/Code/cle/examples/callsite-as-parameter/lib.so",
+    "locations": [
+        {
+            "function": {
+                "name": "close",
+                "class": "Function",
+                "parameters": [
+                    {
+                        "type": "1fd8c01bdca094933f920b41375cfed0",
+                        "location": "%rdi",
+                        "direction": "import"
+                    }
+                ],
+                "return": {
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "direction": "export",
+                    "location": "%rax"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "getpid",
+                "class": "Function",
+                "return": {
+                    "type": "d4bc3c4cf5d0abb567b350e1f9b5188f",
+                    "direction": "export"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "main",
+                "class": "Function",
+                "parameters": [
+                    {
+                        "name": "argc",
+                        "type": "1fd8c01bdca094933f920b41375cfed0",
+                        "location": "%rdi",
+                        "direction": "import"
+                    },
+                    {
+                        "name": "argv",
+                        "type": "fc120637f1c544d02555884cff0da54b",
+                        "location": "%rsi",
+                        "direction": "import"
+                    }
+                ],
+                "return": {
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "direction": "export",
+                    "location": "%rax"
+                }
+            }
+        }
+    ],
+    "types": {
+        "1fd8c01bdca094933f920b41375cfed0": {
+            "type": "int",
+            "size": 4,
+            "class": "Integer",
+            "direction": "import"
+        },
+        "d4bc3c4cf5d0abb567b350e1f9b5188f": {
+            "name": "__pid_t",
+            "type": "1fd8c01bdca094933f920b41375cfed0"
+        },
+        "ee8eaa81ccacc2d49d87afa5ca1148a8": {
+            "type": "char",
+            "size": 1,
+            "class": "Integral",
+            "direction": "import"
+        },
+        "c85bcac8ca48727eb84d73d743bfb8cd": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "ee8eaa81ccacc2d49d87afa5ca1148a8"
+            },
+            "direction": "both"
+        },
+        "fc120637f1c544d02555884cff0da54b": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "c85bcac8ca48727eb84d73d743bfb8cd"
+            },
+            "direction": "both",
+            "name": "argv"
+        }
+    }
+}

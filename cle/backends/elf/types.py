@@ -22,13 +22,19 @@ class ClassType:
         "float": "Float",
         "double": "Float",
         "long double": "Float",
+
     }
 
-    patterns = {
+    patterns = {      
         "int": "Integer",
         "char": "Integral",
         "float": "Float",
         "double": "Float",
+        # These are fortran types - skipping for now. Also see parse_string_type
+        # TODO https://docs.oracle.com/cd/E19957-01/805-4939/6j4m0vn6m/index.html
+        "logical": "Unknown",
+        "complex(kind=": "Unknown",
+        "real(kind=": "Unknown",
     }
 
     @classmethod
@@ -41,6 +47,10 @@ class ClassType:
             if pattern in typename:
                 classname = cls.patterns[pattern]
                 break
+
+        # __unknown__
+        if "unknown" in typename:
+            return "Unknown"
 
         if not classname:
             if typename not in cls.types:

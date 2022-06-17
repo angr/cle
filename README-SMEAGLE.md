@@ -36,11 +36,10 @@ This also means you should use the container for dwarfdump
 $ docker run -it -v $PWD:/code -it gcc:12.1 bash -c "apt-get update && apt-get install -y dwarfdump && dwarfdump /code/examples/bigcall/lib.so"
 ```
 
-
 ### Location Parsing
 
-It's fairly reasonable to use dwarf locations (the angr developers think so too)
-but if you want to force using manually encoded ABI rules:
+By default we use our custom location parsing. We will eventually have
+this variable enabled to switch to it instead of using dwarf location lists.
 
 ```bash
 $ export CLE_ELF_EXPERIMENTAL_PARSING=true
@@ -57,6 +56,13 @@ and it will be detected (built) when you do make:
 ```bash
 $ make
 ```
+
+And as noted above, you should use a conatiner compiler to be consistent:
+
+```bash
+$ docker run -it -v $PWD:/code -it gcc:12.1 bash -c "cd /code && make"
+```
+
 Each test folder must have the following:
 
  - the main program as example.cpp
@@ -88,12 +94,38 @@ tests.py /home/vanessa/Desktop/Code/cle/examples/callsite/lib.so
 .
 ```
 
+The other kind of testing is just making sure you can run the json generation over some spack install.
+I will usually start with a fresh clone of spack and then bind that same container to it:
+
+```
+git clone --depth 1 https://github.com/spack/spack /tmp/spack
+cd /tmp/spack
+docker run -it -v $PWD:/tmp/spack bash
+/tmp/spack/bin/spack install ...
+```
+
+Then you can use [test.py](test.py) and adjust the root variable to the root
+of your bound spack install. When you are done you'll either need to change
+all the permissions of the opt install directory, uninstall from within the container,
+or just uninstall with sudo outside it.
+
+## Dwarf Monsters
+
+These are cases with gcc 12.1 dwarf and the library here that I can't resolve. I'm noting here because Ben might be able to help or send them to the DWARF developers to look at.
+
+ - /tmp/spack/opt/spack/linux-debian11-skylake/gcc-12.1.0/berkeley-db-18.1.40-vfunoaarenct4iydt4vzg3nycoqhavty/lib/libdb_stl.so: subprogram qsort has a formal parameter with only one attribute, a DW_AT_type that points to a DW_TAG_namespace (__debug) with nothing else. We parse this type as unknown.
+ - /tmp/spack/opt/spack/linux-debian11-skylake/gcc-12.1.0/libbsd-0.11.5-ayxy3zjyufi6neh4fl5pie6n6rdc3jyn/lib/libbsd.so says it isn't elf, and someone suggested there is some kind of wrapper around it? I'm adding it to skip for now.
+ - /tmp/spack/opt/spack/linux-debian11-skylake/gcc-12.1.0/hdf5-1.12.2-pakhqhweeyy5nkuprbtjnfq4oyv7yzjs/lib/libhdf5.so has a formal parameter with type label. It has a DW_AT_abstract_origin that links to another label with name "done."
+  
 ## TODO:
+
  - Vanessasaurus:
-   - option to filter out some line programs based on location (to deal with unknown pointers) - NOTE seems to be bug with new dwarf and DW_AT_stmt_list parsing
  - Tim:
    - Write out high level approach
    - need to complement this with C++ interface to get callsites into Python. Only need for callsites for now, unless speed is an issue in the future.
+ - How to handle `DW_TAG_GNU_formal_parameter_pack`? Right now we return the first child (but this is wrong) see dyninst libpcontrol.so
+ - we need to add / parse [fortran types](https://docs.oracle.com/cd/E19957-01/805-4939/6j4m0vn6m/index.html) right now just Unknown
+ - return type allocator does not correctly handle struct/union
  - void pointers don't seem to show up in dwarf with global variables, without they do.
  - function as parameter doesn't have name, variable info, nothing, empty subroutine. We think there is missing dwarf information.
  - need to look again at 8 byte analysis (not entirely right)
