@@ -12,9 +12,6 @@ from typing import Optional, DefaultDict, List, Tuple, Dict, Union
 import logging
 from sortedcontainers import SortedKeyList
 
-from packaging.version import Version, LegacyVersion
-from packaging import version
-
 import archinfo
 
 from .macho_load_commands import LoadCommands as LC
@@ -127,7 +124,7 @@ class MachO(Backend):
         self._ordered_symbols: List[AbstractMachOSymbol] = []
 
         # The minimum version encoded by the LC_BUILD_VERSION command
-        self._minimum_version: Union[Version, LegacyVersion, None] = None
+        self._minimum_version: Optional[Tuple[int, int, int]] = None
 
         # Begin parsing the file
         try:
@@ -216,8 +213,8 @@ class MachO(Backend):
                     patch = (minos >> (8 * 0)) & 0xFF
                     minor = (minos >> (8 * 1)) & 0xFF
                     major = (minos >> (8 * 2)) & 0xFFFF
-                    self._minimum_version = version.parse(f"{major}.{minor}.{patch}")
-                    l.info("Found minimum version %s", self._minimum_version)
+                    self._minimum_version = (major, minor, patch)
+                    l.info("Found minimum version %s", ".".join([str(i) for i in self._minimum_version]))
                 else:
                     try:
                         command_name = LC(cmd)
