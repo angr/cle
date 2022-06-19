@@ -89,11 +89,8 @@ def classify(
         return "nullptr"
 
     if cls is None:
-        print("UNWRAP UNDERLYING TYPE IN CLASSIFY")
-        import IPython
-
-        return
-        IPython.embed()
+        # This should be IPython for further inspection
+        return None
 
     # } else if (auto *t = underlying_type->getEnumType()) {
     #  return classify(t);
@@ -248,6 +245,7 @@ def post_merge(lo, hi, size):
         and lo != RegisterClass.SSEUP
     ):
         hi = RegisterClass.SSE
+    return lo, hi
 
 
 def classify_struct(typ, types, allocator=None, return_classification=False):
@@ -295,6 +293,8 @@ def classify_aggregate(
 
     classes = []
     for eb in ebs:
+        if not eb.fields:
+            continue
         if len(eb.fields) > 1:
             c1 = classify(
                 eb.fields[0],
@@ -366,11 +366,19 @@ def classify_union(typ, allocator, types):
         c = classify(
             field, allocator=allocator, return_classification=True, types=types
         )
-        hi = merge(hi, c.classes[1])
-        lo = merge(lo, c.classes[0])
+        # We can't make a decision
+        if isinstance(c, list) and len(c) == 0:
+            continue
+        if isinstance(c, list) and len(c) == 1:
+            lo = merge(lo, c[0])
+        elif isinstance(c, list) and len(c) > 1:
+            hi = merge(hi, c[1])
+            lo = merge(lo, c[0])
+        else:
+            hi = merge(hi, c.classes[1])
+            lo = merge(lo, c.classes[0])
 
-    # Pass a reference so they are updated here, and we also need size
-    post_merge(lo, hi, size)
+    lo, hi = post_merge(lo, hi, size)
     return Classification("Union", [lo, hi])
 
 

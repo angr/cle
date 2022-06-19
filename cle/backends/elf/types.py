@@ -4,6 +4,7 @@ from elftools.dwarf.die import DIE
 class ClassType:
     types = {
         "int": "Integer",
+        "short": "Integer",
         "long int": "Integer",
         "unsigned int": "Integer",
         "unsigned char": "Integral",
@@ -22,19 +23,25 @@ class ClassType:
         "float": "Float",
         "double": "Float",
         "long double": "Float",
-
     }
 
-    patterns = {      
+    patterns = {
         "int": "Integer",
         "char": "Integral",
         "float": "Float",
         "double": "Float",
+        "short": "Integer",
         # These are fortran types - skipping for now. Also see parse_string_type
         # TODO https://docs.oracle.com/cd/E19957-01/805-4939/6j4m0vn6m/index.html
         "logical": "Unknown",
         "complex(kind=": "Unknown",
         "real(kind=": "Unknown",
+        # C99
+        "__ARRAY_SIZE_TYPE__": "Unknown",
+        # Boost
+        "param_type": "Unknown",
+        # No idea
+        "sizetype": "Unknown",
     }
 
     @classmethod
@@ -54,11 +61,8 @@ class ClassType:
 
         if not classname:
             if typename not in cls.types:
-                print("classtype")
-                print(typename)
-                import IPython
-
-                IPython.embed()
+                # This should be an interactive IPython
+                return "Unknown"
             classname = cls.types[typename]
 
         # Prefix with complex

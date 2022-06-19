@@ -149,7 +149,7 @@ class ElfCorpus(Corpus):
                 raise Exception("Unknown call site parameter!:\n%s" % child)
 
         if params:
-            entry["params"] = params
+            entry["parameters"] = params
         self.callsites.append(entry)
         return entry
 
@@ -167,12 +167,8 @@ class ElfCorpus(Corpus):
             else:
                 return {"type": "unknown"}
 
-        print("inlined subroutine")
-        print(die)
-        import IPython
-
-        IPython.embed()
-        sys.exit(0)
+        # This is a type we don't know - for development should be Ipython
+        return {"type": "unknown"}
 
     def parse_call_site_parameter(self, die):
         """
@@ -310,7 +306,7 @@ class ElfCorpus(Corpus):
                 continue
 
             # can either be inlined subroutine or format parameter
-            if child.tag == "DW_TAG_formal_parameter":
+            if child.tag in ["DW_TAG_formal_parameter", "DW_TAG_template_value_param"]:
                 param = self.parse_formal_parameter(child, allocator=allocator)
 
             elif child.tag == "DW_TAG_inlined_subroutine":
@@ -386,6 +382,7 @@ class ElfCorpus(Corpus):
                     "DW_TAG_typedef",
                     "DW_TAG_label",
                     "DW_TAG_template_type_param",
+                    "DW_TAG_imported_module",
                     "DW_TAG_subroutine_type",
                     "DW_TAG_common_block",
                 ]
@@ -394,11 +391,8 @@ class ElfCorpus(Corpus):
                 continue
 
             else:
-                print("Found new tag with subprogram children:\n%s" % child)
-                import IPython
-
-                IPython.embed()
-                sys.exit(0)
+                # for development should be Ipython
+                continue
             if param:
                 if "direction" not in param:
                     param["direction"] = "import"
@@ -727,10 +721,16 @@ class ElfCorpus(Corpus):
             "DW_AT_upper_bound" in die.attributes
             and "DW_AT_lower_bound" in die.attributes
         ):
-            entry["count"] = (
-                die.attributes["DW_AT_upper_bound"].value
-                - die.attributes["DW_AT_lower_bound"].value
-            )
+
+            # TODO this looks like it can sometimes be a dwarf expression with a constant
+            # see libpetsc.so
+            try:
+                entry["count"] = (
+                    die.attributes["DW_AT_upper_bound"].value
+                    - die.attributes["DW_AT_lower_bound"].value
+                )
+            except:
+                pass
 
         # If the lower bound value is missing, the value is assumed to be a language-dependent default constant.
         elif "DW_AT_upper_bound" in die.attributes:
@@ -789,25 +789,32 @@ class ElfCorpus(Corpus):
                 return self.parse_subprogram(imported)
             elif imported.tag == "DW_TAG_member":
                 return self.parse_member(imported)
-            elif imported.tag in ["DW_TAG_enumerator", "DW_TAG_enum_type"]:
+            elif imported.tag in [
+                "DW_TAG_enumerator",
+                "DW_TAG_enum_type",
+                "DW_TAG_enumeration_type",
+            ]:
                 return self.parse_enumeration_type(imported)
             elif imported.tag == "DW_TAG_typedef":
                 return self.parse_typedef(imported)
-            elif imported.tag == "DW_TAG_formal_parameter":
-                return self.parse_formal_parameter(imported)
-            elif imported.tag == ["DW_TAG_structure_type"]:
+            elif imported.tag in [
+                "DW_TAG_formal_parameter",
+                "DW_TAG_template_type_param",
+            ]:
+                return self.parse_formal_parameter(imported, allocator=None)
+            elif imported.tag == "DW_TAG_class_type":
+                return self.parse_class_type(imported)
+            elif imported.tag == "DW_TAG_structure_type":
                 return self.parse_structure_type(imported)
             # TODO: question - should this parse no matter what (e.g., skip external checks)
             # found in libsymtabAPI.so of dyninst
             elif imported.tag == "DW_TAG_variable":
                 return self.parse_variable(imported)
-            print(imported)
+            elif self.is_flag_type(imported):
+                return self.parse_underlying_type(imported, flags=flags)
 
-        print("UNKNOWN DECLARATION CASE")
-        import IPython
-
-        IPython.embed()
-        sys.exit(0)
+        # for development should be Ipython
+        return self.parse_underlying_type(imported, flags=flags)
 
     def parse_typedef(self, die, flags=None):
         """
@@ -818,6 +825,18 @@ class ElfCorpus(Corpus):
         entry.update(underlying_type)
         entry = self.add_flags(entry, flags)
         return entry
+
+    def is_flag_type(self, die):
+        return die.tag in [
+            "DW_TAG_const_type",
+            "DW_TAG_constant",
+            "DW_TAG_atomic_type",
+            "DW_TAG_immutable_type",
+            "DW_TAG_volatile_type",
+            "DW_TAG_packed_type",
+            "DW_TAG_shared_type",
+            "DW_TAG_restrict_type",
+        ]
 
     def update_flags(self, type_die, flags):
         """
@@ -910,6 +929,7 @@ class ElfCorpus(Corpus):
             return self.parse_union_type(type_die, flags=flags)
 
         if type_die.tag in [
+            "DW_TAG_enum_type",
             "DW_TAG_enumeration_type",
             "DW_TAG_enumerator",
         ]:
@@ -961,16 +981,7 @@ class ElfCorpus(Corpus):
             return self.parse_string_type(type_die, flags=flags)
 
         # These are essentially skipped over to get to underlying type
-        if type_die.tag in [
-            "DW_TAG_atomic_type",
-            "DW_TAG_const_type",
-            "DW_TAG_constant",
-            "DW_TAG_restrict_type",
-            "DW_TAG_packed_type",
-            "DW_TAG_immutable_type",
-            "DW_TAG_volatile_type",
-            "DW_TAG_shared_type",
-            # end flag types
+        if self.is_flag_type(type_die) or type_die.tag in [
             "DW_TAG_formal_parameter",
             "DW_TAG_namespace",
             "DW_TAG_inheritance",
@@ -984,7 +995,9 @@ class ElfCorpus(Corpus):
             "DW_TAG_template_value_parameter",
             "DW_TAG_template_value_param",
             "DW_TAG_GNU_template_parameter_pack",
+            "DW_TAG_GNU_formal_parameter_pack",
             "DW_TAG_label",
+            "DW_TAG_module",
         ]:
             return self.parse_underlying_type(type_die, flags=flags)
 

@@ -112,9 +112,6 @@ class LSDAExceptionTable:
         if lpstart_encoding != DW_EH_encoding_flags['DW_EH_PE_omit']:
             base_encoding = lpstart_encoding & 0x0f
             modifier = lpstart_encoding & 0xf0
-
-            import IPython
-            IPython.embed()
             lpstart = struct_parse(
                 Struct('dummy',
                        self._formats[base_encoding]('LPStart')),
@@ -165,6 +162,10 @@ class LSDAExceptionTable:
         base_encoding = encoding & 0x0f
         modifier = encoding & 0xf0
 
+        # nvvm/lib64/libnvvm.so
+        if base_encoding not in self._formats:
+            return
+
         # header
         s = struct_parse(
             Struct('CallSiteEntry',
@@ -184,6 +185,7 @@ class LSDAExceptionTable:
         if modifier == 0:
             pass
         else:
+            return
             raise NotImplementedError("Unsupported modifier for CallSiteEntry: %#x." % modifier)
 
         return CallSiteEntry(cs_start, cs_len, cs_lp, cs_action)
