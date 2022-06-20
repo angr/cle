@@ -8,7 +8,7 @@ from sortedcontainers import SortedDict
 import elftools
 from elftools.elf import elffile, sections, dynamic, enums
 from elftools.dwarf import callframe
-from elftools.common.exceptions import ELFError, DWARFError
+from elftools.common.exceptions import ELFError, DWARFError, ELFParseError
 from elftools.dwarf.dwarf_expr import DWARFExprParser
 from elftools.dwarf.descriptions import describe_form_class, describe_attr_value, set_global_machine_arch
 from elftools.dwarf.dwarfinfo import DWARFInfo
@@ -616,8 +616,11 @@ class ELF(MetaELF):
         """
         for cu in dwarf.iter_CUs():
             comp_dir = '.'
-            die = cu.get_top_DIE()
-            
+            try:
+                die = cu.get_top_DIE()
+            except KeyError:
+                # pyelftools is not very resilient
+                continue
             if 'DW_AT_comp_dir' in die.attributes:
                 comp_dir = die.attributes['DW_AT_comp_dir'].value.decode()
 
@@ -626,16 +629,14 @@ class ELF(MetaELF):
             if "DW_AT_stmt_list" in die.attributes:
                 del die.attributes["DW_AT_stmt_list"]
 
-            # Added because this fails sometimes, along with lineprog.get_entries()
             try:
                 lineprog = dwarf.line_program_for_CU(cu)
-                if lineprog is None:
-                    continue
-                entries = lineprog.get_entries()
-            except Exception as e:
+            except ELFParseError:
+                continue
+            if lineprog is None:
                 continue
             file_cache = {}
-            for line in entries:
+            for line in lineprog.get_entries():
                 if line.state is None:
                     continue
                 if line.state.file in file_cache:
@@ -721,13 +722,17 @@ class ELF(MetaELF):
         for cu in dwarf.iter_CUs():
             expr_parser = DWARFExprParser(cu.structs)
 
-            # scan the whole die tree for DW_TAG_base_type and DW_TAG_typedef
-            for die in cu.iter_DIEs():                
-                if die.tag == "DW_TAG_base_type":
-                    var_type = VariableType.read_from_die(die)
-                    if var_type is not None:
-                        type_list[die.offset] = var_type
-                parse_die_types(die)
+            # scan the whole die tree for DW_TAG_base_type
+            try:
+                for die in cu.iter_DIEs():
+                    if die.tag == "DW_TAG_base_type":
+                        var_type = VariableType.read_from_die(die)
+                        if var_type is not None:
+                            type_list[die.offset] = var_type
+                    parse_die_types(die)
+            except KeyError:
+                # pyelftools is not very resilient - we need to catch KeyErrors here
+                continue
 
             # Provide type information to the corpus
             self.corpus.type_die_lookup = type_die_lookup

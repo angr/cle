@@ -64,6 +64,8 @@ class ELFCore(ELF):
 
         self.__reload_children()
 
+        self._remote_file_mapper = None
+
     @staticmethod
     def is_compatible(stream):
         stream.seek(0)
