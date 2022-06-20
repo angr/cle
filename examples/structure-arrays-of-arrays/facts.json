@@ -41,7 +41,7 @@
                     },
                     {
                         "name": "array",
-                        "type": "66aea84f8bf2f889f2df5d1e80a45e57",
+                        "type": "85bc02241595669fc880b82ab543098f",
                         "location": "%rsi",
                         "direction": "import"
                     }
@@ -104,7 +104,7 @@
             "count": 0,
             "type": "1fd8c01bdca094933f920b41375cfed0"
         },
-        "9ffd15560f149b239367223323613a38": {
+        "039aab370feda6121bd2984537427938": {
             "name": "Structy",
             "size": 24100,
             "class": "Struct",
@@ -112,20 +112,22 @@
                 {
                     "name": "two_d",
                     "type": "d449d18ab3dce375e0f01aa2fe82d92c",
+                    "offset": 0,
                     "direction": "export"
                 },
                 {
                     "name": "three_d",
                     "type": "b50f361252ff85eedc7459a5572d2093",
+                    "offset": 100,
                     "direction": "export"
                 }
             ]
         },
-        "66aea84f8bf2f889f2df5d1e80a45e57": {
+        "85bc02241595669fc880b82ab543098f": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "9ffd15560f149b239367223323613a38"
+                "type": "039aab370feda6121bd2984537427938"
             },
             "direction": "both",
             "name": "array"

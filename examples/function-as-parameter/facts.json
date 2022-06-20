@@ -23,7 +23,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "f35c8460d65ceaaadef5f007642685f2",
+                        "type": "ccde650e346806f391a49d694423efe7",
                         "location": "%rdi",
                         "direction": "import"
                     },
@@ -41,7 +41,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "f35c8460d65ceaaadef5f007642685f2",
+                        "type": "ccde650e346806f391a49d694423efe7",
                         "location": "%rdi",
                         "direction": "import"
                     }
@@ -54,7 +54,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "f35c8460d65ceaaadef5f007642685f2",
+                        "type": "ccde650e346806f391a49d694423efe7",
                         "location": "%rdi",
                         "direction": "import"
                     }
@@ -67,7 +67,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "2e15a7738ac95ba1ddd1d8de660a1a07",
+                        "type": "faefbe4a8ba109ec1fec9edfcd0fea78",
                         "location": "%rdi",
                         "direction": "import"
                     }
@@ -85,7 +85,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "f35c8460d65ceaaadef5f007642685f2",
+                        "type": "ccde650e346806f391a49d694423efe7",
                         "location": "%rdi",
                         "direction": "import"
                     }
@@ -98,12 +98,12 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "f35c8460d65ceaaadef5f007642685f2",
+                        "type": "ccde650e346806f391a49d694423efe7",
                         "location": "%rdi",
                         "direction": "import"
                     },
                     {
-                        "type": "0e613ce8c1414f59314b04bf56e6dd5c",
+                        "type": "bfd086dea09b934cd68b4c0d87efe791",
                         "direction": "import"
                     }
                 ]
@@ -115,7 +115,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "f35c8460d65ceaaadef5f007642685f2",
+                        "type": "ccde650e346806f391a49d694423efe7",
                         "location": "%rdi",
                         "direction": "import"
                     },
@@ -132,12 +132,12 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "f35c8460d65ceaaadef5f007642685f2",
+                        "type": "ccde650e346806f391a49d694423efe7",
                         "location": "%rdi",
                         "direction": "import"
                     },
                     {
-                        "type": "ea735839fc98848cacab894264cb3fed",
+                        "type": "a1cb941a0105be277afd9e1b4777f1fc",
                         "direction": "import"
                     }
                 ]
@@ -149,17 +149,17 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "f35c8460d65ceaaadef5f007642685f2",
+                        "type": "ccde650e346806f391a49d694423efe7",
                         "location": "%rdi",
                         "direction": "import"
                     },
                     {
-                        "type": "0e613ce8c1414f59314b04bf56e6dd5c",
+                        "type": "bfd086dea09b934cd68b4c0d87efe791",
                         "direction": "import"
                     }
                 ],
                 "return": {
-                    "type": "ea735839fc98848cacab894264cb3fed",
+                    "type": "a1cb941a0105be277afd9e1b4777f1fc",
                     "direction": "export"
                 }
             }
@@ -170,17 +170,17 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "f35c8460d65ceaaadef5f007642685f2",
+                        "type": "ccde650e346806f391a49d694423efe7",
                         "location": "%rdi",
                         "direction": "import"
                     },
                     {
-                        "type": "ea735839fc98848cacab894264cb3fed",
+                        "type": "a1cb941a0105be277afd9e1b4777f1fc",
                         "direction": "import"
                     }
                 ],
                 "return": {
-                    "type": "ea735839fc98848cacab894264cb3fed",
+                    "type": "a1cb941a0105be277afd9e1b4777f1fc",
                     "direction": "export"
                 }
             }
@@ -191,7 +191,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "f35c8460d65ceaaadef5f007642685f2",
+                        "type": "ccde650e346806f391a49d694423efe7",
                         "location": "%rdi",
                         "direction": "import"
                     },
@@ -209,12 +209,12 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "f35c8460d65ceaaadef5f007642685f2",
+                        "type": "ccde650e346806f391a49d694423efe7",
                         "location": "%rdi",
                         "direction": "import"
                     },
                     {
-                        "type": "ea735839fc98848cacab894264cb3fed",
+                        "type": "a1cb941a0105be277afd9e1b4777f1fc",
                         "direction": "import"
                     }
                 ]
@@ -226,7 +226,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "2e15a7738ac95ba1ddd1d8de660a1a07",
+                        "type": "faefbe4a8ba109ec1fec9edfcd0fea78",
                         "location": "%rdi",
                         "direction": "import"
                     }
@@ -244,7 +244,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "2e15a7738ac95ba1ddd1d8de660a1a07",
+                        "type": "faefbe4a8ba109ec1fec9edfcd0fea78",
                         "location": "%rdi",
                         "direction": "import"
                     }
@@ -262,7 +262,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "a6091fcd40006980cf58653a7dd2618b",
+                        "type": "ec514c51f44d9931b23d66f84ded4189",
                         "location": "%rdi",
                         "direction": "import"
                     }
@@ -712,7 +712,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "fc474cdac6c351cade1a8d47b2de0df0",
+                        "type": "12437cf9cada6992db5efeecc74c741c",
                         "location": "%rdi",
                         "direction": "import"
                     }
@@ -739,7 +739,7 @@
                         "direction": "import"
                     },
                     {
-                        "type": "fc474cdac6c351cade1a8d47b2de0df0",
+                        "type": "12437cf9cada6992db5efeecc74c741c",
                         "location": "%rdx",
                         "direction": "import"
                     }
@@ -762,7 +762,7 @@
                         "direction": "import"
                     },
                     {
-                        "type": "fc474cdac6c351cade1a8d47b2de0df0",
+                        "type": "12437cf9cada6992db5efeecc74c741c",
                         "location": "%rsi",
                         "direction": "import"
                     }
@@ -784,7 +784,7 @@
                         "direction": "import"
                     },
                     {
-                        "type": "fc474cdac6c351cade1a8d47b2de0df0",
+                        "type": "12437cf9cada6992db5efeecc74c741c",
                         "location": "%rsi",
                         "direction": "import"
                     }
@@ -802,7 +802,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "fc474cdac6c351cade1a8d47b2de0df0",
+                        "type": "12437cf9cada6992db5efeecc74c741c",
                         "location": "%rdi",
                         "direction": "import"
                     },
@@ -825,7 +825,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "fc474cdac6c351cade1a8d47b2de0df0",
+                        "type": "12437cf9cada6992db5efeecc74c741c",
                         "location": "%rdi",
                         "direction": "import"
                     },
@@ -848,7 +848,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "fc474cdac6c351cade1a8d47b2de0df0",
+                        "type": "12437cf9cada6992db5efeecc74c741c",
                         "location": "%rdi",
                         "direction": "import"
                     }
@@ -884,7 +884,7 @@
                         "direction": "import"
                     },
                     {
-                        "type": "205e0fceb126bef70b0587ccdf5742f7",
+                        "type": "cd853eea1604bf9a5888e9da62a464b1",
                         "location": "%rsi",
                         "direction": "import"
                     }
@@ -915,7 +915,7 @@
                         "direction": "import"
                     },
                     {
-                        "type": "205e0fceb126bef70b0587ccdf5742f7",
+                        "type": "cd853eea1604bf9a5888e9da62a464b1",
                         "location": "%rdx",
                         "direction": "import"
                     }
@@ -932,7 +932,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "a435f8870d178578f15c072d541bc1e0",
+                        "type": "6bb80f5b98bd40a66cdb3c488b3023ff",
                         "location": "%rdi",
                         "direction": "import"
                     }
@@ -964,7 +964,7 @@
                         "direction": "import"
                     },
                     {
-                        "type": "205e0fceb126bef70b0587ccdf5742f7",
+                        "type": "cd853eea1604bf9a5888e9da62a464b1",
                         "location": "%rdx",
                         "direction": "import"
                     }
@@ -986,7 +986,7 @@
                         "direction": "import"
                     },
                     {
-                        "type": "fc474cdac6c351cade1a8d47b2de0df0",
+                        "type": "12437cf9cada6992db5efeecc74c741c",
                         "location": "%rsi",
                         "direction": "import"
                     }
@@ -1051,7 +1051,7 @@
                         "direction": "import"
                     },
                     {
-                        "type": "fc474cdac6c351cade1a8d47b2de0df0",
+                        "type": "12437cf9cada6992db5efeecc74c741c",
                         "location": "%rdi",
                         "direction": "import"
                     }
@@ -1068,7 +1068,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "fc474cdac6c351cade1a8d47b2de0df0",
+                        "type": "12437cf9cada6992db5efeecc74c741c",
                         "location": "%rdi",
                         "direction": "import"
                     },
@@ -1078,7 +1078,7 @@
                         "direction": "import"
                     },
                     {
-                        "type": "76e7c3fb7298b187fd35340fbafa0516",
+                        "type": "087bc1a9b9afc38ef929bec90cdbf90f",
                         "location": "%rdx",
                         "direction": "import"
                     }
@@ -1110,7 +1110,7 @@
                         "direction": "import"
                     },
                     {
-                        "type": "76e7c3fb7298b187fd35340fbafa0516",
+                        "type": "087bc1a9b9afc38ef929bec90cdbf90f",
                         "location": "%rdx",
                         "direction": "import"
                     }
@@ -1133,7 +1133,7 @@
                         "direction": "import"
                     },
                     {
-                        "type": "76e7c3fb7298b187fd35340fbafa0516",
+                        "type": "087bc1a9b9afc38ef929bec90cdbf90f",
                         "location": "%rsi",
                         "direction": "import"
                     }
@@ -1161,7 +1161,7 @@
                         "direction": "import"
                     },
                     {
-                        "type": "205e0fceb126bef70b0587ccdf5742f7",
+                        "type": "cd853eea1604bf9a5888e9da62a464b1",
                         "location": "%rdx",
                         "direction": "import"
                     }
@@ -1306,7 +1306,7 @@
                         "direction": "import"
                     },
                     {
-                        "type": "ade014898b89989a611ba03fa922dd39",
+                        "type": "1e1f8cf25fef795bfa3eca52c62bf23e",
                         "location": "%rdx",
                         "direction": "import"
                     }
@@ -1435,7 +1435,7 @@
                         "direction": "import"
                     },
                     {
-                        "type": "205e0fceb126bef70b0587ccdf5742f7",
+                        "type": "cd853eea1604bf9a5888e9da62a464b1",
                         "location": "%rdx",
                         "direction": "import"
                     }
@@ -2022,7 +2022,7 @@
                     }
                 ],
                 "return": {
-                    "type": "511db7a48fea5ccd7eb120bbdc22b399",
+                    "type": "aa6ec65f9cd94edd50a3afcc488bf09c",
                     "direction": "export"
                 }
             }
@@ -2134,7 +2134,7 @@
                 "name": "localeconv",
                 "class": "Function",
                 "return": {
-                    "type": "7455a3402bc9b3e7ba16c9cb93d06f59",
+                    "type": "6e0c533d67ee9813b321c7a1635c6138",
                     "direction": "export",
                     "location": "%rax"
                 }
@@ -2282,7 +2282,7 @@
                     }
                 ],
                 "return": {
-                    "type": "bbdab2d56f5d401386ef8bc820c2e430",
+                    "type": "ec1ee3db971e7e1f163e403a9308307d",
                     "direction": "export"
                 }
             }
@@ -2322,7 +2322,7 @@
                     }
                 ],
                 "return": {
-                    "type": "7a16815ff80c79042ddf4783ef473fb2",
+                    "type": "3cbb0f1df2b1c934d8ed19fca5a772fc",
                     "direction": "export"
                 }
             }
@@ -2627,7 +2627,7 @@
                     }
                 ],
                 "return": {
-                    "type": "511db7a48fea5ccd7eb120bbdc22b399",
+                    "type": "aa6ec65f9cd94edd50a3afcc488bf09c",
                     "direction": "export"
                 }
             }
@@ -2758,7 +2758,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "ebc1477244743158b8836b0e2f24b1da",
+                        "type": "2c875b43148306e8955bc6da66e64ebd",
                         "location": "%rdi",
                         "direction": "import"
                     }
@@ -2771,7 +2771,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "ebc1477244743158b8836b0e2f24b1da",
+                        "type": "2c875b43148306e8955bc6da66e64ebd",
                         "location": "%rdi",
                         "direction": "import"
                     }
@@ -2789,7 +2789,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "ebc1477244743158b8836b0e2f24b1da",
+                        "type": "2c875b43148306e8955bc6da66e64ebd",
                         "location": "%rdi",
                         "direction": "import"
                     }
@@ -2807,7 +2807,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "ebc1477244743158b8836b0e2f24b1da",
+                        "type": "2c875b43148306e8955bc6da66e64ebd",
                         "location": "%rdi",
                         "direction": "import"
                     }
@@ -2825,7 +2825,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "ebc1477244743158b8836b0e2f24b1da",
+                        "type": "2c875b43148306e8955bc6da66e64ebd",
                         "location": "%rdi",
                         "direction": "import"
                     }
@@ -2843,7 +2843,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "ebc1477244743158b8836b0e2f24b1da",
+                        "type": "2c875b43148306e8955bc6da66e64ebd",
                         "location": "%rdi",
                         "direction": "import"
                     }
@@ -2861,12 +2861,12 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "ebc1477244743158b8836b0e2f24b1da",
+                        "type": "2c875b43148306e8955bc6da66e64ebd",
                         "location": "%rdi",
                         "direction": "import"
                     },
                     {
-                        "type": "67f22911629ed4891b78afb9415b1999",
+                        "type": "5c8af63623bec0165874a9e99064e5a1",
                         "location": "%rsi",
                         "direction": "import"
                     }
@@ -2894,7 +2894,7 @@
                         "direction": "import"
                     },
                     {
-                        "type": "ebc1477244743158b8836b0e2f24b1da",
+                        "type": "2c875b43148306e8955bc6da66e64ebd",
                         "location": "%rdx",
                         "direction": "import"
                     }
@@ -2923,7 +2923,7 @@
                     }
                 ],
                 "return": {
-                    "type": "72fe6e047a60db9319fb71fe95d72675",
+                    "type": "5249e6156e83f355e8d4504c05ffc12a",
                     "direction": "export",
                     "location": "%rax"
                 }
@@ -2948,7 +2948,7 @@
                         "direction": "import"
                     },
                     {
-                        "type": "ebc1477244743158b8836b0e2f24b1da",
+                        "type": "2c875b43148306e8955bc6da66e64ebd",
                         "location": "%rsi",
                         "direction": "import"
                     }
@@ -2975,13 +2975,13 @@
                         "direction": "import"
                     },
                     {
-                        "type": "ebc1477244743158b8836b0e2f24b1da",
+                        "type": "2c875b43148306e8955bc6da66e64ebd",
                         "location": "%rdx",
                         "direction": "import"
                     }
                 ],
                 "return": {
-                    "type": "0fd300f7869e2003beea63d533c558ee",
+                    "type": "58e23979a8fe50a64fa8d35bc8357a42",
                     "direction": "export",
                     "location": "%rax"
                 }
@@ -2993,7 +2993,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "ebc1477244743158b8836b0e2f24b1da",
+                        "type": "2c875b43148306e8955bc6da66e64ebd",
                         "location": "%rdi",
                         "direction": "import"
                     },
@@ -3021,12 +3021,12 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "ebc1477244743158b8836b0e2f24b1da",
+                        "type": "2c875b43148306e8955bc6da66e64ebd",
                         "location": "%rdi",
                         "direction": "import"
                     },
                     {
-                        "type": "e1d1c2b28afbc6b492481e58b01a8df7",
+                        "type": "39687ad0eeadce10cc5c15a3ff902a3a",
                         "location": "%rsi",
                         "direction": "import"
                     }
@@ -3044,7 +3044,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "ebc1477244743158b8836b0e2f24b1da",
+                        "type": "2c875b43148306e8955bc6da66e64ebd",
                         "location": "%rdi",
                         "direction": "import"
                     }
@@ -3062,7 +3062,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "ebc1477244743158b8836b0e2f24b1da",
+                        "type": "2c875b43148306e8955bc6da66e64ebd",
                         "location": "%rdi",
                         "direction": "import"
                     }
@@ -3145,7 +3145,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "ebc1477244743158b8836b0e2f24b1da",
+                        "type": "2c875b43148306e8955bc6da66e64ebd",
                         "location": "%rdi",
                         "direction": "import"
                     }
@@ -3158,7 +3158,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "ebc1477244743158b8836b0e2f24b1da",
+                        "type": "2c875b43148306e8955bc6da66e64ebd",
                         "location": "%rdi",
                         "direction": "import"
                     },
@@ -3176,7 +3176,7 @@
                 "class": "Function",
                 "parameters": [
                     {
-                        "type": "ebc1477244743158b8836b0e2f24b1da",
+                        "type": "2c875b43148306e8955bc6da66e64ebd",
                         "location": "%rdi",
                         "direction": "import"
                     },
@@ -3207,7 +3207,7 @@
                 "name": "tmpfile",
                 "class": "Function",
                 "return": {
-                    "type": "f42a22c00ffd69d54728c5ec326981a2",
+                    "type": "5a4189032d09d189c001d587de38e085",
                     "direction": "export",
                     "location": "%rax"
                 }
@@ -3242,7 +3242,7 @@
                         "direction": "import"
                     },
                     {
-                        "type": "ebc1477244743158b8836b0e2f24b1da",
+                        "type": "2c875b43148306e8955bc6da66e64ebd",
                         "location": "%rsi",
                         "direction": "import"
                     }
@@ -3435,22 +3435,23 @@
             "direction": "both",
             "name": "_M_exception_object"
         },
-        "a6091fcd40006980cf58653a7dd2618b": {
+        "ec514c51f44d9931b23d66f84ded4189": {
             "name": "exception_ptr",
             "size": 8,
             "class": "Class",
             "fields": [
                 {
                     "name": "_M_exception_object",
-                    "type": "bd0f95a6606dcd8b66497841cf8daa03"
+                    "type": "bd0f95a6606dcd8b66497841cf8daa03",
+                    "offset": 0
                 }
             ]
         },
-        "f35c8460d65ceaaadef5f007642685f2": {
+        "ccde650e346806f391a49d694423efe7": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "a6091fcd40006980cf58653a7dd2618b"
+                "type": "ec514c51f44d9931b23d66f84ded4189"
             },
             "direction": "both"
         },
@@ -3471,31 +3472,32 @@
             "direction": "both",
             "name": "_ZNKSt15__exception_ptr13exception_ptr6_M_getEv"
         },
-        "e37ba8a6443797237416acabb5b7e520": {
+        "b60e761443e5ba0c91800313276cd538": {
             "name": "exception_ptr",
             "size": 8,
             "class": "Class",
             "fields": [
                 {
                     "name": "_M_exception_object",
-                    "type": "bd0f95a6606dcd8b66497841cf8daa03"
+                    "type": "bd0f95a6606dcd8b66497841cf8daa03",
+                    "offset": 0
                 }
             ],
             "constant": true
         },
-        "8e3bee95199ecc64a467fa5c55edb94d": {
-            "type": "e37ba8a6443797237416acabb5b7e520"
+        "d91d49f33e9833e415420a01096b7369": {
+            "type": "b60e761443e5ba0c91800313276cd538"
         },
-        "2e15a7738ac95ba1ddd1d8de660a1a07": {
+        "faefbe4a8ba109ec1fec9edfcd0fea78": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "8e3bee95199ecc64a467fa5c55edb94d"
+                "type": "d91d49f33e9833e415420a01096b7369"
             },
             "direction": "both"
         },
-        "0e613ce8c1414f59314b04bf56e6dd5c": {
-            "type": "8e3bee95199ecc64a467fa5c55edb94d"
+        "bfd086dea09b934cd68b4c0d87efe791": {
+            "type": "d91d49f33e9833e415420a01096b7369"
         },
         "e11e1e8c586a7c4160a357b6ef8c2d84": {
             "type": "3136b53c7788b73670691bd7c934571c"
@@ -3504,8 +3506,8 @@
             "name": "nullptr_t",
             "type": "e11e1e8c586a7c4160a357b6ef8c2d84"
         },
-        "ea735839fc98848cacab894264cb3fed": {
-            "type": "a6091fcd40006980cf58653a7dd2618b"
+        "a1cb941a0105be277afd9e1b4777f1fc": {
+            "type": "ec514c51f44d9931b23d66f84ded4189"
         },
         "1fd8c01bdca094933f920b41375cfed0": {
             "type": "int",
@@ -4038,7 +4040,7 @@
             "count": 0,
             "type": "ee8eaa81ccacc2d49d87afa5ca1148a8"
         },
-        "c3785e6d8d10f5945890a710a0a72048": {
+        "2a44adf50d3e4d478c526066d1f48196": {
             "name": "_IO_FILE",
             "size": 216,
             "class": "Struct",
@@ -4046,160 +4048,189 @@
                 {
                     "name": "_flags",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 0,
                     "direction": "export"
                 },
                 {
                     "name": "_IO_read_ptr",
                     "type": "8d4eae7fdd9338ece2fe292b6c2d9cc4",
+                    "offset": 8,
                     "direction": "export"
                 },
                 {
                     "name": "_IO_read_end",
                     "type": "10e68738bf87fbd8e6a5c9392a0763d7",
+                    "offset": 16,
                     "direction": "export"
                 },
                 {
                     "name": "_IO_read_base",
                     "type": "90bae521ec943e9651519eefa0bb9dba",
+                    "offset": 24,
                     "direction": "export"
                 },
                 {
                     "name": "_IO_write_base",
                     "type": "6dc6bbad9f6ac4cf63ad00b70d5c0aeb",
+                    "offset": 32,
                     "direction": "export"
                 },
                 {
                     "name": "_IO_write_ptr",
                     "type": "5162c9e2f43d904907adf1c90370202c",
+                    "offset": 40,
                     "direction": "export"
                 },
                 {
                     "name": "_IO_write_end",
                     "type": "01e41dbdbad96debe51f4f0c0788f687",
+                    "offset": 48,
                     "direction": "export"
                 },
                 {
                     "name": "_IO_buf_base",
                     "type": "626212c792a57fb8fbece70805a5f0fb",
+                    "offset": 56,
                     "direction": "export"
                 },
                 {
                     "name": "_IO_buf_end",
                     "type": "ab4a9f2e91ebafebd99ad7fb24cc4dcb",
+                    "offset": 64,
                     "direction": "export"
                 },
                 {
                     "name": "_IO_save_base",
                     "type": "d2cdcdf178e1aa431f0c92f30408857a",
+                    "offset": 72,
                     "direction": "export"
                 },
                 {
                     "name": "_IO_backup_base",
                     "type": "88c437f036bd0e06d40b200f05c7677d",
+                    "offset": 80,
                     "direction": "export"
                 },
                 {
                     "name": "_IO_save_end",
                     "type": "9b442738047d56655f906aeb334e2e1b",
+                    "offset": 88,
                     "direction": "export"
                 },
                 {
                     "name": "_markers",
                     "type": "564421333009725387fd8636a1217f8c",
+                    "offset": 96,
                     "direction": "export"
                 },
                 {
                     "name": "_chain",
                     "type": "Recursive",
+                    "offset": 104,
                     "direction": "export"
                 },
                 {
                     "name": "_fileno",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 112,
                     "direction": "export"
                 },
                 {
                     "name": "_flags2",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 116,
                     "direction": "export"
                 },
                 {
                     "name": "_old_offset",
                     "type": "53f3605b08deb1382db3e44cb033ec43",
+                    "offset": 120,
                     "direction": "export"
                 },
                 {
                     "name": "_cur_column",
                     "type": "251ba5521033493f21e959542089468c",
+                    "offset": 128,
                     "direction": "export"
                 },
                 {
                     "name": "_vtable_offset",
                     "type": "b54b4317e56dcaace25c0b0efdc93d40",
+                    "offset": 130,
                     "direction": "export"
                 },
                 {
                     "name": "_shortbuf",
                     "type": "86bc3cc70733b00a600c133f158d49e2",
+                    "offset": 131,
                     "direction": "export"
                 },
                 {
                     "name": "_lock",
                     "type": "3f961aff079031d8f51b5fb0d6ccbd3a",
+                    "offset": 136,
                     "direction": "export"
                 },
                 {
                     "name": "_offset",
                     "type": "480b5658d062c1ea78c88cc704cc077e",
+                    "offset": 144,
                     "direction": "export"
                 },
                 {
                     "name": "_codecvt",
                     "type": "2bac4210abafb074d45b393ac8248c5f",
+                    "offset": 152,
                     "direction": "export"
                 },
                 {
                     "name": "_wide_data",
                     "type": "971f147c480e7fe94dee756a503defb1",
+                    "offset": 160,
                     "direction": "export"
                 },
                 {
                     "name": "_freeres_list",
                     "type": "d812d49604fc02d9bacadd2eaf09b3dd",
+                    "offset": 168,
                     "direction": "export"
                 },
                 {
                     "name": "_freeres_buf",
                     "type": "0cb429064664be0b78e1e6200faf72a9",
+                    "offset": 176,
                     "direction": "export"
                 },
                 {
                     "name": "__pad5",
                     "type": "2b7927ac6886d6f780cffd9e51ebbc49",
+                    "offset": 184,
                     "direction": "export"
                 },
                 {
                     "name": "_mode",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 192,
                     "direction": "export"
                 },
                 {
                     "name": "_unused2",
                     "type": "eadc7a49a20dc0a4df4dfebceddbf9da",
+                    "offset": 196,
                     "direction": "export"
                 }
             ]
         },
-        "949606aa7ffb9bd87cf4abd5d0c223a7": {
+        "053c859ee381b472cb96aac523e87963": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "c3785e6d8d10f5945890a710a0a72048"
+                "type": "2a44adf50d3e4d478c526066d1f48196"
             },
             "direction": "both",
             "name": "_chain"
         },
-        "4ba06ecd224522f7b62a7a6580ae9593": {
+        "ad779d3d3b2541402c65216e39ec6206": {
             "name": "_IO_FILE",
             "size": 216,
             "class": "Struct",
@@ -4207,159 +4238,188 @@
                 {
                     "name": "_flags",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 0,
                     "direction": "export"
                 },
                 {
                     "name": "_IO_read_ptr",
                     "type": "8d4eae7fdd9338ece2fe292b6c2d9cc4",
+                    "offset": 8,
                     "direction": "export"
                 },
                 {
                     "name": "_IO_read_end",
                     "type": "10e68738bf87fbd8e6a5c9392a0763d7",
+                    "offset": 16,
                     "direction": "export"
                 },
                 {
                     "name": "_IO_read_base",
                     "type": "90bae521ec943e9651519eefa0bb9dba",
+                    "offset": 24,
                     "direction": "export"
                 },
                 {
                     "name": "_IO_write_base",
                     "type": "6dc6bbad9f6ac4cf63ad00b70d5c0aeb",
+                    "offset": 32,
                     "direction": "export"
                 },
                 {
                     "name": "_IO_write_ptr",
                     "type": "5162c9e2f43d904907adf1c90370202c",
+                    "offset": 40,
                     "direction": "export"
                 },
                 {
                     "name": "_IO_write_end",
                     "type": "01e41dbdbad96debe51f4f0c0788f687",
+                    "offset": 48,
                     "direction": "export"
                 },
                 {
                     "name": "_IO_buf_base",
                     "type": "626212c792a57fb8fbece70805a5f0fb",
+                    "offset": 56,
                     "direction": "export"
                 },
                 {
                     "name": "_IO_buf_end",
                     "type": "ab4a9f2e91ebafebd99ad7fb24cc4dcb",
+                    "offset": 64,
                     "direction": "export"
                 },
                 {
                     "name": "_IO_save_base",
                     "type": "d2cdcdf178e1aa431f0c92f30408857a",
+                    "offset": 72,
                     "direction": "export"
                 },
                 {
                     "name": "_IO_backup_base",
                     "type": "88c437f036bd0e06d40b200f05c7677d",
+                    "offset": 80,
                     "direction": "export"
                 },
                 {
                     "name": "_IO_save_end",
                     "type": "9b442738047d56655f906aeb334e2e1b",
+                    "offset": 88,
                     "direction": "export"
                 },
                 {
                     "name": "_markers",
                     "type": "564421333009725387fd8636a1217f8c",
+                    "offset": 96,
                     "direction": "export"
                 },
                 {
                     "name": "_chain",
-                    "type": "949606aa7ffb9bd87cf4abd5d0c223a7",
+                    "type": "053c859ee381b472cb96aac523e87963",
+                    "offset": 104,
                     "direction": "export"
                 },
                 {
                     "name": "_fileno",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 112,
                     "direction": "export"
                 },
                 {
                     "name": "_flags2",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 116,
                     "direction": "export"
                 },
                 {
                     "name": "_old_offset",
                     "type": "53f3605b08deb1382db3e44cb033ec43",
+                    "offset": 120,
                     "direction": "export"
                 },
                 {
                     "name": "_cur_column",
                     "type": "251ba5521033493f21e959542089468c",
+                    "offset": 128,
                     "direction": "export"
                 },
                 {
                     "name": "_vtable_offset",
                     "type": "b54b4317e56dcaace25c0b0efdc93d40",
+                    "offset": 130,
                     "direction": "export"
                 },
                 {
                     "name": "_shortbuf",
                     "type": "86bc3cc70733b00a600c133f158d49e2",
+                    "offset": 131,
                     "direction": "export"
                 },
                 {
                     "name": "_lock",
                     "type": "3f961aff079031d8f51b5fb0d6ccbd3a",
+                    "offset": 136,
                     "direction": "export"
                 },
                 {
                     "name": "_offset",
                     "type": "480b5658d062c1ea78c88cc704cc077e",
+                    "offset": 144,
                     "direction": "export"
                 },
                 {
                     "name": "_codecvt",
                     "type": "2bac4210abafb074d45b393ac8248c5f",
+                    "offset": 152,
                     "direction": "export"
                 },
                 {
                     "name": "_wide_data",
                     "type": "971f147c480e7fe94dee756a503defb1",
+                    "offset": 160,
                     "direction": "export"
                 },
                 {
                     "name": "_freeres_list",
                     "type": "d812d49604fc02d9bacadd2eaf09b3dd",
+                    "offset": 168,
                     "direction": "export"
                 },
                 {
                     "name": "_freeres_buf",
                     "type": "0cb429064664be0b78e1e6200faf72a9",
+                    "offset": 176,
                     "direction": "export"
                 },
                 {
                     "name": "__pad5",
                     "type": "2b7927ac6886d6f780cffd9e51ebbc49",
+                    "offset": 184,
                     "direction": "export"
                 },
                 {
                     "name": "_mode",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 192,
                     "direction": "export"
                 },
                 {
                     "name": "_unused2",
                     "type": "eadc7a49a20dc0a4df4dfebceddbf9da",
+                    "offset": 196,
                     "direction": "export"
                 }
             ]
         },
-        "f3b3ea3d801d4dff3ac9e4147a792bb4": {
+        "ee0c292f557345bacb69467ffd8f0044": {
             "name": "__FILE",
-            "type": "4ba06ecd224522f7b62a7a6580ae9593"
+            "type": "ad779d3d3b2541402c65216e39ec6206"
         },
-        "fc474cdac6c351cade1a8d47b2de0df0": {
+        "12437cf9cada6992db5efeecc74c741c": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "f3b3ea3d801d4dff3ac9e4147a792bb4"
+                "type": "ee0c292f557345bacb69467ffd8f0044"
             },
             "direction": "both"
         },
@@ -4426,7 +4486,7 @@
                 }
             ]
         },
-        "2989c2194c082e5e67d3b4878a86214e": {
+        "ce560406b486481b8be1f0cb16c7d485": {
             "name": "11__mbstate_t",
             "size": 8,
             "class": "Struct",
@@ -4439,44 +4499,46 @@
                 {
                     "name": "__count",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 0,
                     "direction": "export"
                 },
                 {
                     "name": "__value",
                     "type": "f63ffc4a2cce5813bdbd24b28ec0e081",
+                    "offset": 4,
                     "direction": "export"
                 }
             ]
         },
-        "3e09dc2776696a2d787308e4895b97d2": {
+        "a15e6671e39bcc78e00946ef0bdb87d3": {
             "name": "__mbstate_t",
-            "type": "2989c2194c082e5e67d3b4878a86214e"
+            "type": "ce560406b486481b8be1f0cb16c7d485"
         },
-        "f1e783712957bab392ef69470c54d5c0": {
+        "22c9936557c2c9b0804f435b7117c566": {
             "name": "mbstate_t",
-            "type": "3e09dc2776696a2d787308e4895b97d2"
+            "type": "a15e6671e39bcc78e00946ef0bdb87d3"
         },
-        "205e0fceb126bef70b0587ccdf5742f7": {
+        "cd853eea1604bf9a5888e9da62a464b1": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "f1e783712957bab392ef69470c54d5c0"
+                "type": "22c9936557c2c9b0804f435b7117c566"
             },
             "direction": "both"
         },
-        "a8d784ad7da0c2605ecfe0166ca8cc3f": {
+        "5c1c3aaf928e9619e6b9845bf2269954": {
             "name": "mbstate_t",
-            "type": "3e09dc2776696a2d787308e4895b97d2",
+            "type": "a15e6671e39bcc78e00946ef0bdb87d3",
             "constant": true
         },
-        "c4e6d4e4c56ef08872bc5b72d2a5d30c": {
-            "type": "a8d784ad7da0c2605ecfe0166ca8cc3f"
+        "08817593d223198d75c95acd5e44904c": {
+            "type": "5c1c3aaf928e9619e6b9845bf2269954"
         },
-        "a435f8870d178578f15c072d541bc1e0": {
+        "6bb80f5b98bd40a66cdb3c488b3023ff": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "c4e6d4e4c56ef08872bc5b72d2a5d30c"
+                "type": "08817593d223198d75c95acd5e44904c"
             },
             "direction": "both"
         },
@@ -4506,7 +4568,7 @@
             "direction": "both",
             "name": "reg_save_area"
         },
-        "78904d2b0ae8cdb68e74cd1175b3ba22": {
+        "6802823455fb08755d82ad9b60db0220": {
             "name": "typedef __va_list_tag __va_list_tag",
             "size": 24,
             "class": "Struct",
@@ -4514,30 +4576,34 @@
                 {
                     "name": "gp_offset",
                     "type": "724f0b94c416f03c89c16150cf866e00",
+                    "offset": 0,
                     "direction": "export"
                 },
                 {
                     "name": "fp_offset",
                     "type": "724f0b94c416f03c89c16150cf866e00",
+                    "offset": 4,
                     "direction": "export"
                 },
                 {
                     "name": "overflow_arg_area",
                     "type": "0bda903a7b46551677e0e78ca6076f93",
+                    "offset": 8,
                     "direction": "export"
                 },
                 {
                     "name": "reg_save_area",
                     "type": "150e3a29f44cd9cfafc2413fb050ec82",
+                    "offset": 16,
                     "direction": "export"
                 }
             ]
         },
-        "76e7c3fb7298b187fd35340fbafa0516": {
+        "087bc1a9b9afc38ef929bec90cdbf90f": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "78904d2b0ae8cdb68e74cd1175b3ba22"
+                "type": "6802823455fb08755d82ad9b60db0220"
             },
             "direction": "both"
         },
@@ -4576,7 +4642,7 @@
             "direction": "both",
             "name": "tm_zone"
         },
-        "f900da23b0202d227c9abbb0fe1cfc7d": {
+        "f8f88bf210c46acbf1557a206acc23ed": {
             "name": "tm",
             "size": 56,
             "class": "Struct",
@@ -4584,69 +4650,80 @@
                 {
                     "name": "tm_sec",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 0,
                     "direction": "export"
                 },
                 {
                     "name": "tm_min",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 4,
                     "direction": "export"
                 },
                 {
                     "name": "tm_hour",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 8,
                     "direction": "export"
                 },
                 {
                     "name": "tm_mday",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 12,
                     "direction": "export"
                 },
                 {
                     "name": "tm_mon",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 16,
                     "direction": "export"
                 },
                 {
                     "name": "tm_year",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 20,
                     "direction": "export"
                 },
                 {
                     "name": "tm_wday",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 24,
                     "direction": "export"
                 },
                 {
                     "name": "tm_yday",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 28,
                     "direction": "export"
                 },
                 {
                     "name": "tm_isdst",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 32,
                     "direction": "export"
                 },
                 {
                     "name": "tm_gmtoff",
                     "type": "832037bcbd004730c7738b05d956e54e",
+                    "offset": 40,
                     "direction": "export"
                 },
                 {
                     "name": "tm_zone",
                     "type": "285573e05574166ead7b7db4cf7bf867",
+                    "offset": 48,
                     "direction": "export"
                 }
             ],
             "constant": true
         },
-        "c3296434c58900d9447f2ac03ea902f2": {
-            "type": "f900da23b0202d227c9abbb0fe1cfc7d"
+        "70d9ac2509fe2967e0b97433b438dcc5": {
+            "type": "f8f88bf210c46acbf1557a206acc23ed"
         },
-        "ade014898b89989a611ba03fa922dd39": {
+        "1e1f8cf25fef795bfa3eca52c62bf23e": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "c3296434c58900d9447f2ac03ea902f2"
+                "type": "70d9ac2509fe2967e0b97433b438dcc5"
             },
             "direction": "both"
         },
@@ -4828,7 +4905,7 @@
             "class": "Integer",
             "direction": "import"
         },
-        "6f1925f550b306d530bdb8eb251b764b": {
+        "afc9a5495ee29e243c049a349125ebab": {
             "name": "7lldiv_t",
             "size": 16,
             "class": "Struct",
@@ -4836,18 +4913,20 @@
                 {
                     "name": "quot",
                     "type": "a44bf8971dc4a612236c2e4dccc1cd7e",
+                    "offset": 0,
                     "direction": "export"
                 },
                 {
                     "name": "rem",
                     "type": "a44bf8971dc4a612236c2e4dccc1cd7e",
+                    "offset": 8,
                     "direction": "export"
                 }
             ]
         },
-        "511db7a48fea5ccd7eb120bbdc22b399": {
+        "aa6ec65f9cd94edd50a3afcc488bf09c": {
             "name": "lldiv_t",
-            "type": "6f1925f550b306d530bdb8eb251b764b"
+            "type": "afc9a5495ee29e243c049a349125ebab"
         },
         "308ad8129cac3a0bb414c01987309d1b": {
             "type": "long double",
@@ -4960,7 +5039,7 @@
             "direction": "both",
             "name": "negative_sign"
         },
-        "54abf305f556d9045178e9b6dffa039f": {
+        "2e2b53b4838c72a9e51c99cd677991e8": {
             "name": "lconv",
             "size": 96,
             "class": "Struct",
@@ -4968,130 +5047,154 @@
                 {
                     "name": "decimal_point",
                     "type": "69b7314468c746afce69928bbc218005",
+                    "offset": 0,
                     "direction": "export"
                 },
                 {
                     "name": "thousands_sep",
                     "type": "aece0f2badd8358bd386e0ebdba2d8c2",
+                    "offset": 8,
                     "direction": "export"
                 },
                 {
                     "name": "grouping",
                     "type": "b49660e2445a82696c5de55ee634ad6a",
+                    "offset": 16,
                     "direction": "export"
                 },
                 {
                     "name": "int_curr_symbol",
                     "type": "1acfbc5b0599f145f0c8c2b690968e94",
+                    "offset": 24,
                     "direction": "export"
                 },
                 {
                     "name": "currency_symbol",
                     "type": "1aa50a397320ff6cd60c68d1c985b3ea",
+                    "offset": 32,
                     "direction": "export"
                 },
                 {
                     "name": "mon_decimal_point",
                     "type": "b8cdaee29a89484945170c83218c99bb",
+                    "offset": 40,
                     "direction": "export"
                 },
                 {
                     "name": "mon_thousands_sep",
                     "type": "cb7b399288163df74c60877e6637d649",
+                    "offset": 48,
                     "direction": "export"
                 },
                 {
                     "name": "mon_grouping",
                     "type": "143d3abd8fa96717a17af5cc22854ef3",
+                    "offset": 56,
                     "direction": "export"
                 },
                 {
                     "name": "positive_sign",
                     "type": "5c0ba368421e1b293546c00b1ffe9aba",
+                    "offset": 64,
                     "direction": "export"
                 },
                 {
                     "name": "negative_sign",
                     "type": "b0db654969bd002c5d0d3c7f09e288f6",
+                    "offset": 72,
                     "direction": "export"
                 },
                 {
                     "name": "int_frac_digits",
                     "type": "ee8eaa81ccacc2d49d87afa5ca1148a8",
+                    "offset": 80,
                     "direction": "export"
                 },
                 {
                     "name": "frac_digits",
                     "type": "ee8eaa81ccacc2d49d87afa5ca1148a8",
+                    "offset": 81,
                     "direction": "export"
                 },
                 {
                     "name": "p_cs_precedes",
                     "type": "ee8eaa81ccacc2d49d87afa5ca1148a8",
+                    "offset": 82,
                     "direction": "export"
                 },
                 {
                     "name": "p_sep_by_space",
                     "type": "ee8eaa81ccacc2d49d87afa5ca1148a8",
+                    "offset": 83,
                     "direction": "export"
                 },
                 {
                     "name": "n_cs_precedes",
                     "type": "ee8eaa81ccacc2d49d87afa5ca1148a8",
+                    "offset": 84,
                     "direction": "export"
                 },
                 {
                     "name": "n_sep_by_space",
                     "type": "ee8eaa81ccacc2d49d87afa5ca1148a8",
+                    "offset": 85,
                     "direction": "export"
                 },
                 {
                     "name": "p_sign_posn",
                     "type": "ee8eaa81ccacc2d49d87afa5ca1148a8",
+                    "offset": 86,
                     "direction": "export"
                 },
                 {
                     "name": "n_sign_posn",
                     "type": "ee8eaa81ccacc2d49d87afa5ca1148a8",
+                    "offset": 87,
                     "direction": "export"
                 },
                 {
                     "name": "int_p_cs_precedes",
                     "type": "ee8eaa81ccacc2d49d87afa5ca1148a8",
+                    "offset": 88,
                     "direction": "export"
                 },
                 {
                     "name": "int_p_sep_by_space",
                     "type": "ee8eaa81ccacc2d49d87afa5ca1148a8",
+                    "offset": 89,
                     "direction": "export"
                 },
                 {
                     "name": "int_n_cs_precedes",
                     "type": "ee8eaa81ccacc2d49d87afa5ca1148a8",
+                    "offset": 90,
                     "direction": "export"
                 },
                 {
                     "name": "int_n_sep_by_space",
                     "type": "ee8eaa81ccacc2d49d87afa5ca1148a8",
+                    "offset": 91,
                     "direction": "export"
                 },
                 {
                     "name": "int_p_sign_posn",
                     "type": "ee8eaa81ccacc2d49d87afa5ca1148a8",
+                    "offset": 92,
                     "direction": "export"
                 },
                 {
                     "name": "int_n_sign_posn",
                     "type": "ee8eaa81ccacc2d49d87afa5ca1148a8",
+                    "offset": 93,
                     "direction": "export"
                 }
             ]
         },
-        "7455a3402bc9b3e7ba16c9cb93d06f59": {
+        "6e0c533d67ee9813b321c7a1635c6138": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "54abf305f556d9045178e9b6dffa039f"
+                "type": "2e2b53b4838c72a9e51c99cd677991e8"
             },
             "direction": "both",
             "name": "localeconv"
@@ -5129,7 +5232,7 @@
             "name": "__compar_fn_t",
             "type": "b9279417a238e0210e62d5b134754e22"
         },
-        "96a93fbc922147622f22cb17dffa4ba7": {
+        "696623957edb9d440dde3bbcb1942720": {
             "name": "5div_t",
             "size": 8,
             "class": "Struct",
@@ -5137,18 +5240,20 @@
                 {
                     "name": "quot",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 0,
                     "direction": "export"
                 },
                 {
                     "name": "rem",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 4,
                     "direction": "export"
                 }
             ]
         },
-        "bbdab2d56f5d401386ef8bc820c2e430": {
+        "ec1ee3db971e7e1f163e403a9308307d": {
             "name": "div_t",
-            "type": "96a93fbc922147622f22cb17dffa4ba7"
+            "type": "696623957edb9d440dde3bbcb1942720"
         },
         "beb83a7a115d2c5e97a7f12b6470c30a": {
             "class": "Pointer",
@@ -5159,7 +5264,7 @@
             "direction": "both",
             "name": "getenv"
         },
-        "2c38fadfab46d5a66ee6f952fa6b87b9": {
+        "ba551f0081c2926c62aa017778aece93": {
             "name": "6ldiv_t",
             "size": 16,
             "class": "Struct",
@@ -5167,18 +5272,20 @@
                 {
                     "name": "quot",
                     "type": "832037bcbd004730c7738b05d956e54e",
+                    "offset": 0,
                     "direction": "export"
                 },
                 {
                     "name": "rem",
                     "type": "832037bcbd004730c7738b05d956e54e",
+                    "offset": 8,
                     "direction": "export"
                 }
             ]
         },
-        "7a16815ff80c79042ddf4783ef473fb2": {
+        "3cbb0f1df2b1c934d8ed19fca5a772fc": {
             "name": "ldiv_t",
-            "type": "2c38fadfab46d5a66ee6f952fa6b87b9"
+            "type": "ba551f0081c2926c62aa017778aece93"
         },
         "647400fb545ddecb3b87eda2a7418732": {
             "class": "Pointer",
@@ -5188,19 +5295,19 @@
             },
             "direction": "both"
         },
-        "7787c4fdc97875752c45653ead27351e": {
+        "ead205ef3f31a034d7f168772aa21a55": {
             "name": "FILE",
-            "type": "4ba06ecd224522f7b62a7a6580ae9593"
+            "type": "ad779d3d3b2541402c65216e39ec6206"
         },
-        "ebc1477244743158b8836b0e2f24b1da": {
+        "2c875b43148306e8955bc6da66e64ebd": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "7787c4fdc97875752c45653ead27351e"
+                "type": "ead205ef3f31a034d7f168772aa21a55"
             },
             "direction": "both"
         },
-        "50e07e727d0dc98d3adb739a75f95865": {
+        "3fd026bc3f3b2895843ae8b137589e72": {
             "name": "_G_fpos_t",
             "size": 16,
             "class": "Struct",
@@ -5208,28 +5315,30 @@
                 {
                     "name": "__pos",
                     "type": "53f3605b08deb1382db3e44cb033ec43",
+                    "offset": 0,
                     "direction": "export"
                 },
                 {
                     "name": "__state",
-                    "type": "3e09dc2776696a2d787308e4895b97d2",
+                    "type": "a15e6671e39bcc78e00946ef0bdb87d3",
+                    "offset": 8,
                     "direction": "export"
                 }
             ]
         },
-        "752c58b2b4dce24e74af34b000783824": {
+        "ed9a772d25aa7925c406ba7ed4338e82": {
             "name": "__fpos_t",
-            "type": "50e07e727d0dc98d3adb739a75f95865"
+            "type": "3fd026bc3f3b2895843ae8b137589e72"
         },
-        "86bd9eb829bc858df6385d2ca5c9b53f": {
+        "24e0e24376c4d6a84dd6f0f647f6d662": {
             "name": "fpos_t",
-            "type": "752c58b2b4dce24e74af34b000783824"
+            "type": "ed9a772d25aa7925c406ba7ed4338e82"
         },
-        "67f22911629ed4891b78afb9415b1999": {
+        "5c8af63623bec0165874a9e99064e5a1": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "86bd9eb829bc858df6385d2ca5c9b53f"
+                "type": "24e0e24376c4d6a84dd6f0f647f6d662"
             },
             "direction": "both"
         },
@@ -5242,45 +5351,45 @@
             "direction": "both",
             "name": "fgets"
         },
-        "72fe6e047a60db9319fb71fe95d72675": {
+        "5249e6156e83f355e8d4504c05ffc12a": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "7787c4fdc97875752c45653ead27351e"
+                "type": "ead205ef3f31a034d7f168772aa21a55"
             },
             "direction": "both",
             "name": "fopen"
         },
-        "0fd300f7869e2003beea63d533c558ee": {
+        "58e23979a8fe50a64fa8d35bc8357a42": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "7787c4fdc97875752c45653ead27351e"
+                "type": "ead205ef3f31a034d7f168772aa21a55"
             },
             "direction": "both",
             "name": "freopen"
         },
-        "f766a8f92ae73467af605446eb8a4b80": {
+        "52954913eebf9d95e784169d96b06d19": {
             "name": "fpos_t",
-            "type": "752c58b2b4dce24e74af34b000783824",
+            "type": "ed9a772d25aa7925c406ba7ed4338e82",
             "constant": true
         },
-        "96031c3d1a1545182c876fab7d7e13b2": {
-            "type": "f766a8f92ae73467af605446eb8a4b80"
+        "cef33c367dc403303909b00cea80fb11": {
+            "type": "52954913eebf9d95e784169d96b06d19"
         },
-        "e1d1c2b28afbc6b492481e58b01a8df7": {
+        "39687ad0eeadce10cc5c15a3ff902a3a": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "96031c3d1a1545182c876fab7d7e13b2"
+                "type": "cef33c367dc403303909b00cea80fb11"
             },
             "direction": "both"
         },
-        "f42a22c00ffd69d54728c5ec326981a2": {
+        "5a4189032d09d189c001d587de38e085": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "7787c4fdc97875752c45653ead27351e"
+                "type": "ead205ef3f31a034d7f168772aa21a55"
             },
             "direction": "both",
             "name": "tmpfile"

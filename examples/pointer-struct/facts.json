@@ -8,7 +8,7 @@
                 "parameters": [
                     {
                         "name": "f",
-                        "type": "558c202744e6e14f8a84ae3ca336db15",
+                        "type": "46055b1b77cbb1b96f7796c37ea326ae",
                         "location": "%rdi",
                         "direction": "import"
                     }
@@ -34,7 +34,7 @@
             "class": "Float",
             "direction": "import"
         },
-        "4e9bdac6bf9e86e1486c7bd4bee20477": {
+        "59372e71c7835c327df80e8cc6db722b": {
             "name": "Foo",
             "size": 16,
             "class": "Struct",
@@ -42,20 +42,22 @@
                 {
                     "name": "i",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 0,
                     "direction": "export"
                 },
                 {
                     "name": "d",
                     "type": "5f66ab77d11088555799b0da0fbee9bf",
+                    "offset": 8,
                     "direction": "export"
                 }
             ]
         },
-        "558c202744e6e14f8a84ae3ca336db15": {
+        "46055b1b77cbb1b96f7796c37ea326ae": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "4e9bdac6bf9e86e1486c7bd4bee20477"
+                "type": "59372e71c7835c327df80e8cc6db722b"
             },
             "direction": "both",
             "name": "f"

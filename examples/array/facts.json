@@ -19,7 +19,7 @@
                 "parameters": [
                     {
                         "name": "f",
-                        "type": "546c513ca34a3298a3f0540500c438cd",
+                        "type": "5dcc96ee064ee844b1e003a120392561",
                         "location": "%xmm0",
                         "direction": "import"
                     }
@@ -53,7 +53,7 @@
             "count": 0,
             "type": "ee8eaa81ccacc2d49d87afa5ca1148a8"
         },
-        "546c513ca34a3298a3f0540500c438cd": {
+        "5dcc96ee064ee844b1e003a120392561": {
             "name": "Foo",
             "size": 36,
             "class": "Struct",
@@ -61,11 +61,13 @@
                 {
                     "name": "x",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 0,
                     "direction": "export"
                 },
                 {
                     "name": "c",
                     "type": "a577ccf4dfcba55c299a5e6b401951d1",
+                    "offset": 4,
                     "direction": "export"
                 }
             ]

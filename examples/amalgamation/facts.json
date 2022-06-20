@@ -31,7 +31,7 @@
                     },
                     {
                         "name": "two",
-                        "type": "f2ac15e63886989c8f17cac8a9d076df",
+                        "type": "bd6feeea5ca5317537f9fa954e2271b0",
                         "location": "%rsi",
                         "direction": "import"
                     }
@@ -117,7 +117,7 @@
             "direction": "both",
             "name": "three"
         },
-        "58b1ebdb57b9c4a735152c3f6290c758": {
+        "116e8bd91af0ee98132d2da008ce3035": {
             "name": "Structy",
             "size": 24,
             "class": "Struct",
@@ -125,25 +125,28 @@
                 {
                     "name": "one",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 0,
                     "direction": "export"
                 },
                 {
                     "name": "two",
                     "type": "5f66ab77d11088555799b0da0fbee9bf",
+                    "offset": 8,
                     "direction": "export"
                 },
                 {
                     "name": "three",
                     "type": "4f66086b20a3975309b02ca64fe8fc93",
+                    "offset": 16,
                     "direction": "export"
                 }
             ]
         },
-        "f2ac15e63886989c8f17cac8a9d076df": {
+        "bd6feeea5ca5317537f9fa954e2271b0": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "58b1ebdb57b9c4a735152c3f6290c758"
+                "type": "116e8bd91af0ee98132d2da008ce3035"
             },
             "direction": "both",
             "name": "two"

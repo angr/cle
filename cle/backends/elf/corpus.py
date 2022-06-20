@@ -612,6 +612,9 @@ class ElfCorpus(Corpus):
         underlying_type = self.parse_underlying_type(die)
         if underlying_type:
             entry.update(underlying_type)
+        # Add the DW_AT_data_member_location (offset?)
+        if "DW_AT_data_member_location" in die.attributes:
+            entry["offset"] = die.attributes["DW_AT_data_member_location"].value
         return entry
 
     def parse_array_type(self, die, parent=None, flags=None):

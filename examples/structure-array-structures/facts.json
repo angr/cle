@@ -41,7 +41,7 @@
                     },
                     {
                         "name": "arrayOfStructures",
-                        "type": "699419e33c0eaa54f10403b70264bf02",
+                        "type": "16d5d23a73447531e10ab6324b870904",
                         "location": "%rsi",
                         "direction": "import"
                     }
@@ -84,7 +84,7 @@
             "direction": "both",
             "name": "argv"
         },
-        "995f9d70d54b4e6215f9a4c8cb6e80c8": {
+        "1004ce7366e4f92dcab7db31fbe95abb": {
             "name": "StructyChild",
             "size": 4,
             "class": "Struct",
@@ -92,15 +92,16 @@
                 {
                     "name": "one",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 0,
                     "direction": "export"
                 }
             ]
         },
-        "96e526a3667770094ef3695bc4ab24d3": {
+        "728d963ebd4c42f2c892611bc18e4fa9": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "995f9d70d54b4e6215f9a4c8cb6e80c8"
+                "type": "1004ce7366e4f92dcab7db31fbe95abb"
             },
             "direction": "both"
         },
@@ -110,38 +111,39 @@
             "class": "Integer",
             "direction": "import"
         },
-        "a7e6e317b19b7d578151a2774b06e1f0": {
+        "7e2afeb70ae2b1d8f2dffd2dc7da4722": {
             "class": "Array",
             "name": "child",
             "size": 0,
             "count": 0,
-            "type": "96e526a3667770094ef3695bc4ab24d3"
+            "type": "728d963ebd4c42f2c892611bc18e4fa9"
         },
-        "5ec2732ee1c2c230f6e62d63fb7df06b": {
+        "9de62fbb616496d752c11d7b26c2276f": {
             "name": "Structy",
             "size": 40,
             "class": "Struct",
             "fields": [
                 {
                     "name": "child",
-                    "type": "a7e6e317b19b7d578151a2774b06e1f0",
+                    "type": "7e2afeb70ae2b1d8f2dffd2dc7da4722",
+                    "offset": 0,
                     "direction": "export"
                 }
             ]
         },
-        "4c6286723afd4cbb96b37633eb2d45a6": {
+        "351be242a1fc457acc3d8d1aa33b823d": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "5ec2732ee1c2c230f6e62d63fb7df06b"
+                "type": "9de62fbb616496d752c11d7b26c2276f"
             },
             "direction": "both"
         },
-        "699419e33c0eaa54f10403b70264bf02": {
+        "16d5d23a73447531e10ab6324b870904": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "4c6286723afd4cbb96b37633eb2d45a6"
+                "type": "351be242a1fc457acc3d8d1aa33b823d"
             },
             "direction": "both",
             "name": "arrayOfStructures"

@@ -8,25 +8,25 @@
                 "parameters": [
                     {
                         "name": "a",
-                        "type": "308e7c0c4ed84449b2850937c1b6329e",
+                        "type": "fa83b928dac04fb84f8ebc59b9812134",
                         "location": "%rdi",
                         "direction": "import"
                     },
                     {
                         "name": "b",
-                        "type": "1810b04a5ecd33dde09c8feaf6f6ea2a",
+                        "type": "a8733721387ca57a8ee7e098c6dc5056",
                         "location": "%rsi",
                         "direction": "import"
                     },
                     {
                         "name": "c",
-                        "type": "0cc8ef179bac97bee2058ee65dadaaea",
+                        "type": "9f8f8d666b9451f6fbd995120df165d2",
                         "location": "%rdx",
                         "direction": "import"
                     },
                     {
                         "name": "d",
-                        "type": "1e5ede4f6075bc5cdc8192cfdc757df9",
+                        "type": "fcb14b37764790a6b2c525f152fd3279",
                         "location": "%xmm0",
                         "direction": "import"
                     }
@@ -46,7 +46,7 @@
             "class": "Integer",
             "direction": "import"
         },
-        "308e7c0c4ed84449b2850937c1b6329e": {
+        "fa83b928dac04fb84f8ebc59b9812134": {
             "name": "A",
             "size": 4,
             "class": "Struct",
@@ -54,11 +54,12 @@
                 {
                     "name": "x",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 0,
                     "direction": "export"
                 }
             ]
         },
-        "3b92f99410a6dae32be62e61c114908a": {
+        "0b68dc569c0983fe5db7d626dcec67aa": {
             "name": "B",
             "size": 4,
             "class": "Struct",
@@ -66,20 +67,21 @@
                 {
                     "name": "y",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 0,
                     "direction": "export"
                 }
             ]
         },
-        "1810b04a5ecd33dde09c8feaf6f6ea2a": {
+        "a8733721387ca57a8ee7e098c6dc5056": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "3b92f99410a6dae32be62e61c114908a"
+                "type": "0b68dc569c0983fe5db7d626dcec67aa"
             },
             "direction": "both",
             "name": "b"
         },
-        "0cc8ef179bac97bee2058ee65dadaaea": {
+        "9f8f8d666b9451f6fbd995120df165d2": {
             "name": "C",
             "size": 4,
             "class": "Struct",
@@ -87,33 +89,38 @@
                 {
                     "name": "z",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 0,
                     "direction": "export"
                 }
             ]
         },
-        "1e5ede4f6075bc5cdc8192cfdc757df9": {
+        "fcb14b37764790a6b2c525f152fd3279": {
             "name": "D",
             "size": 16,
             "class": "Struct",
             "fields": [
                 {
                     "name": "unknown",
-                    "type": "308e7c0c4ed84449b2850937c1b6329e",
+                    "type": "fa83b928dac04fb84f8ebc59b9812134",
+                    "offset": 0,
                     "direction": "export"
                 },
                 {
                     "name": "unknown",
-                    "type": "3b92f99410a6dae32be62e61c114908a",
+                    "type": "0b68dc569c0983fe5db7d626dcec67aa",
+                    "offset": 4,
                     "direction": "export"
                 },
                 {
                     "name": "unknown",
-                    "type": "0cc8ef179bac97bee2058ee65dadaaea",
+                    "type": "9f8f8d666b9451f6fbd995120df165d2",
+                    "offset": 8,
                     "direction": "export"
                 },
                 {
                     "name": "d",
                     "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 12,
                     "direction": "export"
                 }
             ]
