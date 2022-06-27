@@ -10,8 +10,6 @@ class CompilationUnit:
     CompilationUnit for DWARF
     See http://dwarfstd.org/doc/DWARF5.pdf page 60
     """
-    functions: Dict[int, Subprogram] = {}
-    global_variables: List[Variable] = []
 
     def __init__(self, name, comp_dir, low_pc, high_pc, language):
         self.name = name
@@ -20,3 +18,5 @@ class CompilationUnit:
         self.low_pc = low_pc
         self.high_pc = high_pc
         self.language = language
+        self.functions: Dict[int, Subprogram] = {}
+        self.global_variables: List[Variable] = []

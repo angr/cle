@@ -206,9 +206,10 @@ class ELF(MetaELF):
                 debug_filename = '/usr/lib/debug/.build-id/%s/%s.debug' % (self.build_id[:2], self.build_id[2:])
                 if os.path.isfile(debug_filename):
                     self.__process_debug_file(debug_filename)
-            debug_filename = os.path.join('/usr/lib/debug', os.path.realpath(self.binary))
-            if os.path.isfile(debug_filename):
-                self.__process_debug_file(debug_filename)
+            if self.binary:
+                debug_filename = os.path.join('/usr/lib/debug', os.path.realpath(self.binary))
+                if os.path.isfile(debug_filename):
+                    self.__process_debug_file(debug_filename)
 
         # call the methods defined by MetaELF
         self._ppc64_abiv1_entry_fix()
