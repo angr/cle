@@ -139,6 +139,7 @@ class ELF(MetaELF):
 
         # DWARF data
         self.has_dwarf_info = bool(self._reader.has_dwarf_info())
+        self.dwarf = None
         self.build_id = None
         self.addr_to_line = SortedDict()
         self.variables: Optional[List[Variable]] = None
@@ -183,6 +184,7 @@ class ELF(MetaELF):
                 self.has_dwarf_info = False
 
             if dwarf:
+                self.dwarf = dwarf
                 # Load DIEs
                 self._load_dies(dwarf)
                 # Load function hints and exception handling artifacts
