@@ -1,0 +1,74 @@
+{
+    "library": "/home/vanessa/Desktop/Code/cle/examples/pointer-to-pointer-to-structure/lib.so",
+    "locations": [
+        {
+            "function": {
+                "name": "_Z4FuncPP8MyStruct",
+                "class": "Function",
+                "parameters": [
+                    {
+                        "name": "m",
+                        "type": "b552a1b8230ff11da1554e1554aec648",
+                        "location": "%rdi",
+                        "direction": "import"
+                    }
+                ],
+                "return": {
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "direction": "export",
+                    "location": "%rax"
+                }
+            }
+        }
+    ],
+    "types": {
+        "1fd8c01bdca094933f920b41375cfed0": {
+            "type": "int",
+            "size": 4,
+            "class": "Integer",
+            "direction": "import"
+        },
+        "5f66ab77d11088555799b0da0fbee9bf": {
+            "type": "double",
+            "size": 8,
+            "class": "Float",
+            "direction": "import"
+        },
+        "efe7869ef0b4ebb251ec1ca131b94ffb": {
+            "name": "MyStruct",
+            "size": 16,
+            "class": "Struct",
+            "fields": [
+                {
+                    "name": "a",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 0,
+                    "direction": "export"
+                },
+                {
+                    "name": "b",
+                    "type": "5f66ab77d11088555799b0da0fbee9bf",
+                    "offset": 8,
+                    "direction": "export"
+                }
+            ]
+        },
+        "e3a0e3756b880747b622c22093001948": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "efe7869ef0b4ebb251ec1ca131b94ffb"
+            },
+            "direction": "both"
+        },
+        "b552a1b8230ff11da1554e1554aec648": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "e3a0e3756b880747b622c22093001948"
+            },
+            "direction": "both",
+            "name": "m"
+        }
+    }
+}

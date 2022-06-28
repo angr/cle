@@ -13,13 +13,13 @@ class ClassType:
         "long long int": "Integer",
         "long long unsigned int": "Integer",
         "long unsigned int": "Integer",
-        "wchar_t": "Integral",
+        "wchar_t": "Integer",
         # the type size_t is defined as unsigned long
         "size_t": "Integer",
         "__int128": "Integer",
-        "bool": "Boolean",
-        "_Bool": "Boolean",
-        "char": "Integral",
+        "bool": "Integer",
+        "_Bool": "Integer",
+        "char": "Integer",
         "float": "Float",
         "double": "Float",
         "long double": "Float",
@@ -27,7 +27,7 @@ class ClassType:
 
     patterns = {
         "int": "Integer",
-        "char": "Integral",
+        "char": "Integer",
         "float": "Float",
         "double": "Float",
         "short": "Integer",

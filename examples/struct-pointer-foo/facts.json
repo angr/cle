@@ -1,0 +1,86 @@
+{
+    "library": "/home/vanessa/Desktop/Code/cle/examples/struct-pointer-foo/lib.so",
+    "locations": [
+        {
+            "function": {
+                "name": "_Z3barP3Foo",
+                "class": "Function",
+                "parameters": [
+                    {
+                        "name": "f",
+                        "type": "4c7eaffced248797d06fd2611149bb79",
+                        "location": "%rdi",
+                        "direction": "import"
+                    }
+                ],
+                "return": {
+                    "type": "3d26f11f7fcd0fd34d2b805c73ddcad7",
+                    "direction": "export",
+                    "location": "%rax"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "_Z3foo3Foo",
+                "class": "Function",
+                "parameters": [
+                    {
+                        "name": "f",
+                        "type": "3d26f11f7fcd0fd34d2b805c73ddcad7",
+                        "location": "%rdi",
+                        "direction": "import"
+                    }
+                ],
+                "return": {
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "direction": "export",
+                    "location": "%rax"
+                }
+            }
+        }
+    ],
+    "types": {
+        "da66391a4733d68bc26b8255cb0c76cd": {
+            "name": "Foo",
+            "size": 8,
+            "class": "Struct",
+            "fields": [
+                {
+                    "name": "f",
+                    "type": "Recursive",
+                    "offset": 0,
+                    "direction": "export"
+                }
+            ]
+        },
+        "4c7eaffced248797d06fd2611149bb79": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "da66391a4733d68bc26b8255cb0c76cd"
+            },
+            "direction": "both",
+            "name": "f"
+        },
+        "3d26f11f7fcd0fd34d2b805c73ddcad7": {
+            "name": "Foo",
+            "size": 8,
+            "class": "Struct",
+            "fields": [
+                {
+                    "name": "f",
+                    "type": "4c7eaffced248797d06fd2611149bb79",
+                    "offset": 0,
+                    "direction": "export"
+                }
+            ]
+        },
+        "1fd8c01bdca094933f920b41375cfed0": {
+            "type": "int",
+            "size": 4,
+            "class": "Integer",
+            "direction": "import"
+        }
+    }
+}

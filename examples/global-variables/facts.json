@@ -12,7 +12,7 @@
                 {
                     "name": "booley",
                     "location": "var",
-                    "type": "5f699718a0f73b64af5190e051839f93",
+                    "type": "2510f53e346bdd74cbd7340688aeed47",
                     "direction": "export"
                 },
                 {
@@ -33,7 +33,13 @@
             "function": {
                 "name": "_Z3foov",
                 "class": "Function",
-                "direction": "export"
+                "direction": "export",
+                "return": {
+                    "location": "none",
+                    "direction": "export",
+                    "type": "void",
+                    "class": "Void"
+                }
             }
         }
     ],
@@ -44,10 +50,10 @@
             "class": "Integer",
             "direction": "import"
         },
-        "5f699718a0f73b64af5190e051839f93": {
+        "2510f53e346bdd74cbd7340688aeed47": {
             "type": "bool",
             "size": 1,
-            "class": "Boolean",
+            "class": "Integer",
             "direction": "import"
         },
         "308ad8129cac3a0bb414c01987309d1b": {

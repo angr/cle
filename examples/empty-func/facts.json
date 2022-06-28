@@ -1,38 +1,11 @@
 {
-    "library": "/home/vanessa/Desktop/Code/cle/examples/callsite-as-parameter/lib.so",
+    "library": "/home/vanessa/Desktop/Code/cle/examples/empty-func/example",
     "locations": [
-        {
-            "function": {
-                "name": "close",
-                "class": "Function",
-                "parameters": [
-                    {
-                        "type": "1fd8c01bdca094933f920b41375cfed0",
-                        "location": "%rdi",
-                        "direction": "import"
-                    }
-                ],
-                "return": {
-                    "type": "1fd8c01bdca094933f920b41375cfed0",
-                    "direction": "export",
-                    "location": "%rax"
-                }
-            }
-        },
-        {
-            "function": {
-                "name": "getpid",
-                "class": "Function",
-                "return": {
-                    "type": "d4bc3c4cf5d0abb567b350e1f9b5188f",
-                    "direction": "export"
-                }
-            }
-        },
         {
             "function": {
                 "name": "main",
                 "class": "Function",
+                "direction": "export",
                 "parameters": [
                     {
                         "name": "argc",
@@ -53,6 +26,19 @@
                     "location": "%rax"
                 }
             }
+        },
+        {
+            "function": {
+                "name": "_Z3foov",
+                "class": "Function",
+                "direction": "export",
+                "return": {
+                    "location": "none",
+                    "direction": "export",
+                    "type": "void",
+                    "class": "Void"
+                }
+            }
         }
     ],
     "types": {
@@ -61,10 +47,6 @@
             "size": 4,
             "class": "Integer",
             "direction": "import"
-        },
-        "d4bc3c4cf5d0abb567b350e1f9b5188f": {
-            "name": "__pid_t",
-            "type": "1fd8c01bdca094933f920b41375cfed0"
         },
         "5c9aaaf36f52e308f9f5b66a32099fc6": {
             "type": "char",

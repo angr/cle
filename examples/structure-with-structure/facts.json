@@ -15,7 +15,7 @@
                     },
                     {
                         "name": "argv",
-                        "type": "fc120637f1c544d02555884cff0da54b",
+                        "type": "904f42901eac4afa007d59e94e1fe24b",
                         "location": "%rsi",
                         "direction": "import"
                     }
@@ -41,13 +41,13 @@
                     },
                     {
                         "name": "two",
-                        "type": "8dbb302418367803ece40d788524cdba",
+                        "type": "713a5eecaa9612fcae83f3e5b6f110dc",
                         "location": "%rsi",
                         "direction": "import"
                     },
                     {
                         "name": "three",
-                        "type": "9fe216404a695330215f630f15dc8f7c",
+                        "type": "0d260b9a6587e5c73ae3a29e100b9e90",
                         "location": "%rdx",
                         "direction": "import"
                     }
@@ -67,25 +67,25 @@
             "class": "Integer",
             "direction": "import"
         },
-        "ee8eaa81ccacc2d49d87afa5ca1148a8": {
+        "5c9aaaf36f52e308f9f5b66a32099fc6": {
             "type": "char",
             "size": 1,
-            "class": "Integral",
+            "class": "Integer",
             "direction": "import"
         },
-        "c85bcac8ca48727eb84d73d743bfb8cd": {
+        "376a1ba4ca8c718e3e55c1cbc5a0cfa7": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "ee8eaa81ccacc2d49d87afa5ca1148a8"
+                "type": "5c9aaaf36f52e308f9f5b66a32099fc6"
             },
             "direction": "both"
         },
-        "fc120637f1c544d02555884cff0da54b": {
+        "904f42901eac4afa007d59e94e1fe24b": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "c85bcac8ca48727eb84d73d743bfb8cd"
+                "type": "376a1ba4ca8c718e3e55c1cbc5a0cfa7"
             },
             "direction": "both",
             "name": "argv"
@@ -96,11 +96,11 @@
             "class": "Float",
             "direction": "import"
         },
-        "4f66086b20a3975309b02ca64fe8fc93": {
+        "cd0db05d965e1acac9cfd85b40290ba1": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "ee8eaa81ccacc2d49d87afa5ca1148a8"
+                "type": "5c9aaaf36f52e308f9f5b66a32099fc6"
             },
             "direction": "both",
             "name": "three"
@@ -119,7 +119,7 @@
             "direction": "both",
             "name": "useless"
         },
-        "62f156a720cd6f5d3c22716e997d89c2": {
+        "b14d34f6ed603e02ae8632a39b30ea0d": {
             "name": "StructyChild",
             "size": 32,
             "class": "Struct",
@@ -138,7 +138,7 @@
                 },
                 {
                     "name": "three",
-                    "type": "4f66086b20a3975309b02ca64fe8fc93",
+                    "type": "cd0db05d965e1acac9cfd85b40290ba1",
                     "offset": 16,
                     "direction": "export"
                 },
@@ -150,54 +150,54 @@
                 }
             ]
         },
-        "8dbb302418367803ece40d788524cdba": {
+        "713a5eecaa9612fcae83f3e5b6f110dc": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "62f156a720cd6f5d3c22716e997d89c2"
+                "type": "b14d34f6ed603e02ae8632a39b30ea0d"
             },
             "direction": "both",
             "name": "two"
         },
-        "2465ba7e128a8dc0926988c405ceb761": {
+        "f1241bb263d174ce31f81791eb0100cd": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "62f156a720cd6f5d3c22716e997d89c2"
+                "type": "b14d34f6ed603e02ae8632a39b30ea0d"
             },
             "direction": "both",
             "name": "child"
         },
-        "5f699718a0f73b64af5190e051839f93": {
+        "2510f53e346bdd74cbd7340688aeed47": {
             "type": "bool",
             "size": 1,
-            "class": "Boolean",
+            "class": "Integer",
             "direction": "import"
         },
-        "2bcdbebfbbdf1465bc5363aaf36f251e": {
+        "acc6480f8549d5d068feb439b57481df": {
             "name": "StructyParent",
             "size": 16,
             "class": "Struct",
             "fields": [
                 {
                     "name": "child",
-                    "type": "2465ba7e128a8dc0926988c405ceb761",
+                    "type": "f1241bb263d174ce31f81791eb0100cd",
                     "offset": 0,
                     "direction": "export"
                 },
                 {
                     "name": "wonka",
-                    "type": "5f699718a0f73b64af5190e051839f93",
+                    "type": "2510f53e346bdd74cbd7340688aeed47",
                     "offset": 8,
                     "direction": "export"
                 }
             ]
         },
-        "9fe216404a695330215f630f15dc8f7c": {
+        "0d260b9a6587e5c73ae3a29e100b9e90": {
             "class": "Pointer",
             "size": 8,
             "underlying_type": {
-                "type": "2bcdbebfbbdf1465bc5363aaf36f251e"
+                "type": "acc6480f8549d5d068feb439b57481df"
             },
             "direction": "both",
             "name": "three"

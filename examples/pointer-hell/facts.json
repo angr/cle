@@ -1,0 +1,303 @@
+{
+    "library": "/home/vanessa/Desktop/Code/cle/examples/pointer-hell/lib.so",
+    "locations": [
+        {
+            "function": {
+                "name": "_Z3buxP3Bux",
+                "class": "Function",
+                "parameters": [
+                    {
+                        "name": "b",
+                        "type": "cbb888cf278aca96eeff05eeeffbd53e",
+                        "location": "%rdi",
+                        "direction": "import"
+                    }
+                ],
+                "return": {
+                    "location": "none",
+                    "direction": "export",
+                    "type": "void",
+                    "class": "Void"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "_Z3bux3Bux",
+                "class": "Function",
+                "parameters": [
+                    {
+                        "name": "b",
+                        "type": "97501ec14b25fd4d5fa6c0a659fb935d",
+                        "location": "%rdi",
+                        "direction": "import"
+                    }
+                ],
+                "return": {
+                    "location": "none",
+                    "direction": "export",
+                    "type": "void",
+                    "class": "Void"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "_Z3baxP3Bax",
+                "class": "Function",
+                "parameters": [
+                    {
+                        "name": "b",
+                        "type": "5b0deb40d1b78eeaad30a9e4964b1644",
+                        "location": "%rdi",
+                        "direction": "import"
+                    }
+                ],
+                "return": {
+                    "location": "none",
+                    "direction": "export",
+                    "type": "void",
+                    "class": "Void"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "_Z3bax3Bax",
+                "class": "Function",
+                "parameters": [
+                    {
+                        "name": "b",
+                        "type": "b0fc1bcfb257a594768d1864c471a2e7",
+                        "location": "%rdi",
+                        "direction": "import"
+                    }
+                ],
+                "return": {
+                    "location": "none",
+                    "direction": "export",
+                    "type": "void",
+                    "class": "Void"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "_Z3bazP3Baz",
+                "class": "Function",
+                "parameters": [
+                    {
+                        "name": "b",
+                        "type": "4e7661c7908d59de4ee940c8f8a8f938",
+                        "location": "%rdi",
+                        "direction": "import"
+                    }
+                ],
+                "return": {
+                    "location": "none",
+                    "direction": "export",
+                    "type": "void",
+                    "class": "Void"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "_Z3baz3Baz",
+                "class": "Function",
+                "parameters": [
+                    {
+                        "name": "b",
+                        "type": "6d2cb916f00ad0f55e89393c93f1faf1",
+                        "location": "%rdi",
+                        "direction": "import"
+                    }
+                ],
+                "return": {
+                    "location": "none",
+                    "direction": "export",
+                    "type": "void",
+                    "class": "Void"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "_Z3barP3Bar",
+                "class": "Function",
+                "parameters": [
+                    {
+                        "name": "b",
+                        "type": "9d57d6cff77b4674334095f149ec56c5",
+                        "location": "%rdi",
+                        "direction": "import"
+                    }
+                ],
+                "return": {
+                    "location": "none",
+                    "direction": "export",
+                    "type": "void",
+                    "class": "Void"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "_Z3bar3Bar",
+                "class": "Function",
+                "parameters": [
+                    {
+                        "name": "b",
+                        "type": "7b67e786f57083fecad1b33bbb4a9254",
+                        "location": "%rdi",
+                        "direction": "import"
+                    }
+                ],
+                "return": {
+                    "location": "none",
+                    "direction": "export",
+                    "type": "void",
+                    "class": "Void"
+                }
+            }
+        },
+        {
+            "function": {
+                "name": "_Z3foo3Foo",
+                "class": "Function",
+                "parameters": [
+                    {
+                        "name": "f",
+                        "type": "cf9e98d8f22370793a7795afada357a7",
+                        "location": "%rdi",
+                        "direction": "import"
+                    }
+                ],
+                "return": {
+                    "location": "none",
+                    "direction": "export",
+                    "type": "void",
+                    "class": "Void"
+                }
+            }
+        }
+    ],
+    "types": {
+        "1fd8c01bdca094933f920b41375cfed0": {
+            "type": "int",
+            "size": 4,
+            "class": "Integer",
+            "direction": "import"
+        },
+        "cf9e98d8f22370793a7795afada357a7": {
+            "name": "Foo",
+            "size": 4,
+            "class": "Struct",
+            "fields": [
+                {
+                    "name": "x",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 0,
+                    "direction": "export"
+                }
+            ]
+        },
+        "7fe56b6875cb77a7956a6a18adf25500": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "cf9e98d8f22370793a7795afada357a7"
+            },
+            "direction": "both",
+            "name": "f"
+        },
+        "6d2cb916f00ad0f55e89393c93f1faf1": {
+            "name": "Baz",
+            "size": 8,
+            "class": "Struct",
+            "fields": [
+                {
+                    "name": "f",
+                    "type": "7fe56b6875cb77a7956a6a18adf25500",
+                    "offset": 0,
+                    "direction": "export"
+                }
+            ]
+        },
+        "4e7661c7908d59de4ee940c8f8a8f938": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "6d2cb916f00ad0f55e89393c93f1faf1"
+            },
+            "direction": "both",
+            "name": "b"
+        },
+        "97501ec14b25fd4d5fa6c0a659fb935d": {
+            "name": "Bux",
+            "size": 8,
+            "class": "Struct",
+            "fields": [
+                {
+                    "name": "b",
+                    "type": "4e7661c7908d59de4ee940c8f8a8f938",
+                    "offset": 0,
+                    "direction": "export"
+                }
+            ]
+        },
+        "cbb888cf278aca96eeff05eeeffbd53e": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "97501ec14b25fd4d5fa6c0a659fb935d"
+            },
+            "direction": "both",
+            "name": "b"
+        },
+        "7b67e786f57083fecad1b33bbb4a9254": {
+            "name": "Bar",
+            "size": 4,
+            "class": "Struct",
+            "fields": [
+                {
+                    "name": "f",
+                    "type": "cf9e98d8f22370793a7795afada357a7",
+                    "offset": 0,
+                    "direction": "export"
+                }
+            ]
+        },
+        "9d57d6cff77b4674334095f149ec56c5": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "7b67e786f57083fecad1b33bbb4a9254"
+            },
+            "direction": "both",
+            "name": "b"
+        },
+        "b0fc1bcfb257a594768d1864c471a2e7": {
+            "name": "Bax",
+            "size": 8,
+            "class": "Struct",
+            "fields": [
+                {
+                    "name": "b",
+                    "type": "9d57d6cff77b4674334095f149ec56c5",
+                    "offset": 0,
+                    "direction": "export"
+                }
+            ]
+        },
+        "5b0deb40d1b78eeaad30a9e4964b1644": {
+            "class": "Pointer",
+            "size": 8,
+            "underlying_type": {
+                "type": "b0fc1bcfb257a594768d1864c471a2e7"
+            },
+            "direction": "both",
+            "name": "b"
+        }
+    }
+}

@@ -1,38 +1,21 @@
 {
-    "library": "/home/vanessa/Desktop/Code/cle/examples/callsite-as-parameter/lib.so",
+    "library": "/home/vanessa/Desktop/Code/cle/examples/structure-matt/example",
     "locations": [
         {
-            "function": {
-                "name": "close",
-                "class": "Function",
-                "parameters": [
-                    {
-                        "type": "1fd8c01bdca094933f920b41375cfed0",
-                        "location": "%rdi",
-                        "direction": "import"
-                    }
-                ],
-                "return": {
-                    "type": "1fd8c01bdca094933f920b41375cfed0",
-                    "direction": "export",
-                    "location": "%rax"
-                }
-            }
-        },
-        {
-            "function": {
-                "name": "getpid",
-                "class": "Function",
-                "return": {
-                    "type": "d4bc3c4cf5d0abb567b350e1f9b5188f",
+            "variables": [
+                {
+                    "name": "bar",
+                    "location": "var",
+                    "type": "365a945dcbe3df0d93892e94b27ac55f",
                     "direction": "export"
                 }
-            }
+            ]
         },
         {
             "function": {
                 "name": "main",
                 "class": "Function",
+                "direction": "export",
                 "parameters": [
                     {
                         "name": "argc",
@@ -62,15 +45,48 @@
             "class": "Integer",
             "direction": "import"
         },
-        "d4bc3c4cf5d0abb567b350e1f9b5188f": {
-            "name": "__pid_t",
-            "type": "1fd8c01bdca094933f920b41375cfed0"
+        "832037bcbd004730c7738b05d956e54e": {
+            "type": "long int",
+            "size": 8,
+            "class": "Integer",
+            "direction": "import"
         },
         "5c9aaaf36f52e308f9f5b66a32099fc6": {
             "type": "char",
             "size": 1,
             "class": "Integer",
             "direction": "import"
+        },
+        "365a945dcbe3df0d93892e94b27ac55f": {
+            "name": "atype",
+            "size": 24,
+            "class": "Struct",
+            "fields": [
+                {
+                    "name": "a",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 0,
+                    "direction": "export"
+                },
+                {
+                    "name": "b",
+                    "type": "832037bcbd004730c7738b05d956e54e",
+                    "offset": 8,
+                    "direction": "export"
+                },
+                {
+                    "name": "c",
+                    "type": "1fd8c01bdca094933f920b41375cfed0",
+                    "offset": 16,
+                    "direction": "export"
+                },
+                {
+                    "name": "d",
+                    "type": "5c9aaaf36f52e308f9f5b66a32099fc6",
+                    "offset": 20,
+                    "direction": "export"
+                }
+            ]
         },
         "376a1ba4ca8c718e3e55c1cbc5a0cfa7": {
             "class": "Pointer",

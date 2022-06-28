@@ -23,7 +23,13 @@
                         "location": "%rdi",
                         "direction": "import"
                     }
-                ]
+                ],
+                "return": {
+                    "location": "none",
+                    "direction": "export",
+                    "type": "void",
+                    "class": "Void"
+                }
             }
         }
     ],

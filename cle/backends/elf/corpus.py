@@ -295,6 +295,13 @@ class ElfCorpus(Corpus):
             loc = self.parse_location(die, underlying_type=return_value, is_return=True)
             if loc:
                 return_value["location"] = loc
+        else:
+            return_value = {
+                "location": "none",
+                "direction": "export",
+                "type": "void",
+                "class": "Void",
+            }
 
         params = []
 
