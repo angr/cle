@@ -35,6 +35,12 @@ class cache_type:
         if die.offset in cls._types_seen:
             return {"type": "Recursive"}
 
+        # Do we want to return the type instead of lookup to it?
+        return_type = False
+        if "return_type" in kwargs:
+            return_type = kwargs.get('return_type')
+            del kwargs["return_type"]
+
         # Keep track of seen by offset
         cls._types_seen.add(die.offset)
         typ = self.func(cls, *args, **kwargs)
@@ -49,4 +55,7 @@ class cache_type:
         
         # _types holds lookup of die offset to uid
         cls._types[die.offset] = uid
+
+        if return_type:
+            return typ
         return {"type": uid}

@@ -11,15 +11,26 @@ import os
 import io
 
 here = os.path.abspath(os.path.dirname(__file__))
-examples_dir = os.path.join(here, "examples")
+
+args = [x for x in sys.argv if not x.startswith('-')]
+if len(args) > 2:
+    examples_dir = os.path.abspath(args[-1])
+else:
+    examples_dir = os.path.join(here, "examples")
+sys.path.insert(0, here)
+
 
 sys.path.insert(0, here)
 
 # Load all examples
 tests = []
 
+skips = ['Makefile', 'build.sh']
+
 # Add remainder
 for name in os.listdir(examples_dir):
+    if name in skips:
+        continue
     if not name.startswith("_") and not name.startswith(".") and not name.endswith(".md"):
         tests.append((name, "lib.so"))
 

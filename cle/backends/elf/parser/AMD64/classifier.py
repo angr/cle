@@ -48,8 +48,7 @@ def classify(
         return
 
     cls = None
-    count = count or typ.get("indirections", 0)
-    if count > 0 or typ.get("class") == "Pointer":
+    if typ.get("class") == "Pointer":
         cls = classify_pointer(count)
 
     elif typ["class"] in [
@@ -308,7 +307,7 @@ def classify_aggregate(
                 return_classification=True,
                 types=types,
             )
-            classes.append(merge(c1, c2))
+            classes.append(merge(c1.classes[0], c2.classes[0]))
         else:
             classes.append(
                 classify(
@@ -383,13 +382,9 @@ def classify_union(typ, allocator, types):
 
 
 def classify_array(typ, allocator, types):
-    holder = typ
-    typ = types.get(typ.get("type"))
-
-    # We can't classify this
-    if "type" not in typ or typ["type"] == "unknown":
-        return
     size = typ.get("size", 0)
+
+    # If size > 64 or unaligned fields, class memory
     if size > 64:
         return Classification("Array", [RegisterClass.MEMORY, RegisterClass.NO_CLASS])
 

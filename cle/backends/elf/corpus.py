@@ -634,7 +634,8 @@ class ElfCorpus(Corpus):
         entry = {"class": "Array", "name": self.get_name(die)}
 
         # Get the type of the members
-        array_type = self.parse_underlying_type(die)
+        array_type = self.parse_underlying_type(die, return_type=True)
+        size = array_type.get("size", 0)
 
         # TODO we might want to handle order
         # This can be DW_AT_col_order or DW_AT_row_order, and if not present
@@ -643,13 +644,12 @@ class ElfCorpus(Corpus):
             entry["order"] = die.attributes["DW_AT_ordering"].value
 
         # Case 1: the each member of the array uses a non-traditional storage
-        member_size = self._find_nontraditional_size(die)
+        member_size = self._find_nontraditional_size(die) or size
 
         # Children are the members of the array
         entries = []
         children = list(die.iter_children())
 
-        size = 0
         total_size = 0
         total_count = 0
         for child in children:
@@ -738,7 +738,7 @@ class ElfCorpus(Corpus):
                 entry["count"] = (
                     die.attributes["DW_AT_upper_bound"].value
                     - die.attributes["DW_AT_lower_bound"].value
-                )
+                ) + 1
             except:
                 pass
 
@@ -750,7 +750,9 @@ class ElfCorpus(Corpus):
             # The default lower bound is 0 for C, C++, D, Java, Objective C, Objective C++, Python, and UPC.
             # The default lower bound is 1 for Ada, COBOL, Fortran, Modula-2, Pascal and PL/I.
             lower_bound = 0
-            entry["count"] = die.attributes["DW_AT_upper_bound"].value - lower_bound
+            entry["count"] = (
+                die.attributes["DW_AT_upper_bound"].value - lower_bound
+            ) + 1
 
         # If the upper bound and count are missing, then the upper bound value is unknown.
         else:
