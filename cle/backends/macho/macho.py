@@ -795,19 +795,24 @@ class MachO(Backend):
         data = self._read(self._binary_stream, offset, ctypes.sizeof(struct))
         return struct.from_buffer_copy(data)
 
-    def _read_cstring_from_file(self, start: FilePointer, max_length=None) -> bytes:
+    def _read_cstring_from_file(self, start: FilePointer, max_length=None):
+        """
+        This technically has unnecessary quadratic runtime behavior in `buffer.find` and `buffer+= ...`
+        but this shouldn't be noticeable in practice.
+        :param start:
+        :param max_length:
+        :return:
+        """
+        end = -1
         buffer = b""
-        self._binary_stream.seek(start)
-        while True:
-            bytes_read = self._binary_stream.read(1024)
-            end = bytes_read.find(b"\x00")
-            if end >= 0:
-                buffer += bytes_read[:end]
-                break
-            buffer += bytes_read
+        while end == -1:
+            buffer += self._read(self._binary_stream, start, 1024)
+            end = buffer.find(b'\x00')
             if max_length is not None and len(buffer) > max_length:
                 raise ValueError(f"Symbol name exceeds {max_length} bytes, giving up")
-        return buffer
+        return buffer[:end]
+
+
 
     def _parse_dyld_chained_fixups(self):
         header: dyld_chained_fixups_header = self._get_struct(
