@@ -15,6 +15,36 @@ __all__ = ('Loader',)
 
 l = logging.getLogger(name=__name__)
 
+class AddressOffsets:
+    """
+    A class to hold offset information about addresses.
+    """
+
+    def __init__(self, loader, addr):
+        self.object = loader.find_object_containing(addr)
+        if self.object:
+            self.object_offset = addr - self.object.min_addr
+            self._object_just = (len("%x"%(self.object.max_addr-self.object.min_addr))+1)//2*2
+            self.object_offset_str = (
+                self.object.binary_basename + "+" +
+                ("%x"%(addr-self.object.min_addr)).rjust(self._object_just, '0')
+            )
+
+        self.section = loader.find_section_containing(addr)
+        if self.section:
+            self.section_offset = addr - self.section.min_addr
+            self._section_just = (len("%x"%(self.section.max_addr-self.section.min_addr))+1)//2*2
+            self.section_offset_str = (
+                self.section.name + "+" +
+                ("%x"%(addr-self.object.min_addr)).rjust(self._section_just, '0')
+            )
+
+    def __str__(self):
+        if not self.object:
+            return ""
+        if not self.section:
+            return self.object_offset_str
+        return self.object_offset_str + " " + self.section_offset_str
 
 class Loader:
     """
@@ -308,6 +338,13 @@ class Loader:
 
         best_offset, best_prefix = max(options, key=lambda v: v[0])
         return '%s%#x in %s (%#x)' % (best_prefix, rva - best_offset, objname, AT.from_va(addr, o).to_lva())
+
+    def addr_offset_info(self, addr) -> AddressOffsets:
+        """
+        Returns a class describing offsets to this address from objects and sections.
+        """
+
+        return AddressOffsets(self, addr)
 
     # Search functions
 
