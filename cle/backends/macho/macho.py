@@ -763,14 +763,19 @@ class MachO(Backend):
         data = self._read(self._binary_stream, offset, ctypes.sizeof(struct))
         return struct.from_buffer_copy(data)
 
-    def _read_cstring_from_file(self, start: FilePointer):
-        end = -1
+    def _read_cstring_from_file(self, start: FilePointer, max_length=None) -> bytes:
         buffer = b""
-        while end == -1:
-            buffer += self._read(self._binary_stream, start, 1024)
-            end = buffer.find(b'\x00')
-        return buffer[:end]
-
+        self._binary_stream.seek(start)
+        while True:
+            bytes_read = self._binary_stream.read(1024)
+            end = bytes_read.find(b'\x00')
+            if end >= 0:
+                buffer += bytes_read[:end]
+                break
+            buffer += bytes_read
+            if max_length is not None and len(buffer) > max_length:
+                raise ValueError(f"Symbol name exceeds {max_length} bytes, giving up")
+        return buffer
 
     def _parse_dyld_chained_fixups(self):
 
@@ -789,7 +794,14 @@ class MachO(Backend):
             import_addr = imports_start_addr + i * ctypes.sizeof(import_struct)
             imp = self._get_struct(import_struct, import_addr)
             sym_name_addr = symbols_start_addr + imp.name_offset
-            sym_name = self._read_cstring_from_file(sym_name_addr).decode("utf-8")
+            try:
+                sym_name_bytes = self._read_cstring_from_file(sym_name_addr, max_length=2**21)
+                sym_name = sym_name_bytes.decode("utf-8")
+            except ValueError as e:
+                # This symbol string is probably not null terminated, so we can't read it
+                l.error("Failed to read symbol name at %x: %s", sym_name_addr, e)
+                sym_name = f"<Excessively long symbol name at fileoffset 0x{sym_name_addr:x}>"
+
             symbols = self.symbols.get_by_name_and_ordinal(sym_name, imp.lib_ordinal)
             if len(symbols) == 1:
                 self._dyld_imports.append(symbols[0])
