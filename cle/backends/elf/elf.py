@@ -191,6 +191,12 @@ class ELF(MetaELF):
                 dynamic_symbols = self._load_dynamic_symbols()
                 # Prepare a corpus to populate
                 self.corpus = ElfCorpus(self.binary, arch=self.arch, symbols=dynamic_symbols)
+
+                # Load GOT for corpus?
+                #import IPython
+                #IPython.embed()
+                #got_sec = self._reader.get_section_by_name('.got')
+
                 # Load DIEs
                 self._load_dies(dwarf)
                 # Load function hints and exception handling artifacts
@@ -222,6 +228,12 @@ class ELF(MetaELF):
         for offset, patch in patch_undo:
             self.memory.store(AT.from_lva(self.min_addr + offset, self).to_rva(), patch)
 
+        # If we loaded a corpus, update types from global types
+        # This makes the parsing slightly better to only keep one types lookup        
+        if self.corpus:
+            # Post process to add locations
+            self.corpus.add_locations()
+        
     #
     # Properties and Public Methods
     #

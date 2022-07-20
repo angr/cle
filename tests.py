@@ -9,29 +9,32 @@ import shutil
 import sys
 import os
 import io
+from collections import OrderedDict
 
 here = os.path.abspath(os.path.dirname(__file__))
 
-args = [x for x in sys.argv if not x.startswith('-')]
+args = [x for x in sys.argv if not x.startswith("-")]
 if len(args) > 2:
     examples_dir = os.path.abspath(args[-1])
 else:
     examples_dir = os.path.join(here, "examples")
-sys.path.insert(0, here)
-
 
 sys.path.insert(0, here)
 
 # Load all examples
 tests = []
 
-skips = ['Makefile', 'build.sh']
+skips = ["Makefile", "build.sh", "dwarfdump.sh"]
 
 # Add remainder
 for name in os.listdir(examples_dir):
     if name in skips:
         continue
-    if not name.startswith("_") and not name.startswith(".") and not name.endswith(".md"):
+    if (
+        not name.startswith("_")
+        and not name.startswith(".")
+        and not name.endswith(".md")
+    ):
         tests.append((name, "lib.so"))
 
 
@@ -80,11 +83,18 @@ def run(name, lib):
 def test_examples(tmp_path, name, lib):
     corpus = run(name, lib)
 
-    # Do we have a facts file to validate?
+    # First look for truth facts (will not be deleted)
+    truth = os.path.join(examples_dir, name, "facts.truth.json")
+
+    # These are temporary / WIP and can be changed
     facts = os.path.join(examples_dir, name, "facts.json")
 
+    if not os.path.exists(truth):
+        truth = facts
+
+    # Always write facts (not truth)
+    write_json(OrderedDict(corpus.to_dict()), facts)
+
     # Check facts (nodes and relations)
-    if os.path.exists(facts):
-        check_facts(facts, corpus.to_dict())
-    else:
-        write_json(corpus.to_dict(), facts)
+    if os.path.exists(truth):
+        check_facts(truth, corpus.to_dict())

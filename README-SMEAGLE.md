@@ -117,22 +117,30 @@ These are cases with gcc 12.1 dwarf and the library here that I can't resolve. I
  - /tmp/spack/opt/spack/linux-debian11-skylake/gcc-12.1.0/libbsd-0.11.5-ayxy3zjyufi6neh4fl5pie6n6rdc3jyn/lib/libbsd.so says it isn't elf, and someone suggested there is some kind of wrapper around it? I'm adding it to skip for now.
  - /tmp/spack/opt/spack/linux-debian11-skylake/gcc-12.1.0/hdf5-1.12.2-pakhqhweeyy5nkuprbtjnfq4oyv7yzjs/lib/libhdf5.so has a formal parameter with type label. It has a DW_AT_abstract_origin that links to another label with name "done."
   
-## TODO:
 
- - Vanessasaurus:
+## TODO:
+ - Add to tests:
+   - what happens if you pass an unnamed reference or pointer - does dwarf say it gets space or?
+   - Test cases for different kinds of unions
+   - Test cases for variables with struct (the import/export thing)
+ - Need:
+   - representation for functions that take no parameter and return nothing (Void)
+   - empty structures: just don't represent them.
+   - treat enums as integers for now
  - Tim:
    - Write out high level approach
    - need to complement this with C++ interface to get callsites into Python. Only need for callsites for now, unless speed is an issue in the future.
  - DW_TAG_subrange_type in libpetsc.so has a dwarf expression and not number, right now we pass
  - How to handle `DW_TAG_GNU_formal_parameter_pack`? Right now we return the first child (but this is wrong) see dyninst libpcontrol.so
+ - we haven't handled parsing any kind of vectors (greater than size 128, etc) needs an eightbyte approach
  - we need to add / parse [fortran types](https://docs.oracle.com/cd/E19957-01/805-4939/6j4m0vn6m/index.html) right now just Unknown
  - return type allocator does not correctly handle struct/union
  - void pointers don't seem to show up in dwarf with global variables, without they do.
  - `__ARRAY_SIZE_TYPE__` and `sizetype` in types.py
  - look at hpctoolkit libs to find example that suggests loading with blob - some kind of wrapped dwarf?
  - function as parameter doesn't have name, variable info, nothing, empty subroutine. We think there is missing dwarf information.
- - need to look again at 8 byte analysis (not entirely right)
  - eventually will want wrapper that uses cle to do Matt's special location parsing - "offsets"
  - bit fields - not a priority because uncommon
  - exceptions also need to wait
+ - vtables (should also work for function pointers?)
  - Take a look at exceptions example - in lsda.py I commnted out else case that is triggered

@@ -5,7 +5,6 @@ __license__ = "Apache-2.0"
 from functools import partial, update_wrapper
 
 import json
-import hashlib
 
 class cache_type:
     """
@@ -18,13 +17,6 @@ class cache_type:
 
     def __get__(self, obj, objtype):
         return partial(self.__call__, obj)
-
-    def hash(self, typ):
-        """
-        Generate a unique hash depending on the type
-        """    
-        dumped = json.dumps(typ, sort_keys=True)
-        return hashlib.md5(dumped.encode("utf-8")).hexdigest()
 
     def __call__(self, cls, *args, **kwargs):
 
@@ -40,7 +32,7 @@ class cache_type:
         if "return_type" in kwargs:
             return_type = kwargs.get('return_type')
             del kwargs["return_type"]
-
+        
         # Keep track of seen by offset
         cls._types_seen.add(die.offset)
         typ = self.func(cls, *args, **kwargs)
@@ -48,7 +40,7 @@ class cache_type:
             typ = {"type": "unknown"}
 
         # Hash id is based on hash of type content
-        uid = self.hash(typ) 
+        uid = cls.hash(typ) 
       
         # Top level types holds the uid -> type
         cls.types[uid] = typ
