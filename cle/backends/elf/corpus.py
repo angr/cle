@@ -28,6 +28,8 @@ def create_location_lookup(res):
     """
     # Create a "best effort" lookup of type ids
     lookup = {}
+    if not res.regclass:
+        return lookup
     for eb in res.regclass:
         for field in eb.fields:
             if "location" not in field or "type_uid" not in field:
@@ -76,7 +78,7 @@ def update_underlying_type(param, types, lookup=None, underlying_type=None):
 
     for field in underlying_type.get("fields", []):
         field_type = field.get("type")
-        if lookup and field_type in lookup:
+        if lookup and field_type in lookup and lookup[field_type]:
             field["location"] = lookup[field_type].pop(0)
             if field.get("class") == "Pointer":
                 field["direction"] = "both"
@@ -142,7 +144,7 @@ class ElfCorpus(Corpus):
 
             if "return" in func:
                 return_allocator = self.parser.get_return_allocator()
-                loc = self.parse_location(func["return"])
+                loc = self.parse_location(func["return"], return_allocator)
 
                 # Return is always an export
                 func["return"]["direction"] = "export"
@@ -159,7 +161,7 @@ class ElfCorpus(Corpus):
                     continue
 
                 # Otherwise we got a register class
-                if loc:
+                if loc and loc.regclass:
                     func["return"]["location"] = return_allocator.get_register_string(
                         reg=loc.regclass, size=func["return"].get("size", 0)
                     )
@@ -193,8 +195,13 @@ class ElfCorpus(Corpus):
         """
         allocator = self.parser.get_allocator()
         for order, param in enumerate(func.get("parameters", [])):
-            res = self.parse_location(param)
+            res = self.parse_location(param, allocator)
             if not res:
+                continue
+
+            # We hit a pointer and were givn a string
+            if isinstance(res, str):
+                param["location"] = res
                 continue
 
             # We are given a class directly by the classifier
@@ -217,6 +224,10 @@ class ElfCorpus(Corpus):
                 has_register = False
                 for eb in res.regclass:
                     loc = allocator.get_register_string(reg=eb.regclass, size=8)
+
+                    # Workaround for if we return None in above
+                    if not loc:
+                        continue
 
                     # We've seen registers but now we see a stack location, ohno rollback
                     if has_register and "framebase" in loc:
@@ -267,7 +278,7 @@ class ElfCorpus(Corpus):
         dumped = json.dumps(typ, sort_keys=True)
         return hashlib.md5(dumped.encode("utf-8")).hexdigest()
 
-    def parse_location(self, entry):
+    def parse_location(self, entry, allocator):
         """
         Look to see if the DIE has DW_AT_location, and if so, parse to get
         registers. The loc_parser is called by elf.py (once) and addde
@@ -616,7 +627,7 @@ class ElfCorpus(Corpus):
 
             # Call sites
             elif child.tag in ["DW_TAG_GNU_call_site", "DW_TAG_call_site"]:
-                param = self.parse_call_site(child, die, flags=flags)
+                param = self.parse_call_site(child, die)
 
             # TODO is this only external stuff?
             elif child.tag == "DW_TAG_lexical_block":
@@ -886,17 +897,18 @@ class ElfCorpus(Corpus):
         member_size = self._find_nontraditional_size(die) or size
 
         # Children are the members of the array
-        entries = []
         children = list(die.iter_children())
 
         total_size = 0
         total_count = 0
+        member_counts = []
         for child in children:
             if not child.tag:
                 continue
             member = None
 
             # Each array dimension is DW_TAG_subrange_type or DW_TAG_enumeration_type
+            # NOTE member type here is type of the INDEX
             if child.tag == "DW_TAG_subrange_type":
                 member = self.parse_subrange_type(child)
             elif child.tag == "DW_TAG_enumeration_type":
@@ -909,12 +921,15 @@ class ElfCorpus(Corpus):
 
             count = member.get("count", 0)
             size = member.get("size") or member_size
-            if count != "unknown" and size:
-                total_size += count * size
-            entries.append(member)
+            if count not in ["unknown", 0] and not total_count:
+                total_count = count
+            elif count not in ["unknown", 0]:
+                total_count = total_count * count
+            if count not in ["unknown", 0]:
+                member_counts.append(count)
 
-        entry["size"] = total_size
-        entry["count"] = total_count
+        entry["size"] = total_count * member_size
+        entry["counts"] = member_counts
 
         # Update info with the parent
         entry.update(
@@ -989,12 +1004,17 @@ class ElfCorpus(Corpus):
             # The default lower bound is 0 for C, C++, D, Java, Objective C, Objective C++, Python, and UPC.
             # The default lower bound is 1 for Ada, COBOL, Fortran, Modula-2, Pascal and PL/I.
             lower_bound = 0
-            entry["count"] = (
-                die.attributes["DW_AT_upper_bound"].value - lower_bound
-            ) + 1
+
+            # fortrilinos-2.0.0-egurmfvolea7xwcw3w3t6wkeus5iz64j/lib64/libforteuchos.so...
+            try:
+                entry["count"] = (
+                    die.attributes["DW_AT_upper_bound"].value - lower_bound
+                ) + 1
+            except:
+                pass
 
         # If the upper bound and count are missing, then the upper bound value is unknown.
-        else:
+        if "count" not in entry:
             entry["count"] = "unknown"
         entry = self.add_flags(entry, flags)
         return entry

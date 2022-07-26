@@ -97,6 +97,8 @@ class RegisterAllocator:
         Given two registers, return one combined string
         """
         if reg == RegisterClass.NO_CLASS:
+            # adios2-2.7.1-dl2pvjuxm35ffpz2776sdbglhfyblkop/lib64/libadios2_core_mpi.so
+            return None
             raise ValueError("Can't allocate a {NO_CLASS, *}")
 
         if reg == RegisterClass.MEMORY:

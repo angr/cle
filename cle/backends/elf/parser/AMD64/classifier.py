@@ -25,10 +25,13 @@ class Eightbyte:
         self.regclass = RegisterClass.NO_CLASS
 
     def has_space_for(self, f):
-        return self.size + f.get("size", 0) <= 8
+        try:
+            return (self.size + f.get("size") or 0) <= 8
+        except:
+            return False
 
     def add(self, f, type_uid):
-        self.size += f.get("size", 0)
+        self.size += f.get("size", 0) or 0
 
         # Don't add original reference so it mucks up types
         f = copy.deepcopy(f)
@@ -128,12 +131,17 @@ def classify_scalar(typ, size=None, classname=None, types=None):
         if size > 128:
 
             # TODO this should be some kind of eightbytes thing?
+            # berkeley-db-18.1.40-c7okyaricn3s5wx6lqo2exspq6tuninj/lib/libdb-18.1.so...
+            return
             raise ValueError("We don't know how to classify IntegerVec size > 128")
 
         # We know that we need two eightbytes
         if size == 128:
             # Since we check __128 in base type parsing and reformat at struct,
             # we should never hit this case
+            # But this one does :)
+            # arpack-ng-3.4.0-nwftltslcbp5rcibuoxoerl5caqcdqzn/lib/libparpack.so
+            return
             raise ValueError("We should not be parsing a size == 128.")
 
         # _Decimal32, _Decimal64, and __m64 are supposed to be SSE.
@@ -309,14 +317,19 @@ def classify_aggregate(typ, aggregate="Struct", types=None):
                 field2 = fields.pop(0)
                 c1 = classify(field1, types=types)
                 c2 = classify(field2, types=types)
-                merged = merge(c1.regclass, c2.regclass)
+
+                # This will be incorrect if we cannot classify either,
+                # but it's better this way than to raise an error and get
+                # no result (albeit imperfect).
+                if c1 and c2:
+                    merged = merge(c1.regclass, c2.regclass)
             else:
                 field1 = fields.pop(0)
-                c1 = classify(field1, types=types).regclass
-                if merged:
-                    merged = merge(merged, c1)
-                else:
-                    merged = c1
+                c1 = classify(field1, types=types)
+                if merged and c1 and c1.regclass:
+                    merged = merge(merged, c1.regclass)
+                elif c1 and c1.regclass:
+                    merged = c1.regclass
         eb.regclass = merged
     return Classification(aggregate, ebs)
 
@@ -343,13 +356,18 @@ def classify_array(typ, types=None):
     classname = None
 
     # regular class id or pointer
-    while len(typename) == 32:
+    while typename and len(typename) == 32:
         newtype = types[typename]
         if "type" in newtype:
             typename = newtype["type"]
         elif "class" in newtype:
             classname = newtype["class"]
             break
+
+    # This is wrong, but we can't return if we don't know
+    # binutils-2.24-me2y7na3wmjftzdtjjse4grksibzjq2q/lib/libbfd-2.24.so...
+    if not typename:
+        return
 
     if not classname:
         classname = ClassType.get(typename)
@@ -363,8 +381,8 @@ def classify_enum(typ):
     return Classification("Enum", RegisterClass.INTEGER)
 
 
-def classify_function(typ, count):
+def classify_function(typ):
+    # TODO this assumes all functions provided are pointers
     # auto [underlying_type, ptr_cnt] = unwrap_underlying_type(t);
-    if count > 0:
-        return classify_pointer(count)
+    return classify_pointer()
     # Return no class
