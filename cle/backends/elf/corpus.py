@@ -1281,9 +1281,11 @@ class ElfCorpus(Corpus):
         ]:
             return self.parse_underlying_type(type_die, flags=flags)
 
-        print(type_die)
-        print("NOT SEEN TYPE DIE")
-        sys.exit(0)
+        # Commented out so spliced doesn't fail
+        # print(type_die)
+        # print("NOT SEEN TYPE DIE")
+        # sys.exit(0)
+        return unknown_type
 
     def add_class(self, die):
         """
