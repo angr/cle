@@ -32,8 +32,10 @@ for name in os.listdir(examples_dir):
         continue
     if (
         not name.startswith("_")
+        and not name == "actions"
         and not name.startswith(".")
         and not name.endswith(".md")
+        and not name.endswith(".sh")
     ):
         tests.append((name, "lib.so"))
 

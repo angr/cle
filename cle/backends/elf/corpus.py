@@ -1,4 +1,4 @@
-from elftools.common.py3compat import bytes2str
+from elftools.common.utils import bytes2str
 from elftools.dwarf.descriptions import describe_form_class, describe_reg_name
 from elftools.dwarf.locationlists import LocationEntry, LocationExpr
 from elftools.dwarf.dwarf_expr import DWARFExprParser, DW_OP_name2opcode
