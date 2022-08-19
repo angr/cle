@@ -8,6 +8,7 @@ from ..symbol import SymbolType
 from ...address_translator import AT
 from ...utils import stream_or_path
 from elftools.elf.descriptions import describe_ei_osabi
+from elftools.elf.dynamic import DynamicSection
 from elftools.elf.enums import ENUM_DT_FLAGS
 from enum import Enum
 from collections import OrderedDict
@@ -34,7 +35,7 @@ def get_relro(elf):
     if not any(seg.header.p_type == 'PT_GNU_RELRO' for seg in elf.iter_segments()):
         return Relro.NONE
     dyn_sec = elf.get_section_by_name('.dynamic')
-    if dyn_sec is None:
+    if dyn_sec is None or not isinstance(dyn_sec, DynamicSection):
         return Relro.PARTIAL
     flags = [tag for tag in dyn_sec.iter_tags() if tag.entry.d_tag == 'DT_FLAGS']
     if len(flags) != 1:
