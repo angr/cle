@@ -11,15 +11,10 @@ import os
 import io
 from collections import OrderedDict
 
-here = os.path.abspath(os.path.dirname(__file__))
-
-args = [x for x in sys.argv if not x.startswith("-")]
-if len(args) > 2:
-    examples_dir = os.path.abspath(args[-1])
-else:
-    examples_dir = os.path.join(here, "examples")
-
-sys.path.insert(0, here)
+# From https://github.com/angr/binaries
+tests_base = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                          os.path.join('..', '..', 'binaries'))
+examples_dir = os.path.join(tests_base, "tests_data", "test_corpus")
 
 # Load all examples
 tests = []
