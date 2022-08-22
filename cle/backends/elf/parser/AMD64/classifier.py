@@ -129,19 +129,10 @@ def classify_scalar(typ, size=None, classname=None, types=None):
     # Integral types
     if classname in ["Integer", "Boolean"]:  # TODO props.is_UTF?
         if size > 128:
-
-            # TODO this should be some kind of eightbytes thing?
-            # berkeley-db-18.1.40-c7okyaricn3s5wx6lqo2exspq6tuninj/lib/libdb-18.1.so...
-            return
             raise ValueError("We don't know how to classify IntegerVec size > 128")
 
         # We know that we need two eightbytes
         if size == 128:
-            # Since we check __128 in base type parsing and reformat at struct,
-            # we should never hit this case
-            # But this one does :)
-            # arpack-ng-3.4.0-nwftltslcbp5rcibuoxoerl5caqcdqzn/lib/libparpack.so
-            return
             raise ValueError("We should not be parsing a size == 128.")
 
         # _Decimal32, _Decimal64, and __m64 are supposed to be SSE.
@@ -340,7 +331,6 @@ def classify_union(typ, types):
     """
     # TODO update when we know how to handle array eightbytes
     return Classification("Union", RegisterClass.MEMORY)
-    # return classify_aggregate(typ, "Union", types=types)
 
 
 def classify_array(typ, types=None):
@@ -365,7 +355,6 @@ def classify_array(typ, types=None):
             break
 
     # This is wrong, but we can't return if we don't know
-    # binutils-2.24-me2y7na3wmjftzdtjjse4grksibzjq2q/lib/libbfd-2.24.so...
     if not typename:
         return
 
