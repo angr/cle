@@ -901,10 +901,16 @@ class MachO(Backend):
                     rebase = chained_rebase_ptr.isRebase(pointer_format, self.mapped_base)
                     if bind is not None:
                         libOrdinal, addend = bind
-                        import_symbol = self._dyld_imports[libOrdinal]
-                        reloc = MachORelocation(self, import_symbol, current_chain_addr, None)
-                        self.relocs.append(reloc)
-                        log.debug("Binding for %s found at %x", import_symbol, current_chain_addr)
+                        try:
+                            import_symbol = self._dyld_imports[libOrdinal]
+                        except IndexError:
+                            log.error("There is no import with ordinal %d, see SIT issue #33", libOrdinal)
+                        else:
+                            reloc = MachORelocation(self, import_symbol, current_chain_addr, None)
+                            self.relocs.append(reloc)
+                            # Legacy Code uses bind_xrefs, explicitly add this to make this compatible for now
+                            import_symbol.bind_xrefs.append(reloc.dest_addr)
+                            log.debug("Binding for %s found at %x", import_symbol, current_chain_addr)
                     elif rebase is not None:
                         target = self.mapped_base + rebase
                         location: MemoryPointer = self.mapped_base + current_chain_addr
