@@ -255,12 +255,13 @@ class Clemory(ClemoryBase):
     def remove_backer(self, start):
         for i, (oldstart, _) in enumerate(self._backers):
             if oldstart == start:
-                self._backers.pop(i)
+                result = self._backers.pop(i)
                 break
         else:
             raise ValueError("Can't find backer to remove")
 
         self._update_min_max()
+        return result
 
     def __iter__(self):
         for start, string in self._backers:
