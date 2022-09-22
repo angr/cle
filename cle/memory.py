@@ -352,11 +352,11 @@ class Clemory(ClemoryBase):
         started = False
         for start, backer in self._backers:
             if not started:
-                end = start + backer.max_addr if type(backer) is Clemory else start + len(backer)
+                end = start + backer.max_addr if isinstance(backer, ClemoryBase) else start + len(backer)
                 if addr >= end:
                     continue
                 started = True
-            if type(backer) is Clemory:
+            if isinstance(backer, ClemoryBase):
                 for s, b in backer.backers(addr - start):
                     yield s + start, b
             else:
@@ -428,7 +428,7 @@ class Clemory(ClemoryBase):
             search_max = self.max_addr
 
         for start, backer in self._backers:
-            if type(backer) is Clemory:
+            if isinstance(backer, ClemoryBase):
                 if search_max < backer.min_addr + start or search_min > backer.max_addr + start:
                     continue
                 yield from (addr + start for addr in backer.find(data, search_min-start, search_max-start))

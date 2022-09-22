@@ -1,4 +1,5 @@
 from collections import OrderedDict
+import bisect
 
 from . import Backend
 from .region import EmptySegment
@@ -21,6 +22,13 @@ class LazyClemory(Clemory):
         self.resident = 0
 
         super().__init__(self.owner.arch)
+
+        self.min_addr = self.owner.min_addr
+        self.max_addr = self.owner.max_addr
+        self.consecutive = False
+
+    def _update_min_max(self):
+        pass
 
     @property
     def _real_max_resident(self):
@@ -49,13 +57,18 @@ class LazyClemory(Clemory):
         returns list of [(start addr, end addr)]
         """
         missing = []
-        for start, backer in self.backers(addr):
+        seen_one = False
+        for start, backer in super().backers(addr):
+            seen_one = True
             if start > addr:
                 missing.append((addr, start))
 
             addr = start + len(backer)
             if addr >= end:
                 break
+
+        if not seen_one:
+            missing.append((addr, end))
 
         return missing
 
@@ -73,15 +86,46 @@ class LazyClemory(Clemory):
     def add_backer(self, start, data, overwrite=False):
         if overwrite:
             raise TypeError("Cannot add_backer(overwrite=True) with LazyClemory")
-        super().add_backer(start, data)
+
+        try:
+            existing, _ = next(super().backers(start))
+        except StopIteration:
+            pass
+        else:
+            if existing <= start:
+                raise ValueError("Address %#x is already backed!" % start)
+
+        if type(data) is bytes:
+            data = bytearray(data)
+        bisect.insort(self._backers, (start, data))
         self.resident += len(data)
         self.lru_order[start] = None
+
+    def next_region(self, addr):
+        return self.owner.segments.find_region_next_to(addr).min_addr
+
+    def backers(self, addr=0):
+        while addr < self.max_addr:
+            chunk_addr = addr & ~(self.chunk_size - 1)
+            self.make_resident(chunk_addr, self.chunk_size)
+            end = chunk_addr + self.chunk_size
+            for start, backer in super().backers(addr):
+                if start > chunk_addr + self.chunk_size:
+                    break
+                yield start, backer
+                end = max(end, start + len(backer))
+            addr = end
 
     def make_resident(self, addr, size):
         if size > self.max_resident:
             raise MemoryError("Cannot hold %#x bytes in memory at once. lol" % size)
         while size > 0:
             region_start, region_size = self.region_containing(addr)
+            if region_start is None:
+                new_addr = self.next_region(addr)
+                size -= new_addr - addr
+                addr = new_addr
+
             resident_start = max(region_start, addr & ~(self.chunk_size - 1))
             resident_end = min(((addr + size - 1) & ~(self.chunk_size - 1)) + self.chunk_size, region_start + region_size)
 
@@ -97,7 +141,7 @@ class LazyClemory(Clemory):
                     self.add_backer(real_start, self.owner._load_data(real_start, real_end - real_start))
 
             # ensure the stuff that was already resident doesn't get evicted next round
-            for start, backer in self.backers(resident_start):
+            for start, backer in super().backers(resident_start):
                 if start >= resident_end:
                     break
                 self.lru_order.move_to_end(start)
