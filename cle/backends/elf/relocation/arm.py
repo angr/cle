@@ -381,20 +381,24 @@ class R_ARM_THM_JUMP6(R_ARM_THM_CALL):
     pass
 
 class R_ARM_THM_MOVW_ABS_NC(ELFReloc):
+    """
+    ((S + A) | T) & 0xffff
+    Ref: https://github.com/ARM-software/abi-aa/blob/main/aaelf32/aaelf32.rst
+    """
     @property
     def value(self):
-        self._insn_bytes = self.owner.memory.load(self.relative_addr, 4)
-        hi   = (self._insn_bytes[1] << 8) | self._insn_bytes[0]
-        lo   = (self._insn_bytes[3] << 8) | self._insn_bytes[2]
+        insn_bytes = self.owner.memory.load(self.relative_addr, 4)
+        hi   = (insn_bytes[1] << 8) | insn_bytes[0]
+        lo   = (insn_bytes[3] << 8) | insn_bytes[2]
         inst = (hi << 16) | lo
         S = self.resolvedby.rebased_addr  # The symbol's "value", where it points to
         # initial addend is formed by interpreting the 16-bit literal field
         # of the instruction as a signed value
         A  = ((inst & 0b0000_0100_0000_0000_0000_0000_0000_0000) >> 26 << 15)
-        A |= ((inst & 0b0000_0000_0000_1111_0000_0000_0000_0000) >> 16 << 11) 
+        A |= ((inst & 0b0000_0000_0000_1111_0000_0000_0000_0000) >> 16 << 11)
         A |= ((inst & 0b0000_0000_0000_0000_0111_0000_0000_0000) >> 12 << 8)
         A |= (inst & 0b0000_0000_0000_0000_0000_0000_1111_1111)
-        if (A & 0x8000):
+        if A & 0x8000:
             # two's complement
             A = -((A ^ 0xffff) + 1)
         T = _isThumbFunc(self.symbol, S)
@@ -417,20 +421,24 @@ class R_ARM_THM_MOVW_ABS_NC(ELFReloc):
         return inst
 
 class R_ARM_THM_MOVT_ABS(ELFReloc):
+    """
+    (S + A) & 0xffff0000
+    Ref: https://github.com/ARM-software/abi-aa/blob/main/aaelf32/aaelf32.rst
+    """
     @property
     def value(self):
-        self._insn_bytes = self.owner.memory.load(self.relative_addr, 4)
-        hi   = (self._insn_bytes[1] << 8) | self._insn_bytes[0]
-        lo   = (self._insn_bytes[3] << 8) | self._insn_bytes[2]
+        insn_bytes = self.owner.memory.load(self.relative_addr, 4)
+        hi   = (insn_bytes[1] << 8) | insn_bytes[0]
+        lo   = (insn_bytes[3] << 8) | insn_bytes[2]
         inst = (hi << 16) | lo
         S = self.resolvedby.rebased_addr  # The symbol's "value", where it points to
         # initial addend is formed by interpreting the 16-bit literal field
         # of the instruction as a signed value
         A  = ((inst & 0b0000_0100_0000_0000_0000_0000_0000_0000) >> 26 << 15)
-        A |= ((inst & 0b0000_0000_0000_1111_0000_0000_0000_0000) >> 16 << 11) 
+        A |= ((inst & 0b0000_0000_0000_1111_0000_0000_0000_0000) >> 16 << 11)
         A |= ((inst & 0b0000_0000_0000_0000_0111_0000_0000_0000) >> 12 << 8)
         A |= (inst & 0b0000_0000_0000_0000_0000_0000_1111_1111)
-        if (A & 0x8000):
+        if A & 0x8000:
             # two's complement
             A = -((A ^ 0xffff) + 1)
         X = (S + A)
