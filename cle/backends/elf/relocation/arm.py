@@ -379,3 +379,82 @@ class R_ARM_THM_JUMP19(R_ARM_THM_CALL):
 
 class R_ARM_THM_JUMP6(R_ARM_THM_CALL):
     pass
+
+class R_ARM_THM_MOVW_ABS_NC(ELFReloc):
+    """
+    ((S + A) | T) & 0xffff
+    Ref: https://github.com/ARM-software/abi-aa/blob/main/aaelf32/aaelf32.rst
+    """
+    @property
+    def value(self):
+        insn_bytes = self.owner.memory.load(self.relative_addr, 4)
+        hi   = (insn_bytes[1] << 8) | insn_bytes[0]
+        lo   = (insn_bytes[3] << 8) | insn_bytes[2]
+        inst = (hi << 16) | lo
+        S = self.resolvedby.rebased_addr  # The symbol's "value", where it points to
+        # initial addend is formed by interpreting the 16-bit literal field
+        # of the instruction as a signed value
+        A  = ((inst & 0b0000_0100_0000_0000_0000_0000_0000_0000) >> 26 << 15)
+        A |= ((inst & 0b0000_0000_0000_1111_0000_0000_0000_0000) >> 16 << 11)
+        A |= ((inst & 0b0000_0000_0000_0000_0111_0000_0000_0000) >> 12 << 8)
+        A |= (inst & 0b0000_0000_0000_0000_0000_0000_1111_1111)
+        if A & 0x8000:
+            # two's complement
+            A = -((A ^ 0xffff) + 1)
+        T = _isThumbFunc(self.symbol, S)
+        X = (S + A) | T
+        MaskX = X & 0xffff
+        # inst modification:
+        part1 = MaskX >> 12 # [19:16]
+        part2 = (MaskX >> 11) & 0x1 # [26]
+        part3 = (MaskX >> 8) & 0x7 # [14:12]
+        part4 = MaskX & 0xff # [7:0]
+        inst &= 0b1111_1011_1111_0000_1000_1111_0000_0000
+        inst |= (part1 << 16) & 0b0000_0000_0000_1111_0000_0000_0000_0000
+        inst |= (part2 << 26) & 0b0000_0100_0000_0000_0000_0000_0000_0000
+        inst |= (part3 << 12) & 0b0000_0000_0000_0000_0111_0000_0000_0000
+        inst |= (part4 << 0)  & 0b0000_0000_0000_0000_0000_0000_1111_1111
+        raw = ((inst & 0x00ff0000) >> 16, (inst & 0xff000000) >> 24,
+               (inst & 0x00ff), (inst & 0xff00) >> 8)
+        inst = (raw[3] << 24) | (raw[2] << 16) | (raw[1] << 8) | raw[0]
+        l.debug("%s relocated as R_ARM_THM_MOVW_ABS_NC to: 0x%x", self.symbol.name, inst)
+        return inst
+
+class R_ARM_THM_MOVT_ABS(ELFReloc):
+    """
+    (S + A) & 0xffff0000
+    Ref: https://github.com/ARM-software/abi-aa/blob/main/aaelf32/aaelf32.rst
+    """
+    @property
+    def value(self):
+        insn_bytes = self.owner.memory.load(self.relative_addr, 4)
+        hi   = (insn_bytes[1] << 8) | insn_bytes[0]
+        lo   = (insn_bytes[3] << 8) | insn_bytes[2]
+        inst = (hi << 16) | lo
+        S = self.resolvedby.rebased_addr  # The symbol's "value", where it points to
+        # initial addend is formed by interpreting the 16-bit literal field
+        # of the instruction as a signed value
+        A  = ((inst & 0b0000_0100_0000_0000_0000_0000_0000_0000) >> 26 << 15)
+        A |= ((inst & 0b0000_0000_0000_1111_0000_0000_0000_0000) >> 16 << 11)
+        A |= ((inst & 0b0000_0000_0000_0000_0111_0000_0000_0000) >> 12 << 8)
+        A |= (inst & 0b0000_0000_0000_0000_0000_0000_1111_1111)
+        if A & 0x8000:
+            # two's complement
+            A = -((A ^ 0xffff) + 1)
+        X = (S + A)
+        MaskX = X & 0xffff0000
+        # inst modification:
+        part1 = MaskX >> 28 # [19:16]
+        part2 = (MaskX >> 27) & 0x1 # [26]
+        part3 = (MaskX >> 24) & 0x7 # [14:12]
+        part4 = (MaskX >> 16) & 0xff # [7:0]
+        inst &= 0b1111_1011_1111_0000_1000_1111_0000_0000
+        inst |= (part1 << 16) & 0b0000_0000_0000_1111_0000_0000_0000_0000
+        inst |= (part2 << 26) & 0b0000_0100_0000_0000_0000_0000_0000_0000
+        inst |= (part3 << 12) & 0b0000_0000_0000_0000_0111_0000_0000_0000
+        inst |= (part4 << 0)  & 0b0000_0000_0000_0000_0000_0000_1111_1111
+        raw = ((inst & 0x00ff0000) >> 16, (inst & 0xff000000) >> 24,
+               (inst & 0x00ff), (inst & 0xff00) >> 8)
+        inst = (raw[3] << 24) | (raw[2] << 16) | (raw[1] << 8) | raw[0]
+        l.debug("%s relocated as R_ARM_THM_MOVT_ABS to: 0x%x", self.symbol.name, inst)
+        return inst
