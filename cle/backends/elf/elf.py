@@ -19,7 +19,7 @@ import archinfo
 from .compilation_unit import CompilationUnit
 from .variable import Variable
 from .variable_type import VariableType
-from .subprogram import Subprogram
+from .subprogram import LexicalBlock, Subprogram
 from .symbol import ELFSymbol, Symbol, SymbolType
 from .regions import ELFSection, ELFSegment
 from .hashtable import ELFHashTable, GNUHashTable
@@ -712,25 +712,40 @@ class ELF(MetaELF):
                     cu_.global_variables.append(var)
                 elif die_child.tag == 'DW_TAG_subprogram':
                     # load subprogram
-
-                    if 'DW_AT_name' in die_child.attributes:
-                        name = die_child.attributes['DW_AT_name'].value.decode('utf-8')
-                    else:
-                        name = None
-                    low_pc, high_pc = self._load_low_high_pc_form_die(die_child)
-                    if low_pc is not None or high_pc is not None:
-                        sub_prog = Subprogram(name, low_pc, high_pc)
-
-                        for sub_die in cu._iter_DIE_subtree(die_child):
-                            if sub_die.tag in ['DW_TAG_variable','DW_TAG_formal_parameter']:
-                                # load local variable
-                                var = self._load_die_variable(sub_die, expr_parser, type_list)
-                                var.decl_file = cu_.file_path
-                                sub_prog.local_variables.append(var)
-
-                        cu_.functions[low_pc] = sub_prog
+                    sub_prog = self._load_die_lex_block(die_child, expr_parser, type_list, cu, cu_.file_path, None)
+                    if sub_prog is not None:
+                        cu_.functions[sub_prog.low_pc] = sub_prog
 
         self.compilation_units = compilation_units
+
+    def _load_die_lex_block(self, die: DIE, expr_parser, type_list, cu, file_path, super_block) -> LexicalBlock:
+
+        if 'DW_AT_name' in die.attributes:
+            name = die.attributes['DW_AT_name'].value.decode('utf-8')
+        else:
+            name = None
+
+        low_pc, high_pc = self._load_low_high_pc_form_die(die)
+        if low_pc is None or high_pc is None:
+            return None
+
+        if super_block is None:
+            block = Subprogram(name, low_pc, high_pc)
+        else:
+            block = LexicalBlock(super_block, low_pc, high_pc)
+
+        for sub_die in cu.iter_DIE_children(die):
+            if sub_die.tag in ['DW_TAG_variable', 'DW_TAG_formal_parameter']:
+                # load local variable
+                var = self._load_die_variable(sub_die, expr_parser, type_list)
+                var.decl_file = file_path
+                block.add_variable(var)
+            elif sub_die.tag == 'DW_TAG_lexical_block':
+                sub_block = self._load_die_lex_block(sub_die, expr_parser, type_list, cu, file_path, block)
+                if sub_block is not None:
+                    block.lexical_blocks.append(sub_block)
+
+        return block
 
     @staticmethod
     def _load_die_variable(die: DIE, expr_parser, type_list) -> Variable:
