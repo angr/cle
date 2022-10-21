@@ -27,11 +27,13 @@ class LexicalBlock:
         self.low_pc = low_pc
         self.high_pc = high_pc
         self.lexical_blocks: List[LexicalBlock] = []
+        self.local_vars = {}
 
     def add_variable(self, var: Variable) -> None:
         """
         Adds a variable to this block and propagates it to the subprogram.local_variables
         """
+        self.local_vars[var.name] = var
         # FIXME do something to make the variable through block.local_vars accessible
         self.subprogram.local_variables.append(var)
 
