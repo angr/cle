@@ -16,3 +16,9 @@ class Variable:
         self.addr = addr
         # sort = 'stack' | 'register' | 'global'
         self.sort = sort
+
+    def addr_from_state(self, state):
+        cfa = state.dwarf_cfa
+        if sort == 'stack':
+            return cfa + self.addr
+        return None
