@@ -674,7 +674,7 @@ class ELF(MetaELF):
             # scan the whole die tree for DW_TAG_base_type
             try:
                 for die in cu.iter_DIEs():
-                    if die.tag == "DW_TAG_base_type":
+                    if VariableType.supported_die(die):
                         var_type = VariableType.read_from_die(die)
                         if var_type is not None:
                             type_list[die.offset] = var_type
@@ -701,7 +701,7 @@ class ELF(MetaELF):
             die_comp_dir = die_comp_dir.value.decode('utf-8')
             die_lang = describe_attr_value(die_lang, top_die, top_die.offset)
 
-            cu_ = CompilationUnit(die_name, die_comp_dir, die_low_pc, die_high_pc,die_lang)
+            cu_ = CompilationUnit(die_name, die_comp_dir, die_low_pc, die_high_pc,die_lang, type_list)
             compilation_units.append(cu_)
 
             for die_child in cu.iter_DIE_children(top_die):
