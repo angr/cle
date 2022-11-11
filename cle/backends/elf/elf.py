@@ -747,8 +747,7 @@ class ELF(MetaELF):
 
         return block
 
-    @staticmethod
-    def _load_die_variable(die: DIE, expr_parser, type_list) -> Variable:
+    def _load_die_variable(self, die: DIE, expr_parser, type_list) -> Variable:
 
         if 'DW_AT_name' in die.attributes:
             var_name = die.attributes['DW_AT_name'].value.decode('utf-8')
@@ -771,6 +770,7 @@ class ELF(MetaELF):
                 pass
 
         v = Variable(
+            elf_object = self,
             name= var_name,
             type_= type_,
             decl_file= None,  # decl_file: will be back-patched in _load_dies()
