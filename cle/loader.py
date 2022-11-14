@@ -553,17 +553,19 @@ class Loader:
         :param exclude_forwards:    Whether to exclude forward symbols. Default True.
         """
         for so in self.all_objects:
-            sym = so.get_symbol(name)
-            if sym is None:
-                continue
-            if sym.is_import and exclude_imports:
-                continue
-            if sym.owner is self._extern_object and exclude_externs:
-                continue
-            if sym.is_forward and exclude_forwards:
-                continue
+            for sym in so.symbols:
+                if sym is None:
+                    continue
+                if sym.name != name:
+                    continue
+                if sym.is_import and exclude_imports:
+                    continue
+                if sym.owner is self._extern_object and exclude_externs:
+                    continue
+                if sym.is_forward and exclude_forwards:
+                    continue
 
-            yield sym
+                yield sym
 
     def find_plt_stub_name(self, addr):
         """
