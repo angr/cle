@@ -171,7 +171,7 @@ class StructType(VariableType):
 class MemberType:
     """
     Entry class for DWARF_TAG_member_type.
-    Note that this is not a real type, it is just a named member of a stuct or union.
+    Note that this is not a real type, it is just a named member inside a stuct or union.
     Use the property `type` of a member to get the proper variable type.
 
     :param name:          name of the member
