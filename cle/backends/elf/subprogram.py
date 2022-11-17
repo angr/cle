@@ -34,8 +34,14 @@ class LexicalBlock:
         Adds a variable to this block and propagates it to the subprogram.local_variables
         """
         self.local_vars[var.name] = var
-        # FIXME do something to make the variable through block.local_vars accessible
         self.subprogram.local_variables.append(var)
+
+    # depth-first
+    def __iter__(self):
+        yield self
+        for child in self.lexical_blocks:
+            for node in child:
+                yield node
 
 
 class Subprogram(LexicalBlock):
