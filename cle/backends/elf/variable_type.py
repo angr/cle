@@ -3,7 +3,7 @@ from elftools.dwarf.die import DIE
 
 class VariableType:
     """
-    Entry class for DWARF_TAG_..._type
+    Entry class for DW_TAG_..._type
 
     :param name:            name of the type
     :param byte_size:       amount of bytes the type take in memory
@@ -29,8 +29,6 @@ class VariableType:
             return PointerType.read_from_die(die, elf_object)
         elif die.tag == 'DW_TAG_structure_type':
             return StructType.read_from_die(die, elf_object)
-        elif die.tag == 'DW_TAG_member':
-            return MemberType.read_from_die(die, elf_object)
         elif die.tag == 'DW_TAG_array_type':
             return ArrayType.read_from_die(die, elf_object)
         return None
@@ -40,13 +38,12 @@ class VariableType:
         return die.tag == 'DW_TAG_base_type'\
             or die.tag == 'DW_TAG_pointer_type'\
             or die.tag == 'DW_TAG_structure_type'\
-            or die.tag == 'DW_TAG_member'\
             or die.tag == 'DW_TAG_array_type'
 
 
 class PointerType(VariableType):
     """
-    Entry class for DWARF_TAG_pointer_type. It is inherited from VariableType
+    Entry class for DW_TAG_pointer_type. It is inherited from VariableType
 
     :param byte_size:       amount of bytes the type take in memory
     :param elf_object:      elf object to reference to (useful for pointer,...)
@@ -87,7 +84,7 @@ class PointerType(VariableType):
 
 class BaseType(VariableType):
     """
-    Entry class for DWARF_TAG_base_type. It is inherited from VariableType
+    Entry class for DW_TAG_base_type. It is inherited from VariableType
     """
 
     def __init__(self, name: str, byte_size: int, elf_object):
@@ -113,17 +110,16 @@ class BaseType(VariableType):
 
 class StructType(VariableType):
     """
-    Entry class for DWARF_TAG_structure_type. It is inherited from VariableType
+    Entry class for DW_TAG_structure_type. It is inherited from VariableType
 
     :param name:            name of the type
     :param byte_size:       amount of bytes the type take in memory
     :param elf_object:      elf object to reference to (useful for pointer,...)
-    :param member_offsets:  all structure member types as offsets in the compilation_unit
     """
 
-    def __init__(self, name: str, byte_size: int, elf_object, member_offsets):
+    def __init__(self, name: str, byte_size: int, elf_object, members):
         super().__init__(name, byte_size, elf_object)
-        self._member_offsets = member_offsets
+        self.members = members
 
     @staticmethod
     def read_from_die(die: DIE, elf_object):
@@ -138,51 +134,40 @@ class StructType(VariableType):
         if byte_size is None:
             return None
 
-        member_offsets = []
-        for die_children in die.iter_children():
-            if VariableType.supported_die(die_children):
-                member_offset = die_children.offset
-                member_offsets.append(member_offset)
+        members = []
+        for die_child in die.iter_children():
+            if die_child.tag == 'DW_TAG_member':
+                members.append(StructMember.read_from_die(die_child, elf_object))
 
         return StructType(
             dw_at_name.value.decode() if dw_at_name is not None else "unknown",
             byte_size.value,
             elf_object,
-            member_offsets
+            members
         )
 
-    @property
-    def member_types(self):
-        """
-        attribute to get a list of all members type.
-        Member entry is loaded correspond to the order defined in source code
-        Member could be None if the type is not loaded (not supported)
-        """
-        members = []
-        type_list = self._elf_object.type_list
-        for member_offset in self._member_offsets:
-            if member_offset in type_list.keys():
-                members.append(type_list[member_offset].type)
-            else:
-                members.append(None)
-        return members
+    def __getitem__(self, member_name):
+        for member in self.members:
+            if member.name == member_name:
+                return member
 
 
-class MemberType:
+class StructMember:
     """
-    Entry class for DWARF_TAG_member_type.
-    Note that this is not a real type, it is just a named member inside a stuct or union.
-    Use the property `type` of a member to get the proper variable type.
+    Entry class for DW_TAG_member. This is not a type but a named member inside a struct.
+    Use the property `type` to get its variable type.
 
-    :param name:          name of the member
-    :param elf_object:    elf object to reference to (useful for pointer,...)
-    :param type_offset:   type as offset in the compilation_unit
+    :param name:            name of the member
+    :param addr_offset:     address offset of the member in the struct
+    :param elf_object:      elf object to reference to (useful for pointer,...)
+    :param type_offset:     type as offset in the compilation_unit
 
-    :ivar name:           name of the member
+    :ivar name:             name of the member
     """
 
-    def __init__(self, name: str, elf_object, type_offset):
+    def __init__(self, name: str, addr_offset: int, type_offset, elf_object):
         self.name = name
+        self.addr_offset = addr_offset
         self._elf_object = elf_object
         self._type_offset = type_offset
 
@@ -193,16 +178,14 @@ class MemberType:
         type attribute.
         """
 
-        dw_at_name = die.attributes.get('DW_AT_name', None)
+        dw_at_name   = die.attributes.get('DW_AT_name', None)
+        dw_at_type   = die.attributes.get('DW_AT_type', None)
+        dw_at_memloc = die.attributes.get('DW_AT_data_member_location', None)
+        name        = None if dw_at_name   is None else dw_at_name.value.decode()
+        ty          = None if dw_at_type   is None else dw_at_type.value
+        addr_offset = None if dw_at_memloc is None else dw_at_memloc.value
 
-        dw_at_type = die.attributes.get('DW_AT_type', None)
-        if dw_at_type is None:
-            return None
-        return MemberType(
-            dw_at_name.value.decode() if dw_at_name is not None else 'unknown',
-            elf_object,
-            dw_at_type.value
-        )
+        return StructMember(name, addr_offset, ty, elf_object)
 
     @property
     def type(self):
@@ -218,7 +201,7 @@ class MemberType:
 
 class ArrayType(VariableType):
     """
-    Entry class for DWARF_TAG_array_type. It is inherited from VariableType
+    Entry class for DW_TAG_array_type. It is inherited from VariableType
 
     :param byte_size:          amount of bytes the type take in memory
     :param elf_object:         elf object to reference to (useful for pointer,...)
