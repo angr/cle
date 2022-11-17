@@ -11,7 +11,7 @@ class CompilationUnit:
     See http://dwarfstd.org/doc/DWARF5.pdf page 60
     """
 
-    def __init__(self, name, comp_dir, low_pc, high_pc, language, type_dict):
+    def __init__(self, name, comp_dir, low_pc, high_pc, language):
         self.name = name
         self.comp_dir = comp_dir
         self.file_path = os.path.join(self.comp_dir, self.name)
@@ -20,7 +20,6 @@ class CompilationUnit:
         self.language = language
         self.functions: Dict[int, Subprogram] = {}
         self.global_variables: List[Variable] = []
-        self.type_dict: Dict[int, VariableType] = type_dict
 
     @property
     def global_vars(self):
