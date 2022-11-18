@@ -674,8 +674,8 @@ class ELF(MetaELF):
             # scan the whole die tree for DW_TAG_base_type
             try:
                 for die in cu.iter_DIEs():
-                    if die.tag == "DW_TAG_base_type":
-                        var_type = VariableType.read_from_die(die)
+                    if VariableType.supported_die(die):
+                        var_type = VariableType.read_from_die(die, self)
                         if var_type is not None:
                             type_list[die.offset] = var_type
             except KeyError:
@@ -716,6 +716,7 @@ class ELF(MetaELF):
                     if sub_prog is not None:
                         cu_.functions[sub_prog.low_pc] = sub_prog
 
+        self.type_list = type_list
         self.compilation_units = compilation_units
 
     def _load_die_lex_block(self, die: DIE, expr_parser, type_list, cu, file_path, super_block) -> LexicalBlock:
