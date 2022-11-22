@@ -13,33 +13,21 @@ class LexicalBlock:
     :param low_pc:      The relative start address of the block
     :param high_pc:     The relative end address of the block
 
-    :ivar super_block:  The block which contains this block
-    :type super_block:  Lexical_block
-    :ivar subprogram:   The Subprogram which contains this block
-    :type subprogram:   Subprogram
     :ivar low_pc:       The relative start address of the subprogram
     :ivar high_pc:      The relative end address of the subprogram
+    :ivar child_blocks: Lexical blocks inside this block (only direct childs)
+    :type child_blocks: List[LexicalBlock]
     """
 
-    def __init__(self, super_block: 'LexicalBlock', low_pc, high_pc) -> None:
-        self.super_block = super_block
-        self.subprogram = super_block.subprogram
+    def __init__(self, low_pc, high_pc) -> None:
         self.low_pc = low_pc
         self.high_pc = high_pc
-        self.lexical_blocks: List[LexicalBlock] = []
-        self.local_vars = {}
-
-    def add_variable(self, var: Variable) -> None:
-        """
-        Adds a variable to this block and propagates it to the subprogram.local_variables
-        """
-        self.local_vars[var.name] = var
-        self.subprogram.local_variables.append(var)
+        self.child_blocks: List[LexicalBlock] = []
 
     # depth-first
     def __iter__(self):
         yield self
-        for child in self.lexical_blocks:
+        for child in self.child_blocks:
             for node in child:
                 yield node
 
@@ -62,6 +50,6 @@ class Subprogram(LexicalBlock):
     def __init__(self, name, low_pc, high_pc) -> None:
         # pass self as the super_block of this subprogram
         self.subprogram = self
-        super().__init__(self, low_pc, high_pc)
+        super().__init__(low_pc, high_pc)
         self.name = name
         self.local_variables = []

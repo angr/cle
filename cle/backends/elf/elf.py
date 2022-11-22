@@ -707,7 +707,7 @@ class ELF(MetaELF):
             for die_child in cu.iter_DIE_children(top_die):
                 if die_child.tag == 'DW_TAG_variable':
                     # load global variable
-                    var = self._load_die_variable(die_child, expr_parser, type_list)
+                    var = Variable.from_die(die_child, expr_parser, self)
                     var.decl_file = cu_.file_path
                     cu_.global_variables.append(var)
                 elif die_child.tag == 'DW_TAG_subprogram':
@@ -719,7 +719,7 @@ class ELF(MetaELF):
         self.type_list = type_list
         self.compilation_units = compilation_units
 
-    def _load_die_lex_block(self, die: DIE, expr_parser, type_list, cu, file_path, super_block) -> LexicalBlock:
+    def _load_die_lex_block(self, die: DIE, expr_parser, type_list, cu, file_path, subprogram) -> LexicalBlock:
 
         if 'DW_AT_name' in die.attributes:
             name = die.attributes['DW_AT_name'].value.decode('utf-8')
@@ -730,64 +730,23 @@ class ELF(MetaELF):
         if low_pc is None or high_pc is None:
             return None
 
-        if super_block is None:
-            block = Subprogram(name, low_pc, high_pc)
+        if subprogram is None:
+            subprogram = block = Subprogram(name, low_pc, high_pc)
         else:
-            block = LexicalBlock(super_block, low_pc, high_pc)
+            block = LexicalBlock(low_pc, high_pc)
 
         for sub_die in cu.iter_DIE_children(die):
             if sub_die.tag in ['DW_TAG_variable', 'DW_TAG_formal_parameter']:
                 # load local variable
-                var = self._load_die_variable(sub_die, expr_parser, type_list)
+                var = Variable.from_die(sub_die, expr_parser, self, block)
                 var.decl_file = file_path
-                block.add_variable(var)
+                subprogram.local_variables.append(var)
             elif sub_die.tag == 'DW_TAG_lexical_block':
-                sub_block = self._load_die_lex_block(sub_die, expr_parser, type_list, cu, file_path, block)
+                sub_block = self._load_die_lex_block(sub_die, expr_parser, type_list, cu, file_path, subprogram)
                 if sub_block is not None:
-                    block.lexical_blocks.append(sub_block)
+                    block.child_blocks.append(sub_block)
 
         return block
-
-    def _load_die_variable(self, die: DIE, expr_parser, type_list) -> Variable:
-
-        if 'DW_AT_name' in die.attributes:
-            var_name = die.attributes['DW_AT_name'].value.decode('utf-8')
-        else:
-            var_name = None
-
-        if 'DW_AT_decl_line' in die.attributes:
-            decl_line = die.attributes['DW_AT_decl_line'].value
-        else:
-            decl_line = None
-
-        type_ = None
-        if 'DW_AT_type' in die.attributes:
-            type_offset = die.attributes['DW_AT_type'].value
-            if type_offset in type_list:
-                type_ = type_list[type_offset]
-            else:
-                # this warning takes too long to print on binaries with too many unknown type offsets. disable it
-                # l.warning("unknown type offset var_name:%s type_offset:%s", var_name, type_offset)
-                pass
-
-        v = Variable(
-            elf_object = self,
-            name= var_name,
-            type_= type_,
-            decl_file= None,  # decl_file: will be back-patched in _load_dies()
-            decl_line= decl_line,
-        )
-
-        if 'DW_AT_location' in die.attributes and die.attributes['DW_AT_location'].form == 'DW_FORM_exprloc':
-            parsed_exprs = expr_parser.parse_expr(die.attributes['DW_AT_location'].value)
-            if len(parsed_exprs) == 1 and parsed_exprs[0].op_name == 'DW_OP_addr':
-                v.sort, v.addr = "global", parsed_exprs[0].args[0]
-            elif len(parsed_exprs) == 1 and parsed_exprs[0].op_name == 'DW_OP_fbreg':
-                v.sort, v.addr = "stack", parsed_exprs[0].args[0]
-            elif len(parsed_exprs) == 1 and parsed_exprs[0].op_name.startswith("DW_OP_reg"):
-                v.sort, v.addr = "register", parsed_exprs[0].op - 0x50 # 0x50 == DW_OP_reg0
-
-        return v
 
     #
     # Private Methods... really. Calling these out of context
