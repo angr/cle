@@ -50,7 +50,7 @@ class Variable:
         if 'DW_AT_name' in die.attributes:
             var.name = die.attributes['DW_AT_name'].value.decode('utf-8')
         if 'DW_AT_type' in die.attributes:
-            var._type_offset = die.attributes['DW_AT_type'].value
+            var._type_offset = die.attributes['DW_AT_type'].value + die.cu.cu_offset
         if 'DW_AT_decl_line' in die.attributes:
             var.decl_line = die.attributes['DW_AT_decl_line'].value
 

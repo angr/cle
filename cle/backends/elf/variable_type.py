@@ -69,7 +69,7 @@ class PointerType(VariableType):
         if dw_at_type is None:
             return None
 
-        return PointerType(byte_size.value, elf_object, dw_at_type.value)
+        return PointerType(byte_size.value, elf_object, dw_at_type.value + die.cu.cu_offset)
 
     @property
     def referenced_type(self):
@@ -182,7 +182,7 @@ class StructMember:
         dw_at_type   = die.attributes.get('DW_AT_type', None)
         dw_at_memloc = die.attributes.get('DW_AT_data_member_location', None)
         name        = None if dw_at_name   is None else dw_at_name.value.decode()
-        ty          = None if dw_at_type   is None else dw_at_type.value
+        ty          = None if dw_at_type   is None else dw_at_type.value + die.cu.cu_offset
         addr_offset = None if dw_at_memloc is None else dw_at_memloc.value
 
         return StructMember(name, addr_offset, ty, elf_object)
@@ -227,7 +227,7 @@ class ArrayType(VariableType):
         return ArrayType(
             dw_byte_size.value if dw_byte_size is not None else None,
             elf_object,
-            dw_at_type.value
+            dw_at_type.value + die.cu.cu_offset
         )
 
     @property
