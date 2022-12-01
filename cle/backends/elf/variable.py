@@ -29,6 +29,8 @@ class Variable:
         self.decl_line = None
         self.decl_file = None
         self.lexical_block = None
+        self.external = False
+        self.declaration_only = False
 
     @staticmethod
     def from_die(die: DIE, expr_parser, elf_object: 'ELF', lexical_block: Optional['LexicalBlock'] = None):
@@ -53,6 +55,10 @@ class Variable:
             var._type_offset = die.attributes['DW_AT_type'].value + die.cu.cu_offset
         if 'DW_AT_decl_line' in die.attributes:
             var.decl_line = die.attributes['DW_AT_decl_line'].value
+        if 'DW_AT_external' in die.attributes:
+            var.external = True
+        if 'DW_AT_declaration' in die.attributes:
+            var.declaration_only = True
 
         var.lexical_block = lexical_block
 
