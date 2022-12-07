@@ -67,9 +67,11 @@ class PointerType(VariableType):
 
         dw_at_type = die.attributes.get('DW_AT_type', None)
         if dw_at_type is None:
-            return None
+            referenced_offset = None
+        else:
+            referenced_offset = dw_at_type.value + die.cu.cu_offset
 
-        return PointerType(byte_size.value, elf_object, dw_at_type.value + die.cu.cu_offset)
+        return PointerType(byte_size.value, elf_object, referenced_offset)
 
     @property
     def referenced_type(self):
