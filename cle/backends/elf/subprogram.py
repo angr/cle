@@ -24,13 +24,6 @@ class LexicalBlock:
         self.high_pc = high_pc
         self.child_blocks: List[LexicalBlock] = []
 
-    # depth-first
-    def __iter__(self):
-        yield self
-        for child in self.child_blocks:
-            for node in child:
-                yield node
-
 
 class Subprogram(LexicalBlock):
     """
