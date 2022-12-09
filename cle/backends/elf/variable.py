@@ -45,6 +45,8 @@ class Variable:
             elif len(parsed_exprs) == 1 and parsed_exprs[0].op_name.startswith("DW_OP_reg"):
                 addr = parsed_exprs[0].op - 0x50  # 0x50 == DW_OP_reg0
                 var = RegisterVariable(elf_object, addr)
+            else:
+                var = Variable(elf_object)
         else:
             var = Variable(elf_object)
 
@@ -77,11 +79,23 @@ class Variable:
         return None
 
     @property
+    def addr(self):
+        """
+        Please use 'relative_addr' or 'rebased_addr' instead.
+        """
+        return self.relative_addr
+
+    @property
     def type(self) -> VariableType:
         try:
             return self._elf_object.type_list[self._type_offset]
         except KeyError:
             return None
+
+    @property
+    def sort(self) -> str:
+        # sort = 'stack' | 'register' | 'global'
+        return 'unknown'
 
 
 class MemoryVariable(Variable):
@@ -97,6 +111,10 @@ class MemoryVariable(Variable):
     def rebased_addr(self):
         return AT.from_rva(self.relative_addr, self._elf_object).to_mva()
 
+    @property
+    def sort(self) -> str:
+        return 'global'
+
 
 class StackVariable(Variable):
     """
@@ -109,6 +127,10 @@ class StackVariable(Variable):
     def rebased_addr_from_cfa(self, cfa: int):
         return self.relative_addr + cfa
 
+    @property
+    def sort(self) -> str:
+        return 'stack'
+
 
 class RegisterVariable(Variable):
     """
@@ -118,3 +140,7 @@ class RegisterVariable(Variable):
         super().__init__(elf_object)
         # FIXME should this really go into relative addr?
         self.relative_addr = register_addr
+
+    @property
+    def sort(self) -> str:
+        return 'register'

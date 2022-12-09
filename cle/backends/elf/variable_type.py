@@ -3,7 +3,7 @@ from elftools.dwarf.die import DIE
 
 class VariableType:
     """
-    Entry class for DW_TAG_..._type
+    Entry class for DW_TAG_xxx_type
 
     :param name:            name of the type
     :param byte_size:       amount of bytes the type take in memory
@@ -21,7 +21,7 @@ class VariableType:
     @staticmethod
     def read_from_die(die: DIE, elf_object):
         """
-        entry method to read a DW_TAG_..._type
+        entry method to read a DW_TAG_xxx_type
         """
         if die.tag == 'DW_TAG_base_type':
             return BaseType.read_from_die(die, elf_object)
