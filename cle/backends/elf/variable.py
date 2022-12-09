@@ -2,9 +2,8 @@ from typing import Optional, TYPE_CHECKING
 
 from elftools.dwarf.die import DIE
 
-from .variable_type import VariableType
-
 from cle.address_translator import AT
+from .variable_type import VariableType
 
 if TYPE_CHECKING:
     from .elf import ELF
@@ -78,7 +77,7 @@ class Variable:
         return None
 
     @property
-    def type(self):
+    def type(self) -> VariableType:
         try:
             return self._elf_object.type_list[self._type_offset]
         except KeyError:
@@ -112,6 +111,9 @@ class StackVariable(Variable):
 
 
 class RegisterVariable(Variable):
+    """
+    Register Variable from DWARF.
+    """
     def __init__(self, elf_object: 'ELF', register_addr):
         super().__init__(elf_object)
         # FIXME should this really go into relative addr?

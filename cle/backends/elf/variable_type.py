@@ -35,10 +35,10 @@ class VariableType:
 
     @staticmethod
     def supported_die(die: DIE) -> bool:
-        return die.tag == 'DW_TAG_base_type'\
-            or die.tag == 'DW_TAG_pointer_type'\
-            or die.tag == 'DW_TAG_structure_type'\
-            or die.tag == 'DW_TAG_array_type'
+        return die.tag in ('DW_TAG_base_type',
+                           'DW_TAG_pointer_type',
+                           'DW_TAG_structure_type',
+                           'DW_TAG_array_type')
 
 
 class PointerType(VariableType):
@@ -89,8 +89,7 @@ class BaseType(VariableType):
     Entry class for DW_TAG_base_type. It is inherited from VariableType
     """
 
-    def __init__(self, name: str, byte_size: int, elf_object):
-        super().__init__(name, byte_size, elf_object)
+    # for __init__ see VariableType
 
     @staticmethod
     def read_from_die(die: DIE, elf_object):
@@ -152,6 +151,7 @@ class StructType(VariableType):
         for member in self.members:
             if member.name == member_name:
                 return member
+        raise KeyError
 
 
 class StructMember:

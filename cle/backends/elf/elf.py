@@ -767,7 +767,8 @@ class ELF(MetaELF):
         for seg in type_to_seg_mapping['PT_LOAD']:
             self._load_segment(seg)
 
-        # the order of processing for the other three handled segment_types should not matter, but let's have it consistent
+        # the order of processing for the other three handled segment_types should not matter, but let's have
+        # it consistent
         for seg in type_to_seg_mapping['PT_DYNAMIC']:
             self.__register_dyn(seg)
             self.linking = 'dynamic'
@@ -1236,8 +1237,8 @@ class ELF(MetaELF):
 
     def __neuter_streams(self, obj):
         if isinstance(obj, elftools.elf.dynamic._DynamicStringTable):
-           obj._stream = self.memory
-           obj._table_offset = self._offset_to_rva(obj._table_offset)
+            obj._stream = self.memory
+            obj._table_offset = self._offset_to_rva(obj._table_offset)
         elif isinstance(obj, elftools.elf.sections.Section):
             if obj.header.sh_type == 'SHT_NOBITS':
                 obj.stream = None

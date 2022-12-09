@@ -1,11 +1,11 @@
 import os.path
 
 from typing import Dict, List
-from .variable import Variable
-from .subprogram import Subprogram
 
 from cle.address_translator import AT
 
+from .variable import Variable
+from .subprogram import Subprogram
 
 class CompilationUnit:
     """

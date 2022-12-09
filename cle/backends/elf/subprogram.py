@@ -45,4 +45,4 @@ class Subprogram(LexicalBlock):
         self.subprogram = self
         super().__init__(low_pc, high_pc)
         self.name = name
-        self.local_variables = []
+        self.local_variables: List[Variable] = []
