@@ -31,6 +31,8 @@ class VariableType:
             return StructType.read_from_die(die, elf_object)
         elif die.tag == 'DW_TAG_array_type':
             return ArrayType.read_from_die(die, elf_object)
+        elif die.tag == 'DW_TAG_typedef':
+            return TypedefType.read_from_die(die, elf_object)
         return None
 
     @staticmethod
@@ -38,7 +40,8 @@ class VariableType:
         return die.tag in ('DW_TAG_base_type',
                            'DW_TAG_pointer_type',
                            'DW_TAG_structure_type',
-                           'DW_TAG_array_type')
+                           'DW_TAG_array_type',
+                           'DW_TAG_typedef')
 
 
 class PointerType(VariableType):
@@ -237,4 +240,45 @@ class ArrayType(VariableType):
         type_list = self._elf_object.type_list
         if self._element_offset in type_list.keys():
             return type_list[self._element_offset]
+        return None
+
+
+class TypedefType(VariableType):
+    """
+    Entry class for DW_TAG_typedef. Inherits from VariableType.
+
+    :param name:        name of the new type
+    :param elf_object:  elf object to reference to (useful for pointer,...)
+    :param type_offset: type as offset in the compilation_unit
+    """
+
+    def __init__(self, name: str, byte_size, elf_object, type_offset):
+        super().__init__(name, byte_size, elf_object)
+        self._type_offset = type_offset
+
+    @staticmethod
+    def read_from_die(die: DIE, elf_object):
+        """
+        read an entry of DW_TAG_member_type. return None when there is no
+        type attribute.
+        """
+
+        dw_at_name = die.attributes.get('DW_AT_name', None)
+        dw_at_type = die.attributes.get('DW_AT_type', None)
+        dw_at_byte_size = die.attributes.get('DW_AT_byte_size', None)
+        name = None if dw_at_name is None else dw_at_name.value.decode()
+        type_offset = None if dw_at_type is None else dw_at_type.value + die.cu.cu_offset
+        byte_size = None if dw_at_byte_size is None else dw_at_byte_size.value
+
+        return TypedefType(name, byte_size, elf_object, type_offset)
+
+    @property
+    def type(self):
+        """
+        attribute to get the type of the member. Return None if the type is not loaded
+        """
+
+        type_list = self._elf_object.type_list
+        if self._type_offset in type_list.keys():
+            return type_list[self._type_offset]
         return None
