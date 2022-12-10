@@ -33,6 +33,8 @@ class VariableType:
             return ArrayType.read_from_die(die, elf_object)
         elif die.tag == 'DW_TAG_typedef':
             return TypedefType.read_from_die(die, elf_object)
+        elif die.tag == 'DW_TAG_union_type':
+            return UnionType.read_from_die(die, elf_object)
         return None
 
     @staticmethod
@@ -41,7 +43,8 @@ class VariableType:
                            'DW_TAG_pointer_type',
                            'DW_TAG_structure_type',
                            'DW_TAG_array_type',
-                           'DW_TAG_typedef')
+                           'DW_TAG_typedef',
+                           'DW_TAG_union_type')
 
 
 class PointerType(VariableType):
@@ -57,8 +60,8 @@ class PointerType(VariableType):
         super().__init__('pointer', byte_size, elf_object)
         self._referenced_offset = referenced_offset
 
-    @staticmethod
-    def read_from_die(die: DIE, elf_object):
+    @classmethod
+    def read_from_die(cls, die: DIE, elf_object):
         """
         read an entry of DW_TAG_pointer_type. return None when there is no
         byte_size or type attribute.
@@ -74,7 +77,7 @@ class PointerType(VariableType):
         else:
             referenced_offset = dw_at_type.value + die.cu.cu_offset
 
-        return PointerType(byte_size.value, elf_object, referenced_offset)
+        return cls(byte_size.value, elf_object, referenced_offset)
 
     @property
     def referenced_type(self):
@@ -94,8 +97,8 @@ class BaseType(VariableType):
 
     # for __init__ see VariableType
 
-    @staticmethod
-    def read_from_die(die: DIE, elf_object):
+    @classmethod
+    def read_from_die(cls, die: DIE, elf_object):
         """
         read an entry of DW_TAG_base_type. return None when there is no
         byte_size attribute.
@@ -105,7 +108,7 @@ class BaseType(VariableType):
         byte_size = die.attributes.get("DW_AT_byte_size", None)
         if byte_size is None:
             return None
-        return BaseType(
+        return cls(
             dw_at_name.value.decode() if dw_at_name is not None else "unknown",
             byte_size.value,
             elf_object
@@ -125,8 +128,8 @@ class StructType(VariableType):
         super().__init__(name, byte_size, elf_object)
         self.members = members
 
-    @staticmethod
-    def read_from_die(die: DIE, elf_object):
+    @classmethod
+    def read_from_die(cls, die: DIE, elf_object):
         """
         read an entry of DW_TAG_structure_type. return None when there is no
         byte_size attribute.
@@ -143,7 +146,7 @@ class StructType(VariableType):
             if die_child.tag == 'DW_TAG_member':
                 members.append(StructMember.read_from_die(die_child, elf_object))
 
-        return StructType(
+        return cls(
             dw_at_name.value.decode() if dw_at_name is not None else "unknown",
             byte_size.value,
             elf_object,
@@ -155,6 +158,12 @@ class StructType(VariableType):
             if member.name == member_name:
                 return member
         raise KeyError
+
+
+class UnionType(StructType):
+    """
+    Entry class for DW_TAG_union_type. Inherits from StructType to make it trivial.
+    """
 
 
 class StructMember:
@@ -176,8 +185,8 @@ class StructMember:
         self._elf_object = elf_object
         self._type_offset = type_offset
 
-    @staticmethod
-    def read_from_die(die: DIE, elf_object):
+    @classmethod
+    def read_from_die(cls, die: DIE, elf_object):
         """
         read an entry of DW_TAG_member_type. return None when there is no
         type attribute.
@@ -188,9 +197,16 @@ class StructMember:
         dw_at_memloc = die.attributes.get('DW_AT_data_member_location', None)
         name        = None if dw_at_name   is None else dw_at_name.value.decode()
         ty          = None if dw_at_type   is None else dw_at_type.value + die.cu.cu_offset
-        addr_offset = None if dw_at_memloc is None else dw_at_memloc.value
 
-        return StructMember(name, addr_offset, ty, elf_object)
+        # From the DWARF5 manual, page 118:
+        #    The member entry corresponding to a data member that is defined in a structure,
+        #    union or class may have either a DW_AT_data_member_location attribute or a
+        #    DW_AT_data_bit_offset attribute. If the beginning of the data member is the
+        #    same as the beginning of the containing entity then neither attribute is required.
+        # TODO bit_offset
+        addr_offset = 0 if dw_at_memloc is None else dw_at_memloc.value
+
+        return cls(name, addr_offset, ty, elf_object)
 
     @property
     def type(self):
@@ -217,8 +233,8 @@ class ArrayType(VariableType):
         super().__init__('array', byte_size, elf_object)
         self._element_offset = element_offset
 
-    @staticmethod
-    def read_from_die(die: DIE, elf_object):
+    @classmethod
+    def read_from_die(cls, die: DIE, elf_object):
         """
         read an entry of DW_TAG_array_type. return None when there is no
         type attribute.
@@ -229,7 +245,7 @@ class ArrayType(VariableType):
         dw_at_type = die.attributes.get("DW_AT_type", None)
         if dw_at_type is None:
             return None
-        return ArrayType(
+        return cls(
             dw_byte_size.value if dw_byte_size is not None else None,
             elf_object,
             dw_at_type.value + die.cu.cu_offset
@@ -256,8 +272,8 @@ class TypedefType(VariableType):
         super().__init__(name, byte_size, elf_object)
         self._type_offset = type_offset
 
-    @staticmethod
-    def read_from_die(die: DIE, elf_object):
+    @classmethod
+    def read_from_die(cls, die: DIE, elf_object):
         """
         read an entry of DW_TAG_member_type. return None when there is no
         type attribute.
@@ -270,7 +286,7 @@ class TypedefType(VariableType):
         type_offset = None if dw_at_type is None else dw_at_type.value + die.cu.cu_offset
         byte_size = None if dw_at_byte_size is None else dw_at_byte_size.value
 
-        return TypedefType(name, byte_size, elf_object, type_offset)
+        return cls(name, byte_size, elf_object, type_offset)
 
     @property
     def type(self):
