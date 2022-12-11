@@ -19,7 +19,7 @@ import archinfo
 from .compilation_unit import CompilationUnit
 from .variable import Variable
 from .variable_type import VariableType
-from .subprogram import Subprogram
+from .subprogram import LexicalBlock, Subprogram
 from .symbol import ELFSymbol, Symbol, SymbolType
 from .regions import ELFSection, ELFSegment
 from .hashtable import ELFHashTable, GNUHashTable
@@ -674,8 +674,8 @@ class ELF(MetaELF):
             # scan the whole die tree for DW_TAG_base_type
             try:
                 for die in cu.iter_DIEs():
-                    if die.tag == "DW_TAG_base_type":
-                        var_type = VariableType.read_from_die(die)
+                    if VariableType.supported_die(die):
+                        var_type = VariableType.read_from_die(die, self)
                         if var_type is not None:
                             type_list[die.offset] = var_type
             except KeyError:
@@ -701,77 +701,52 @@ class ELF(MetaELF):
             die_comp_dir = die_comp_dir.value.decode('utf-8')
             die_lang = describe_attr_value(die_lang, top_die, top_die.offset)
 
-            cu_ = CompilationUnit(die_name, die_comp_dir, die_low_pc, die_high_pc,die_lang)
+            cu_ = CompilationUnit(die_name, die_comp_dir, die_low_pc, die_high_pc,die_lang, self)
             compilation_units.append(cu_)
 
             for die_child in cu.iter_DIE_children(top_die):
                 if die_child.tag == 'DW_TAG_variable':
                     # load global variable
-                    var = self._load_die_variable(die_child, expr_parser, type_list)
+                    var = Variable.from_die(die_child, expr_parser, self)
                     var.decl_file = cu_.file_path
                     cu_.global_variables.append(var)
                 elif die_child.tag == 'DW_TAG_subprogram':
                     # load subprogram
+                    sub_prog = self._load_die_lex_block(die_child, expr_parser, type_list, cu, cu_.file_path, None)
+                    if sub_prog is not None:
+                        cu_.functions[sub_prog.low_pc] = sub_prog
 
-                    if 'DW_AT_name' in die_child.attributes:
-                        name = die_child.attributes['DW_AT_name'].value.decode('utf-8')
-                    else:
-                        name = None
-                    low_pc, high_pc = self._load_low_high_pc_form_die(die_child)
-                    if low_pc is not None or high_pc is not None:
-                        sub_prog = Subprogram(name, low_pc, high_pc)
-
-                        for sub_die in cu._iter_DIE_subtree(die_child):
-                            if sub_die.tag in ['DW_TAG_variable','DW_TAG_formal_parameter']:
-                                # load local variable
-                                var = self._load_die_variable(sub_die, expr_parser, type_list)
-                                var.decl_file = cu_.file_path
-                                sub_prog.local_variables.append(var)
-
-                        cu_.functions[low_pc] = sub_prog
-
+        self.type_list = type_list
         self.compilation_units = compilation_units
 
-    @staticmethod
-    def _load_die_variable(die: DIE, expr_parser, type_list) -> Variable:
+    def _load_die_lex_block(self, die: DIE, expr_parser, type_list, cu, file_path, subprogram) -> LexicalBlock:
 
         if 'DW_AT_name' in die.attributes:
-            var_name = die.attributes['DW_AT_name'].value.decode('utf-8')
+            name = die.attributes['DW_AT_name'].value.decode('utf-8')
         else:
-            var_name = None
+            name = None
 
-        if 'DW_AT_decl_line' in die.attributes:
-            decl_line = die.attributes['DW_AT_decl_line'].value
+        low_pc, high_pc = self._load_low_high_pc_form_die(die)
+        if low_pc is None or high_pc is None:
+            return None
+
+        if subprogram is None:
+            subprogram = block = Subprogram(name, low_pc, high_pc)
         else:
-            decl_line = None
+            block = LexicalBlock(low_pc, high_pc)
 
-        type_ = None
-        if 'DW_AT_type' in die.attributes:
-            type_offset = die.attributes['DW_AT_type'].value
-            if type_offset in type_list:
-                type_ = type_list[type_offset]
-            else:
-                # this warning takes too long to print on binaries with too many unknown type offsets. disable it
-                # l.warning("unknown type offset var_name:%s type_offset:%s", var_name, type_offset)
-                pass
+        for sub_die in cu.iter_DIE_children(die):
+            if sub_die.tag in ['DW_TAG_variable', 'DW_TAG_formal_parameter']:
+                # load local variable
+                var = Variable.from_die(sub_die, expr_parser, self, block)
+                var.decl_file = file_path
+                subprogram.local_variables.append(var)
+            elif sub_die.tag == 'DW_TAG_lexical_block':
+                sub_block = self._load_die_lex_block(sub_die, expr_parser, type_list, cu, file_path, subprogram)
+                if sub_block is not None:
+                    block.child_blocks.append(sub_block)
 
-        v = Variable(
-            name= var_name,
-            type_= type_,
-            decl_file= None,  # decl_file: will be back-patched in _load_dies()
-            decl_line= decl_line,
-        )
-
-        if 'DW_AT_location' in die.attributes and die.attributes['DW_AT_location'].form == 'DW_FORM_exprloc':
-            parsed_exprs = expr_parser.parse_expr(die.attributes['DW_AT_location'].value)
-            if len(parsed_exprs) == 1 and parsed_exprs[0].op_name == 'DW_OP_addr':
-                v.sort, v.addr = "global", parsed_exprs[0].args[0]
-            elif len(parsed_exprs) == 1 and parsed_exprs[0].op_name == 'DW_OP_fbreg':
-                v.sort, v.addr = "stack", parsed_exprs[0].args[0]
-            elif len(parsed_exprs) == 1 and parsed_exprs[0].op_name.startswith("DW_OP_reg"):
-                v.sort, v.addr = "register", parsed_exprs[0].op - 0x50 # 0x50 == DW_OP_reg0
-
-        return v
+        return block
 
     #
     # Private Methods... really. Calling these out of context
@@ -792,7 +767,8 @@ class ELF(MetaELF):
         for seg in type_to_seg_mapping['PT_LOAD']:
             self._load_segment(seg)
 
-        # the order of processing for the other three handled segment_types should not matter, but let's have it consistent
+        # the order of processing for the other three handled segment_types should not matter, but let's have
+        # it consistent
         for seg in type_to_seg_mapping['PT_DYNAMIC']:
             self.__register_dyn(seg)
             self.linking = 'dynamic'
@@ -1261,8 +1237,8 @@ class ELF(MetaELF):
 
     def __neuter_streams(self, obj):
         if isinstance(obj, elftools.elf.dynamic._DynamicStringTable):
-           obj._stream = self.memory
-           obj._table_offset = self._offset_to_rva(obj._table_offset)
+            obj._stream = self.memory
+            obj._table_offset = self._offset_to_rva(obj._table_offset)
         elif isinstance(obj, elftools.elf.sections.Section):
             if obj.header.sh_type == 'SHT_NOBITS':
                 obj.stream = None

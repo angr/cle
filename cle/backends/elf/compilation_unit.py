@@ -1,9 +1,11 @@
 import os.path
 
 from typing import Dict, List
+
+from cle.address_translator import AT
+
 from .variable import Variable
 from .subprogram import Subprogram
-
 
 class CompilationUnit:
     """
@@ -11,7 +13,7 @@ class CompilationUnit:
     See http://dwarfstd.org/doc/DWARF5.pdf page 60
     """
 
-    def __init__(self, name, comp_dir, low_pc, high_pc, language):
+    def __init__(self, name, comp_dir, low_pc, high_pc, language, elf_object):
         self.name = name
         self.comp_dir = comp_dir
         self.file_path = os.path.join(self.comp_dir, self.name)
@@ -20,3 +22,12 @@ class CompilationUnit:
         self.language = language
         self.functions: Dict[int, Subprogram] = {}
         self.global_variables: List[Variable] = []
+        self._elf_object = elf_object
+
+    @property
+    def min_addr(self):
+        return AT.from_rva(self.low_pc, self._elf_object).to_mva()
+
+    @property
+    def max_addr(self):
+        return AT.from_rva(self.high_pc, self._elf_object).to_mva()
