@@ -183,7 +183,7 @@ class MetaELF(Backend):
         def scan_forward(addr, name, push=False):
             names = [name] if type(name) not in (list, tuple) else name
             def block_is_good(blk):
-                all_constants = set(c.value for c in blk.all_constants)
+                all_constants = {c.value for c in blk.all_constants}
                 for name in names:
                     gotslot = func_jmprel[name].linked_addr
                     if gotslot in all_constants:

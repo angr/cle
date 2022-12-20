@@ -1,4 +1,4 @@
-class AddressTranslator(object):
+class AddressTranslator:
 
     __slots__ = ('_rva', '_owner', )
 

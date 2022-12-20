@@ -66,9 +66,9 @@ class Symbol:
 
     def __repr__(self):
         if self.is_import:
-            return '<Symbol "%s" in %s (import)>' % (self.name, self.owner.binary_basename)
+            return f'<Symbol "{self.name}" in {self.owner.binary_basename} (import)>'
         else:
-            return '<Symbol "%s" in %s at %#x>' % (self.name, self.owner.binary_basename, self.rebased_addr)
+            return f'<Symbol "{self.name}" in {self.owner.binary_basename} at {self.rebased_addr:#x}>'
 
     def resolve(self, obj):
         self.resolved = True
@@ -135,7 +135,7 @@ class Symbol:
         return self.owner
 
     def __getstate__(self):
-        return dict((k, v) for k, v in self.__dict__.items() if k != 'owner')
+        return {k: v for k, v in self.__dict__.items() if k != 'owner'}
 
     def __setstate__(self, state):
         self.__dict__.update(state)

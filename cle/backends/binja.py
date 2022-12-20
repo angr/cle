@@ -1,4 +1,3 @@
-
 import logging
 
 from . import Backend, register_backend, Symbol, SymbolType

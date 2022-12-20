@@ -153,7 +153,7 @@ class Apk(Soot):
             param_str = split_str[1].rstrip(')')
 
             if param_str == '':
-                params = tuple()
+                params = ()
             else:
                 params = tuple(param.strip() for param in param_str.split(','))
 
@@ -214,7 +214,7 @@ class Apk(Soot):
             #       see https://github.com/angr/cle/issues/123
             tmp_dir = tempfile.mkdtemp()
             for lib in jni_libs:
-                apk_file = "lib/{jni_arch}/{lib_name}".format(jni_arch=jni_arch, lib_name=lib)
+                apk_file = f"lib/{jni_arch}/{lib}"
                 apk.extract(apk_file, path=tmp_dir)
             jni_libs_ld_path = os.path.join(tmp_dir, 'lib', jni_arch)
 

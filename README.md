@@ -73,7 +73,7 @@ please complain through whatever channel you feel appropriate.
 
 # Loading Backends
 
-CLE's loader is implemented in the Loader class. 
+CLE's loader is implemented in the Loader class.
 There are several backends that can be used to load a single file:
 
     - ELF, as its name says, loads ELF binaries. ELF files loaded this way are

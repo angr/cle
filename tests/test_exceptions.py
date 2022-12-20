@@ -15,9 +15,9 @@ def test_gxx_exception_0():
     ld = cle.Loader(binary, load_debug_info=True, auto_load_libs=False)
 
     assert len(ld.main_object.exception_handlings) == 4
-    exception_handlings = dict(
-        (exc.start_addr, exc) for exc in ld.main_object.exception_handlings
-    )
+    exception_handlings = {
+        exc.start_addr: exc for exc in ld.main_object.exception_handlings
+    }
     assert len(exception_handlings) == 4
     # 0x400a61
     assert exception_handlings[0x400A61].start_addr == 0x400A61

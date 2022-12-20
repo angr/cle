@@ -95,7 +95,7 @@ class Loader:
 
         self._auto_load_libs = auto_load_libs
         self._load_debug_info = load_debug_info
-        self._satisfied_deps = dict((x, False) for x in skip_libs)
+        self._satisfied_deps = {x: False for x in skip_libs}
         self._main_opts = {} if main_opts is None else main_opts
         self._lib_opts = {} if lib_opts is None else lib_opts
         self._custom_ld_path = [ld_path] if type(ld_path) is str else ld_path
@@ -145,9 +145,9 @@ class Loader:
 
     def __repr__(self):
         if self._main_binary_stream is None:
-            return '<Loaded %s, maps [%#x:%#x]>' % (os.path.basename(self._main_binary_path), self.min_addr, self.max_addr)
+            return f'<Loaded {os.path.basename(self._main_binary_path)}, maps [{self.min_addr:#x}:{self.max_addr:#x}]>'
         else:
-            return '<Loaded from stream, maps [%#x:%#x]>' % (self.min_addr, self.max_addr)
+            return f'<Loaded from stream, maps [{self.min_addr:#x}:{self.max_addr:#x}]>'
 
     @property
     def max_addr(self):
@@ -259,7 +259,7 @@ class Loader:
         """
         Return a set of every name that was requested as a shared object dependency but could not be loaded
         """
-        return self.requested_names - set(k for k,v in self._satisfied_deps.items() if v is not False)
+        return self.requested_names - {k for k,v in self._satisfied_deps.items() if v is not False}
 
     @property
     def auto_load_libs(self):
@@ -307,7 +307,7 @@ class Loader:
             objname = 'object loaded from stream'
 
         best_offset, best_prefix = max(options, key=lambda v: v[0])
-        return '%s%#x in %s (%#x)' % (best_prefix, rva - best_offset, objname, AT.from_va(addr, o).to_lva())
+        return f'{best_prefix}{rva - best_offset:#x} in {objname} ({AT.from_va(addr, o).to_lva():#x})'
 
     # Search functions
 
@@ -1056,7 +1056,7 @@ class Loader:
                         ilibname = libname.lower() if self._case_insensitive else libname
                         if ilibname.strip('.0123456789') == spec.strip('.0123456789'):
                             yield os.path.realpath(os.path.join(libdir, libname))
-                except (IOError, OSError): pass
+                except OSError: pass
 
     @classmethod
     def _path_insensitive(cls, path):

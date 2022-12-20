@@ -41,7 +41,7 @@ class NamedRegion(Backend):
         self.segments.append(s)
 
     def __repr__(self):
-        return '<NamedRegion %s, maps [%#x:%#x]>' % (self.name, self.min_addr, self.max_addr)
+        return f'<NamedRegion {self.name}, maps [{self.min_addr:#x}:{self.max_addr:#x}]>'
 
     @staticmethod
     def is_compatible(stream):

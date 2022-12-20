@@ -76,11 +76,11 @@ class ExceptionHandling:
 
     def __repr__(self):
         if self.handler_addr is not None:
-            return "<ExceptionHandling@%#x-%#x: handler@%#x>" % (self.start_addr,
+            return "<ExceptionHandling@{:#x}-{:#x}: handler@{:#x}>".format(self.start_addr,
                                                                  self.start_addr + self.size,
                                                                  self.handler_addr)
         else:
-            return "<ExceptionHandling@%#x-%#x: no handler>" % (self.start_addr,
+            return "<ExceptionHandling@{:#x}-{:#x}: no handler>".format(self.start_addr,
                                                                  self.start_addr + self.size)
 
 
@@ -306,7 +306,7 @@ class Backend:
         """
         if self._is_mapped:
             # we could rebase an object twice if we really wanted... no need though, right?
-            raise CLEOperationError("Image already rebased from %#x to %#x" % (self.linked_base, self.mapped_base))
+            raise CLEOperationError(f"Image already rebased from {self.linked_base:#x} to {self.mapped_base:#x}")
 
         self.mapped_base = new_base
 

@@ -407,13 +407,13 @@ class TestBindingHelper(unittest.TestCase):
                 self.assertEqual(
                     a,
                     b,
-                    "Error: Differences for symbol {0}: {1} != {2}: ".format(
+                    "Error: Differences for symbol {}: {} != {}: ".format(
                         name, a, b
                     ),
                 )
 
             if not found:
-                self.fail("Symbol not found: {0}".format(name))
+                self.fail(f"Symbol not found: {name}")
 
     def test_bind_real_64(self):
         """
@@ -519,13 +519,13 @@ class TestBindingHelper(unittest.TestCase):
                 self.assertEqual(
                     a,
                     b,
-                    "Error: Differences for symbol {0}: {1} != {2}: ".format(
+                    "Error: Differences for symbol {}: {} != {}: ".format(
                         name, a, b
                     ),
                 )
 
             if not found:
-                self.fail("Symbol not found: {0}".format(name))
+                self.fail(f"Symbol not found: {name}")
 
             executed = True
 

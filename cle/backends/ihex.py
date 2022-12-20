@@ -45,7 +45,7 @@ class Hex(Backend):
             my_cksum = (my_cksum + chh(d)) % 256
         my_cksum = ((my_cksum ^ 0xff) + 1) % 256
         if my_cksum != cksum:
-            raise CLEError("Invalid checksum: Computed %s, found %s" % (hex(my_cksum), hex(cksum)))
+            raise CLEError(f"Invalid checksum: Computed {hex(my_cksum)}, found {hex(cksum)}")
         count = int(count, 16)
         addr = int(addr, 16)
         rectype = int(rectype, 16)
