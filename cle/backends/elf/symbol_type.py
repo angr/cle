@@ -77,10 +77,10 @@ class ELFSymbolType(SymbolSubType):
         # if someone defines a type that's not a `tuple`
         if not isinstance(self.value, tuple):
             raise ValueError(
-                "Symbol value '{}' for member '{}' is invalid. Values must be tuples.".format(self.value, self.name))  # pylint: disable=logging-format-interpolation
+                f"Symbol value '{self.value}' for member '{self.name}' is invalid. Values must be tuples.")  # pylint: disable=logging-format-interpolation
 
     def __repr__(self):
-        return "ELFSymbolType.{}: (elf_value: {}, os_proc: {})".format(self.name, self.elf_value, self.os_proc)
+        return f"ELFSymbolType.{self.name}: (elf_value: {self.elf_value}, os_proc: {self.os_proc})"
 
     def __eq__(self, other):
         if type(self) is not type(other):

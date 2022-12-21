@@ -1,4 +1,3 @@
-# -*-coding:utf8 -*-
 # This file is part of Mach-O Loader for CLE.
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
 import ctypes
@@ -149,7 +148,7 @@ class MachO(Backend):
             arch_ident = self._detect_arch_ident()
             if not arch_ident:
                 raise CLECompatibilityError(
-                    "Unsupported architecture: 0x{0:X}:0x{1:X}".format(self.cputype, self.cpusubtype))
+                    f"Unsupported architecture: 0x{self.cputype:X}:0x{self.cpusubtype:X}")
 
             # Create archinfo
             # Note that this should be customized for Apple ABI (TODO)
@@ -227,9 +226,9 @@ class MachO(Backend):
             # Assertion to catch malformed binaries - YES this is needed!
             if count < self.ncmds or (offset - lc_offset) < self.sizeofcmds:
                 raise CLEInvalidBinaryError(
-                    "Assertion triggered: {0} < {1} or {2} < {3}".format(count, self.ncmds, (offset - lc_offset),
+                    "Assertion triggered: {} < {} or {} < {}".format(count, self.ncmds, (offset - lc_offset),
                                                                          self.sizeofcmds))
-        except IOError as e:
+        except OSError as e:
             l.exception(e)
             raise CLEOperationError(e)
 

@@ -1,4 +1,3 @@
-# -*-coding:utf8 -*-
 # This file is part of Mach-O Loader for CLE.
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
 from typing import Optional
@@ -83,7 +82,7 @@ class MachOSection(Section):
         return False
 
     def __repr__(self):
-        return "<Section: %s (part of Segment: %s)| offset %#x, vaddr %#x, size %#x>" % (
+        return "<Section: {} (part of Segment: {})| offset {:#x}, vaddr {:#x}, size {:#x}>".format(
             self.sectname if self.sectname else "Unnamed",
             self.segname,
             self.offset,

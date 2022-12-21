@@ -50,7 +50,7 @@ int main(int argc, char* argv[])
 }"""
 def get_mmaped_data(stream, offset, length, page_size):
     if offset % page_size != 0:
-        raise CLEError("libc helper for mmap: Invalid page offset, should be multiple of page size! Stream {}, offset {}, length: {}".format(stream, offset, length))
+        raise CLEError(f"libc helper for mmap: Invalid page offset, should be multiple of page size! Stream {stream}, offset {offset}, length: {length}")
 
     read_length = ALIGN_UP(length, page_size)
     stream.seek(offset)

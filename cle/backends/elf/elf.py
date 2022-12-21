@@ -195,7 +195,7 @@ class ELF(MetaELF):
             self.__process_debug_file(debug_symbols)
         elif self.loader._load_debug_info:
             if self.build_id:
-                debug_filename = '/usr/lib/debug/.build-id/%s/%s.debug' % (self.build_id[:2], self.build_id[2:])
+                debug_filename = f'/usr/lib/debug/.build-id/{self.build_id[:2]}/{self.build_id[2:]}.debug'
                 if os.path.isfile(debug_filename):
                     self.__process_debug_file(debug_filename)
             if self.binary:
@@ -390,7 +390,7 @@ class ELF(MetaELF):
                 return cached
             re_sym = symid
         else:
-            raise CLEError("Bad symbol identifier: %r" % (symid,))
+            raise CLEError(f"Bad symbol identifier: {symid!r}")
 
         symbol = ELFSymbol(self, re_sym)
         if version is not None and self._versions is not None:
@@ -934,7 +934,7 @@ class ELF(MetaELF):
             if rela_tag in self._dynamic:
                 reloffset = AT.from_lva(self._dynamic[rela_tag], self).to_rva()
                 if relsz_tag not in self._dynamic:
-                    raise CLEInvalidBinaryError('Dynamic section contains %s but not %s' % (rela_tag, relsz_tag))
+                    raise CLEInvalidBinaryError(f'Dynamic section contains {rela_tag} but not {relsz_tag}')
                 relsz = self._dynamic[relsz_tag]
                 fakerelheader = {
                     'sh_offset': reloffset,

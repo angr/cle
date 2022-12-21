@@ -1,6 +1,6 @@
 import struct
 
-class ELFHashTable(object):
+class ELFHashTable:
     """
     Functions to do lookup from a HASH section of an ELF file.
 
@@ -50,7 +50,7 @@ class ELFHashTable(object):
             h &= ~x
         return h
 
-class GNUHashTable(object):
+class GNUHashTable:
     """
     Functions to do lookup from a GNU_HASH section of an ELF file.
 

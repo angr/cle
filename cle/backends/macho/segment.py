@@ -1,4 +1,3 @@
-# -*-coding:utf8 -*-
 # This file is part of Mach-O Loader for CLE.
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
 
@@ -60,7 +59,7 @@ class MachOSegment(Segment):
         return ((self.initprot | self.maxprot) & 0x04) != 0
 
     def __repr__(self):
-        return "<%s | offset %#x, vaddr %#x, size %#x>" % (
+        return "<{} | offset {:#x}, vaddr {:#x}, size {:#x}>".format(
             self.segname if self.segname else "Unnamed",
             self.offset,
             self.vaddr,

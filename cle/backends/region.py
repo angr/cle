@@ -1,4 +1,3 @@
-
 class Region:
     """
     A region of memory that is mapped in the object's file.
@@ -65,7 +64,7 @@ class Region:
 
     def __repr__(self):
         return '<{} {}>'.format(self.__class__.__name__,
-                                ', '.join(['{}=0x{:x}'.format(k, v) for k, v in self.__dict__.items()])
+                                ', '.join([f'{k}=0x{v:x}' for k, v in self.__dict__.items()])
                                 )
 
     @property
@@ -192,7 +191,7 @@ class Section(Region):
         raise NotImplementedError()
 
     def __repr__(self):
-        return "<%s | offset %#x, vaddr %#x, size %#x>" % (
+        return "<{} | offset {:#x}, vaddr {:#x}, size {:#x}>".format(
             self.name if self.name else "Unnamed",
             self.offset,
             self.vaddr,
