@@ -16,8 +16,10 @@ TLS_BLOCK_ALIGN = 0x10
 TLS_TOTAL_HEAD_SIZE = 0x4000
 TLS_HEAD_ALIGN = 0x10000
 
+
 def roundup(val, to=TLS_BLOCK_ALIGN):
     return val - 1 + (to - ((val - 1) % to))
+
 
 class ELFThreadManager(ThreadManager):
     def __init__(self, *args, **kwargs):
@@ -66,7 +68,10 @@ class ELFTLSObject(TLSObject):
         self.memory.add_backer(self.head_offset, bytes(TLS_TOTAL_HEAD_SIZE))
 
         # add backer for dtv
-        self.memory.add_backer(self.dtv_offset - 2*self.arch.bytes, bytes(2*self.arch.bytes*thread_manager.max_modules + 2*self.arch.bytes))
+        self.memory.add_backer(
+            self.dtv_offset - 2 * self.arch.bytes,
+            bytes(2 * self.arch.bytes * thread_manager.max_modules + 2 * self.arch.bytes),
+        )
 
         # Set the appropriate pointers in the tcbhead
         for off in self.arch.elf_tls.head_offsets:
@@ -78,8 +83,8 @@ class ELFTLSObject(TLSObject):
 
         # tid. feel free to move this code wherever
         # this only matters if you're not running the libc initializers... hm.
-        #tid = len(thread_manager.threads) + 1
-        #if self.arch.name == 'AMD64':
+        # tid = len(thread_manager.threads) + 1
+        # if self.arch.name == 'AMD64':
         #    self._drop_int(self.tcb_offset + 0x2d0, tid, False, size=4)
 
         # Set up the DTV
@@ -90,8 +95,10 @@ class ELFTLSObject(TLSObject):
         # set up each module
         for obj in thread_manager.modules:
             # dtv entry
-            dtv_entry_offset = self.dtv_offset + 2*self.arch.bytes*obj.tls_module_id
-            self._drop_int(dtv_entry_offset, self.tp_offset + obj.tls_block_offset + self.arch.elf_tls.dtv_entry_offset, True)
+            dtv_entry_offset = self.dtv_offset + 2 * self.arch.bytes * obj.tls_module_id
+            self._drop_int(
+                dtv_entry_offset, self.tp_offset + obj.tls_block_offset + self.arch.elf_tls.dtv_entry_offset, True
+            )
             self._drop_int(dtv_entry_offset + self.arch.bytes, 1)
 
             # initialization image
@@ -132,16 +139,18 @@ class ELFTLSObject(TLSObject):
         """
         return self.memory.unpack_word(self.dtv_offset + module_id * self.arch.bytes) + offset
 
+
 class ELFTLSObjectV1(ELFTLSObject):
     # variant 1: memory is laid out like so:
     # [header][module data]
     #         ^ thread pointer
     def _calculate_pointers(self, used_data, max_modules):
         self.tcb_offset = TLS_TOTAL_HEAD_SIZE - self.arch.elf_tls.tcbhead_size
-        self.tp_offset = TLS_TOTAL_HEAD_SIZE    # CRITICAL DIFFERENCE FROM THE DOC - variant 1 seems to expect the thread pointer points to the end of the TCB
+        self.tp_offset = TLS_TOTAL_HEAD_SIZE  # CRITICAL DIFFERENCE FROM THE DOC - variant 1 seems to expect the thread pointer points to the end of the TCB
         self.dtv_offset = TLS_TOTAL_HEAD_SIZE + used_data + 2 * self.arch.bytes
-        self.head_offset = 0                    # ^^ that's the point of this field
-        self._max_addr = self.dtv_offset + 2*self.arch.bytes*max_modules - 1
+        self.head_offset = 0  # ^^ that's the point of this field
+        self._max_addr = self.dtv_offset + 2 * self.arch.bytes * max_modules - 1
+
 
 class ELFTLSObjectV2(ELFTLSObject):
     # variant 2: memory is laid out like so:
@@ -150,6 +159,6 @@ class ELFTLSObjectV2(ELFTLSObject):
     def _calculate_pointers(self, used_data, max_modules):
         self.tcb_offset = roundup(used_data, TLS_HEAD_ALIGN)
         self.tp_offset = roundup(used_data, TLS_HEAD_ALIGN)
-        self.dtv_offset = self.tp_offset + TLS_TOTAL_HEAD_SIZE + 2*self.arch.bytes
+        self.dtv_offset = self.tp_offset + TLS_TOTAL_HEAD_SIZE + 2 * self.arch.bytes
         self.head_offset = self.tp_offset
-        self._max_addr = self.dtv_offset + 2*self.arch.bytes*max_modules - 1
+        self._max_addr = self.dtv_offset + 2 * self.arch.bytes * max_modules - 1

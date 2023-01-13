@@ -21,16 +21,11 @@ def test_relocated():
 
 
 def test_first_fit():
-    filename = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), "../../binaries/tests/x86_64/cfg_0"
-    )
+    filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../binaries/tests/x86_64/cfg_0")
 
     ld = cle.Loader(filename)
     assert ld.main_object.mapped_base < ld.shared_objects["libc.so.6"].mapped_base
-    assert (
-        ld.shared_objects["libc.so.6"].mapped_base
-        < ld.shared_objects["ld-linux-x86-64.so.2"].mapped_base
-    )
+    assert ld.shared_objects["libc.so.6"].mapped_base < ld.shared_objects["ld-linux-x86-64.so.2"].mapped_base
 
     # [<ELF Object cfg_0, maps [0x400000:0x601047]>,
     # <ELF Object libc.so.6, maps [0x1000000:0x13c42bf]>,
@@ -38,14 +33,8 @@ def test_first_fit():
     # <ELFTLSObj Object ##cle_tls##, maps [0x3000000:0x3030000]>]
 
     ld = cle.Loader(filename, lib_opts={"libc.so.6": {"base_addr": 0x1234000}})
-    assert (
-        ld.main_object.mapped_base
-        < ld.shared_objects["ld-linux-x86-64.so.2"].mapped_base
-    )
-    assert (
-        ld.shared_objects["ld-linux-x86-64.so.2"].mapped_base
-        < ld.shared_objects["libc.so.6"].mapped_base
-    )
+    assert ld.main_object.mapped_base < ld.shared_objects["ld-linux-x86-64.so.2"].mapped_base
+    assert ld.shared_objects["ld-linux-x86-64.so.2"].mapped_base < ld.shared_objects["libc.so.6"].mapped_base
 
     # [<ELF Object cfg_0, maps [0x400000:0x601047]>,
     # <ELF Object ld-linux-x86-64.so.2, maps [0x1000000:0x12241c7]>,
@@ -59,10 +48,7 @@ def test_first_fit():
             "ld-linux-x86-64.so.2": {"base_addr": 0},
         },
     )
-    assert (
-        ld.shared_objects["ld-linux-x86-64.so.2"].mapped_base
-        < ld.main_object.mapped_base
-    )
+    assert ld.shared_objects["ld-linux-x86-64.so.2"].mapped_base < ld.main_object.mapped_base
     assert ld.main_object.mapped_base < ld.shared_objects["libc.so.6"].mapped_base
 
     # [<ELF Object ld-linux-x86-64.so.2, maps [0x0:0x2241c7]>,

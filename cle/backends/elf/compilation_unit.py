@@ -7,6 +7,7 @@ from cle.address_translator import AT
 from .variable import Variable
 from .subprogram import Subprogram
 
+
 class CompilationUnit:
     """
     CompilationUnit for DWARF

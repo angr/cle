@@ -1,3 +1,7 @@
+CLE
+===
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 CLE loads binaries and their associated libraries, resolves imports and
 provides an abstraction of process memory the same way as if it was loader by
 the OS's loader.

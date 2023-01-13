@@ -13,7 +13,7 @@ class GenericTLSDoffsetReloc(ELFReloc):
     def value(self):
         return self.addend + self.symbol.relative_addr
 
-    def resolve_symbol(self, solist, **kwargs):  #pylint: disable=unused-argument
+    def resolve_symbol(self, solist, **kwargs):  # pylint: disable=unused-argument
         self.resolve(None)
         return True
 
@@ -34,9 +34,7 @@ class GenericTLSOffsetReloc(ELFReloc):
         if obj.tls_block_offset is None:
             raise CLEInvalidBinaryError("Illegal relocation - dynamically loaded object using static TLS")
 
-        self.owner.memory.pack_word(
-            self.relative_addr,
-            obj.tls_block_offset + self.addend + addr - hell_offset)
+        self.owner.memory.pack_word(self.relative_addr, obj.tls_block_offset + self.addend + addr - hell_offset)
 
 
 class GenericTLSDescriptorReloc(ELFReloc):
@@ -60,8 +58,8 @@ class GenericTLSDescriptorReloc(ELFReloc):
 
         self.owner.memory.pack_word(self.relative_addr, self.RESOLVER_ADDR)
         self.owner.memory.pack_word(
-            self.relative_addr + self.arch.bytes,
-            obj.tls_block_offset + self.addend + self.symbol.relative_addr)  # Should this include the hell offset?
+            self.relative_addr + self.arch.bytes, obj.tls_block_offset + self.addend + self.symbol.relative_addr
+        )  # Should this include the hell offset?
 
 
 class GenericTLSModIdReloc(ELFReloc):
@@ -132,7 +130,10 @@ class GenericCopyReloc(ELFReloc):
         if self.resolvedby.size != self.symbol.size and (self.resolvedby.size != 0 or not self.resolvedby.is_extern):
             l.error("Export symbol is different size than import symbol for copy relocation: %s", self.symbol.name)
         else:
-            self.owner.memory.store(self.relative_addr, self.resolvedby.owner.memory.load(self.resolvedby.relative_addr, self.resolvedby.size))
+            self.owner.memory.store(
+                self.relative_addr,
+                self.resolvedby.owner.memory.load(self.resolvedby.relative_addr, self.resolvedby.size),
+            )
         return True
 
 
@@ -148,9 +149,9 @@ class MipsLocalReloc(ELFReloc):
 
     def relocate(self):
         if self.owner.mapped_base == 0:
-            return   # don't touch local relocations on the main bin
+            return  # don't touch local relocations on the main bin
 
-        delta = self.owner.mapped_base - self.owner._dynamic['DT_MIPS_BASE_ADDRESS']
+        delta = self.owner.mapped_base - self.owner._dynamic["DT_MIPS_BASE_ADDRESS"]
         if delta == 0:
             return
 
@@ -172,15 +173,22 @@ class RelocTruncate32Mixin:
 
     def relocate(self):
         arch_bits = self.owner.arch.bits
-        assert arch_bits >= 32            # 16-bit makes no sense here
+        assert arch_bits >= 32  # 16-bit makes no sense here
 
-        val = self.value % (2**arch_bits)   # we must truncate it to native range first
+        val = self.value % (2**arch_bits)  # we must truncate it to native range first
 
-        if (self.check_zero_extend and val >> 32 != 0 or
-                self.check_sign_extend and val >> 32 != ((1 << (arch_bits - 32)) - 1)
-                                                        if ((val >> 31) & 1) == 1 else 0):
-            raise CLEOperationError("relocation truncated to fit: %s; consider making"
-                                    " relevant addresses fit in the 32-bit address space." % self.__class__.__name__)
+        if (
+            self.check_zero_extend
+            and val >> 32 != 0
+            or self.check_sign_extend
+            and val >> 32 != ((1 << (arch_bits - 32)) - 1)
+            if ((val >> 31) & 1) == 1
+            else 0
+        ):
+            raise CLEOperationError(
+                "relocation truncated to fit: %s; consider making"
+                " relevant addresses fit in the 32-bit address space." % self.__class__.__name__
+            )
 
         self.owner.memory.pack_word(self.dest_addr, val, size=4, signed=False)
 
@@ -195,5 +203,5 @@ class RelocGOTMixin:
     def resolve(self, symbol, extern_object=None, **kwargs):
         assert extern_object is not None, "I have no idea how this would happen"
 
-        got_symbol = extern_object.make_extern('got.%s' % symbol.name, sym_type=SymbolType.TYPE_OBJECT, point_to=symbol)
+        got_symbol = extern_object.make_extern("got.%s" % symbol.name, sym_type=SymbolType.TYPE_OBJECT, point_to=symbol)
         super().resolve(got_symbol)

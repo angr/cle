@@ -5,8 +5,8 @@ from unittest import TestCase, main
 import cle
 
 
-TESTS_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                  os.path.join('..', '..', 'binaries', 'tests'))
+TESTS_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries", "tests"))
+
 
 class TestDwarfResiliency(TestCase):
     def test_dwarf_pyelftools_keyerrors(self):

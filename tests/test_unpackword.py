@@ -50,35 +50,20 @@ def test_unpackword():
     assert xmmword == 0x370102030405060708090A0B0C0D0E0F
 
     # signed xmmword
-    xmmword = ld.memory.unpack_word(
-        BASE_ADDR + 16, 16, endness=archinfo.Endness.BE, signed=True
-    )
-    assert xmmword == 0xFDFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE - 2 ** 128
-    xmmword = ld.memory.unpack_word(
-        BASE_ADDR + 16, 16, endness=archinfo.Endness.LE, signed=True
-    )
-    assert xmmword == 0xFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD - 2 ** 128
+    xmmword = ld.memory.unpack_word(BASE_ADDR + 16, 16, endness=archinfo.Endness.BE, signed=True)
+    assert xmmword == 0xFDFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE - 2**128
+    xmmword = ld.memory.unpack_word(BASE_ADDR + 16, 16, endness=archinfo.Endness.LE, signed=True)
+    assert xmmword == 0xFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD - 2**128
 
     # ymmword
-    ymmword = ld.memory.unpack_word(
-        BASE_ADDR, 32, endness=archinfo.Endness.BE, signed=False
-    )
+    ymmword = ld.memory.unpack_word(BASE_ADDR, 32, endness=archinfo.Endness.BE, signed=False)
     assert ymmword == 0x370102030405060708090A0B0C0D0E0FFDFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
-    ymmword = ld.memory.unpack_word(
-        BASE_ADDR, 32, endness=archinfo.Endness.BE, signed=True
-    )
+    ymmword = ld.memory.unpack_word(BASE_ADDR, 32, endness=archinfo.Endness.BE, signed=True)
     assert ymmword == 0x370102030405060708090A0B0C0D0E0FFDFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
-    ymmword = ld.memory.unpack_word(
-        BASE_ADDR, 32, endness=archinfo.Endness.LE, signed=False
-    )
+    ymmword = ld.memory.unpack_word(BASE_ADDR, 32, endness=archinfo.Endness.LE, signed=False)
     assert ymmword == 0xFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD0F0E0D0C0B0A09080706050403020137
-    ymmword = ld.memory.unpack_word(
-        BASE_ADDR, 32, endness=archinfo.Endness.LE, signed=True
-    )
-    assert (
-        ymmword
-        == 0xFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD0F0E0D0C0B0A09080706050403020137 - 2 ** 256
-    )
+    ymmword = ld.memory.unpack_word(BASE_ADDR, 32, endness=archinfo.Endness.LE, signed=True)
+    assert ymmword == 0xFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD0F0E0D0C0B0A09080706050403020137 - 2**256
 
 
 if __name__ == "__main__":

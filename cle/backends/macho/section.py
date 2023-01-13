@@ -5,8 +5,8 @@ from typing import Optional
 from .segment import MachOSegment
 from .. import Section
 
-TYPE_MASK = 0x000000ff
-ATTRIBUTES_MASK = 0xffffff00
+TYPE_MASK = 0x000000FF
+ATTRIBUTES_MASK = 0xFFFFFF00
 
 
 class MachOSection(Section):
@@ -26,8 +26,22 @@ class MachOSection(Section):
         - r1 and r2 are values for the reserved1 and reserved2 fields respectively
     """
 
-    def __init__(self, offset, vaddr, size, vsize, segname, sectname, align, reloff, nreloc, flags, r1, r2,
-                 parent_segment: Optional[MachOSegment] = None):
+    def __init__(
+        self,
+        offset,
+        vaddr,
+        size,
+        vsize,
+        segname,
+        sectname,
+        align,
+        reloff,
+        nreloc,
+        flags,
+        r1,
+        r2,
+        parent_segment: Optional[MachOSegment] = None,
+    ):
         super().__init__(sectname.decode(), offset, vaddr, size)
         self.filesize = size
         self.memsize = vsize
@@ -83,9 +97,5 @@ class MachOSection(Section):
 
     def __repr__(self):
         return "<Section: {} (part of Segment: {})| offset {:#x}, vaddr {:#x}, size {:#x}>".format(
-            self.sectname if self.sectname else "Unnamed",
-            self.segname,
-            self.offset,
-            self.vaddr,
-            self.memsize
+            self.sectname if self.sectname else "Unnamed", self.segname, self.offset, self.vaddr, self.memsize
         )

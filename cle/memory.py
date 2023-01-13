@@ -5,11 +5,12 @@ from typing import Tuple, Union, List
 
 import archinfo
 
-__all__ = ('ClemoryBase', 'Clemory', 'ClemoryView')
+__all__ = ("ClemoryBase", "Clemory", "ClemoryView")
 
 
 class ClemoryBase:
-    __slots__ = ('_arch', '_pointer')
+    __slots__ = ("_arch", "_pointer")
+
     def __init__(self, arch):
         self._arch = arch
         self._pointer = 0
@@ -43,7 +44,7 @@ class ClemoryBase:
         try:
             start, backer = next(self.backers(addr))
         except StopIteration:
-            raise KeyError(addr) # pylint: disable=raise-missing-from
+            raise KeyError(addr)  # pylint: disable=raise-missing-from
 
         if start > addr:
             raise KeyError(addr)
@@ -53,7 +54,7 @@ class ClemoryBase:
         except struct.error as e:
             if len(backer) - (addr - start) >= struct.calcsize(fmt):
                 raise e
-            raise KeyError(addr) # pylint: disable=raise-missing-from
+            raise KeyError(addr)  # pylint: disable=raise-missing-from
 
     def unpack_word(self, addr, size=None, signed=False, endness=None):
         """
@@ -95,17 +96,17 @@ class ClemoryBase:
         try:
             start, backer = next(self.backers(addr))
         except StopIteration:
-            raise KeyError(addr) # pylint: disable=raise-missing-from
+            raise KeyError(addr)  # pylint: disable=raise-missing-from
 
         if start > addr:
-            raise KeyError(addr) # pylint: disable=raise-missing-from
+            raise KeyError(addr)  # pylint: disable=raise-missing-from
 
         try:
             return struct.pack_into(fmt, backer, addr - start, *data)
         except struct.error as e:
             if len(backer) - (addr - start) >= struct.calcsize(fmt):
                 raise e
-            raise KeyError(addr) # pylint: disable=raise-missing-from
+            raise KeyError(addr)  # pylint: disable=raise-missing-from
 
     def pack_word(self, addr, data, size=None, signed=False, endness=None):
         """
@@ -119,7 +120,7 @@ class ClemoryBase:
         :param archinfo.Endness endness: The endian to use in packing/unpacking. Defaults to memory endness
         """
         if not signed:
-            data &= (1 << (size*8 if size is not None else self._arch.bits)) - 1
+            data &= (1 << (size * 8 if size is not None else self._arch.bits)) - 1
         return self.pack(addr, self._arch.struct_fmt(size=size, signed=signed, endness=endness), data)
 
     def read(self, nbytes):
@@ -134,7 +135,7 @@ class ClemoryBase:
         try:
             out = self.load(self._pointer, nbytes)
         except KeyError:
-            return b''
+            return b""
         else:
             self._pointer += len(out)
             return out
@@ -153,6 +154,7 @@ class ClemoryBase:
     def close(self):  # pylint: disable=no-self-use
         pass
 
+
 class Clemory(ClemoryBase):
     """
     An object representing a memory space.
@@ -160,7 +162,7 @@ class Clemory(ClemoryBase):
     Accesses can be made with [index] notation.
     """
 
-    __slots__ = ('_backers', '_root', 'consecutive', 'min_addr', 'max_addr')
+    __slots__ = ("_backers", "_root", "consecutive", "min_addr", "max_addr")
 
     def __init__(self, arch, root=False):
         super().__init__(arch)
@@ -232,8 +234,8 @@ class Clemory(ClemoryBase):
             return
 
         self.remove_backer(start_addr)
-        self.add_backer(start_addr, backer[:addr - start_addr])
-        self.add_backer(addr, backer[addr - start_addr:])
+        self.add_backer(start_addr, backer[: addr - start_addr])
+        self.add_backer(addr, backer[addr - start_addr :])
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} [{hex(self.min_addr)}:{hex(self.max_addr)}]>"
@@ -320,25 +322,25 @@ class Clemory(ClemoryBase):
 
     def __getstate__(self):
         s = {
-            '_arch': self._arch,
-            '_backers': self._backers,
-            '_pointer': self._pointer,
-            '_root': self._root,
-            'consecutive': self.consecutive,
-            'min_addr': self.min_addr,
-            'max_addr': self.max_addr,
+            "_arch": self._arch,
+            "_backers": self._backers,
+            "_pointer": self._pointer,
+            "_root": self._root,
+            "consecutive": self.consecutive,
+            "min_addr": self.min_addr,
+            "max_addr": self.max_addr,
         }
 
         return s
 
     def __setstate__(self, s):
-        self._arch = s['_arch']
-        self._backers = s['_backers']
-        self._pointer = s['_pointer']
-        self._root = s['_root']
-        self.consecutive = s['consecutive']
-        self.min_addr = s['min_addr']
-        self.max_addr = s['max_addr']
+        self._arch = s["_arch"]
+        self._backers = s["_backers"]
+        self._pointer = s["_pointer"]
+        self._root = s["_root"]
+        self.consecutive = s["consecutive"]
+        self.min_addr = s["min_addr"]
+        self.max_addr = s["max_addr"]
 
     def backers(self, addr=0):
         """
@@ -375,9 +377,9 @@ class Clemory(ClemoryBase):
                 break
             offset = addr - start
             if not views and offset + n < len(backer):
-                return bytes(memoryview(backer)[offset:offset + n])
+                return bytes(memoryview(backer)[offset : offset + n])
             size = len(backer) - offset
-            views.append(memoryview(backer)[offset:offset + n])
+            views.append(memoryview(backer)[offset : offset + n])
 
             addr += size
             n -= size
@@ -387,7 +389,7 @@ class Clemory(ClemoryBase):
 
         if not views:
             raise KeyError(addr)
-        return b''.join(views)
+        return b"".join(views)
 
     def store(self, addr, data):
         """
@@ -401,7 +403,7 @@ class Clemory(ClemoryBase):
                 raise KeyError(addr)
             offset = addr - start
             size = len(backer) - offset
-            backer[offset:offset + len(data)] = data if len(data) <= size else data[:size]
+            backer[offset : offset + len(data)] = data if len(data) <= size else data[:size]
 
             addr += size
             data = data[size:]
@@ -430,7 +432,7 @@ class Clemory(ClemoryBase):
             if type(backer) is Clemory:
                 if search_max < backer.min_addr + start or search_min > backer.max_addr + start:
                     continue
-                yield from (addr + start for addr in backer.find(data, search_min-start, search_max-start))
+                yield from (addr + start for addr in backer.find(data, search_min - start, search_max - start))
             elif type(backer) is list:
                 raise TypeError("find is not supported for list-backed clemories")
             else:
@@ -547,7 +549,7 @@ class ClemoryView(ClemoryBase):
 
     def load(self, addr, n):
         if n == 0:
-            return b''
+            return b""
         if not self._offset <= addr < self._endoffset:
             raise KeyError(addr)
         if not self._offset <= addr + n - 1 < self._endoffset:
@@ -576,6 +578,7 @@ class ClemoryTranslator(ClemoryBase):
     Uses a function to translate between address spaces when accessing a child clemory. Intended to be used only as
     a stream object.
     """
+
     def __init__(self, backer: ClemoryBase, func):
         super().__init__(backer._arch)
         self.backer = backer

@@ -7,9 +7,11 @@ from .errors import CLEError, CLEFileNotFoundError
 def ALIGN_DOWN(base, size):
     return base & -size
 
+
 # https://code.woboq.org/userspace/glibc/include/libc-pointer-arith.h.html#50
 def ALIGN_UP(base, size):
     return ALIGN_DOWN(base + size - 1, size)
+
 
 # To verify the mmap behavior you can compile and run the following program. Fact is that mmap file mappings
 # always map in the entire page into memory from the file if available. If not, it gets zero padded
@@ -48,18 +50,23 @@ int main(int argc, char* argv[])
             printf("\n");
     }
 }"""
+
+
 def get_mmaped_data(stream, offset, length, page_size):
     if offset % page_size != 0:
-        raise CLEError(f"libc helper for mmap: Invalid page offset, should be multiple of page size! Stream {stream}, offset {offset}, length: {length}")
+        raise CLEError(
+            f"libc helper for mmap: Invalid page offset, should be multiple of page size! Stream {stream}, offset {offset}, length: {length}"
+        )
 
     read_length = ALIGN_UP(length, page_size)
     stream.seek(offset)
     data = stream.read(read_length)
-    return data.ljust(read_length, b'\0')
+    return data.ljust(read_length, b"\0")
+
 
 @contextlib.contextmanager
-def stream_or_path(obj, perms='rb'):
-    if hasattr(obj, 'read') and hasattr(obj, 'seek'):
+def stream_or_path(obj, perms="rb"):
+    if hasattr(obj, "read") and hasattr(obj, "seek"):
         obj.seek(0)
         yield obj
     else:
@@ -72,7 +79,7 @@ def stream_or_path(obj, perms='rb'):
 
 def key_bisect_floor_key(lst, key, lo=0, hi=None, keyfunc=lambda x: x):
     if lo < 0:
-        raise ValueError('lo must be non-negative')
+        raise ValueError("lo must be non-negative")
     if hi is None:
         hi = len(lst)
     while lo < hi:
@@ -88,7 +95,7 @@ def key_bisect_floor_key(lst, key, lo=0, hi=None, keyfunc=lambda x: x):
 
 def key_bisect_find(lst, item, lo=0, hi=None, keyfunc=lambda x: x):
     if lo < 0:
-        raise ValueError('lo must be non-negative')
+        raise ValueError("lo must be non-negative")
     if hi is None:
         hi = len(lst)
     while lo < hi:
@@ -102,7 +109,7 @@ def key_bisect_find(lst, item, lo=0, hi=None, keyfunc=lambda x: x):
 
 def key_bisect_insort_left(lst, item, lo=0, hi=None, keyfunc=lambda x: x):
     if lo < 0:
-        raise ValueError('lo must be non-negative')
+        raise ValueError("lo must be non-negative")
     if hi is None:
         hi = len(lst)
     while lo < hi:
@@ -113,9 +120,10 @@ def key_bisect_insort_left(lst, item, lo=0, hi=None, keyfunc=lambda x: x):
             hi = mid
     lst.insert(lo, item)
 
+
 def key_bisect_insort_right(lst, item, lo=0, hi=None, keyfunc=lambda x: x):
     if lo < 0:
-        raise ValueError('lo must be non-negative')
+        raise ValueError("lo must be non-negative")
     if hi is None:
         hi = len(lst)
     while lo < hi:

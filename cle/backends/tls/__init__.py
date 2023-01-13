@@ -14,6 +14,7 @@ class ThreadManager:
 
     Most of the heavy lifting will be handled in a subclass
     """
+
     def __init__(self, loader, arch, max_modules=256):
         self.loader = loader
         self.arch = arch
@@ -39,7 +40,7 @@ class ThreadManager:
         if obj.tls_data_size <= 0:
             _l.warning("The provided object has an invalid tls_data_size. Skip TLS loading.")
             return None
-        return obj.memory.load(obj.tls_data_start, obj.tls_data_size).ljust(obj.tls_block_size, b'\0')
+        return obj.memory.load(obj.tls_data_start, obj.tls_data_size).ljust(obj.tls_block_size, b"\0")
 
     def new_thread(self, insert=True):
         thread = self._thread_cls(self)
@@ -64,9 +65,11 @@ class InternalTLSRelocation(Relocation):
     def value(self):
         return self.val + self.owner.mapped_base
 
+
 class TLSObject(Backend):
     def __init__(self, loader, arch):
-        super().__init__('cle##tls', None, loader=loader, arch=arch)
+        super().__init__("cle##tls", None, loader=loader, arch=arch)
+
 
 from .elf_tls import ELFThreadManager
 from .elfcore_tls import ELFCoreThreadManager

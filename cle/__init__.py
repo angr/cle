@@ -11,6 +11,7 @@ if bytes is str:
     raise Exception("This module is designed for python 3 only. Please install an older version to use python 2.")
 
 import logging
+
 logging.getLogger(name=__name__).addHandler(logging.NullHandler())
 
 # pylint: disable=wildcard-import

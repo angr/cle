@@ -14,11 +14,7 @@ def setup():
             relocations: a list of all relocations
             ppc_backend: the backend to be used in searches
     """
-    test_location = str(
-        os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), "..", "..", "binaries", "tests"
-        )
-    )
+    test_location = str(os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "binaries", "tests"))
     path = os.path.join(test_location, "ppc", "partial.o")
     l = cle.Loader(path)
     relocations = l.main_object.relocs
@@ -48,7 +44,7 @@ def test_ppc_rel24_relocation():
     for r in relocations:
         if r.symbol.name == "_Znwj" and r.__class__ == ppc_backend.R_PPC_REL24:
             found_symbol = True
-            irsb = pyvex.lift(struct.pack('>I', r.value), r.rebased_addr, r.arch)
+            irsb = pyvex.lift(struct.pack(">I", r.value), r.rebased_addr, r.arch)
             assert irsb.constant_jump_targets == {r.symbol.resolvedby.rebased_addr}
             break
 
@@ -66,8 +62,7 @@ def test_ppc_addr16_ha_relocation():
     found_symbol = False
     for r in relocations:
         if (
-            r.symbol.name
-            == "CWE123_Write_What_Where_Condition__fgets_22_goodG2B2Global"
+            r.symbol.name == "CWE123_Write_What_Where_Condition__fgets_22_goodG2B2Global"
             and r.__class__ == ppc_backend.R_PPC_ADDR16_HA
         ):
             found_symbol = True
@@ -89,8 +84,7 @@ def test_ppc_addr16_lo_relocation():
     found_symbol = False
     for r in relocations:
         if (
-            r.symbol.name
-            == "CWE123_Write_What_Where_Condition__listen_socket_68_badData"
+            r.symbol.name == "CWE123_Write_What_Where_Condition__listen_socket_68_badData"
             and r.__class__ == ppc_backend.R_PPC_ADDR16_LO
         ):
             found_symbol = True

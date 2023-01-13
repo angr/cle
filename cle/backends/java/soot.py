@@ -1,8 +1,7 @@
 import logging
 import time
 
-from archinfo.arch_soot import (ArchSoot, SootAddressDescriptor,
-                                SootMethodDescriptor)
+from archinfo.arch_soot import ArchSoot, SootAddressDescriptor, SootMethodDescriptor
 
 from .. import Backend
 from ...errors import CLEError
@@ -25,15 +24,24 @@ class Soot(Backend):
     0.
     """
 
-    def __init__(self, *args, entry_point=None, entry_point_params=(), input_format=None,
-                 additional_jars=None, additional_jar_roots=None,
-                 jni_libs_ld_path=None, jni_libs=None,
-                 android_sdk=None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        entry_point=None,
+        entry_point_params=(),
+        input_format=None,
+        additional_jars=None,
+        additional_jar_roots=None,
+        jni_libs_ld_path=None,
+        jni_libs=None,
+        android_sdk=None,
+        **kwargs,
+    ):
 
         if not pysoot:
-            raise ImportError('Cannot import PySoot. The Soot backend requires PySoot.')
+            raise ImportError("Cannot import PySoot. The Soot backend requires PySoot.")
 
-        if kwargs.get('has_memory', False):
+        if kwargs.get("has_memory", False):
             raise CLEError('The parameter "has_memory" must be False for Soot backend.')
 
         super().__init__(*args, has_memory=False, **kwargs)
@@ -43,11 +51,13 @@ class Soot(Backend):
         # load the classes
         l.debug("Lifting to Soot IR ...")
         start_time = time.time()
-        pysoot_lifter = Lifter(self.binary,
-                               input_format=input_format,
-                               android_sdk=android_sdk,
-                               additional_jars=additional_jars,
-                               additional_jar_roots=additional_jar_roots)
+        pysoot_lifter = Lifter(
+            self.binary,
+            input_format=input_format,
+            android_sdk=android_sdk,
+            additional_jars=additional_jars,
+            additional_jar_roots=additional_jar_roots,
+        )
         end_time = time.time()
         l.debug("Lifting completed in %ds", round(end_time - start_time, 2))
         self._classes = pysoot_lifter.classes
@@ -63,7 +73,7 @@ class Soot(Backend):
                 l.warning("Couldn't find entry point %s.", entry_point)
                 self._entry = None
 
-        self.os = 'javavm'
+        self.os = "javavm"
         self.rebase_addr = None
         self.set_arch(ArchSoot())
 
@@ -119,9 +129,9 @@ class Soot(Backend):
         # Step 1: Parse input
         if isinstance(thing, SootMethodDescriptor):
             method_description = {
-                'class_name': thing.class_name,
-                'name': thing.name,
-                'params': thing.params,
+                "class_name": thing.class_name,
+                "name": thing.name,
+                "params": thing.params,
             }
 
         elif isinstance(thing, (str, bytes)):
@@ -129,17 +139,17 @@ class Soot(Backend):
 
             # if class_name is not set, parse it from the method name
             if class_name is None:
-                last_dot = method_name.rfind('.')
+                last_dot = method_name.rfind(".")
                 if last_dot >= 0:
                     class_name = method_name[:last_dot]
-                    method_name = method_name[last_dot + 1:]
+                    method_name = method_name[last_dot + 1 :]
                 else:
-                    raise ValueError('Cannot parse class name from method %s.' % method_name)
+                    raise ValueError("Cannot parse class name from method %s." % method_name)
 
             method_description = {
-                'class_name': class_name,
-                'name': method_name,
-                'params': params,
+                "class_name": class_name,
+                "name": method_name,
+                "params": params,
             }
 
         else:
@@ -147,7 +157,7 @@ class Soot(Backend):
 
         # Step 2: Load class containing the method
         try:
-            cls = self.get_soot_class(method_description['class_name'])
+            cls = self.get_soot_class(method_description["class_name"])
         except CLEError:
             if none_if_missing:
                 return None
@@ -155,28 +165,39 @@ class Soot(Backend):
                 raise
 
         # Step 3: Get all methods matching the description
-        methods = [soot_method for soot_method in cls.methods
-                   if self._description_matches_soot_method(soot_method, **method_description)]
+        methods = [
+            soot_method
+            for soot_method in cls.methods
+            if self._description_matches_soot_method(soot_method, **method_description)
+        ]
 
         if not methods:
             if none_if_missing:
                 return None
             else:
-                raise CLEError('Method with description %s does not exist in class %s.'
-                               % (method_description, method_description['class_name']))
+                raise CLEError(
+                    "Method with description %s does not exist in class %s."
+                    % (method_description, method_description["class_name"])
+                )
 
         if len(methods) > 1:
             # Warn if we found several matching methods
-            l.warning('Method with description %s is ambiguous in class %s.',
-                       method_description, method_description['class_name'])
+            l.warning(
+                "Method with description %s is ambiguous in class %s.",
+                method_description,
+                method_description["class_name"],
+            )
 
         return methods[0]
 
     @staticmethod
     def _description_matches_soot_method(soot_method, name=None, class_name=None, params=()):
-        if name       and soot_method.name != name:              return False
-        if class_name and soot_method.class_name != class_name:  return False
-        if soot_method.params != params:          return False
+        if name and soot_method.name != name:
+            return False
+        if class_name and soot_method.class_name != class_name:
+            return False
+        if soot_method.params != params:
+            return False
         return True
 
     @property
@@ -197,4 +218,4 @@ class Soot(Backend):
         stream.seek(0)
         identstring = stream.read(4)
         stream.seek(0)
-        return identstring.startswith(b'\x50\x4b\x03\x04')
+        return identstring.startswith(b"\x50\x4b\x03\x04")

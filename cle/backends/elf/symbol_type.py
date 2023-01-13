@@ -17,22 +17,21 @@ class ELFSymbolType(SymbolSubType):
     # Though that could be solved with IntEnum as well, that breaks the
     # strong typing and is discouraged by Python docs.
 
-
     # Basic types
-    STT_NOTYPE = (0, None)     # Symbol's type is not specified
-    STT_OBJECT = (1, None)     # Symbol is a data object (variable, array, etc.)
-    STT_FUNC = (2, None)       # Symbol is executable code (function, etc.)
-    STT_SECTION = (3, None)    # Symbol refers to a section
-    STT_FILE = (4, None)       # Local, absolute symbol that refers to a file
-    STT_COMMON = (5, None)     # An uninitialized common block
-    STT_TLS = (6, None)        # Thread local data object
+    STT_NOTYPE = (0, None)  # Symbol's type is not specified
+    STT_OBJECT = (1, None)  # Symbol is a data object (variable, array, etc.)
+    STT_FUNC = (2, None)  # Symbol is executable code (function, etc.)
+    STT_SECTION = (3, None)  # Symbol refers to a section
+    STT_FILE = (4, None)  # Local, absolute symbol that refers to a file
+    STT_COMMON = (5, None)  # An uninitialized common block
+    STT_TLS = (6, None)  # Thread local data object
 
     # ELF's generic place-holders
-    STT_LOOS = (10, None)      # Lowest operating system-specific symbol type
-    STT_HIOS = (12, None)      # Highest operating system-specific symbol type
+    STT_LOOS = (10, None)  # Lowest operating system-specific symbol type
+    STT_HIOS = (12, None)  # Highest operating system-specific symbol type
 
-    STT_LOPROC = (13, None)    # Lowest processor-specific symbol type
-    STT_HIPROC = (15, None)    # Highest processor-specific symbol type
+    STT_LOPROC = (13, None)  # Lowest processor-specific symbol type
+    STT_HIPROC = (15, None)  # Highest processor-specific symbol type
 
     #
     # OS- and processor-specific types. Note that the entire range
@@ -49,7 +48,7 @@ class ELFSymbolType(SymbolSubType):
     # shouldn't be an issue unless someone tries analyzing an old ELF that
     # uses STT_LOOS for something else, before STT_GNU_IFUNC came about, in
     # which case angr will need a new SimOS variant anyway.
-    STT_GNU_IFUNC = (STT_LOOS[0], 'gnu')
+    STT_GNU_IFUNC = (STT_LOOS[0], "gnu")
 
     #
     # Below are examples of additional types that can be added. These are
@@ -77,7 +76,8 @@ class ELFSymbolType(SymbolSubType):
         # if someone defines a type that's not a `tuple`
         if not isinstance(self.value, tuple):
             raise ValueError(
-                f"Symbol value '{self.value}' for member '{self.name}' is invalid. Values must be tuples.")  # pylint: disable=logging-format-interpolation
+                f"Symbol value '{self.value}' for member '{self.name}' is invalid. Values must be tuples."
+            )  # pylint: disable=logging-format-interpolation
 
     def __repr__(self):
         return f"ELFSymbolType.{self.name}: (elf_value: {self.elf_value}, os_proc: {self.os_proc})"
@@ -143,4 +143,4 @@ def __ELFSymbolTypeArchParser(cls, value):
         return super(ELFSymbolType, cls).__new__(cls, value)
 
 
-setattr(ELFSymbolType, '__new__', __ELFSymbolTypeArchParser)
+setattr(ELFSymbolType, "__new__", __ELFSymbolTypeArchParser)

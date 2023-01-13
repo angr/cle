@@ -3,7 +3,7 @@ from . import generic
 from .elfreloc import ELFReloc
 
 l = logging.getLogger(name=__name__)
-arch = 'PPC32'
+arch = "PPC32"
 
 # Reference: System V Application Binary Interface, PowerPC Processor Supplement
 # http://refspecs.linux-foundation.org/elf/elfspec_ppc.pdf
@@ -17,6 +17,7 @@ PPC_LOW14 = 0x0020FFFC
 PPC_HALF16 = 0xFFFF
 PPC_BL_INST = 0x48000001
 
+
 class R_PPC_ADDR32(generic.GenericAbsoluteAddendReloc):
     pass
 
@@ -27,12 +28,13 @@ class R_PPC_ADDR24(ELFReloc):
     Calculation: (S + A) >> 2
     Field: low24*
     """
+
     @property
     def value(self):
         A = self.addend
         S = self.resolvedby.rebased_addr
 
-        result = ((S + A) >> 2)
+        result = (S + A) >> 2
         return result
 
 
@@ -42,6 +44,7 @@ class R_PPC_ADDR16(ELFReloc):
     Calculation: S+A
     Field: half16*
     """
+
     @property
     def value(self):
         A = self.addend
@@ -51,19 +54,20 @@ class R_PPC_ADDR16(ELFReloc):
         return result
 
 
-class R_PPC_ADDR16_LO(ELFReloc):    # pylint: disable=undefined-variable
+class R_PPC_ADDR16_LO(ELFReloc):  # pylint: disable=undefined-variable
     """
     Relocation Type: 0x4
     Calculation: #lo(S + A)
     Field: half16
     """
+
     @property
     def value(self):
         A = self.addend
         S = self.resolvedby.rebased_addr
 
         result = S + A
-        result = (result & PPC_HALF16)
+        result = result & PPC_HALF16
         return result
 
     def relocate(self):
@@ -79,13 +83,14 @@ class R_PPC_ADDR16_HI(ELFReloc):
     Calculation: #hi(S + A)
     Field: half16
     """
+
     @property
     def value(self):
         A = self.addend
         S = self.resolvedby.rebased_addr
 
         result = (S + A) >> 16
-        result = (result & PPC_HALF16)
+        result = result & PPC_HALF16
         return result
 
     def relocate(self):
@@ -94,19 +99,21 @@ class R_PPC_ADDR16_HI(ELFReloc):
         self.owner.memory.pack_word(self.relative_addr, self.value, size=2)
         return True
 
-class R_PPC_ADDR16_HA(ELFReloc):    # pylint: disable=undefined-variable
+
+class R_PPC_ADDR16_HA(ELFReloc):  # pylint: disable=undefined-variable
     """
     Relocation Type: 0x6
     Calculation: #ha(S + A)
     Field: half16
     """
+
     @property
     def value(self):
         A = self.addend
         S = self.resolvedby.rebased_addr
 
         result = S + A
-        result = (((result >> 16) + (1 if (result & 0x8000) else 0)) & PPC_HALF16)
+        result = ((result >> 16) + (1 if (result & 0x8000) else 0)) & PPC_HALF16
         return result
 
     def relocate(self):
@@ -122,6 +129,7 @@ class R_PPC_ADDR14(ELFReloc):
     Calculation: (S + A) >> 2
     Field: low14*
     """
+
     @property
     def value(self):
         A = self.addend
@@ -137,6 +145,7 @@ class R_PPC_ADDR14_BRTAKEN(ELFReloc):
     Calculation: (S + A) >> 2
     Field: low14*
     """
+
     @property
     def value(self):
         A = self.addend
@@ -152,6 +161,7 @@ class R_PPC_ADDR14_BRNTAKEN(ELFReloc):
     Calculation: (S + A) >> 2
     Field: low14*
     """
+
     @property
     def value(self):
         A = self.addend
@@ -161,7 +171,7 @@ class R_PPC_ADDR14_BRNTAKEN(ELFReloc):
         return result
 
 
-class R_PPC_REL24(ELFReloc):    # pylint: disable=undefined-variable
+class R_PPC_REL24(ELFReloc):  # pylint: disable=undefined-variable
     """
     Relocation Type: 0xa
     Calculation: (S + A - P) >> 2
@@ -177,6 +187,7 @@ class R_PPC_REL24(ELFReloc):    # pylint: disable=undefined-variable
     you will have an address offset to the call.
     The result must be resolved to the correct instruction encoding.
     """
+
     @property
     def value(self):
         A = self.addend
@@ -196,6 +207,7 @@ class R_PPC_REL14(ELFReloc):
     Calculation: (S + A - P) >> 2
     Field: low14*
     """
+
     @property
     def value(self):
         A = self.addend
@@ -214,6 +226,7 @@ class R_PPC_REL14_BRTAKEN(ELFReloc):
     Calculation: (S + A - P) >> 2
     Field: low14*
     """
+
     @property
     def value(self):
         A = self.addend
@@ -232,6 +245,7 @@ class R_PPC_REL14_BRNTAKEN(ELFReloc):
     Calculation: (S + A - P) >> 2
     Field: low14*
     """
+
     @property
     def value(self):
         A = self.addend
@@ -254,7 +268,7 @@ class R_PPC_GLOB_DAT(generic.GenericJumpslotReloc):
 
 class R_PPC_JMP_SLOT(generic.GenericJumpslotReloc):
     def relocate(self):
-        if 'DT_PPC_GOT' not in self.owner._dynamic and 'DT_LOPROC' not in self.owner._dynamic:
+        if "DT_PPC_GOT" not in self.owner._dynamic and "DT_LOPROC" not in self.owner._dynamic:
             l.error("This binary is relocated incorrectly. See https://github.com/angr/cle/issues/142 for details.")
         super().relocate()
 
@@ -269,6 +283,7 @@ class R_PPC_UADDR32(ELFReloc):
     Calculation: S + A
     Field: word32
     """
+
     @property
     def value(self):
         A = self.addend
@@ -284,6 +299,7 @@ class R_PPC_UADDR16(ELFReloc):
     Calculation: S + A
     Field: half16*
     """
+
     @property
     def value(self):
         A = self.addend
@@ -293,12 +309,13 @@ class R_PPC_UADDR16(ELFReloc):
         return result
 
 
-class R_PPC_REL32(ELFReloc):    # pylint: disable=undefined-variable
+class R_PPC_REL32(ELFReloc):  # pylint: disable=undefined-variable
     """
     Relocation Type: 0x1a
     Calculation: S + A - P
     Field: word32
     """
+
     @property
     def value(self):
         P = self.rebased_addr
@@ -315,6 +332,7 @@ class R_PPC_SECTOFF(ELFReloc):
     Calculation: R + A
     Field: half16*
     """
+
     @property
     def value(self):
         R = self.relative_addr
@@ -330,13 +348,14 @@ class R_PPC_SECTOFF_LO(ELFReloc):
     Calculation: #lo(R + A)
     Field: half16
     """
+
     @property
     def value(self):
         R = self.relative_addr
         A = self.addend
 
         result = R + A
-        result = (result & PPC_HALF16 )
+        result = result & PPC_HALF16
         return result
 
 
@@ -346,13 +365,14 @@ class R_PPC_SECTOFF_HI(ELFReloc):
     Calculation: #hi(R + A)
     Field: half16
     """
+
     @property
     def value(self):
         R = self.relative_addr
         A = self.addend
 
         result = (R + A) >> 16
-        result = (result & PPC_HALF16)
+        result = result & PPC_HALF16
         return result
 
 
@@ -362,13 +382,14 @@ class R_PPC_SECTOFF_HA(ELFReloc):
     Calculation: #ha(R + A)
     Field: half16
     """
+
     @property
     def value(self):
         R = self.relative_addr
         A = self.addend
 
         result = R + A
-        result = (((result >> 16) + (1 if (result & 0x8000) else 0)) & PPC_HALF16)
+        result = ((result >> 16) + (1 if (result & 0x8000) else 0)) & PPC_HALF16
         return result
 
 
@@ -378,6 +399,7 @@ class R_PPC_ADDR30(ELFReloc):
     Calculation: (S + A - P) >> 2
     Field: word30
     """
+
     @property
     def value(self):
         S = self.resolvedby.rebased_addr

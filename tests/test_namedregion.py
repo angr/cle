@@ -3,9 +3,7 @@ import os
 from cle import Loader
 from cle.backends import NamedRegion
 
-test_location = os.path.join(
-    os.path.dirname(os.path.realpath(__file__)), "..", "..", "binaries", "tests"
-)
+test_location = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "binaries", "tests")
 
 
 def test_basic_named_region():

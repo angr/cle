@@ -3,6 +3,7 @@ class PatchedStream:
     An object that wraps a readable stream, performing passthroughs on seek and read operations,
     except to make it seem like the data has actually been patched by the given patches.
     """
+
     def __init__(self, stream, patches):
         """
         :param stream:      The stream to patch
@@ -23,13 +24,12 @@ class PatchedStream:
 
         # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         for addr, patch in self.patches:
-            if (addr >= self._pos and addr < newpos) or \
-               (self._pos >= addr and self._pos < addr + len(patch)):
-                   inject_start = max(0, addr - pos)
-                   inject_end = min(addr - pos + len(patch), len(data))
-                   patch_start = max(0, pos - addr)
-                   patch_end = min(newpos - addr, len(patch))
-                   data = data[:inject_start] + patch[patch_start:patch_end] + data[inject_end:]
+            if (addr >= self._pos and addr < newpos) or (self._pos >= addr and self._pos < addr + len(patch)):
+                inject_start = max(0, addr - pos)
+                inject_end = min(addr - pos + len(patch), len(data))
+                patch_start = max(0, pos - addr)
+                patch_end = min(newpos - addr, len(patch))
+                data = data[:inject_start] + patch[patch_start:patch_end] + data[inject_end:]
 
         self._pos = newpos
         return data

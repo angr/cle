@@ -5,6 +5,7 @@ class LoadCommands(IntEnum):
     """
     Enum for all the Load Commands used inside the MachO Binary
     """
+
     # https://opensource.apple.com/source/cctools/cctools-949.0.1/include/mach-o/loader.h.auto.html
     LC_REQ_DYLD = 0x80000000
 

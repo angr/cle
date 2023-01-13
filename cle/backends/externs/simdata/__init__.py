@@ -6,6 +6,7 @@ from ...symbol import Symbol, SymbolType
 
 # pylint: disable=unused-argument,no-self-use
 
+
 class SimData(Symbol):
     """
     A SimData class is used to provide data when there is an unresolved data import symbol.
@@ -20,6 +21,7 @@ class SimData(Symbol):
 
     NOTE: SimData.type hides the Symbol.type instance property
     """
+
     name = NotImplemented  # type: str
     type = NotImplemented  # type: SymbolType
     libname = NotImplemented  # type: str
@@ -69,6 +71,7 @@ def lookup(name: str, libname) -> Optional[Type[SimData]]:
             weak_option = simdata_cls
 
     return weak_option
+
 
 # pylint: disable=unused-import
 from . import io_file

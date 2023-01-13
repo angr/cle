@@ -8,15 +8,20 @@ from cle.address_translator import AT
 
 l = logging.getLogger(name=__name__)
 
+
 class ExternSegment(Segment):
     def __init__(self, map_size):
         super().__init__(None, 0, None, map_size)
 
     def addr_to_offset(self, addr):
-        raise CLEOperationError("'offset' operations on the extern object are meaningless as it is not mapped from a file")
+        raise CLEOperationError(
+            "'offset' operations on the extern object are meaningless as it is not mapped from a file"
+        )
 
     def offset_to_addr(self, offset):
-        raise CLEOperationError("'offset' operations on the extern object are meaningless as it is not mapped from a file")
+        raise CLEOperationError(
+            "'offset' operations on the extern object are meaningless as it is not mapped from a file"
+        )
 
     def contains_offset(self, offset):
         return False
@@ -34,14 +39,14 @@ class TOCRelocation(Relocation):
 
 class ExternObject(Backend):
     def __init__(self, loader, map_size=0, tls_size=0):
-        super().__init__('cle##externs', None, loader=loader)
+        super().__init__("cle##externs", None, loader=loader)
         self._next_object = None
         self._delayed_writes = []
 
         self.next_addr = 0
         self.map_size = map_size
         self.set_arch(loader.main_object.arch)
-        self.provides = 'extern-address space'
+        self.provides = "extern-address space"
         self.pic = True
         self._import_symbols = {}
         self._warned_data_import = False
@@ -73,13 +78,15 @@ class ExternObject(Backend):
             start_addr = simdata.relative_addr
             if simdata.type == SymbolType.TYPE_TLS_OBJECT:
                 start_addr += self.tls_data_size
-            backer[start_addr:start_addr+len(value)] = value
+            backer[start_addr : start_addr + len(value)] = value
 
         self.memory.add_backer(0, bytes(backer))
         self.segments.append(ExternSegment(self.map_size))
         super().rebase(new_base)
 
-    def make_extern(self, name, size=0, alignment=None, thumb=False, sym_type=SymbolType.TYPE_FUNCTION, point_to=None, libname=None) -> Symbol:
+    def make_extern(
+        self, name, size=0, alignment=None, thumb=False, sym_type=SymbolType.TYPE_FUNCTION, point_to=None, libname=None
+    ) -> Symbol:
         try:
             return self._symbol_cache[name]
         except KeyError:
@@ -102,17 +109,19 @@ class ExternObject(Backend):
         if alignment is None:
             alignment = self.arch.bytes
 
-        make_toc = getattr(self.loader.main_object, 'is_ppc64_abiv1', False) and sym_type == SymbolType.TYPE_FUNCTION
+        make_toc = getattr(self.loader.main_object, "is_ppc64_abiv1", False) and sym_type == SymbolType.TYPE_FUNCTION
         toc_symbol = None
         if make_toc:
             # we make two symbols, one for the func and one for the toc
             # the one for the func ends up named with the #func suffix, the toc gets the normal name
             # we return the one for the toc
             toc_symbol = self.make_extern(name, size=0x18, alignment=8, sym_type=SymbolType.TYPE_OBJECT)
-            name += '#func'
+            name += "#func"
 
         if size == 0 and sym_type in (SymbolType.TYPE_NONE, SymbolType.TYPE_OBJECT, SymbolType.TYPE_TLS_OBJECT):
-            l.warning("Symbol was allocated without a known size; emulation may fail if it is used non-opaquely: %s", name)
+            l.warning(
+                "Symbol was allocated without a known size; emulation may fail if it is used non-opaquely: %s", name
+            )
             self._warned_data_import = True
             real_size = 8
 
@@ -122,7 +131,9 @@ class ExternObject(Backend):
                 # we're at the end of the line. make a new extern object
                 # this should only be hit if we're doing this outside a loading pass
                 self._make_new_externs(real_size, alignment, tls)
-            return self._next_object.make_extern(name, size=size, alignment=alignment, sym_type=sym_type, libname=libname)
+            return self._next_object.make_extern(
+                name, size=size, alignment=alignment, sym_type=sym_type, libname=libname
+            )
 
         l.info("Created extern symbol for %s", name)
 
@@ -172,7 +183,11 @@ class ExternObject(Backend):
         return result + (0 if tls else self.mapped_base)
 
     def _make_new_externs(self, size, alignment, tls):
-        self._next_object = ExternObject(self.loader, map_size=max(size + alignment, 0x8000) if not tls else 0x8000, tls_size=max(size + alignment, 0x1000) if tls else 0x1000)
+        self._next_object = ExternObject(
+            self.loader,
+            map_size=max(size + alignment, 0x8000) if not tls else 0x8000,
+            tls_size=max(size + alignment, 0x1000) if tls else 0x1000,
+        )
         self._next_object._finalize_tls()
         self.loader._internal_load(self._next_object)
 
@@ -220,7 +235,9 @@ class ExternObject(Backend):
         else:
             sym = self._import_symbols[name]
             if sym.type != sym_type:
-                raise CLEOperationError("Created the same extern import %s with two different types. Something isn't right!")
+                raise CLEOperationError(
+                    "Created the same extern import %s with two different types. Something isn't right!"
+                )
             return sym
 
     def _init_symbol(self, symbol):
@@ -243,11 +260,11 @@ class ExternObject(Backend):
 
 class KernelObject(Backend):
     def __init__(self, loader, map_size=0x8000):
-        super().__init__('cle##kernel', None, loader=loader)
+        super().__init__("cle##kernel", None, loader=loader)
         self.map_size = map_size
         self.set_arch(loader.main_object.arch)
         self.memory.add_backer(0, bytes(map_size))
-        self.provides = 'kernel space'
+        self.provides = "kernel space"
         self.pic = True
 
     def add_name(self, name, addr):
@@ -257,17 +274,21 @@ class KernelObject(Backend):
     def max_addr(self):
         return AT.from_rva(self.map_size - 1, self).to_mva()
 
+
 from .simdata import lookup, SimData
 from .simdata.common import PointTo, SimDataSimpleRelocation
+
 
 class PointToPrecise(PointTo):
     pointto_precise = None
 
     def relocations(self):
-        return [SimDataSimpleRelocation(
-            self.owner,
-            self.pointto_precise,
-            self.relative_addr,
-            self.addend,
-            preresolved=True,
-        )]
+        return [
+            SimDataSimpleRelocation(
+                self.owner,
+                self.pointto_precise,
+                self.relative_addr,
+                self.addend,
+                preresolved=True,
+            )
+        ]

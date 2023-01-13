@@ -22,6 +22,6 @@ class ELFReloc(Relocation):
         return self._addend
 
     @property
-    def value(self):    # pylint: disable=no-self-use
-        l.error('Value property of Relocation must be overridden by subclass!')
+    def value(self):  # pylint: disable=no-self-use
+        l.error("Value property of Relocation must be overridden by subclass!")
         return 0

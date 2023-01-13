@@ -1,9 +1,7 @@
 import cle
 import os
 
-test_location = str(
-    os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../binaries/tests")
-)
+test_location = str(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../binaries/tests"))
 binpath = os.path.join(test_location, "x86_64/test_gdb_plugin")
 cle.GDB_SEARCH_PATH.insert(0, os.path.join(test_location, "x86_64"))
 
@@ -22,9 +20,7 @@ def test_info_proc_maps():
 
 
 def test_info_sharedlibrary():
-    mappath = os.path.join(
-        test_location, "../tests_data/test_gdb_plugin/info_sharedlibs"
-    )
+    mappath = os.path.join(test_location, "../tests_data/test_gdb_plugin/info_sharedlibs")
     ld = cle.Loader(binpath, **cle.convert_info_sharedlibrary(mappath))
     check_addrs(ld)
 

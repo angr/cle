@@ -1,9 +1,10 @@
 from . import Backend, register_backend
 from .region import EmptySegment
 import logging
+
 l = logging.getLogger(name=__name__)
 
-__all__ = ('NamedRegion',)
+__all__ = ("NamedRegion",)
 
 
 class NamedRegion(Backend):
@@ -16,6 +17,7 @@ class NamedRegion(Backend):
     This can be used as a placeholder for memory that should exist in CLE's view, but for which it does not need data,
     like RAM, MMIO, etc
     """
+
     is_default = False  # This backend must be constructed manually (or by angr)
     has_memory = False  # This backend, by definition, has no memory backer
 
@@ -41,7 +43,7 @@ class NamedRegion(Backend):
         self.segments.append(s)
 
     def __repr__(self):
-        return f'<NamedRegion {self.name}, maps [{self.min_addr:#x}:{self.max_addr:#x}]>'
+        return f"<NamedRegion {self.name}, maps [{self.min_addr:#x}:{self.max_addr:#x}]>"
 
     @staticmethod
     def is_compatible(stream):
@@ -55,7 +57,7 @@ class NamedRegion(Backend):
     def max_addr(self):
         return self._max_addr
 
-    def function_name(self, addr): #pylint: disable=unused-argument,no-self-use
+    def function_name(self, addr):  # pylint: disable=unused-argument,no-self-use
         """
         NamedRegions don't support function names.
         """
@@ -65,7 +67,7 @@ class NamedRegion(Backend):
         return self.min_addr <= addr < self.max_addr
 
     @classmethod
-    def check_compatibility(cls, spec, obj): # pylint: disable=unused-argument
+    def check_compatibility(cls, spec, obj):  # pylint: disable=unused-argument
         return False
 
 

@@ -23,68 +23,71 @@ l = logging.getLogger(name=__name__)
 #
 
 _IO_FILE = {
-    'MIPS32': {
-        'size': 148,
-        'fd': 0x38,
+    "MIPS32": {
+        "size": 148,
+        "fd": 0x38,
     },
-    'X86': {
-        'size': 148,
-        'fd': 0x38,
+    "X86": {
+        "size": 148,
+        "fd": 0x38,
     },
-    'AMD64': {
-        'size': 216,
-        'fd': 0x70,
+    "AMD64": {
+        "size": 216,
+        "fd": 0x70,
     },
     # Bionic libc does not use __IO_FILE
     # Refer to http://androidxref.com/5.1.1_r6/xref/bionic/libc/include/stdio.h
     # __sFILE replaces __IO_FILE
     # _file replaces _fileno
-    'ARM': {
-        'size': 84,
-        'fd': 0x0e,
+    "ARM": {
+        "size": 84,
+        "fd": 0x0E,
     },
-    'AARCH64': {
-        'size': 152,
-        'fd': 0x14,
+    "AARCH64": {
+        "size": 152,
+        "fd": 0x14,
     },
 }
 
-_IO_FILE['ARMEL'] = _IO_FILE['ARM']
-_IO_FILE['ARMHF'] = _IO_FILE['ARM']
+_IO_FILE["ARMEL"] = _IO_FILE["ARM"]
+_IO_FILE["ARMHF"] = _IO_FILE["ARM"]
 
 
 def io_file_data_for_arch(arch):
     if arch.name not in _IO_FILE:
         l.error("missing _IO_FILE offsets for arch: %s", arch.name)
-        return _IO_FILE['AMD64']
+        return _IO_FILE["AMD64"]
     return _IO_FILE[arch.name]
 
 
 class IoFilePointer(PointTo):
-    libname = 'libc.so.6'
+    libname = "libc.so.6"
     pointto_type = SymbolType.TYPE_OBJECT
 
+
 class IoStdinPointer(IoFilePointer):
-    name = 'stdin'
-    pointto_name = '_io_stdin'
+    name = "stdin"
+    pointto_name = "_io_stdin"
+
 
 class IoStdoutPointer(IoFilePointer):
-    name = 'stdout'
-    pointto_name = '_io_stdout'
+    name = "stdout"
+    pointto_name = "_io_stdout"
+
 
 class IoStderrPointer(IoFilePointer):
-    name = 'stderr'
-    pointto_name = '_io_stderr'
+    name = "stderr"
+    pointto_name = "_io_stderr"
 
 
 class IoFile(SimData):
-    libname = 'libc.so.6'
+    libname = "libc.so.6"
     type = SymbolType.TYPE_OBJECT
     fd = NotImplemented  # type: int
 
     @classmethod
     def static_size(cls, owner):
-        return io_file_data_for_arch(owner.arch)['size']
+        return io_file_data_for_arch(owner.arch)["size"]
 
     # the canonical verision of this should be the FILEBUF_LITERAL macro from glibc
     # for maximum hyperrealism we could have a dependency on the IO_jumps table which would have dependencies on
@@ -92,21 +95,25 @@ class IoFile(SimData):
     # but that's way overkill. see above discussion.
     def value(self):
         val = bytearray(self.size)
-        struct.pack_into(self.owner.arch.struct_fmt(size=4), val, io_file_data_for_arch(self.owner.arch)['fd'], self.fd)
+        struct.pack_into(self.owner.arch.struct_fmt(size=4), val, io_file_data_for_arch(self.owner.arch)["fd"], self.fd)
         struct.pack_into(self.owner.arch.struct_fmt(size=4), val, 0, 0xFBAD2088)
         return bytes(val)
 
+
 class IoStdin(IoFile):
-    name = '_io_stdin'
+    name = "_io_stdin"
     fd = 0
 
+
 class IoStdout(IoFile):
-    name = '_io_stdout'
+    name = "_io_stdout"
     fd = 1
 
+
 class IoStderr(IoFile):
-    name = '_io_stderr'
+    name = "_io_stderr"
     fd = 2
+
 
 register(IoStdinPointer)
 register(IoStdoutPointer)

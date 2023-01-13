@@ -6,6 +6,7 @@ from .errors import CLEFileNotFoundError
 
 l = logging.getLogger(name=__name__)
 
+
 def convert_info_sharedlibrary(fname):
     """
     Convert a dump from gdb's ``info sharedlibrary`` command to a set of options that can be passed to CLE to replicate
@@ -15,6 +16,7 @@ def convert_info_sharedlibrary(fname):
     :returns:       A dict appropriate to be passed as ``**kwargs`` for ``angr.Project`` or ``cle.Loader``
     """
     return _parse_gdb_map(fname, True)
+
 
 def convert_info_proc_maps(fname):
     """
@@ -26,6 +28,7 @@ def convert_info_proc_maps(fname):
     """
     return _parse_gdb_map(fname, False)
 
+
 def _parse_gdb_map(gdb_map, gdb_fix):
     if not os.path.isfile(gdb_map):
         raise CLEFileNotFoundError("gdb mapping file %s does not exist" % gdb_map)
@@ -34,13 +37,13 @@ def _parse_gdb_map(gdb_map, gdb_fix):
 
     gmap = {}
     for line in data:
-        if line in ('\n', '\r\n'):
+        if line in ("\n", "\r\n"):
             continue
         line_items = line.split()
         # Get rid of all metadata, just extract lines containing addresses
         if "0x" not in line_items[0]:
             continue
-        if line_items[-1].startswith('['):
+        if line_items[-1].startswith("["):
             continue
         try:
             int(line_items[-1], 16)
@@ -58,7 +61,7 @@ def _parse_gdb_map(gdb_map, gdb_fix):
             gmap[objfile] = addr
 
     # Find lib names
-    #libnames = filter(lambda n: '.so' in n, gmap.keys())
+    # libnames = filter(lambda n: '.so' in n, gmap.keys())
 
     # Find base addr for each lib (each lib is mapped to several segments,
     # we take the segment that is loaded at the smallest address).
@@ -72,7 +75,7 @@ def _parse_gdb_map(gdb_map, gdb_fix):
             # this is the main binary
             opts = main_opts
         else:
-            #if not os.path.exists(lib):
+            # if not os.path.exists(lib):
             #    lib = _simple_search(lib)
             force_load_libs.append(lib)
             opts = {}
@@ -87,9 +90,11 @@ def _parse_gdb_map(gdb_map, gdb_fix):
         l.info("gdb_plugin: mapped %s to %#x", lib, addr)
         opts["base_addr"] = addr
 
-    return {'force_load_libs': force_load_libs, 'main_opts': main_opts, 'lib_opts': lib_opts}
+    return {"force_load_libs": force_load_libs, "main_opts": main_opts, "lib_opts": lib_opts}
 
-GDB_SEARCH_PATH = ['/lib', '/usr/lib']
+
+GDB_SEARCH_PATH = ["/lib", "/usr/lib"]
+
 
 def _simple_search(libname):
     dirs = list(GDB_SEARCH_PATH)
@@ -97,11 +102,11 @@ def _simple_search(libname):
         dirname = dirs.pop(0)
         try:
             for name in os.listdir(dirname):
-                if name in ('.', '..'):
+                if name in (".", ".."):
                     continue
                 full = os.path.join(dirname, name)
                 if os.path.isdir(full):
-                    if full.count('/') < 12: # don't go too deep
+                    if full.count("/") < 12:  # don't go too deep
                         dirs.append(full)
                 if os.path.isfile(full) and name == libname:
                     return full

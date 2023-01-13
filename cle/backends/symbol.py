@@ -14,6 +14,7 @@ class SymbolType(Enum):
     """
     ABI-agnostic symbol types
     """
+
     TYPE_OTHER = 0
     TYPE_NONE = 1
     TYPE_FUNCTION = 2
@@ -26,6 +27,7 @@ class SymbolSubType(Enum):
     """
     Abstract base class for ABI-specific symbol types
     """
+
     def to_base_type(self) -> SymbolType:  # pylint: disable=no-self-use
         """
         A subclass' ABI-specific mapping to :SymbolType:
@@ -135,7 +137,7 @@ class Symbol:
         return self.owner
 
     def __getstate__(self):
-        return {k: v for k, v in self.__dict__.items() if k != 'owner'}
+        return {k: v for k, v in self.__dict__.items() if k != "owner"}
 
     def __setstate__(self, state):
         self.__dict__.update(state)
