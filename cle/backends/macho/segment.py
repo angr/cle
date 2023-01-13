@@ -60,8 +60,5 @@ class MachOSegment(Segment):
 
     def __repr__(self):
         return "<{} | offset {:#x}, vaddr {:#x}, size {:#x}>".format(
-            self.segname if self.segname else "Unnamed",
-            self.offset,
-            self.vaddr,
-            self.memsize
+            self.segname if self.segname else "Unnamed", self.offset, self.vaddr, self.memsize
         )

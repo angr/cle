@@ -13,6 +13,7 @@ class VariableType:
     :type name:             str
     :ivar byte_size:        amount of bytes the type take in memory
     """
+
     def __init__(self, name: str, byte_size: int, elf_object):
         self.name = name
         self.byte_size = byte_size
@@ -23,28 +24,30 @@ class VariableType:
         """
         entry method to read a DW_TAG_xxx_type
         """
-        if die.tag == 'DW_TAG_base_type':
+        if die.tag == "DW_TAG_base_type":
             return BaseType.read_from_die(die, elf_object)
-        elif die.tag == 'DW_TAG_pointer_type':
+        elif die.tag == "DW_TAG_pointer_type":
             return PointerType.read_from_die(die, elf_object)
-        elif die.tag == 'DW_TAG_structure_type':
+        elif die.tag == "DW_TAG_structure_type":
             return StructType.read_from_die(die, elf_object)
-        elif die.tag == 'DW_TAG_array_type':
+        elif die.tag == "DW_TAG_array_type":
             return ArrayType.read_from_die(die, elf_object)
-        elif die.tag == 'DW_TAG_typedef':
+        elif die.tag == "DW_TAG_typedef":
             return TypedefType.read_from_die(die, elf_object)
-        elif die.tag == 'DW_TAG_union_type':
+        elif die.tag == "DW_TAG_union_type":
             return UnionType.read_from_die(die, elf_object)
         return None
 
     @staticmethod
     def supported_die(die: DIE) -> bool:
-        return die.tag in ('DW_TAG_base_type',
-                           'DW_TAG_pointer_type',
-                           'DW_TAG_structure_type',
-                           'DW_TAG_array_type',
-                           'DW_TAG_typedef',
-                           'DW_TAG_union_type')
+        return die.tag in (
+            "DW_TAG_base_type",
+            "DW_TAG_pointer_type",
+            "DW_TAG_structure_type",
+            "DW_TAG_array_type",
+            "DW_TAG_typedef",
+            "DW_TAG_union_type",
+        )
 
 
 class PointerType(VariableType):
@@ -57,7 +60,7 @@ class PointerType(VariableType):
     """
 
     def __init__(self, byte_size: int, elf_object, referenced_offset: int):
-        super().__init__('pointer', byte_size, elf_object)
+        super().__init__("pointer", byte_size, elf_object)
         self._referenced_offset = referenced_offset
 
     @classmethod
@@ -66,12 +69,12 @@ class PointerType(VariableType):
         read an entry of DW_TAG_pointer_type. return None when there is no
         byte_size or type attribute.
         """
-        byte_size = die.attributes.get('DW_AT_byte_size', None)
+        byte_size = die.attributes.get("DW_AT_byte_size", None)
 
         if byte_size is None:
             return None
 
-        dw_at_type = die.attributes.get('DW_AT_type', None)
+        dw_at_type = die.attributes.get("DW_AT_type", None)
         if dw_at_type is None:
             referenced_offset = None
         else:
@@ -108,11 +111,7 @@ class BaseType(VariableType):
         byte_size = die.attributes.get("DW_AT_byte_size", None)
         if byte_size is None:
             return None
-        return cls(
-            dw_at_name.value.decode() if dw_at_name is not None else "unknown",
-            byte_size.value,
-            elf_object
-        )
+        return cls(dw_at_name.value.decode() if dw_at_name is not None else "unknown", byte_size.value, elf_object)
 
 
 class StructType(VariableType):
@@ -136,21 +135,18 @@ class StructType(VariableType):
         """
 
         dw_at_name = die.attributes.get("DW_AT_name", None)
-        byte_size = die.attributes.get('DW_AT_byte_size', None)
+        byte_size = die.attributes.get("DW_AT_byte_size", None)
 
         if byte_size is None:
             return None
 
         members = []
         for die_child in die.iter_children():
-            if die_child.tag == 'DW_TAG_member':
+            if die_child.tag == "DW_TAG_member":
                 members.append(StructMember.read_from_die(die_child, elf_object))
 
         return cls(
-            dw_at_name.value.decode() if dw_at_name is not None else "unknown",
-            byte_size.value,
-            elf_object,
-            members
+            dw_at_name.value.decode() if dw_at_name is not None else "unknown", byte_size.value, elf_object, members
         )
 
     def __getitem__(self, member_name):
@@ -192,11 +188,11 @@ class StructMember:
         type attribute.
         """
 
-        dw_at_name   = die.attributes.get('DW_AT_name', None)
-        dw_at_type   = die.attributes.get('DW_AT_type', None)
-        dw_at_memloc = die.attributes.get('DW_AT_data_member_location', None)
-        name        = None if dw_at_name   is None else dw_at_name.value.decode()
-        ty          = None if dw_at_type   is None else dw_at_type.value + die.cu.cu_offset
+        dw_at_name = die.attributes.get("DW_AT_name", None)
+        dw_at_type = die.attributes.get("DW_AT_type", None)
+        dw_at_memloc = die.attributes.get("DW_AT_data_member_location", None)
+        name = None if dw_at_name is None else dw_at_name.value.decode()
+        ty = None if dw_at_type is None else dw_at_type.value + die.cu.cu_offset
 
         # From the DWARF5 manual, page 118:
         #    The member entry corresponding to a data member that is defined in a structure,
@@ -230,7 +226,7 @@ class ArrayType(VariableType):
     """
 
     def __init__(self, byte_size, elf_object, element_offset):
-        super().__init__('array', byte_size, elf_object)
+        super().__init__("array", byte_size, elf_object)
         self._element_offset = element_offset
 
     @classmethod
@@ -246,9 +242,7 @@ class ArrayType(VariableType):
         if dw_at_type is None:
             return None
         return cls(
-            dw_byte_size.value if dw_byte_size is not None else None,
-            elf_object,
-            dw_at_type.value + die.cu.cu_offset
+            dw_byte_size.value if dw_byte_size is not None else None, elf_object, dw_at_type.value + die.cu.cu_offset
         )
 
     @property
@@ -279,9 +273,9 @@ class TypedefType(VariableType):
         type attribute.
         """
 
-        dw_at_name = die.attributes.get('DW_AT_name', None)
-        dw_at_type = die.attributes.get('DW_AT_type', None)
-        dw_at_byte_size = die.attributes.get('DW_AT_byte_size', None)
+        dw_at_name = die.attributes.get("DW_AT_name", None)
+        dw_at_type = die.attributes.get("DW_AT_type", None)
+        dw_at_byte_size = die.attributes.get("DW_AT_byte_size", None)
         name = None if dw_at_name is None else dw_at_name.value.decode()
         type_offset = None if dw_at_type is None else dw_at_type.value + die.cu.cu_offset
         byte_size = None if dw_at_byte_size is None else dw_at_byte_size.value

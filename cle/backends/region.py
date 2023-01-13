@@ -63,9 +63,7 @@ class Region:
         return addr
 
     def __repr__(self):
-        return '<{} {}>'.format(self.__class__.__name__,
-                                ', '.join([f'{k}=0x{v:x}' for k, v in self.__dict__.items()])
-                                )
+        return "<{} {}>".format(self.__class__.__name__, ", ".join([f"{k}=0x{v:x}" for k, v in self.__dict__.items()]))
 
     @property
     def max_addr(self):
@@ -111,6 +109,7 @@ class Region:
         # pylint: disable=no-self-use
         return True
 
+
 class Segment(Region):
     pass
 
@@ -152,6 +151,7 @@ class Section(Region):
 
     :ivar str name:     The name of the section
     """
+
     def __init__(self, name, offset, vaddr, size):
         """
         :param str name:    The name of the section
@@ -192,8 +192,5 @@ class Section(Region):
 
     def __repr__(self):
         return "<{} | offset {:#x}, vaddr {:#x}, size {:#x}>".format(
-            self.name if self.name else "Unnamed",
-            self.offset,
-            self.vaddr,
-            self.memsize
+            self.name if self.name else "Unnamed", self.offset, self.vaddr, self.memsize
         )

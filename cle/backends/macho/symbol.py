@@ -13,18 +13,18 @@ l = logging.getLogger(name=__name__)
 # some constants:
 SYMBOL_TYPE_UNDEF = 0x0
 SYMBOL_TYPE_ABS = 0x2
-SYMBOL_TYPE_SECT = 0xe
-SYMBOL_TYPE_PBUD = 0xc
-SYMBOL_TYPE_INDIR = 0xa
+SYMBOL_TYPE_SECT = 0xE
+SYMBOL_TYPE_PBUD = 0xC
+SYMBOL_TYPE_INDIR = 0xA
 
 LIBRARY_ORDINAL_SELF = 0x0
-LIBRARY_ORDINAL_OLD_MAX = 0xfe
-LIBRARY_ORDINAL_DYN_LOOKUP = 0xfe
+LIBRARY_ORDINAL_OLD_MAX = 0xFE
+LIBRARY_ORDINAL_DYN_LOOKUP = 0xFE
 
 BIND_SPECIAL_DYLIB_SELF = 0x0
-BIND_SPECIAL_DYLIB_WEAK_LOOKUP = 0xfd
-BIND_SPECIAL_DYLIB_FLAT_LOOKUP = 0xfe
-BIND_SPECIAL_DYLIB_MAIN_EXECUTABLE = 0xff # technically -1
+BIND_SPECIAL_DYLIB_WEAK_LOOKUP = 0xFD
+BIND_SPECIAL_DYLIB_FLAT_LOOKUP = 0xFE
+BIND_SPECIAL_DYLIB_MAIN_EXECUTABLE = 0xFF  # technically -1
 
 
 class AbstractMachOSymbol(Symbol):
@@ -33,16 +33,14 @@ class AbstractMachOSymbol(Symbol):
     Defines the minimum common properties all types of mach-o symbols must have
     """
 
-    def __init__(self, owner: Backend,
-             name: str,
-             relative_addr: int,
-             size: int,
-             sym_type: SymbolType):
+    def __init__(self, owner: Backend, name: str, relative_addr: int, size: int, sym_type: SymbolType):
         super().__init__(owner, name, relative_addr, size, sym_type)
 
         # additional properties
         self.bind_xrefs = []  # XREFs discovered during binding of the symbol
-        self.symbol_stubs = []  # starting addresses of stubs that resolve to this symbol - note that this must be obtained through an analysis of some sort
+        self.symbol_stubs = (
+            []
+        )  # starting addresses of stubs that resolve to this symbol - note that this must be obtained through an analysis of some sort
 
     @property
     def library_ordinal(self):
@@ -56,6 +54,7 @@ class AbstractMachOSymbol(Symbol):
     def library_name(self):
         return None
 
+
 class SymbolTableSymbol(AbstractMachOSymbol):
     """
     "Regular" symbol. Made to be (somewhat) compatible with backends.Symbol.
@@ -67,7 +66,9 @@ class SymbolTableSymbol(AbstractMachOSymbol):
 
     Much of the code below is based on heuristics as official documentation is sparse, consider yourself warned!
     """
+
     owner: "MachO"
+
     def __init__(self, owner: "MachO", symtab_offset, n_strx, n_type, n_sect, n_desc, n_value):
         # Note 1: Setting size = owner.arch.bytes has been directly taken over from the PE backend,
         # there is no meaningful definition of a symbol's size so I assume the size of an address counts here
@@ -79,28 +80,28 @@ class SymbolTableSymbol(AbstractMachOSymbol):
         # because without docs I was unable to proplerly map Mach-O symbol types to CLE's notion of a symbol type
 
         # store the mach-o properties, all these are raw values straight from the binary
-        self.symtab_offset = symtab_offset # offset from the start of the symbol table
-        self.n_type = n_type # n_type field from the symbol table
-        self.n_sect = n_sect # n_sect field from the symbol table
-        self.n_desc = n_desc # n_desc  field from the symbol table
+        self.symtab_offset = symtab_offset  # offset from the start of the symbol table
+        self.n_type = n_type  # n_type field from the symbol table
+        self.n_sect = n_sect  # n_sect field from the symbol table
+        self.n_desc = n_desc  # n_desc  field from the symbol table
         self.n_value = n_value  # n_value field from the symbol table.
-        self.n_strx = n_strx # index into the string table
-
-
+        self.n_strx = n_strx  # index into the string table
 
         # now we may call super
         # however we cannot access any properties yet that would touch superclass-initialized attributes
         # so we have to repeat some work
-        super().__init__(owner,
-               owner.get_string(n_strx).decode('utf-8') if n_strx != 0 else "",
-                self.value,
-                owner.arch.bytes,
-                SymbolType.TYPE_OTHER)
+        super().__init__(
+            owner,
+            owner.get_string(n_strx).decode("utf-8") if n_strx != 0 else "",
+            self.value,
+            owner.arch.bytes,
+            SymbolType.TYPE_OTHER,
+        )
 
         # set further fields
-        self.is_import = (self.sym_type == SYMBOL_TYPE_UNDEF
-                          and self.is_external
-                          and self.library_ordinal != LIBRARY_ORDINAL_SELF)
+        self.is_import = (
+            self.sym_type == SYMBOL_TYPE_UNDEF and self.is_external and self.library_ordinal != LIBRARY_ORDINAL_SELF
+        )
         self.is_export = self.name in self.owner.exports_by_name
 
     @property
@@ -143,7 +144,6 @@ class SymbolTableSymbol(AbstractMachOSymbol):
         else:
             return None
 
-
     def is_weak(self):
         # compare https://developer.apple.com/library/mac/documentation/DeveloperTools/Conceptual/MachOTopics/1-Articles/executing_files.html
         return self.is_weak_referenced
@@ -158,11 +158,10 @@ class SymbolTableSymbol(AbstractMachOSymbol):
     def rebased_addr(self):
         return self.linked_addr
 
-
     # real symbols have properties, mach-o symbols have plenty of them:
     @property
     def is_stab(self):
-        return self.n_type & 0xe0
+        return self.n_type & 0xE0
 
     @property
     def is_private_external(self):
@@ -177,7 +176,7 @@ class SymbolTableSymbol(AbstractMachOSymbol):
         if self.is_stab:
             return self.n_type
         else:
-            return self.n_type & 0x0e
+            return self.n_type & 0x0E
 
     @property
     def is_common(self):
@@ -185,7 +184,7 @@ class SymbolTableSymbol(AbstractMachOSymbol):
 
     @property
     def common_align(self):
-        return None if not self.is_common else ((self.n_desc) >> 8) & 0x0f
+        return None if not self.is_common else ((self.n_desc) >> 8) & 0x0F
 
     @property
     def reference_type(self):
@@ -193,7 +192,7 @@ class SymbolTableSymbol(AbstractMachOSymbol):
 
     @property
     def library_ordinal(self):
-        return ((self.n_desc) >> 8) & 0xff
+        return ((self.n_desc) >> 8) & 0xFF
 
     @property
     def is_no_dead_strip(self):
@@ -232,17 +231,14 @@ class DyldBoundSymbol(AbstractMachOSymbol):
     """
     The new kind of symbol handling introduced with ios15
     """
+
     def __init__(self, owner, name, lib_ordinal):
         """Based on the constructor of BindingSymbol"""
 
         # store the mach-o properties, all these are raw values straight from the binary
         self.lib_ordinal = lib_ordinal
 
-        super().__init__(owner,
-                         name,
-                         0,
-                         owner.arch.bytes,
-                         SymbolType.TYPE_OTHER)
+        super().__init__(owner, name, 0, owner.arch.bytes, SymbolType.TYPE_OTHER)
 
         # set further fields
         self.is_import = True  # TODO: this is always an import for now
@@ -260,8 +256,12 @@ class DyldBoundSymbol(AbstractMachOSymbol):
         try:
             return self.owner_obj.imported_libraries[self.lib_ordinal]
         except IndexError:
-            l.error("Symbol %s has library ordinal %d, but there are only %d imported libraries", self,
-                    self.lib_ordinal, len(self.owner_obj.imported_libraries))
+            l.error(
+                "Symbol %s has library ordinal %d, but there are only %d imported libraries",
+                self,
+                self.lib_ordinal,
+                len(self.owner_obj.imported_libraries),
+            )
             return None
 
     @property
@@ -281,6 +281,7 @@ class DyldBoundSymbol(AbstractMachOSymbol):
     def library_ordinal(self):
         return self.lib_ordinal
 
+
 class BindingSymbol(AbstractMachOSymbol):
     """
     "Binding" symbol. Made to be (somewhat) compatible with backends.Symbol.
@@ -293,9 +294,7 @@ class BindingSymbol(AbstractMachOSymbol):
     Much of the code below is based on heuristics as official documentation is sparse, consider yourself warned!
     """
 
-
-
-    def __init__(self, owner, name,lib_ordinal):
+    def __init__(self, owner, name, lib_ordinal):
         # Note 1: Setting size = owner.arch.bytes has been directly taken over from the PE backend,
         # there is no meaningful definition of a symbol's size so I assume the size of an address counts here
         # Note 2: relative_addr will be the address of a symbols __got or __nl_symbol_ptr entry, not the addr of a stub
@@ -310,14 +309,10 @@ class BindingSymbol(AbstractMachOSymbol):
         # now we may call super
         # however we cannot access any properties yet that would touch superclass-initialized attributes
         # so we have to repeat some work
-        super().__init__(owner,
-                                                name,
-                                                0,
-                                                owner.arch.bytes,
-                                                SymbolType.TYPE_OTHER)
+        super().__init__(owner, name, 0, owner.arch.bytes, SymbolType.TYPE_OTHER)
 
         # set further fields
-        self.is_import = True # this is always an import
+        self.is_import = True  # this is always an import
         self.is_export = self.name in self.owner_obj.exports_by_name
 
     @property

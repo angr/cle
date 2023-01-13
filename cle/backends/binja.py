@@ -18,16 +18,19 @@ except ImportError:
 
 
 class BinjaSymbol(Symbol):
-    BINJA_FUNC_SYM_TYPES = [bn.SymbolType.ImportedFunctionSymbol,
-                            bn.SymbolType.FunctionSymbol,
-                            bn.SymbolType.ImportAddressSymbol] if bn else []
+    BINJA_FUNC_SYM_TYPES = (
+        [bn.SymbolType.ImportedFunctionSymbol, bn.SymbolType.FunctionSymbol, bn.SymbolType.ImportAddressSymbol]
+        if bn
+        else []
+    )
 
-    BINJA_DATA_SYM_TYPES = [bn.SymbolType.ImportedDataSymbol,
-                            bn.SymbolType.DataSymbol] if bn else []
+    BINJA_DATA_SYM_TYPES = [bn.SymbolType.ImportedDataSymbol, bn.SymbolType.DataSymbol] if bn else []
 
-    BINJA_IMPORT_TYPES = [bn.SymbolType.ImportedFunctionSymbol,
-                          bn.SymbolType.ImportAddressSymbol,
-                          bn.SymbolType.ImportedDataSymbol] if bn else []
+    BINJA_IMPORT_TYPES = (
+        [bn.SymbolType.ImportedFunctionSymbol, bn.SymbolType.ImportAddressSymbol, bn.SymbolType.ImportedDataSymbol]
+        if bn
+        else []
+    )
 
     def __init__(self, owner, sym):
         if not bn:
@@ -40,11 +43,7 @@ class BinjaSymbol(Symbol):
         else:
             symtype = SymbolType.TYPE_OTHER
 
-        super().__init__(owner,
-                                          sym.raw_name,
-                                          AT.from_rva(sym.address, owner).to_rva(),
-                                          owner.bv.address_size,
-                                          symtype)
+        super().__init__(owner, sym.raw_name, AT.from_rva(sym.address, owner).to_rva(), owner.bv.address_size, symtype)
 
         if sym.type in self.BINJA_IMPORT_TYPES:
             self.is_import = True
@@ -53,7 +52,6 @@ class BinjaSymbol(Symbol):
 
 
 class BinjaReloc(Relocation):
-
     @property
     def value(self):
         return self.relative_addr
@@ -64,18 +62,21 @@ class BinjaBin(Backend):
     Get information from binaries using Binary Ninja. Basing this on idabin.py, but will try to be more complete.
     TODO: add more features as Binary Ninja's feature set improves
     """
-    is_default = True # Tell CLE to automatically consider using the BinjaBin backend
-    BINJA_ARCH_MAP = {"aarch64": archinfo.ArchAArch64(endness='Iend_LE'),
-                      "armv7": archinfo.ArchARMEL(endness='Iend_LE'),
-                      "thumb2": archinfo.ArchARMEL(endness='Iend_LE'),
-                      "armv7eb": archinfo.ArchARMEL(endness='Iend_BE'),
-                      "thumb2eb": archinfo.ArchARMEL(endness='Iend_BE'),
-                      "mipsel32": archinfo.ArchMIPS32(endness='Iend_LE'),
-                      "mips32": archinfo.ArchMIPS32(endness='Iend_BE'),
-                      "ppc": archinfo.ArchPPC32(endness="Iend_BE"),
-                      "ppc_le": archinfo.ArchPPC32(endness="Iend_LE"),
-                      "x86": archinfo.ArchX86(),
-                      "x86_64": archinfo.ArchAMD64()}
+
+    is_default = True  # Tell CLE to automatically consider using the BinjaBin backend
+    BINJA_ARCH_MAP = {
+        "aarch64": archinfo.ArchAArch64(endness="Iend_LE"),
+        "armv7": archinfo.ArchARMEL(endness="Iend_LE"),
+        "thumb2": archinfo.ArchARMEL(endness="Iend_LE"),
+        "armv7eb": archinfo.ArchARMEL(endness="Iend_BE"),
+        "thumb2eb": archinfo.ArchARMEL(endness="Iend_BE"),
+        "mipsel32": archinfo.ArchMIPS32(endness="Iend_LE"),
+        "mips32": archinfo.ArchMIPS32(endness="Iend_BE"),
+        "ppc": archinfo.ArchPPC32(endness="Iend_BE"),
+        "ppc_le": archinfo.ArchPPC32(endness="Iend_LE"),
+        "x86": archinfo.ArchX86(),
+        "x86_64": archinfo.ArchAMD64(),
+    }
 
     def __init__(self, binary, *args, **kwargs):
         super().__init__(binary, *args, **kwargs)
@@ -107,7 +108,9 @@ class BinjaBin(Backend):
         # Since we're not trying to import and load dependencies directly, but want to run SimProcedures,
         # We should use the binaryninja.SymbolType.ImportedFunctionSymbol
         # Also this should be generalized to get data imports, too
-        self.raw_imports = {i.name: i.address for i in self.bv.get_symbols_of_type(bn.SymbolType.ImportedFunctionSymbol)}
+        self.raw_imports = {
+            i.name: i.address for i in self.bv.get_symbols_of_type(bn.SymbolType.ImportedFunctionSymbol)
+        }
         self._process_imports()
         self.exports = {}
         self.linking = "static" if len(self.raw_imports) == 0 else "dynamic"
@@ -115,15 +118,16 @@ class BinjaBin(Backend):
         # This is an ugly hack, but will have to use this for now until Binary Ninja exposes dependencies
         self.guess_simprocs = True
         self.guess_simprocs_hint = "nix" if self.bv.get_section_by_name(".plt") else "win"
-        l.warning("This backend is based on idabin.py.\n\
+        l.warning(
+            "This backend is based on idabin.py.\n\
                    You may encounter unexpected behavior if:\n\
                    \tyour target depends on library data symbol imports, or\n\
                    \tlibrary imports that don't have a guess-able SimProcedure\n\
-                   Good luck!")
-
+                   Good luck!"
+        )
 
     def _process_imports(self):
-        ''' Process self.raw_imports into list of Relocation objects '''
+        """Process self.raw_imports into list of Relocation objects"""
         if not self.raw_imports:
             l.warning("No imports found - if this is a dynamically-linked binary, something probably went wrong.")
 

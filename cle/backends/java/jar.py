@@ -14,7 +14,16 @@ class Jar(Soot):
 
     is_default = True  # let CLE automatically use this backend
 
-    def __init__(self, jar_path, binary_stream, entry_point=None, entry_point_params=('java.lang.String[]',), jni_libs=None, jni_libs_ld_path=None, **kwargs):
+    def __init__(
+        self,
+        jar_path,
+        binary_stream,
+        entry_point=None,
+        entry_point_params=("java.lang.String[]",),
+        jni_libs=None,
+        jni_libs_ld_path=None,
+        **kwargs,
+    ):
         """
         :param jar_path:                Path to JAR.
 
@@ -34,18 +43,21 @@ class Jar(Soot):
         if not entry_point:
             # try to parse main class from manifest
             self.manifest = self.get_manifest(jar_path)
-            main_class = self.manifest.get('Main-Class', None)
+            main_class = self.manifest.get("Main-Class", None)
             if main_class:
                 entry_point = main_class + "." + "main"
 
         # the actual lifting is done by the Soot superclass
-        super().__init__(jar_path, binary_stream,
-                                  input_format='jar',
-                                  entry_point=entry_point,
-                                  entry_point_params=entry_point_params,
-                                  jni_libs=jni_libs,
-                                  jni_libs_ld_path=jni_libs_ld_path,
-                                  **kwargs)
+        super().__init__(
+            jar_path,
+            binary_stream,
+            input_format="jar",
+            entry_point=entry_point,
+            entry_point_params=entry_point_params,
+            jni_libs=jni_libs,
+            jni_libs_ld_path=jni_libs_ld_path,
+            **kwargs,
+        )
 
     @staticmethod
     def is_compatible(stream):
@@ -57,9 +69,9 @@ class Jar(Soot):
             filelist = jar.namelist()
         # check for manifest and if a least one java class
         # file is available
-        if 'META-INF/MANIFEST.MF' not in filelist:
+        if "META-INF/MANIFEST.MF" not in filelist:
             return False
-        class_files = [f for f in filelist if f.endswith('.class')]
+        class_files = [f for f in filelist if f.endswith(".class")]
         if len(class_files) == 0:
             return False
         return True
@@ -73,13 +85,13 @@ class Jar(Soot):
         """
         path = binary_path if binary_path else self.binary
         with ZipFile(path) as jar:
-            manifest = jar.open('META-INF/MANIFEST.MF', "r")
+            manifest = jar.open("META-INF/MANIFEST.MF", "r")
             data = {}
             for line in manifest.readlines():
-                if b':' in line:
-                    key, value = line.split(b':')
-                    data[key.strip().decode('utf-8')] = value.strip().decode('utf-8')
+                if b":" in line:
+                    key, value = line.split(b":")
+                    data[key.strip().decode("utf-8")] = value.strip().decode("utf-8")
             return data
 
 
-register_backend('jar', Jar)
+register_backend("jar", Jar)

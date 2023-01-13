@@ -2,6 +2,7 @@ import os
 
 import cle
 
+
 class MockBackend(cle.backends.Backend):  # pylint: disable=missing-class-docstring
     def __init__(self, linked_base, size, **kwargs):
         super().__init__("/dev/zero", None, **kwargs)
@@ -15,9 +16,7 @@ class MockBackend(cle.backends.Backend):  # pylint: disable=missing-class-docstr
 
 
 def test_overlap():
-    filename = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), "../../binaries/tests/i386/manysum"
-    )
+    filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../binaries/tests/i386/manysum")
     ld = cle.Loader(filename, auto_load_libs=False)
     assert ld.main_object.linked_base == 0x8048000
     assert ld.main_object.min_addr == 0x8048000

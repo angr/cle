@@ -21,9 +21,7 @@ from cle.backends.macho.binding import n_opcode_set_addend_sleb
 
 from cle import CLEInvalidBinaryError, MachO
 
-TEST_BASE = os.path.join(
-    os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries")
-)
+TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
 
 
 class TestBindingState(unittest.TestCase):
@@ -166,16 +164,12 @@ class TestBindingHelper(unittest.TestCase):
         pass
 
     def test_do_normal_bind(self):
-        self.skipTest(
-            "TODO"
-        )  # implement this after all submethods are tested for a complete run
+        self.skipTest("TODO")  # implement this after all submethods are tested for a complete run
         # the test data should exercise each case at least once and ensure that submethods interact
         # well i.e. that the aggregation produces correct results
 
     def test_do_lazy_bind(self):
-        self.skipTest(
-            "TODO"
-        )  # implement this after all submethods are tested for a complete run
+        self.skipTest("TODO")  # implement this after all submethods are tested for a complete run
         # the test data should exercise each case at least once and ensure that submethods interact
         # well i.e. that the aggregation produces correct results
 
@@ -312,9 +306,7 @@ class TestBindingHelper(unittest.TestCase):
         """
         # logging.basicConfig(filename="./test_bindinghelper_do_normal_bind_real_32.log", level=logging.DEBUG)
 
-        machofile = os.path.join(
-            TEST_BASE, "tests", "armhf", "FileProtection-05.armv7.macho"
-        )
+        machofile = os.path.join(TEST_BASE, "tests", "armhf", "FileProtection-05.armv7.macho")
         ld = cle.Loader(machofile, auto_load_libs=False)
         macho: MachO = ld.main_object
         macho.do_binding()
@@ -407,9 +399,7 @@ class TestBindingHelper(unittest.TestCase):
                 self.assertEqual(
                     a,
                     b,
-                    "Error: Differences for symbol {}: {} != {}: ".format(
-                        name, a, b
-                    ),
+                    "Error: Differences for symbol {}: {} != {}: ".format(name, a, b),
                 )
 
             if not found:
@@ -420,9 +410,7 @@ class TestBindingHelper(unittest.TestCase):
         Executes binding against a real binary - not optimal since it does not cover all possible opcodes but it is
         a start
         """
-        machofile = os.path.join(
-            TEST_BASE, "tests", "armhf", "FileProtection-05.arm64.macho"
-        )
+        machofile = os.path.join(TEST_BASE, "tests", "armhf", "FileProtection-05.arm64.macho")
         ld = cle.Loader(machofile, auto_load_libs=False)
         assert isinstance(ld.main_object, MachO)
         macho: MachO = ld.main_object
@@ -519,9 +507,7 @@ class TestBindingHelper(unittest.TestCase):
                 self.assertEqual(
                     a,
                     b,
-                    "Error: Differences for symbol {}: {} != {}: ".format(
-                        name, a, b
-                    ),
+                    "Error: Differences for symbol {}: {} != {}: ".format(name, a, b),
                 )
 
             if not found:

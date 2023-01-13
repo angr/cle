@@ -22,10 +22,12 @@ l = logging.getLogger(name=__name__)
 if typing.TYPE_CHECKING:
     from .. import Loader, Relocation
 
+
 class FunctionHintSource:
     """
     Enums that describe the source of function hints.
     """
+
     EH_FRAME = 0
     EXTERNAL_EH_FRAME = 1
 
@@ -40,7 +42,7 @@ class FunctionHint:
     :vartype source:    int
     """
 
-    __slots__ = ('addr', 'size', 'source')
+    __slots__ = ("addr", "size", "source")
 
     def __init__(self, addr, size, source):
         self.addr = addr
@@ -64,7 +66,13 @@ class ExceptionHandling:
     :ivar Optional[int] func_addr:      Address of the function. Optional.
     """
 
-    __slots__ = ('start_addr', 'size', 'handler_addr', 'type', 'func_addr',)
+    __slots__ = (
+        "start_addr",
+        "size",
+        "handler_addr",
+        "type",
+        "func_addr",
+    )
 
     def __init__(self, start_addr, size, handler_addr=None, type_=None, func_addr=None):
 
@@ -76,12 +84,11 @@ class ExceptionHandling:
 
     def __repr__(self):
         if self.handler_addr is not None:
-            return "<ExceptionHandling@{:#x}-{:#x}: handler@{:#x}>".format(self.start_addr,
-                                                                 self.start_addr + self.size,
-                                                                 self.handler_addr)
+            return "<ExceptionHandling@{:#x}-{:#x}: handler@{:#x}>".format(
+                self.start_addr, self.start_addr + self.size, self.handler_addr
+            )
         else:
-            return "<ExceptionHandling@{:#x}-{:#x}: no handler>".format(self.start_addr,
-                                                                 self.start_addr + self.size)
+            return "<ExceptionHandling@{:#x}-{:#x}: no handler>".format(self.start_addr, self.start_addr + self.size)
 
 
 class Backend:
@@ -117,20 +124,23 @@ class Backend:
     :ivar has_memory:       Whether this backend is backed by a Clemory or not. As it stands now, a backend should still
                             define `min_addr` and `max_addr` even if `has_memory` is False.
     """
+
     is_default = False
     loader: "Loader"
 
-    def __init__(self,
-            binary,
-            binary_stream,
-            loader=None,
-            is_main_bin=False,
-            entry_point=None,
-            arch=None,
-            base_addr=None,
-            force_rebase=False,
-            has_memory=True,
-            **kwargs):
+    def __init__(
+        self,
+        binary,
+        binary_stream,
+        loader=None,
+        is_main_bin=False,
+        entry_point=None,
+        arch=None,
+        base_addr=None,
+        force_rebase=False,
+        has_memory=True,
+        **kwargs,
+    ):
         """
         :param binary:          The path to the binary to load
         :param binary_stream:   The open stream to this binary. The reference to this will be held until you call close.
@@ -146,34 +156,35 @@ class Backend:
             self.binary_basename = str(self._binary_stream)
 
         for k in list(kwargs.keys()):
-            if k == 'custom_entry_point':
+            if k == "custom_entry_point":
                 entry_point = kwargs.pop(k)
-            elif k == 'custom_arch':
+            elif k == "custom_arch":
                 arch = kwargs.pop(k)
-            elif k == 'custom_base_addr':
+            elif k == "custom_base_addr":
                 base_addr = kwargs.pop(k)
             else:
                 continue
             l.critical("Deprecation warning: the %s parameter has been renamed to %s", k, k[7:])
 
         if kwargs != {}:
-            l.warning("Unused kwargs for loading binary %s: %s", self.binary, ', '.join(kwargs.keys()))
+            l.warning("Unused kwargs for loading binary %s: %s", self.binary, ", ".join(kwargs.keys()))
 
         self.is_main_bin = is_main_bin
         self.has_memory = has_memory
         self.loader = loader
         self._entry = 0
-        self._segments = Regions() # List of segments
-        self._sections = Regions() # List of sections
+        self._segments = Regions()  # List of segments
+        self._sections = Regions()  # List of sections
         self.sections_map = {}  # Mapping from section name to section
-        self.symbols: 'sortedcontainers.SortedKeyList[Symbol]' = sortedcontainers.SortedKeyList(
-            key=self._get_symbol_relative_addr)
+        self.symbols: "sortedcontainers.SortedKeyList[Symbol]" = sortedcontainers.SortedKeyList(
+            key=self._get_symbol_relative_addr
+        )
         self.imports: typing.Dict[str, "Relocation"] = {}
         self.resolved_imports = []
         self.relocs: "List[Relocation]" = []
-        self.irelatives = []    # list of tuples (resolver, destination), dest w/o rebase
+        self.irelatives = []  # list of tuples (resolver, destination), dest w/o rebase
         self.jmprel = {}
-        self.arch = None # type: Optional[archinfo.Arch]
+        self.arch = None  # type: Optional[archinfo.Arch]
         self.os = None  # Let other stuff override this
         self.compiler = None, None  # compiler name, version
         self._symbol_cache = {}
@@ -189,12 +200,12 @@ class Backend:
 
         self.mapped_base_symbolic = 0
         # These are set by cle, and should not be overriden manually
-        self.mapped_base = self.linked_base = 0 # not to be set manually - used by CLE
+        self.mapped_base = self.linked_base = 0  # not to be set manually - used by CLE
 
-        self.deps = []           # Needed shared objects (libraries dependencies)
+        self.deps = []  # Needed shared objects (libraries dependencies)
         self.child_objects = []  # any objects loaded directly out of this
         self.parent_object = None
-        self.linking = None # Dynamic or static linking
+        self.linking = None  # Dynamic or static linking
         self.pic = force_rebase
         self.execstack = False
 
@@ -205,7 +216,7 @@ class Backend:
         self.tls_data_start = None
         # tls info set by thread manager
         self.tls_module_id = None
-        #self.tls_block_offset = None  # this is an ELF-only attribute
+        # self.tls_block_offset = None  # this is an ELF-only attribute
 
         # exception handling
         # they should be rebased when .rebase() is called
@@ -251,12 +262,16 @@ class Backend:
         del self._binary_stream
 
     def __repr__(self):
-        return '<%s Object %s, maps [%#x:%#x]>' % \
-               (self.__class__.__name__, self.binary_basename, self.min_addr, self.max_addr)
+        return "<%s Object %s, maps [%#x:%#x]>" % (
+            self.__class__.__name__,
+            self.binary_basename,
+            self.min_addr,
+            self.max_addr,
+        )
 
     def set_arch(self, arch):
         self.arch = arch
-        self.memory = Clemory(arch) # Private virtual address space, without relocations
+        self.memory = Clemory(arch)  # Private virtual address space, without relocations
 
     @property
     def image_base_delta(self):
@@ -279,7 +294,7 @@ class Backend:
         elif isinstance(v, Regions):
             self._segments = v
         else:
-            raise ValueError('Unsupported type %s set as sections.' % type(v))
+            raise ValueError("Unsupported type %s set as sections." % type(v))
 
     @property
     def sections(self):
@@ -292,12 +307,14 @@ class Backend:
         elif isinstance(v, Regions):
             self._sections = v
         else:
-            raise ValueError('Unsupported type %s set as sections.' % type(v))
+            raise ValueError("Unsupported type %s set as sections." % type(v))
 
     @property
     def symbols_by_addr(self):
-        l.critical("Deprecation warning: symbols_by_addr is deprecated - use loader.find_symbol() for lookup "
-                   "and .symbols for enumeration")
+        l.critical(
+            "Deprecation warning: symbols_by_addr is deprecated - use loader.find_symbol() for lookup "
+            "and .symbols for enumeration"
+        )
         return {s.rebased_addr: s for s in self.symbols}
 
     def rebase(self, new_base):
@@ -411,7 +428,7 @@ class Backend:
         return self._max_addr + self.mapped_base
 
     @property
-    def initializers(self): # pylint: disable=no-self-use
+    def initializers(self):  # pylint: disable=no-self-use
         """
         Stub function. Should be overridden by backends that can provide initializer functions that ought to be run
         before execution reaches the entry point. Addresses should be rebased.
@@ -419,7 +436,7 @@ class Backend:
         return []
 
     @property
-    def finalizers(self): # pylint: disable=no-self-use
+    def finalizers(self):  # pylint: disable=no-self-use
         """
         Stub function. Like initializers, but with finalizers.
         """
@@ -446,11 +463,12 @@ class Backend:
         """
         Deprecated
         """
-        l.critical("Deprecation warning: initial_register_values is deprecated - "
-                   "use backend.thread_registers() instead")
+        l.critical(
+            "Deprecation warning: initial_register_values is deprecated - " "use backend.thread_registers() instead"
+        )
         return self.thread_registers().items()
 
-    def get_symbol(self, name): # pylint: disable=no-self-use,unused-argument
+    def get_symbol(self, name):  # pylint: disable=no-self-use,unused-argument
         """
         Stub function. Implement to find the symbol with name `name`.
         """
@@ -459,7 +477,7 @@ class Backend:
         return None
 
     @staticmethod
-    def extract_soname(path): # pylint: disable=unused-argument
+    def extract_soname(path):  # pylint: disable=unused-argument
         """
         Extracts the shared object identifier from the path, or returns None if it cannot.
         """
@@ -473,14 +491,14 @@ class Backend:
         return False
 
     @classmethod
-    def check_compatibility(cls, spec, obj): # pylint: disable=unused-argument
+    def check_compatibility(cls, spec, obj):  # pylint: disable=unused-argument
         """
         Performs a minimal static load of ``spec`` and returns whether it's compatible with other_obj
         """
         return False
 
     @classmethod
-    def check_magic_compatibility(cls, stream): # pylint: disable=unused-argument
+    def check_magic_compatibility(cls, stream):  # pylint: disable=unused-argument
         """
         Check if a stream of bytes contains the same magic number as the main object
         """
@@ -503,16 +521,17 @@ class Backend:
 
     def __getstate__(self):
         state = self.__dict__.copy()
-        state['symbols'] = list(state['symbols'])
+        state["symbols"] = list(state["symbols"])
         return state
 
     def __setstate__(self, state):
-        state['symbols'] = sortedcontainers.SortedKeyList(state['symbols'], key=self._get_symbol_relative_addr)
+        state["symbols"] = sortedcontainers.SortedKeyList(state["symbols"], key=self._get_symbol_relative_addr)
         self.__dict__.update(state)
         for sym in self.symbols:
             sym.owner = self
 
-ALL_BACKENDS = { }
+
+ALL_BACKENDS = {}
 
 
 def register_backend(name, cls):
@@ -521,7 +540,8 @@ def register_backend(name, cls):
 
 from .elf import ELF, ELFCore, MetaELF
 from .pe import PE
-#from .idabin import IDABin
+
+# from .idabin import IDABin
 from .blob import Blob
 from .cgc import CGC, BackedCGC
 from .ihex import Hex

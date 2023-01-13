@@ -1,13 +1,13 @@
 import logging
 from ...relocation import Relocation
 
-l=logging.getLogger(name=__name__)
+l = logging.getLogger(name=__name__)
 
 # Reference: https://msdn.microsoft.com/en-us/library/ms809762.aspx
 class PEReloc(Relocation):
     AUTO_HANDLE_NONE = True
 
-    def __init__(self, owner, symbol, addr, resolvewith=None):   # pylint: disable=unused-argument
+    def __init__(self, owner, symbol, addr, resolvewith=None):  # pylint: disable=unused-argument
         super().__init__(owner, symbol, addr)
 
         self.resolvewith = resolvewith
@@ -37,7 +37,7 @@ class PEReloc(Relocation):
         if self.symbol is None:  # relocation described in the DIRECTORY_ENTRY_BASERELOC table
             value = self.value
             if value is None:
-                l.debug('Unresolved relocation with no symbol.')
+                l.debug("Unresolved relocation with no symbol.")
                 return
             self.owner.memory.store(self.relative_addr, value)
         else:

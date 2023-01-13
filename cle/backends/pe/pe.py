@@ -18,16 +18,17 @@ class PE(Backend):
     """
     Representation of a PE (i.e. Windows) binary.
     """
-    is_default = True # Tell CLE to automatically consider using the PE backend
+
+    is_default = True  # Tell CLE to automatically consider using the PE backend
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.segments = self.sections # in a PE, sections and segments have the same meaning
-        self.os = 'windows'
+        self.segments = self.sections  # in a PE, sections and segments have the same meaning
+        self.os = "windows"
         if self.binary is None:
             self._pe = pefile.PE(data=self._binary_stream.read(), fast_load=True)
             self._parse_pe_non_reloc_data_directories()
-        elif self.binary in self._pefile_cache: # these objects are not mutated, so they are reusable within a process
+        elif self.binary in self._pefile_cache:  # these objects are not mutated, so they are reusable within a process
             self._pe = self._pefile_cache[self.binary]
         else:
             self._pe = pefile.PE(self.binary, fast_load=True)
@@ -43,7 +44,7 @@ class PE(Backend):
 
         self._entry = AT.from_rva(self._pe.OPTIONAL_HEADER.AddressOfEntryPoint, self).to_lva()
 
-        if hasattr(self._pe, 'DIRECTORY_ENTRY_IMPORT'):
+        if hasattr(self._pe, "DIRECTORY_ENTRY_IMPORT"):
             self.deps = [entry.dll.decode().lower() for entry in self._pe.DIRECTORY_ENTRY_IMPORT]
         else:
             self.deps = []
@@ -58,26 +59,30 @@ class PE(Backend):
 
         self.supports_nx = self._pe.OPTIONAL_HEADER.DllCharacteristics & 0x100 != 0
         self.pic = self.pic or self._pe.OPTIONAL_HEADER.DllCharacteristics & 0x40 != 0
-        if hasattr(self._pe, 'DIRECTORY_ENTRY_LOAD_CONFIG'):
-            self.load_config = {name: value['Value'] for name, value in self._pe.DIRECTORY_ENTRY_LOAD_CONFIG.struct.dump_dict().items() if name != 'Structure'}
+        if hasattr(self._pe, "DIRECTORY_ENTRY_LOAD_CONFIG"):
+            self.load_config = {
+                name: value["Value"]
+                for name, value in self._pe.DIRECTORY_ENTRY_LOAD_CONFIG.struct.dump_dict().items()
+                if name != "Structure"
+            }
         else:
             self.load_config = {}
 
         self._exports = {}
         self._ordinal_exports = {}
-        self._symbol_cache = self._exports # same thing
+        self._symbol_cache = self._exports  # same thing
         self._handle_imports()
         self._handle_exports()
         if self.loader._perform_relocations:
             # parse base relocs
-            self._pe.parse_data_directories(directories=(pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_BASERELOC'],))
+            self._pe.parse_data_directories(directories=(pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_BASERELOC"],))
             self.__register_relocs()
         # parse TLS
         self._register_tls()
         # parse sections
         self._register_sections()
 
-        self.linking = 'dynamic' if self.deps else 'static'
+        self.linking = "dynamic" if self.deps else "static"
         self.jmprel = self._get_jmprel()
         self.memory.add_backer(0, self._pe.get_memory_mapped_image())
 
@@ -87,9 +92,9 @@ class PE(Backend):
     def is_compatible(stream):
         identstring = stream.read(0x1000)
         stream.seek(0)
-        if identstring.startswith(b'MZ') and len(identstring) > 0x40:
-            peptr = struct.unpack('I', identstring[0x3c:0x40])[0]
-            if peptr < len(identstring) and identstring[peptr:peptr + 4] == b'PE\0\0':
+        if identstring.startswith(b"MZ") and len(identstring) > 0x40:
+            peptr = struct.unpack("I", identstring[0x3C:0x40])[0]
+            if peptr < len(identstring) and identstring[peptr : peptr + 4] == b"PE\0\0":
                 return True
         return False
 
@@ -98,11 +103,11 @@ class PE(Backend):
         stream.seek(0)
         identstring = stream.read(0x10)
         stream.seek(0)
-        return identstring.startswith(b'MZ')
+        return identstring.startswith(b"MZ")
 
     @classmethod
     def check_compatibility(cls, spec, obj):
-        if hasattr(spec, 'read') and hasattr(spec, 'seek'):
+        if hasattr(spec, "read") and hasattr(spec, "seek"):
             pe = pefile.PE(data=spec.read(), fast_load=True)
         else:
             pe = pefile.PE(spec, fast_load=True)
@@ -122,8 +127,8 @@ class PE(Backend):
         """
         Look up the symbol with the given name. Symbols can be looked up by ordinal with the name ``"ordinal.%d" % num``
         """
-        if name.startswith('ordinal.'):
-            return self._ordinal_exports.get(int(name.split('.')[1]), None)
+        if name.startswith("ordinal."):
+            return self._ordinal_exports.get(int(name.split(".")[1]), None)
         return self._exports.get(name, None)
 
     #
@@ -137,20 +142,20 @@ class PE(Backend):
         """
 
         directory_names = (
-            'IMAGE_DIRECTORY_ENTRY_EXPORT',
-            'IMAGE_DIRECTORY_ENTRY_IMPORT',
-            'IMAGE_DIRECTORY_ENTRY_RESOURCE',
-            'IMAGE_DIRECTORY_ENTRY_EXCEPTION',
-            'IMAGE_DIRECTORY_ENTRY_SECURITY',
-            'IMAGE_DIRECTORY_ENTRY_DEBUG',
-            'IMAGE_DIRECTORY_ENTRY_COPYRIGHT',
-            'IMAGE_DIRECTORY_ENTRY_GLOBALPTR',
-            'IMAGE_DIRECTORY_ENTRY_TLS',
-            'IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG',
-            'IMAGE_DIRECTORY_ENTRY_IAT',
-            'IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT',
-            'IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR',
-            'IMAGE_DIRECTORY_ENTRY_RESERVED',
+            "IMAGE_DIRECTORY_ENTRY_EXPORT",
+            "IMAGE_DIRECTORY_ENTRY_IMPORT",
+            "IMAGE_DIRECTORY_ENTRY_RESOURCE",
+            "IMAGE_DIRECTORY_ENTRY_EXCEPTION",
+            "IMAGE_DIRECTORY_ENTRY_SECURITY",
+            "IMAGE_DIRECTORY_ENTRY_DEBUG",
+            "IMAGE_DIRECTORY_ENTRY_COPYRIGHT",
+            "IMAGE_DIRECTORY_ENTRY_GLOBALPTR",
+            "IMAGE_DIRECTORY_ENTRY_TLS",
+            "IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG",
+            "IMAGE_DIRECTORY_ENTRY_IAT",
+            "IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT",
+            "IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR",
+            "IMAGE_DIRECTORY_ENTRY_RESERVED",
         )
         directories = tuple(pefile.DIRECTORY_ENTRY[n] for n in directory_names)
         self._pe.parse_data_directories(directories=directories)
@@ -159,25 +164,37 @@ class PE(Backend):
         return self.imports
 
     def _handle_imports(self):
-        if hasattr(self._pe, 'DIRECTORY_ENTRY_IMPORT'):
+        if hasattr(self._pe, "DIRECTORY_ENTRY_IMPORT"):
             for entry in self._pe.DIRECTORY_ENTRY_IMPORT:
                 for imp in entry.imports:
-                    if imp.name is None: # must be an import by ordinal
+                    if imp.name is None:  # must be an import by ordinal
                         imp_name = "ordinal.%d.%s" % (imp.ordinal, entry.dll.lower())
                     else:
                         imp_name = imp.name.decode()
 
-                    symb = WinSymbol(owner=self, name=imp_name, addr=0, is_import=True, is_export=False, ordinal_number=imp.ordinal, forwarder=None)
+                    symb = WinSymbol(
+                        owner=self,
+                        name=imp_name,
+                        addr=0,
+                        is_import=True,
+                        is_export=False,
+                        ordinal_number=imp.ordinal,
+                        forwarder=None,
+                    )
                     self.symbols.add(symb)
-                    reloc = self._make_reloc(addr=AT.from_lva(imp.address, self).to_rva(), reloc_type=None, symbol=symb, resolvewith=entry.dll.decode())
+                    reloc = self._make_reloc(
+                        addr=AT.from_lva(imp.address, self).to_rva(),
+                        reloc_type=None,
+                        symbol=symb,
+                        resolvewith=entry.dll.decode(),
+                    )
 
                     if reloc is not None:
                         self.imports[imp_name] = reloc
                         self.relocs.append(reloc)
 
-
     def _handle_exports(self):
-        if hasattr(self._pe, 'DIRECTORY_ENTRY_EXPORT'):
+        if hasattr(self._pe, "DIRECTORY_ENTRY_EXPORT"):
             symbols = self._pe.DIRECTORY_ENTRY_EXPORT.symbols
             for exp in symbols:
                 name = exp.name.decode() if exp.name is not None else None
@@ -188,12 +205,12 @@ class PE(Backend):
                 self._ordinal_exports[exp.ordinal] = symb
 
                 if forwarder is not None:
-                    forwardlib = forwarder.split('.', 1)[0].lower() + '.dll'
+                    forwardlib = forwarder.split(".", 1)[0].lower() + ".dll"
                     if forwardlib not in self.deps:
                         self.deps.append(forwardlib)
 
     def __register_relocs(self):
-        if not hasattr(self._pe, 'DIRECTORY_ENTRY_BASERELOC'):
+        if not hasattr(self._pe, "DIRECTORY_ENTRY_BASERELOC"):
             l.debug("%s has no relocations", self.binary)
             return []
 
@@ -201,9 +218,11 @@ class PE(Backend):
             entry_idx = 0
             while entry_idx < len(base_reloc.entries):
                 reloc_data = base_reloc.entries[entry_idx]
-                if reloc_data.type == pefile.RELOCATION_TYPE['IMAGE_REL_BASED_HIGHADJ']: # special case, occupies 2 entries
+                if (
+                    reloc_data.type == pefile.RELOCATION_TYPE["IMAGE_REL_BASED_HIGHADJ"]
+                ):  # special case, occupies 2 entries
                     if entry_idx == len(base_reloc.entries):
-                        l.warning('PE contains corrupt base relocation table')
+                        l.warning("PE contains corrupt base relocation table")
                         break
 
                     next_entry = base_reloc.entries[entry_idx]
@@ -213,7 +232,7 @@ class PE(Backend):
                     reloc = self._make_reloc(addr=reloc_data.rva, reloc_type=reloc_data.type)
 
                 if reloc is not None:
-                    self.pic = True # I've seen binaries with the DYNAMIC_BASE DllCharacteristic unset but have tons of fixup relocations
+                    self.pic = True  # I've seen binaries with the DYNAMIC_BASE DllCharacteristic unset but have tons of fixup relocations
                     self.relocs.append(reloc)
 
                 entry_idx += 1
@@ -222,10 +241,10 @@ class PE(Backend):
 
     def _make_reloc(self, addr, reloc_type, symbol=None, next_rva=None, resolvewith=None):
         # Handle special cases first
-        if reloc_type == 0:         # 0 simply means "ignore this relocation"
+        if reloc_type == 0:  # 0 simply means "ignore this relocation"
             reloc = IMAGE_REL_BASED_ABSOLUTE(owner=self, symbol=symbol, addr=addr, resolvewith=resolvewith)
             return reloc
-        if reloc_type is None:      # for DLL imports
+        if reloc_type is None:  # for DLL imports
             reloc = DllImport(owner=self, symbol=symbol, addr=addr, resolvewith=resolvewith)
             return reloc
         if next_rva is not None:
@@ -235,17 +254,17 @@ class PE(Backend):
         # Handle all the normal base relocations
         RelocClass = get_relocation(self.arch.name, reloc_type)
         if RelocClass is None:
-            l.debug('Failed to find relocation class for arch %s, type %d', 'pe'+self.arch.name, reloc_type)
+            l.debug("Failed to find relocation class for arch %s, type %d", "pe" + self.arch.name, reloc_type)
             return None
 
         cls = RelocClass(owner=self, symbol=symbol, addr=addr)
         if cls is None:
-            l.warning('Failed to retrieve relocation for %s of type %s', symbol.name, reloc_type)
+            l.warning("Failed to retrieve relocation for %s of type %s", symbol.name, reloc_type)
 
         return cls
 
     def _register_tls(self):
-        if hasattr(self._pe, 'DIRECTORY_ENTRY_TLS'):
+        if hasattr(self._pe, "DIRECTORY_ENTRY_TLS"):
             tls = self._pe.DIRECTORY_ENTRY_TLS.struct
 
             self.tls_used = True
@@ -281,4 +300,5 @@ class PE(Backend):
             self.sections.append(section)
             self.sections_map[section.name] = section
 
-register_backend('pe', PE)
+
+register_backend("pe", PE)

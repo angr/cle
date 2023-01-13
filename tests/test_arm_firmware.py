@@ -4,11 +4,7 @@ import pyvex
 import struct
 
 
-test_location = str(
-    os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), "..", "..", "binaries", "tests"
-    )
-)
+test_location = str(os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "binaries", "tests"))
 
 
 def test_empty_segements():

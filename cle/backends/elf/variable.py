@@ -19,7 +19,8 @@ class Variable:
     :ivar relative_addr:    The relative addr (base addr depends on the type)
     :ivar lexical_block:    For a local variable, the lexical block where the variable is declared
     """
-    def __init__(self, elf_object: 'ELF'):
+
+    def __init__(self, elf_object: "ELF"):
         self._elf_object = elf_object
         # all other optional params can be set afterwards
         self.relative_addr = None
@@ -32,14 +33,14 @@ class Variable:
         self.declaration_only = False
 
     @staticmethod
-    def from_die(die: DIE, expr_parser, elf_object: 'ELF', lexical_block: Optional['LexicalBlock'] = None):
+    def from_die(die: DIE, expr_parser, elf_object: "ELF", lexical_block: Optional["LexicalBlock"] = None):
         # first the address
-        if 'DW_AT_location' in die.attributes and die.attributes['DW_AT_location'].form == 'DW_FORM_exprloc':
-            parsed_exprs = expr_parser.parse_expr(die.attributes['DW_AT_location'].value)
-            if len(parsed_exprs) == 1 and parsed_exprs[0].op_name == 'DW_OP_addr':
+        if "DW_AT_location" in die.attributes and die.attributes["DW_AT_location"].form == "DW_FORM_exprloc":
+            parsed_exprs = expr_parser.parse_expr(die.attributes["DW_AT_location"].value)
+            if len(parsed_exprs) == 1 and parsed_exprs[0].op_name == "DW_OP_addr":
                 addr = parsed_exprs[0].args[0]
                 var = MemoryVariable(elf_object, addr)
-            elif len(parsed_exprs) == 1 and parsed_exprs[0].op_name == 'DW_OP_fbreg':
+            elif len(parsed_exprs) == 1 and parsed_exprs[0].op_name == "DW_OP_fbreg":
                 addr = parsed_exprs[0].args[0]
                 var = StackVariable(elf_object, addr)
             elif len(parsed_exprs) == 1 and parsed_exprs[0].op_name.startswith("DW_OP_reg"):
@@ -50,15 +51,15 @@ class Variable:
         else:
             var = Variable(elf_object)
 
-        if 'DW_AT_name' in die.attributes:
-            var.name = die.attributes['DW_AT_name'].value.decode('utf-8')
-        if 'DW_AT_type' in die.attributes:
-            var._type_offset = die.attributes['DW_AT_type'].value + die.cu.cu_offset
-        if 'DW_AT_decl_line' in die.attributes:
-            var.decl_line = die.attributes['DW_AT_decl_line'].value
-        if 'DW_AT_external' in die.attributes:
+        if "DW_AT_name" in die.attributes:
+            var.name = die.attributes["DW_AT_name"].value.decode("utf-8")
+        if "DW_AT_type" in die.attributes:
+            var._type_offset = die.attributes["DW_AT_type"].value + die.cu.cu_offset
+        if "DW_AT_decl_line" in die.attributes:
+            var.decl_line = die.attributes["DW_AT_decl_line"].value
+        if "DW_AT_external" in die.attributes:
             var.external = True
-        if 'DW_AT_declaration' in die.attributes:
+        if "DW_AT_declaration" in die.attributes:
             var.declaration_only = True
 
         var.lexical_block = lexical_block
@@ -95,7 +96,7 @@ class Variable:
     @property
     def sort(self) -> str:
         # sort = 'stack' | 'register' | 'global'
-        return 'unknown'
+        return "unknown"
 
 
 class MemoryVariable(Variable):
@@ -103,7 +104,8 @@ class MemoryVariable(Variable):
     This includes all variables that are not on the stack and not in a register.
     So all global variables, and also local static variables in C!
     """
-    def __init__(self, elf_object: 'ELF', relative_addr):
+
+    def __init__(self, elf_object: "ELF", relative_addr):
         super().__init__(elf_object)
         self.relative_addr = relative_addr
 
@@ -113,14 +115,15 @@ class MemoryVariable(Variable):
 
     @property
     def sort(self) -> str:
-        return 'global'
+        return "global"
 
 
 class StackVariable(Variable):
     """
     Stack Variable from DWARF.
     """
-    def __init__(self, elf_object: 'ELF', relative_addr):
+
+    def __init__(self, elf_object: "ELF", relative_addr):
         super().__init__(elf_object)
         self.relative_addr = relative_addr
 
@@ -129,18 +132,19 @@ class StackVariable(Variable):
 
     @property
     def sort(self) -> str:
-        return 'stack'
+        return "stack"
 
 
 class RegisterVariable(Variable):
     """
     Register Variable from DWARF.
     """
-    def __init__(self, elf_object: 'ELF', register_addr):
+
+    def __init__(self, elf_object: "ELF", register_addr):
         super().__init__(elf_object)
         # FIXME should this really go into relative addr?
         self.relative_addr = register_addr
 
     @property
     def sort(self) -> str:
-        return 'register'
+        return "register"

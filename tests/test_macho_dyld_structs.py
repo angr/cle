@@ -1,5 +1,9 @@
-from cle.backends.macho.structs import dyld_chained_import, dyld_chained_ptr_64_rebase, Generic64, \
-    ChainedFixupPointerOnDisk
+from cle.backends.macho.structs import (
+    dyld_chained_import,
+    dyld_chained_ptr_64_rebase,
+    Generic64,
+    ChainedFixupPointerOnDisk,
+)
 
 
 def test_parsing_simple():

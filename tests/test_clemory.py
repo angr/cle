@@ -5,7 +5,7 @@ import cffi
 import cle
 
 
-def test_cclemory(): # pylint: disable=no-member
+def test_cclemory():  # pylint: disable=no-member
     # This is a test case for C-backed Clemory.
 
     clemory = cle.Clemory(None, root=True)

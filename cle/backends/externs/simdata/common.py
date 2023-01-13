@@ -14,6 +14,7 @@ class StaticData(SimData):
     :cvar libname:  The name of the library from which the symbol originally comes (currently unused).
     :cvar data:     The bytes to provide
     """
+
     type = SymbolType.TYPE_OBJECT
     data = NotImplemented  # type: bytes
 
@@ -35,9 +36,10 @@ class StaticWord(SimData):
     :cvar word:     The value to provide
     :cvar wordsize: (optional) The size of the value in bytes, default the CPU wordsize
     """
+
     type = SymbolType.TYPE_OBJECT
     word = NotImplemented  # type: int
-    wordsize = None # type: int
+    wordsize = None  # type: int
 
     @classmethod
     def static_size(cls, owner):
@@ -59,9 +61,10 @@ class PointTo(SimData):
                         ``SymbolType.TYPE_OBJECT``)
     :cvar addend:       (optional) an integer to be added to the symbol's address before storage
     """
+
     pointto_name = NotImplemented  # type: str
     pointto_type = NotImplemented  # type: SymbolType
-    type = SymbolType.TYPE_OBJECT # type: SymbolType
+    type = SymbolType.TYPE_OBJECT  # type: SymbolType
     addend = 0  # type: int
 
     @classmethod
@@ -72,18 +75,21 @@ class PointTo(SimData):
         return bytes(self.size)
 
     def relocations(self):
-        return [SimDataSimpleRelocation(
-            self.owner,
-            self.owner.make_import(self.pointto_name, self.pointto_type),
-            self.relative_addr,
-            self.addend
-        )]
+        return [
+            SimDataSimpleRelocation(
+                self.owner,
+                self.owner.make_import(self.pointto_name, self.pointto_type),
+                self.relative_addr,
+                self.addend,
+            )
+        ]
 
 
 class SimDataSimpleRelocation(Relocation):
     """
     A relocation used to implement PointTo. Pretty simple.
     """
+
     def __init__(self, owner, symbol, addr, addend, preresolved=False):
         super().__init__(owner, symbol, addr)
         self.addend = addend

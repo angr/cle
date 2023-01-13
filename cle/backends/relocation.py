@@ -25,20 +25,23 @@ class Relocation:
                             this attribute holds the symbol from a different binary that was used to resolve the import.
     :ivar resolved:         Whether the application of this relocation was successful
     """
+
     def __init__(self, owner: Backend, symbol: Symbol, relative_addr: int):
         self.owner = owner
         self.arch = owner.arch
         self.symbol = symbol
         self.relative_addr = relative_addr
         self.resolvedby = None  # type: Optional[Symbol]
-        self.resolved = False   # type: bool
+        self.resolved = False  # type: bool
         self.resolvewith = None
         if self.symbol is not None and self.symbol.is_import:
             self.owner.imports[self.symbol.name] = self
 
     AUTO_HANDLE_NONE = False
 
-    def resolve_symbol(self, solist: "List[Any]", thumb=False, extern_object=None, **kwargs): # pylint: disable=unused-argument
+    def resolve_symbol(
+        self, solist: "List[Any]", thumb=False, extern_object=None, **kwargs
+    ):  # pylint: disable=unused-argument
         if self.resolved:
             return
 
@@ -84,7 +87,14 @@ class Relocation:
         self.resolved = True
         if self.symbol is not None:
             if obj is not None:
-                l.debug('%s from %s resolved by %s from %s at %#x', self.symbol.name, self.owner.provides, obj.name, obj.owner.provides, obj.rebased_addr)
+                l.debug(
+                    "%s from %s resolved by %s from %s at %#x",
+                    self.symbol.name,
+                    self.owner.provides,
+                    obj.name,
+                    obj.owner.provides,
+                    obj.rebased_addr,
+                )
             self.symbol.resolve(obj)
         else:
             if not self.AUTO_HANDLE_NONE:
@@ -106,8 +116,8 @@ class Relocation:
         return self.relative_addr
 
     @property
-    def value(self):    # pylint: disable=no-self-use
-        l.error('Value property of Relocation must be overridden by subclass!')
+    def value(self):  # pylint: disable=no-self-use
+        l.error("Value property of Relocation must be overridden by subclass!")
         return 0
 
     def relocate(self):

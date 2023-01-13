@@ -13,13 +13,14 @@ class CGC(ELF):
 
     See : https://github.com/CyberGrandChallenge/libcgcef/blob/master/cgc_executable_format.md
     """
-    is_default = True # Tell CLE to automatically consider using the CGC backend
+
+    is_default = True  # Tell CLE to automatically consider using the CGC backend
 
     def __init__(self, binary, binary_stream, *args, **kwargs):
         binary_stream = PatchedStream(binary_stream, [(0, ELF_HEADER)])
         super().__init__(binary, binary_stream, *args, **kwargs)
         self.memory.store(AT.from_raw(0, self).to_rva(), CGC_HEADER)  # repair the CGC header
-        self.os = 'cgc'
+        self.os = "cgc"
         self.execstack = True  # the stack is always executable in CGC
 
     @staticmethod
@@ -27,7 +28,7 @@ class CGC(ELF):
         stream.seek(0)
         identstring = stream.read(4)
         stream.seek(0)
-        if identstring.startswith(b'\x7fCGC'):
+        if identstring.startswith(b"\x7fCGC"):
             return True
         return False
 
@@ -35,6 +36,7 @@ class CGC(ELF):
         if seg.header.p_memsz > 0:
             super()._load_segment(seg)
 
-    supported_filetypes = ['cgc']
+    supported_filetypes = ["cgc"]
 
-register_backend('cgc', CGC)
+
+register_backend("cgc", CGC)

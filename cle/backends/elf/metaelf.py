@@ -13,39 +13,48 @@ from elftools.elf.enums import ENUM_DT_FLAGS
 from enum import Enum
 from collections import OrderedDict
 
-__all__ = ('MetaELF',)
+__all__ = ("MetaELF",)
 
 l = logging.getLogger(name=__name__)
+
 
 class Relro(Enum):
     NONE = 0
     PARTIAL = 1
     FULL = 2
 
+
 def maybedecode(string):
     # so... it turns out that pyelftools is garbage and will transparently give you either strings or bytestrings
     # based on pretty much nothing whatsoever
     return string if type(string) is str else string.decode()
+
 
 def get_relro(elf):
     # The tests for partial and full RELRO have been taken from
     # checksec.sh v1.5 (https://www.trapkit.de/tools/checksec/):
     #   - Partial RELRO has a 'GNU_RELRO' segment
     #   - Full RELRO also has a 'BIND_NOW' flag in the dynamic section
-    if not any(seg.header.p_type == 'PT_GNU_RELRO' for seg in elf.iter_segments()):
+    if not any(seg.header.p_type == "PT_GNU_RELRO" for seg in elf.iter_segments()):
         return Relro.NONE
-    dyn_sec = elf.get_section_by_name('.dynamic')
+    dyn_sec = elf.get_section_by_name(".dynamic")
     if dyn_sec is None or not isinstance(dyn_sec, DynamicSection):
         return Relro.PARTIAL
-    flags = [tag for tag in dyn_sec.iter_tags() if tag.entry.d_tag == 'DT_FLAGS']
+    flags = [tag for tag in dyn_sec.iter_tags() if tag.entry.d_tag == "DT_FLAGS"]
     if len(flags) != 1:
         return Relro.PARTIAL
-    return Relro.FULL if flags[0].entry.d_val & ENUM_DT_FLAGS['DF_BIND_NOW'] == ENUM_DT_FLAGS['DF_BIND_NOW'] else Relro.PARTIAL
+    return (
+        Relro.FULL
+        if flags[0].entry.d_val & ENUM_DT_FLAGS["DF_BIND_NOW"] == ENUM_DT_FLAGS["DF_BIND_NOW"]
+        else Relro.PARTIAL
+    )
+
 
 class MetaELF(Backend):
     """
     A base class that implements functions used by all backends that can load an ELF.
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         tmp_reader = elftools.elf.elffile.ELFFile(self._binary_stream)
@@ -58,13 +67,14 @@ class MetaELF(Backend):
         self._cached_plt = None
         self._cached_reverse_plt = None
 
-    supported_filetypes = ['elf']
+    supported_filetypes = ["elf"]
 
     def _block(self, addr, skip_stmts=False):
         # for sanity checking. we live in the world of heuristics now.
         thumb = self.arch.name.startswith("ARM") and addr % 2 == 1
         realaddr = addr
-        if thumb: realaddr -= 1
+        if thumb:
+            realaddr -= 1
         dat = self._block_bytes(realaddr, 40)
         return pyvex.IRSB(dat, addr, self.arch, bytes_offset=1 if thumb else 0, opt_level=1, skip_stmts=skip_stmts)
 
@@ -74,30 +84,44 @@ class MetaELF(Backend):
     def _block_references_addr(self, block, addr):
         if addr in [c.value for c in block.all_constants]:
             return True
-        if self.arch.name != 'X86':
+        if self.arch.name != "X86":
             return False
         # search for tX = GET(ebx) -> Add32(tX, got_addr - addr)
-        if '.got.plt' in self.sections_map:
-            got_sec = self.sections_map['.got.plt']
+        if ".got.plt" in self.sections_map:
+            got_sec = self.sections_map[".got.plt"]
         elif self.relro is Relro.FULL:
-            got_sec = self.sections_map['.got']
+            got_sec = self.sections_map[".got"]
         else:
             return False
         tx = None
         for stmt in block.statements:
-            if stmt.tag == 'Ist_WrTmp' and stmt.data.tag == 'Iex_Get' and stmt.data.offset == self.arch.registers['ebx'][0]:
+            if (
+                stmt.tag == "Ist_WrTmp"
+                and stmt.data.tag == "Iex_Get"
+                and stmt.data.offset == self.arch.registers["ebx"][0]
+            ):
                 tx = stmt.tmp
-            if tx is not None and stmt.tag == 'Ist_WrTmp' and stmt.data.tag == 'Iex_Binop' and stmt.data.op == 'Iop_Add32':
+            if (
+                tx is not None
+                and stmt.tag == "Ist_WrTmp"
+                and stmt.data.tag == "Iex_Binop"
+                and stmt.data.op == "Iop_Add32"
+            ):
                 args = sorted(stmt.data.args, key=str)
-                if args[0].tag == 'Iex_Const' and args[0].con.value == addr - got_sec.vaddr and \
-                    args[1].tag == 'Iex_RdTmp' and args[1].tmp == tx:
+                if (
+                    args[0].tag == "Iex_Const"
+                    and args[0].con.value == addr - got_sec.vaddr
+                    and args[1].tag == "Iex_RdTmp"
+                    and args[1].tmp == tx
+                ):
                     return True
 
         return False
 
     def _add_plt_stub(self, name, addr, sanity_check=True):
         # addr is an LVA
-        if addr <= 0: return False
+        if addr <= 0:
+            return False
         target_addr = self.jmprel[name].linked_addr
         try:
             if sanity_check and not self._block_references_addr(self._block(addr), target_addr):
@@ -117,33 +141,34 @@ class MetaELF(Backend):
         # references the GOT slot for the symbol.
 
         plt_secs = []
-        if '.plt' in self.sections_map:
-            plt_secs = [self.sections_map['.plt']]
-        if '.plt.got' in self.sections_map:
-            plt_secs = [self.sections_map['.plt.got']]
-        if '.MIPS.stubs' in self.sections_map:
-            plt_secs = [self.sections_map['.MIPS.stubs']]
-        if '.plt.sec' in self.sections_map:
-            plt_secs.append(self.sections_map['.plt.sec'])
+        if ".plt" in self.sections_map:
+            plt_secs = [self.sections_map[".plt"]]
+        if ".plt.got" in self.sections_map:
+            plt_secs = [self.sections_map[".plt.got"]]
+        if ".MIPS.stubs" in self.sections_map:
+            plt_secs = [self.sections_map[".MIPS.stubs"]]
+        if ".plt.sec" in self.sections_map:
+            plt_secs.append(self.sections_map[".plt.sec"])
 
         self.jmprel = OrderedDict(sorted(self.jmprel.items(), key=lambda x: x[1].linked_addr))
-        func_jmprel = OrderedDict((k, v) for k, v in self.jmprel.items() if v.symbol.type not in (SymbolType.TYPE_OBJECT, SymbolType.TYPE_SECTION, SymbolType.TYPE_OTHER))
+        func_jmprel = OrderedDict(
+            (k, v)
+            for k, v in self.jmprel.items()
+            if v.symbol.type not in (SymbolType.TYPE_OBJECT, SymbolType.TYPE_SECTION, SymbolType.TYPE_OTHER)
+        )
 
         # ATTEMPT 1: some arches will just leave the plt stub addr in the import symbol
-        if self.arch.name in ('ARM', 'ARMEL', 'ARMHF', 'ARMCortexM', 'AARCH64', 'MIPS32', 'MIPS64'):
+        if self.arch.name in ("ARM", "ARMEL", "ARMHF", "ARMCortexM", "AARCH64", "MIPS32", "MIPS64"):
             for name, reloc in func_jmprel.items():
                 if not plt_secs or any(plt_sec.contains_addr(reloc.symbol.linked_addr) for plt_sec in plt_secs):
                     self._add_plt_stub(name, reloc.symbol.linked_addr, sanity_check=bool(plt_secs))
 
         # ATTEMPT 2: on intel chips the data in the got slot pre-relocation points to a lazy-resolver
         # stub immediately after the plt stub
-        if self.arch.name in ('X86', 'AMD64'):
+        if self.arch.name in ("X86", "AMD64"):
             for name, reloc in func_jmprel.items():
                 try:
-                    self._add_plt_stub(
-                        name,
-                        self.memory.unpack_word(reloc.relative_addr) - 6,
-                        sanity_check=True)
+                    self._add_plt_stub(name, self.memory.unpack_word(reloc.relative_addr) - 6, sanity_check=True)
                 except KeyError:
                     pass
 
@@ -153,15 +178,14 @@ class MetaELF(Backend):
 
         # ATTEMPT 3: one ppc scheme I've seen is that there are 16-byte stubs packed together
         # right before the resolution stubs.
-        if self.arch.name in ('PPC32',):
+        if self.arch.name in ("PPC32",):
             resolver_stubs = sorted(
-                (self.memory.unpack_word(reloc.relative_addr), name)
-                for name, reloc in func_jmprel.items()
+                (self.memory.unpack_word(reloc.relative_addr), name) for name, reloc in func_jmprel.items()
             )
             if resolver_stubs:
                 stubs_table = resolver_stubs[0][0] - 16 * len(resolver_stubs)
                 for i, (_, name) in enumerate(resolver_stubs):
-                    self._add_plt_stub(name, stubs_table + i*16)
+                    self._add_plt_stub(name, stubs_table + i * 16)
 
         if len(self._plt) == len(func_jmprel):
             # real quick, bail out before shit hits the fan
@@ -178,10 +202,12 @@ class MetaELF(Backend):
             tick.bailout_timer -= 1
             if tick.bailout_timer <= 0:
                 raise TimeoutError()
+
         tick.bailout_timer = 5
 
         def scan_forward(addr, name, push=False):
             names = [name] if type(name) not in (list, tuple) else name
+
             def block_is_good(blk):
                 all_constants = {c.value for c in blk.all_constants}
                 for name in names:
@@ -190,15 +216,16 @@ class MetaELF(Backend):
                         block_is_good.name = name
                         return True
                 return False
+
             block_is_good.name = None
 
             def is_endbr(addr):
-                if self.arch.name not in ('X86', 'AMD64'):
+                if self.arch.name not in ("X86", "AMD64"):
                     return False
                 return self._block_bytes(addr, 4) in (b"\xf3\x0f\x1e\xfa", b"\xf3\x0f\x1e\xfb")
 
             instruction_alignment = self.arch.instruction_alignment
-            if self.arch.name in ('ARMEL', 'ARMHF'):
+            if self.arch.name in ("ARMEL", "ARMHF"):
                 # hard code alignment for ARM code
                 instruction_alignment = 4
 
@@ -209,15 +236,25 @@ class MetaELF(Backend):
 
                     step_forward = False
                     # the block shouldn't touch any cc_* registers
-                    if self.arch.name in ('X86', 'AMD64', 'ARMEL', 'ARMHF', 'ARMCortexM'):
-                        cc_regs = { self.arch.registers['cc_op'][0], self.arch.registers['cc_ndep'][0],
-                                    self.arch.registers['cc_dep1'][0], self.arch.registers['cc_dep2'][0]
-                                    }
-                        if any([ isinstance(stmt, pyvex.IRStmt.Put) and stmt.offset in cc_regs
-                                 for stmt in bb.statements ]):
+                    if self.arch.name in ("X86", "AMD64", "ARMEL", "ARMHF", "ARMCortexM"):
+                        cc_regs = {
+                            self.arch.registers["cc_op"][0],
+                            self.arch.registers["cc_ndep"][0],
+                            self.arch.registers["cc_dep1"][0],
+                            self.arch.registers["cc_dep2"][0],
+                        }
+                        if any(
+                            [isinstance(stmt, pyvex.IRStmt.Put) and stmt.offset in cc_regs for stmt in bb.statements]
+                        ):
                             step_forward = True
-                        elif any( [ isinstance(stmt, pyvex.IRStmt.WrTmp) and isinstance(stmt.data, pyvex.IRExpr.Get)
-                                    and stmt.data.offset in cc_regs for stmt in bb.statements ]):
+                        elif any(
+                            [
+                                isinstance(stmt, pyvex.IRStmt.WrTmp)
+                                and isinstance(stmt.data, pyvex.IRExpr.Get)
+                                and stmt.data.offset in cc_regs
+                                for stmt in bb.statements
+                            ]
+                        ):
                             step_forward = True
 
                     if step_forward:
@@ -227,7 +264,7 @@ class MetaELF(Backend):
 
                     if block_is_good(bb):
                         break
-                    if bb.jumpkind == 'Ijk_NoDecode':
+                    if bb.jumpkind == "Ijk_NoDecode":
                         addr += instruction_alignment
                     else:
                         addr += bb.size
@@ -237,7 +274,7 @@ class MetaELF(Backend):
                 # make sure we don't push through endbr
                 if push:
                     if block_is_good.name is None:
-                        raise ValueError('block_is_good.name cannot be None.')
+                        raise ValueError("block_is_good.name cannot be None.")
                     old_name = block_is_good.name
                     block = self._block(addr, skip_stmts=True)
                     if len(block.instruction_addresses) > 1 and not is_endbr(block.instruction_addresses[0]):
@@ -260,7 +297,7 @@ class MetaELF(Backend):
                             # relift without skipping statements
                             bb = self._block(bb.addr, skip_stmts=False)
                         for stmt in bb.statements:
-                            if stmt.tag == 'Ist_IMark':
+                            if stmt.tag == "Ist_IMark":
                                 if seen_imark:
                                     # good????
                                     bb = self._block(stmt.addr, skip_stmts=False)
@@ -270,7 +307,7 @@ class MetaELF(Backend):
                                     break
                                 else:
                                     seen_imark = True
-                            elif stmt.tag == 'Ist_Put' and stmt.offset == bb.offsIP:
+                            elif stmt.tag == "Ist_Put" and stmt.offset == bb.offsIP:
                                 continue
                             else:
                                 # there's some behavior, not good
@@ -279,7 +316,7 @@ class MetaELF(Backend):
             except (TimeoutError, ValueError, KeyError, pyvex.PyVEXError):
                 return False
 
-        if not self._plt and '__libc_start_main' in func_jmprel and self.entry != 0:
+        if not self._plt and "__libc_start_main" in func_jmprel and self.entry != 0:
             # try to scan forward through control flow to find __libc_start_main!
             try:
                 last_jk = None
@@ -293,8 +330,8 @@ class MetaELF(Backend):
                     bb = self._block(addr, skip_stmts=True)
                     target = bb.default_exit_target
 
-                if last_jk == 'Ijk_Call':
-                    self._add_plt_stub('__libc_start_main', addr)
+                if last_jk == "Ijk_Call":
+                    self._add_plt_stub("__libc_start_main", addr)
             except (TimeoutError, KeyError, pyvex.PyVEXError):
                 pass
 
@@ -313,7 +350,7 @@ class MetaELF(Backend):
 
         if plt_secs:
             # LAST TRY: Find the first block to references ANY GOT slot
-            tick.bailout_timer = initial_bailout_timer (func_jmprel)
+            tick.bailout_timer = initial_bailout_timer(func_jmprel)
             scan_forward(min(plt_sec.vaddr for plt_sec in plt_secs), list(func_jmprel.keys()), push=True)
 
         if not self._plt:
@@ -322,14 +359,13 @@ class MetaELF(Backend):
 
         # if we've gotten this far there is at least one plt slot address known, guaranteed.
         plt_hitlist = [
-                (name, AT.from_rva(self._plt[name], self).to_lva() if name in self._plt else None)
-                for name in func_jmprel
-            ]
+            (name, AT.from_rva(self._plt[name], self).to_lva() if name in self._plt else None) for name in func_jmprel
+        ]
 
         name, addr = plt_hitlist[0]
         if addr is None and plt_secs:
             # try to resolve the very first entry
-            tick.bailout_timer = initial_bailout_timer (func_jmprel)
+            tick.bailout_timer = initial_bailout_timer(func_jmprel)
             guessed_addr = min(plt_sec.vaddr for plt_sec in plt_secs)
             scan_forward(guessed_addr, name, push=True)
             if name in self._plt:
@@ -379,7 +415,7 @@ class MetaELF(Backend):
 
         :return: True if PowerPC64 ABIv1, False otherwise.
         """
-        return self.arch.name == 'PPC64' and self.elfflags & 3 < 2
+        return self.arch.name == "PPC64" and self.elfflags & 3 < 2
 
     @property
     def is_ppc64_abiv2(self):
@@ -388,7 +424,7 @@ class MetaELF(Backend):
 
         :return: True if PowerPC64 ABIv2, False otherwise.
         """
-        return self.arch.name == 'PPC64' and self.elfflags & 3 == 2
+        return self.arch.name == "PPC64" and self.elfflags & 3 == 2
 
     @property
     def ppc64_initial_rtoc(self):
@@ -413,7 +449,7 @@ class MetaELF(Backend):
         if self.is_ppc64_abiv1:
             ep_offset = self._entry
             self._entry = self.memory.unpack_word(AT.from_lva(ep_offset, self).to_rva())
-            self._ppc64_abiv1_initial_rtoc = self.memory.unpack_word(AT.from_lva(ep_offset+8, self).to_rva())
+            self._ppc64_abiv1_initial_rtoc = self.memory.unpack_word(AT.from_lva(ep_offset + 8, self).to_rva())
 
     def _ppc64_abiv2_get_initial_rtoc(self):
         """
@@ -424,9 +460,9 @@ class MetaELF(Backend):
         0x8000." Guess the initial rtoc value based on that to handle the
         typical case.
         """
-        got_section = self.sections_map.get('.got', None)
+        got_section = self.sections_map.get(".got", None)
         if got_section is None:
-            l.warning('Failed to guess initial rtoc value due to missing .got')
+            l.warning("Failed to guess initial rtoc value due to missing .got")
             return None
         return got_section.vaddr + 0x8000
 
@@ -436,11 +472,11 @@ class MetaELF(Backend):
             try:
                 e = elftools.elf.elffile.ELFFile(f)
                 for seg in e.iter_segments():
-                    if seg.header.p_type == 'PT_NULL':
+                    if seg.header.p_type == "PT_NULL":
                         break
-                    elif seg.header.p_type == 'PT_DYNAMIC':
+                    elif seg.header.p_type == "PT_DYNAMIC":
                         for tag in seg.iter_tags():
-                            if tag.entry.d_tag == 'DT_SONAME':
+                            if tag.entry.d_tag == "DT_SONAME":
                                 return maybedecode(tag.soname)
                         if type(path) is str:
                             return os.path.basename(path)

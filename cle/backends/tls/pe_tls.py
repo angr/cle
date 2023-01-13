@@ -1,19 +1,21 @@
 from . import InternalTLSRelocation, ThreadManager, TLSObject
 from ...address_translator import AT
 
+
 class PEThreadManager(ThreadManager):
     def register_object(self, obj):
         if not super().register_object(obj):
             return False
 
         # The PE TLS header says to write its index into a given address
-        if hasattr(obj, 'tls_index_address'):
+        if hasattr(obj, "tls_index_address"):
             obj.memory.pack_word(AT.from_lva(obj.tls_index_address, obj).to_rva(), obj.tls_module_id)
         return True
 
     @property
     def _thread_cls(self):
         return PETLSObject
+
 
 class PETLSObject(TLSObject):
     """
@@ -70,7 +72,7 @@ class PETLSObject(TLSObject):
         super().__init__(loader=thread_manager.loader, arch=thread_manager.arch)
 
         self.used_modules = len(thread_manager.modules)
-        self.data_start = self.arch.bytes*thread_manager.max_modules
+        self.data_start = self.arch.bytes * thread_manager.max_modules
         self.used_data = 0
         self.memory.add_backer(0, bytes(self.data_start))
         self.pic = True
@@ -102,7 +104,7 @@ class PETLSObject(TLSObject):
         if 0 <= tls_idx < self.used_modules:
             return self.memory.unpack_word(tls_idx * self.arch.bytes)
         else:
-            raise IndexError('TLS index out of range')
+            raise IndexError("TLS index out of range")
 
     @property
     def max_addr(self):
@@ -117,4 +119,3 @@ class PETLSObject(TLSObject):
     @property
     def user_thread_pointer(self):
         return self.mapped_base
-

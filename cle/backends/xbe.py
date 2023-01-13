@@ -13,6 +13,7 @@ from .region import Segment, Section
 
 l = logging.getLogger(name=__name__)
 
+
 class XBESection(Section):
     def __init__(self, name, file_offset, file_size, virtual_addr, virtual_size, xbe_sec):
         super().__init__(name, file_offset, virtual_addr, virtual_size)
@@ -47,19 +48,21 @@ class XBESection(Section):
         """
         return False
 
+
 class XBE(Backend):
     """
     The main loader class for statically loading XBE executables.
     """
+
     is_default = True
 
     def __init__(self, *args, **kwargs):
         if Xbe is None:
             raise CLEError("Run `pip install pyxbe==0.0.2` to support loading XBE files")
         super().__init__(*args, **kwargs)
-        self.set_arch(archinfo.arch_from_id('x86'))
+        self.set_arch(archinfo.arch_from_id("x86"))
 
-        self.os = 'xbox'
+        self.os = "xbox"
         if self.binary is None:
             self._xbe = Xbe(data=self._binary_stream.read())
         else:
@@ -75,7 +78,8 @@ class XBE(Backend):
             self._xbe.header.image_header_size,
             self._xbe.header.base_addr,
             self._xbe.header.image_header_size,
-            self._xbe.header_data)
+            self._xbe.header_data,
+        )
 
         # Add each section
         for _, sec in self._xbe.sections.items():
@@ -85,7 +89,8 @@ class XBE(Backend):
                 sec.header.virtual_addr,
                 sec.header.virtual_size,
                 sec.data,
-                sec)
+                sec,
+            )
 
         self.memory.add_backer(0, bytes(self._image_vmem))
         self.mapped_base = self.linked_base = self._xbe.header.base_addr
@@ -113,7 +118,7 @@ class XBE(Backend):
         stream.seek(0)
         identstring = stream.read(4)
         stream.seek(0)
-        return identstring.startswith(b'XBEH')
+        return identstring.startswith(b"XBEH")
 
     @property
     def min_addr(self):
@@ -124,8 +129,8 @@ class XBE(Backend):
         return self._max_addr
 
     @classmethod
-    def check_compatibility(cls, spec, obj): # pylint: disable=unused-argument
-        assert(False)
+    def check_compatibility(cls, spec, obj):  # pylint: disable=unused-argument
+        assert False
         return True
 
 

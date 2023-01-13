@@ -5,9 +5,7 @@ import os
 
 import cle
 
-TEST_BASE = os.path.join(
-    os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries")
-)
+TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
 
 
 def test_exe():
@@ -29,9 +27,7 @@ def test_exe():
         ]
     )
     assert ld.main_object.segments is ld.main_object.sections
-    assert sorted(ld.main_object.deps) == sorted(
-        ["kernel32.dll", "vcruntime140d.dll", "ucrtbased.dll"]
-    )
+    assert sorted(ld.main_object.deps) == sorted(["kernel32.dll", "vcruntime140d.dll", "ucrtbased.dll"])
     assert sorted(ld.main_object.imports) == sorted(
         [
             "_configure_narrow_argv",

@@ -2,15 +2,18 @@ from . import Backend, register_backend
 from ..errors import CLEError
 from .region import Segment
 import logging
+
 l = logging.getLogger(name=__name__)
 
-__all__ = ('Blob',)
+__all__ = ("Blob",)
+
 
 class Blob(Backend):
     """
     Representation of a binary blob, i.e. an executable in an unknown file format.
     """
-    is_default = True # Tell CLE to automatically consider using the Blob backend
+
+    is_default = True  # Tell CLE to automatically consider using the Blob backend
 
     def __init__(self, *args, offset=None, segments=None, **kwargs):
         """
@@ -21,9 +24,9 @@ class Blob(Backend):
 
         You can't specify both ``offset`` and ``segments``.
         """
-        if 'custom_offset' in kwargs:
-            offset = kwargs.pop('custom_offset')
-            l.critical('Deprecation warning: the custom_offset parameter has been renamed to offset')
+        if "custom_offset" in kwargs:
+            offset = kwargs.pop("custom_offset")
+            l.critical("Deprecation warning: the custom_offset parameter has been renamed to offset")
         super().__init__(*args, **kwargs)
 
         if self.arch is None:
@@ -37,12 +40,12 @@ class Blob(Backend):
         self._min_addr = 2**64
 
         try:
-            self.linked_base = kwargs['base_addr']
+            self.linked_base = kwargs["base_addr"]
         except KeyError:
             l.warning("No base_addr was specified for blob %s, assuming 0", self.binary_basename)
         self.mapped_base = self.linked_base
 
-        self.os = 'unknown'
+        self.os = "unknown"
 
         if offset is not None:
             if segments is not None:
@@ -86,7 +89,7 @@ class Blob(Backend):
         self._max_addr = max(len(string) + mem_addr - 1, self._max_addr)
         self._min_addr = min(mem_addr, self._min_addr)
 
-    def function_name(self, addr): #pylint: disable=unused-argument,no-self-use
+    def function_name(self, addr):  # pylint: disable=unused-argument,no-self-use
         """
         Blobs don't support function names.
         """
@@ -95,14 +98,14 @@ class Blob(Backend):
     def contains_addr(self, addr):
         return addr >= self.mapped_base and (addr - self.mapped_base) in self.memory
 
-    def in_which_segment(self, addr): #pylint: disable=unused-argument,no-self-use
+    def in_which_segment(self, addr):  # pylint: disable=unused-argument,no-self-use
         """
         Blobs don't support segments.
         """
         return None
 
     @classmethod
-    def check_compatibility(cls, spec, obj): # pylint: disable=unused-argument
+    def check_compatibility(cls, spec, obj):  # pylint: disable=unused-argument
         return True
 
     def _checksum(self):

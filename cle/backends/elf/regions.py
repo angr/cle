@@ -1,5 +1,6 @@
 from ..region import Segment, Section
 
+
 def maybedecode(string):
     return string if type(string) is str else string.decode()
 
@@ -8,13 +9,16 @@ class ELFSegment(Segment):
     """
     Represents a segment for the ELF format.
     """
+
     def __init__(self, readelf_seg, relro=False):
         self.flags = readelf_seg.header.p_flags
         self.relro = relro
-        super().__init__(readelf_seg.header.p_offset,
-                                         readelf_seg.header.p_vaddr,
-                                         readelf_seg.header.p_filesz,
-                                         readelf_seg.header.p_memsz)
+        super().__init__(
+            readelf_seg.header.p_offset,
+            readelf_seg.header.p_vaddr,
+            readelf_seg.header.p_filesz,
+            readelf_seg.header.p_memsz,
+        )
 
     @property
     def is_readable(self):
@@ -32,19 +36,20 @@ class ELFSegment(Segment):
     def is_relro(self):
         return self.relro
 
+
 class ELFSection(Section):
     SHF_WRITE = 0x1
     SHF_ALLOC = 0x2
     SHF_EXECINSTR = 0x4
     SHF_STRINGS = 0x20
-    SHT_NULL = 'SHT_NULL'
+    SHT_NULL = "SHT_NULL"
 
     def __init__(self, readelf_sec, remap_offset=0):
         super().__init__(
             maybedecode(readelf_sec.name),
             readelf_sec.header.sh_offset,
             readelf_sec.header.sh_addr + remap_offset,
-            readelf_sec.header.sh_size
+            readelf_sec.header.sh_size,
         )
 
         self.type = readelf_sec.header.sh_type

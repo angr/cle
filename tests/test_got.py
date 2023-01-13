@@ -26,9 +26,7 @@ class TestGOT(unittest.TestCase):
         loadedlibs = set(ld.shared_objects)
 
         # 1) check dependencies and loaded binaries
-        self.assertTrue(
-            dep.issuperset({"libresolv.so.0", "libgcc_s.so.1", "libc.so.6", "ld.so.1"})
-        )
+        self.assertTrue(dep.issuperset({"libresolv.so.0", "libgcc_s.so.1", "libc.so.6", "ld.so.1"}))
         self.assertTrue(loadedlibs.issuperset({"libc.so.6", "ld.so.1"}))
 
         # 2) Check GOT slot containts the right address

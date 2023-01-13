@@ -1,6 +1,9 @@
 class AddressTranslator:
 
-    __slots__ = ('_rva', '_owner', )
+    __slots__ = (
+        "_rva",
+        "_owner",
+    )
 
     """
     Mediates address translations between typed addresses such as RAW, RVA, LVA, MVA and VA

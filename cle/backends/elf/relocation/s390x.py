@@ -1,6 +1,6 @@
 from . import generic
 
-arch = 'S390X'
+arch = "S390X"
 
 
 class R_390_GLOB_DAT(generic.GenericJumpslotReloc):

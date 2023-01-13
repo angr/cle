@@ -22,7 +22,7 @@ component_class = [
     "android.content.ComponentCallbacks2",
 ]
 callback = {
-    'activity': [
+    "activity": [
         "onCreate(android.os.Bundle)",
         "onStart()",
         "onRestoreInstanceState(android.os.Bundle)",
@@ -37,7 +37,7 @@ callback = {
         "onDestroy()",
         "onAttachFragment(android.app.Fragment)",
     ],
-    'service': [
+    "service": [
         "onCreate()",
         "onStart(android.content.Intent,int)",
         "onStartCommand(android.content.Intent,int,int)",
@@ -46,10 +46,10 @@ callback = {
         "onUnbind(android.content.Intent)",
         "onDestroy()",
     ],
-    'receiver': [
+    "receiver": [
         "onReceive(android.content.Context,android.content.Intent)",
     ],
-    'provider': [
+    "provider": [
         "onCreate()",
         "insert(android.net.Uri,android.content.ContentValues)",
         "query(android.net.Uri,java.lang.String[],java.lang.String,java.lang.String[],java.lang.String)",
@@ -57,7 +57,7 @@ callback = {
         "delete(android.net.Uri,java.lang.String,java.lang.String[])",
         "getType(android.net.Uri)",
     ],
-    'gcmintentservice': [
+    "gcmintentservice": [
         "onDeletedMessages(android.content.Context,int)",
         "onError(android.content.Context,java.lang.String)",
         "onMessage(android.content.Context,android.content.Intent)",
@@ -65,13 +65,13 @@ callback = {
         "onRegistered(android.content.Context,java.lang.String)",
         "onUnregistered(android.content.Context,java.lang.String)",
     ],
-    'gcmlistenerservice': [
+    "gcmlistenerservice": [
         "onDeletedMessages()",
         "onMessageReceived(java.lang.String,android.os.Bundle)",
         "onMessageSent(java.lang.String)",
         "onSendError(java.lang.String,java.lang.String)",
     ],
-    'application': [
+    "application": [
         "onCreate()",
         "onTerminate()",
         "onServiceConnected(android.content.ComponentName,android.os.IBinder)",
@@ -88,7 +88,7 @@ callback = {
         "onConfigurationChanged(android.content.res.Configuration)",
         "onTrimMemory(int)",
     ],
-    'fragment': [
+    "fragment": [
         "onCreate(android.os.Bundle)",
         "onAttach(android.app.Activity)",
         "onCreateView(android.view.LayoutInflater,android.view.ViewGroup,android.os.Bundle)",
@@ -103,5 +103,5 @@ callback = {
         "onDestroy()",
         "onDetach()",
         "onSaveInstanceState(android.os.Bundle)",
-    ]
+    ],
 }

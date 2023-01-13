@@ -10,11 +10,13 @@ except ImportError:
 
 l = logging.getLogger(__name__)
 
+
 class StaticArchive(Backend):
     @classmethod
     def is_compatible(cls, stream):
         stream.seek(0)
-        return stream.read(8) == b'!<arch>\n'
+        return stream.read(8) == b"!<arch>\n"
+
     is_default = True
 
     def __init__(self, *args, **kwargs):
@@ -47,5 +49,5 @@ class StaticArchive(Backend):
         if self.loader.main_object is self:
             self.loader.main_object = None
 
-register_backend('AR', StaticArchive)
 
+register_backend("AR", StaticArchive)
