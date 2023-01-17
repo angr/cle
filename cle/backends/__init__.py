@@ -14,6 +14,7 @@ from .region import Region, Section, Segment
 from .regions import Regions
 from .static_archive import StaticArchive
 from .symbol import Symbol, SymbolSubType, SymbolType
+from .uefi_firmware import UefiFirmware
 from .xbe import XBE
 
 # BinjaBin is not imported by default since importing it is too slow
