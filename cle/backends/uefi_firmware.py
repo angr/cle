@@ -16,6 +16,7 @@ except ImportError:
 from . import Backend, register_backend
 from ..errors import CLEError, CLEUnknownFormatError
 from .pe import PE
+from .te import TE
 
 l = logging.getLogger(__name__)
 
@@ -63,7 +64,7 @@ class UefiFirmware(Backend):
         if self.loader.main_object is None:
             self.loader.main_object = self
 
-        self._drivers: Dict[UUID, "UefiModule"] = {}
+        self._drivers: Dict[UUID, "UefiModuleMixin"] = {}
         self._drivers_pending: Dict[UUID, "UefiModulePending"] = {}
 
         self.set_arch(archinfo.arch_from_id("x86_64"))  # TODO: ???
@@ -121,6 +122,8 @@ class UefiFirmware(Backend):
         if pending is not None:
             if uefi_obj.type == 16:  # pe32 image
                 pending.pe_image = uefi_obj.content
+            elif uefi_obj.type == 18:  # te image
+                pending.te_image = uefi_obj.content
             elif uefi_obj.type == 21:  # user interface name
                 pending.name = uefi_obj.content.decode("utf-16").strip("\0")
         self._load_generic(uefi_obj)
@@ -130,19 +133,26 @@ class UefiFirmware(Backend):
 class UefiModulePending:
     name: Optional[str] = None
     pe_image: Optional[bytes] = None
+    te_image: Optional[bytes] = None
     # version
     # dependencies
 
-    def build(self, parent: UefiFirmware, guid: UUID) -> "UefiModule":
+    def build(self, parent: UefiFirmware, guid: UUID) -> "UefiModuleMixin":
+        count = (self.pe_image is not None) + (self.te_image is not None)
+        if count > 1:
+            raise UefiDriverLoadError("Multiple image sections")
         if self.pe_image is not None:
-            return UefiModule(
-                None, io.BytesIO(self.pe_image), is_main_bin=False, loader=parent.loader, name=self.name, guid=guid
-            )
+            cls = UefiPE
+            data = self.pe_image
+        elif self.te_image is not None:
+            cls = UefiTE
+            data = self.te_image
         else:
-            raise UefiDriverLoadError("Missing PE Image section")
+            raise UefiDriverLoadError("Missing PE or TE image section")
+        return cls(None, io.BytesIO(data), is_main_bin=False, loader=parent.loader, name=self.name, guid=guid)
 
 
-class UefiModule(PE):
+class UefiModuleMixin(Backend):
     def __init__(self, *args, guid: UUID, name: Optional[str], **kwargs):
         super().__init__(*args, **kwargs)
         self.guid = guid
@@ -153,6 +163,14 @@ class UefiModule(PE):
 
     def __repr__(self):
         return f'<{type(self).__name__} Object {self.guid}{f" {self.user_interface_name}" if self.user_interface_name else ""}, maps [{self.min_addr:#x}:{self.max_addr:#x}]>'
+
+
+class UefiPE(UefiModuleMixin, PE):
+    pass
+
+
+class UefiTE(UefiModuleMixin, TE):
+    pass
 
 
 register_backend("uefi", UefiFirmware)
