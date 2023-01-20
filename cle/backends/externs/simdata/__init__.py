@@ -22,9 +22,17 @@ class SimData(Symbol):
     NOTE: SimData.type hides the Symbol.type instance property
     """
 
-    name = NotImplemented  # type: str
-    type = NotImplemented  # type: SymbolType
-    libname = NotImplemented  # type: str
+    @property
+    def name(self) -> str:
+        raise NotImplementedError()
+
+    @property
+    def type(self) -> SymbolType:
+        raise NotImplementedError()
+
+    @property
+    def libname(self) -> str:
+        return self._libname
 
     @classmethod
     def static_size(cls, owner) -> int:
@@ -65,7 +73,7 @@ def register(simdata_cls: Type[SimData]):
 def lookup(name: str, libname) -> Optional[Type[SimData]]:
     weak_option = None
     for simdata_cls in registered_data[name]:
-        if type(libname) is type(simdata_cls.libname) is str and simdata_cls.libname.startswith(libname):
+        if type(libname) is type(simdata_cls.libname) is str and simdata_cls.libname.startswith(libname):  # noqa: E721
             return simdata_cls
         elif simdata_cls is None or libname is None:
             weak_option = simdata_cls

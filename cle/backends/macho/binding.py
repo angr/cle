@@ -40,7 +40,10 @@ BIND_OPCODE_DO_BIND_ADD_ADDR_IMM_SCALED = 0xB0
 BIND_OPCODE_DO_BIND_ULEB_TIMES_SKIPPING_ULEB = 0xC0
 
 if bytes is not str:
-    chh = lambda x: x
+
+    def chh(x):
+        return x
+
 else:
     chh = ord
 

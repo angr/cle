@@ -252,7 +252,7 @@ class MachO(Backend):
         self._parse_mod_funcs()
 
         text_segment = self.find_segment_by_name("__TEXT")
-        if not text_segment is None:
+        if text_segment is not None:
             self.mapped_base: MemoryPointer = text_segment.vaddr
         else:
             l.warning("No text segment found")

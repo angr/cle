@@ -1,13 +1,13 @@
 import logging
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from . import Backend
 from .symbol import Symbol, SymbolType
 from ..address_translator import AT
 
 if TYPE_CHECKING:
-    from typing import Any, List
+    from typing import Any, List, Optional
 
 
 l = logging.getLogger(name=__name__)
@@ -21,8 +21,9 @@ class Relocation:
     :ivar owner:            The binary this relocation was originaly found in, as a cle object
     :ivar symbol:           The Symbol object this relocation refers to
     :ivar relative_addr:    The address in owner this relocation would like to write to
-    :ivar resolvedby:       If the symbol this relocation refers to is an import symbol and that import has been resolved,
-                            this attribute holds the symbol from a different binary that was used to resolve the import.
+    :ivar resolvedby:       If the symbol this relocation refers to is an import symbol and that import has been
+                            resolved, this attribute holds the symbol from a different binary that was used to resolve
+                            the import.
     :ivar resolved:         Whether the application of this relocation was successful
     """
 
@@ -31,8 +32,8 @@ class Relocation:
         self.arch = owner.arch
         self.symbol = symbol
         self.relative_addr = relative_addr
-        self.resolvedby = None  # type: Optional[Symbol]
-        self.resolved = False  # type: bool
+        self.resolvedby: Optional[Symbol] = None
+        self.resolved: bool = False
         self.resolvewith = None
         if self.symbol is not None and self.symbol.is_import:
             self.owner.imports[self.symbol.name] = self

@@ -166,7 +166,7 @@ class Clemory(ClemoryBase):
 
     def __init__(self, arch, root=False):
         super().__init__(arch)
-        self._backers = []  # type: List[Tuple[int, Union[bytearray, Clemory, List[int]]]]
+        self._backers: List[Tuple[int, Union[bytearray, Clemory, List[int]]]] = []
         self._root = root
         self.consecutive = True
         self.min_addr = 0

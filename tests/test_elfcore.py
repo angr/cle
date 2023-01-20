@@ -18,7 +18,7 @@ def check_objects_loaded(ld):
     # we should have child objects if everything loaded correctly
     assert ld.elfcore_object.child_objects
     for (_, _, _, fn) in ld.elfcore_object.filename_lookup:
-        assert not "/tmp/foobar/does-not-exist" in fn
+        assert "/tmp/foobar/does-not-exist" not in fn
 
 
 def test_remote_file_mapping():
@@ -33,6 +33,9 @@ def test_remote_file_mapping():
 
 def test_remote_file_mapper():
     directory_for_binaries = get_binary_directory()
-    remote_file_mapper = lambda x: x.replace("/tmp/foobar/does-not-exist", directory_for_binaries)
+
+    def remote_file_mapper(x):
+        return x.replace("/tmp/foobar/does-not-exist", directory_for_binaries)
+
     ld = cle.Loader(get_coredump_file(), main_opts={"backend": "elfcore", "remote_file_mapper": remote_file_mapper})
     check_objects_loaded(ld)

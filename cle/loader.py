@@ -142,10 +142,10 @@ class Loader:
         self.memory = None
         self.main_object = None
         self.tls = None
-        self._kernel_object = None  # type: Optional[KernelObject]
-        self._extern_object = None  # type: Optional[ExternObject]
+        self._kernel_object: Optional[KernelObject] = None
+        self._extern_object: Optional[ExternObject] = None
         self.shared_objects = OrderedDict()
-        self.all_objects = []  # type: List[Backend]
+        self.all_objects: List[Backend] = []
         self.requested_names = set()
         if arch is not None:
             self._main_opts.update({"arch": arch})
@@ -159,7 +159,8 @@ class Loader:
 
         if self._extern_object and self._extern_object._warned_data_import:
             l.warning(
-                'For more information about "Symbol was allocated without a known size", see https://docs.angr.io/extending-angr/environment#simdata'
+                'For more information about "Symbol was allocated without a known size" '
+                "see https://docs.angr.io/extending-angr/environment#simdata"
             )
 
     # Basic functions and properties
@@ -237,9 +238,9 @@ class Loader:
             1) extern objects are a linked list. the one in loader._extern_object is the head of the list
             2) each round of explicit loads generates a new extern object if it has unresolved dependencies. this object
                has exactly the size necessary to hold all its exports.
-            3) All requests for size are passed down the chain until they reach an object which has the space to service it
-               or an object which has not yet been mapped. If all objects have been mapped and are full, a new extern object
-               is mapped with a fixed size.
+            3) All requests for size are passed down the chain until they reach an object which has the space to service
+               it or an object which has not yet been mapped. If all objects have been mapped and are full, a new extern
+               object is mapped with a fixed size.
         """
         if self._extern_object is None:
             if self.main_object.arch.bits < 32:
@@ -957,7 +958,7 @@ class Loader:
                 )
             base_addr = obj.linked_base
             if not self._is_range_free(obj.linked_base, obj_size):
-                raise CLEError("Position-DEPENDENT object %s cannot be loaded at %#x" % (obj.binary, base_addr))
+                raise CLEError(f"Position-DEPENDENT object {obj.binary} cannot be loaded at {base_addr:#x}")
 
         assert obj.mapped_base >= 0
 

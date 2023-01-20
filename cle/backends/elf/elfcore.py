@@ -122,7 +122,8 @@ class ELFCore(ELF):
         elif self.arch.name == "X86" and "segments" not in self._threads[0]:
             if "AT_RANDOM" in self.auxv:
                 l.warning(
-                    "This core dump does not contain TLS information. threads will be matched to TLS regions via heuristics"
+                    "This core dump does not contain TLS information. "
+                    "threads will be matched to TLS regions via heuristics"
                 )
                 pointer_rand = self.auxv["AT_RANDOM"][4:8]
                 all_locations = [
@@ -485,9 +486,11 @@ class ELFCore(ELF):
             self.child_objects.append(obj)
 
             # figure out how the core's data should affect the child object's data
-            # iterate over all the core segments, since the only time we will need to make a change to the child's memory is if the core has something to say about it
+            # iterate over all the core segments, since the only time we will need
+            # to make a change to the child's memory is if the core has something to say about it
             # if there is ANY OVERLAP AT ALL, copy over the relevant data and nuke the segment
-            # then, if there is any part of the segment which DOESN'T correspond to a child segment, inject a new memory backer into the child for the relevant data
+            # then, if there is any part of the segment which DOESN'T correspond to a child segment,
+            # inject a new memory backer into the child for the relevant data
 
             max_addr = base_addr + (obj.max_addr - obj.min_addr)
             i = 0
@@ -497,7 +500,8 @@ class ELFCore(ELF):
                 if base_addr <= seg.vaddr <= max_addr or seg.vaddr <= base_addr < seg.vaddr + seg.memsize:
                     remaining_segments.pop(i)
 
-                    # if there is data before the beginning of the child or after the end, make new artificial segments for it
+                    # if there is data before the beginning of the child or after
+                    # the end, make new artificial segments for it
                     if seg.vaddr < base_addr:
                         size = base_addr - seg.vaddr
                         remaining_segments.insert(i, Segment(seg.offset, seg.vaddr, size, size))
@@ -509,17 +513,19 @@ class ELFCore(ELF):
                         i += 1
 
                     # ohhhh this is SUCH a confusing address space-conversation problem!
-                    # we're going to enumerate the contents of the core segment. at each point we find the relevant child backer. if this skips any content, inject a backer into the child.
+                    # we're going to enumerate the contents of the core segment. at each point we
+                    # find the relevant child backer. if this skips any content, inject a backer into the child.
                     # then, copy the contents of the core segment that overlaps the child backer.
                     cursor = max(0, base_addr - seg.vaddr)
-                    while (
-                        cursor < seg.filesize
-                    ):  # use filesize and not memsize so we don't overwrite stuff with zeroes if it's omitted from the core
+                    while cursor < seg.filesize:
+                        # use filesize and not memsize so we don't overwrite stuff
+                        # with zeroes if it's omitted from the core
                         child_cursor = cursor + seg.vaddr - base_addr
                         try:
                             child_offset, child_backer = next(obj.memory.backers(child_cursor))
                         except StopIteration:
-                            # is this right? is there any behavior we need to account for in the case that there is somehow no backer past a point mapped by the core?
+                            # is this right? is there any behavior we need to account for in the
+                            # case that there is somehow no backer past a point mapped by the core?
                             break
 
                         # have we skipped any part of the core?
@@ -531,7 +537,8 @@ class ELFCore(ELF):
                                 self.memory.load(AT.from_mva(cursor + seg.vaddr, self).to_rva(), skip_size),
                             )
 
-                        # how much of the child's segment have we skipped by starting at the beginning of the core segment?
+                        # how much of the child's segment have we skipped by
+                        # starting at the beginning of the core segment?
                         child_backer_offset = max(0, -skip_size)
                         # how much of the core's segment have we skipped and handled via injection?
                         core_backer_offset = max(0, skip_size)

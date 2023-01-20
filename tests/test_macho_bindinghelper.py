@@ -72,7 +72,9 @@ class TestBindingState(unittest.TestCase):
         self.uut_32.add_address_ov(3294967295, 1000100000)
         self.assertEqual(self.uut_32.address, 99999)
 
-        # TODO test_add_address_ov_32: we do probably do not expect negative numbers as second argument, but then the address will be negative... and it does not wrap around. Test is commented out.
+        # TODO test_add_address_ov_32: we do probably do not expect negative
+        # numbers as second argument, but then the address will be negative...
+        # and it does not wrap around. Test is commented out.
         self.uut_32.add_address_ov(10000, -10000)
         self.assertEqual(self.uut_32.address, 0)
 
@@ -96,7 +98,9 @@ class TestBindingState(unittest.TestCase):
         self.uut_64.add_address_ov(17000000000000000000, 1900000000000000000)
         self.assertEqual(self.uut_64.address, 453255926290448384)
 
-        # TODO test_add_address_ov_64: we do probably do not expect negative numbers as second argument, but then the address will be negative... and it does not wrap around. Test is commented out.
+        # TODO test_add_address_ov_64: we do probably do not expect negative
+        # numbers as second argument, but then the address will be negative...
+        # and it does not wrap around. Test is commented out.
         # self.uut_64.add_address_ov(123456, -10000000000)
         # self.assertEqual(self.uut_64.address, 18446744063709551616)
 
@@ -281,7 +285,7 @@ class TestBindingHelper(unittest.TestCase):
 
     def test_n_opcode_set_segment_and_offset_uleb(self):
         # pylint: disable=unused-variable
-        s = BindingState(is_64=True)
+        BindingState(is_64=True)
         self.skipTest("TODO: The function needs a binary with segments to test")
 
     def test_n_opcode_add_addr_uleb(self):
@@ -399,7 +403,7 @@ class TestBindingHelper(unittest.TestCase):
                 self.assertEqual(
                     a,
                     b,
-                    "Error: Differences for symbol {}: {} != {}: ".format(name, a, b),
+                    f"Error: Differences for symbol {name}: {a} != {b}: ",
                 )
 
             if not found:
@@ -507,7 +511,7 @@ class TestBindingHelper(unittest.TestCase):
                 self.assertEqual(
                     a,
                     b,
-                    "Error: Differences for symbol {}: {} != {}: ".format(name, a, b),
+                    f"Error: Differences for symbol {name}: {a} != {b}: ",
                 )
 
             if not found:

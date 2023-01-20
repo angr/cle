@@ -88,7 +88,7 @@ class ExceptionHandling:
                 self.start_addr, self.start_addr + self.size, self.handler_addr
             )
         else:
-            return "<ExceptionHandling@{:#x}-{:#x}: no handler>".format(self.start_addr, self.start_addr + self.size)
+            return f"<ExceptionHandling@{self.start_addr:#x}-{self.start_addr + self.size:#x}: no handler>"
 
 
 class Backend:
@@ -184,7 +184,7 @@ class Backend:
         self.relocs: "List[Relocation]" = []
         self.irelatives = []  # list of tuples (resolver, destination), dest w/o rebase
         self.jmprel = {}
-        self.arch = None  # type: Optional[archinfo.Arch]
+        self.arch: Optional[archinfo.Arch] = None
         self.os = None  # Let other stuff override this
         self.compiler = None, None  # compiler name, version
         self._symbol_cache = {}
@@ -220,11 +220,11 @@ class Backend:
 
         # exception handling
         # they should be rebased when .rebase() is called
-        self.exception_handlings = []  # type: List[ExceptionHandling]
+        self.exception_handlings: List[ExceptionHandling] = []
 
         # Hints
         # they should be rebased when .rebase() is called
-        self.function_hints = []  # type: List[FunctionHint]
+        self.function_hints: List[FunctionHint] = []
 
         # line number mapping
         self.addr_to_line = {}
@@ -234,7 +234,7 @@ class Backend:
         self._custom_base_addr = base_addr
         self.provides = os.path.basename(self.binary) if self.binary is not None else None
 
-        self.memory = None  # type: Clemory
+        self.memory: Clemory = None
 
         # should be set inside `cle.Loader.add_object`
         self._is_mapped = False
@@ -262,7 +262,7 @@ class Backend:
         del self._binary_stream
 
     def __repr__(self):
-        return "<%s Object %s, maps [%#x:%#x]>" % (
+        return "<{} Object {}, maps [{:#x}:{:#x}]>".format(
             self.__class__.__name__,
             self.binary_basename,
             self.min_addr,

@@ -232,7 +232,8 @@ class PE(Backend):
                     reloc = self._make_reloc(addr=reloc_data.rva, reloc_type=reloc_data.type)
 
                 if reloc is not None:
-                    self.pic = True  # I've seen binaries with the DYNAMIC_BASE DllCharacteristic unset but have tons of fixup relocations
+                    # binaries with the DYNAMIC_BASE DllCharacteristic unset but have tons of fixup relocations
+                    self.pic = True
                     self.relocs.append(reloc)
 
                 entry_idx += 1

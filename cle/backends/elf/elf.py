@@ -1015,7 +1015,8 @@ class ELF(MetaELF):
                 part = part.replace("$ORIGIN", os.path.dirname(self.binary))
             elif "$ORIGIN" in part:
                 l.warning(
-                    "DT_RUNPATH/DT_RPATH of the binary contains $ORIGIN tokens but no self.binary, some libraries might be not found"
+                    "DT_RUNPATH/DT_RPATH of the binary contains $ORIGIN tokens "
+                    "but no self.binary, some libraries might be not found"
                 )
             parts.append(part)
         return parts
@@ -1060,7 +1061,8 @@ class ELF(MetaELF):
             if self.arch.name == "MIPS64":
                 if not hasattr(readelf_reloc.entry, "r_info_type2") and hasattr(readelf_reloc.entry, "r_info_type3"):
                     raise CLECompatibilityError(
-                        "This code relies on `pyelftools` features that are not available on versions 0.26 and downwards."
+                        "This code relies on `pyelftools` features that are not "
+                        "available on versions 0.26 and downwards."
                     )
 
                 type_1 = readelf_reloc.entry.r_info_type

@@ -23,7 +23,10 @@ HEX_TYPE_EXTLINEARADDR = 0x04
 HEX_TYPE_STARTLINEARADDR = 0x05
 
 if bytes is not str:
-    chh = lambda x: x
+
+    def chh(x):
+        return x
+
 else:
     chh = ord
 

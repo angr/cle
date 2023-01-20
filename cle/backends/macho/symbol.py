@@ -38,9 +38,9 @@ class AbstractMachOSymbol(Symbol):
 
         # additional properties
         self.bind_xrefs = []  # XREFs discovered during binding of the symbol
-        self.symbol_stubs = (
-            []
-        )  # starting addresses of stubs that resolve to this symbol - note that this must be obtained through an analysis of some sort
+        # starting addresses of stubs that resolve to this symbol
+        # note that this must be obtained through an analysis of some sort
+        self.symbol_stubs = []
 
     @property
     def library_ordinal(self):
@@ -145,7 +145,7 @@ class SymbolTableSymbol(AbstractMachOSymbol):
             return None
 
     def is_weak(self):
-        # compare https://developer.apple.com/library/mac/documentation/DeveloperTools/Conceptual/MachOTopics/1-Articles/executing_files.html
+        # compare https://developer.apple.com/library/mac/documentation/DeveloperTools/Conceptual/MachOTopics/1-Articles/executing_files.html # noqa: E501
         return self.is_weak_referenced
 
     @property
@@ -301,7 +301,8 @@ class BindingSymbol(AbstractMachOSymbol):
         # pointing to the symobl.
         # Stub addresses must be obtained through some sort of higher-level analysis
         # Note 3: A symbols name may not be unique!
-        # Note 4: The symbol type of all symbols is SymbolType.TYPE_OTHER because without docs I was unable to problerly map Mach-O symbol types to CLE's notion of a symbol type
+        # Note 4: The symbol type of all symbols is SymbolType.TYPE_OTHER because without docs I was unable to problerly
+        # map Mach-O symbol types to CLE's notion of a symbol type
 
         # store the mach-o properties, all these are raw values straight from the binary
         self.lib_ordinal = lib_ordinal
