@@ -1,4 +1,5 @@
 import struct
+from typing import Optional
 
 from . import SimData
 from ...relocation import Relocation
@@ -39,7 +40,7 @@ class StaticWord(SimData):
 
     type = SymbolType.TYPE_OBJECT
     word: int
-    wordsize: int
+    wordsize: Optional[int] = None
 
     @classmethod
     def static_size(cls, owner):
@@ -65,7 +66,7 @@ class PointTo(SimData):
     pointto_name: str
     pointto_type: SymbolType
     type: SymbolType
-    addend: int = 0
+    addend: Optional[int] = 0
 
     @classmethod
     def static_size(cls, owner):
