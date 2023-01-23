@@ -22,17 +22,9 @@ class SimData(Symbol):
     NOTE: SimData.type hides the Symbol.type instance property
     """
 
-    @property
-    def name(self) -> str:
-        raise NotImplementedError()
-
-    @property
-    def type(self) -> SymbolType:
-        raise NotImplementedError()
-
-    @property
-    def libname(self) -> str:
-        return self._libname
+    name = NotImplemented
+    type = NotImplemented
+    libname = NotImplemented
 
     @classmethod
     def static_size(cls, owner) -> int:
