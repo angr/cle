@@ -16,7 +16,7 @@ class StaticData(SimData):
     """
 
     type = SymbolType.TYPE_OBJECT
-    data = NotImplemented  # type: bytes
+    data: bytes
 
     @classmethod
     def static_size(cls, owner):
@@ -38,8 +38,8 @@ class StaticWord(SimData):
     """
 
     type = SymbolType.TYPE_OBJECT
-    word = NotImplemented  # type: int
-    wordsize = None  # type: int
+    word: int
+    wordsize: int
 
     @classmethod
     def static_size(cls, owner):
@@ -62,10 +62,10 @@ class PointTo(SimData):
     :cvar addend:       (optional) an integer to be added to the symbol's address before storage
     """
 
-    pointto_name = NotImplemented  # type: str
-    pointto_type = NotImplemented  # type: SymbolType
-    type = SymbolType.TYPE_OBJECT  # type: SymbolType
-    addend = 0  # type: int
+    pointto_name: str
+    pointto_type: SymbolType
+    type: SymbolType
+    addend: int = 0
 
     @classmethod
     def static_size(cls, owner):

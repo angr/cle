@@ -83,7 +83,7 @@ class IoStderrPointer(IoFilePointer):
 class IoFile(SimData):
     libname = "libc.so.6"
     type = SymbolType.TYPE_OBJECT
-    fd = NotImplemented  # type: int
+    fd: int = NotImplemented
 
     @classmethod
     def static_size(cls, owner):
