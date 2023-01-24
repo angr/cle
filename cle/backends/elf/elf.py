@@ -1,6 +1,7 @@
 import copy
 import os
 import logging
+import xml.etree.ElementTree
 from typing import List, Optional, Dict
 from collections import OrderedDict, defaultdict
 from sortedcontainers import SortedDict
@@ -15,6 +16,11 @@ from elftools.dwarf.dwarfinfo import DWARFInfo
 from elftools.dwarf.die import DIE
 
 import archinfo
+
+try:
+    import pypcode
+except ImportError:
+    pypcode = None
 
 from .compilation_unit import CompilationUnit
 from .variable import Variable
@@ -314,7 +320,21 @@ class ELF(MetaELF):
             elif reader.header.e_flags & 0x400:
                 return archinfo.ArchARMHF("Iend_LE" if reader.little_endian else "Iend_BE")
 
-        return archinfo.arch_from_id(arch_str, "le" if reader.little_endian else "be", reader.elfclass)
+        try:
+            return archinfo.arch_from_id(arch_str, "le" if reader.little_endian else "be", reader.elfclass)
+        except archinfo.ArchNotFound:
+            arch = ELF._extract_pcode_arch(reader)
+            if arch:
+                return arch
+            raise
+
+    @staticmethod
+    def _extract_pcode_arch(reader):
+        if pypcode:
+            languages = ELF._get_compatible_pcode_languages(reader)
+            if languages:
+                return archinfo.ArchPcode(languages[0])
+        return None
 
     @property
     def initializers(self):
@@ -1320,6 +1340,88 @@ class ELF(MetaELF):
                 # debug symbols don't have eh_frame ever from what I can tell
                 if dwarf:
                     self._load_line_info(dwarf)
+
+    @staticmethod
+    def _get_pcode_elf_opinions():
+        """
+        Load each .opinion file and gather all ELF constraints
+        """
+        if pypcode is None:
+            raise CLEError("pypcode is not installed")
+
+        def flatten_constraints(node):
+            constraints = []
+            for child in node.findall("constraint"):
+                constraints.extend(flatten_constraints(child))
+            attribs = node.attrib.copy()
+            if not constraints:  # Leaf
+                return [attribs]
+            for c in constraints:  # Apply attribs to all children
+                c.update(attribs)
+            return constraints
+
+        l.info("Loading opinions...")
+        SPECFILES_DIR = pypcode.SPECFILES_DIR
+        elf_opinions = []
+        for archname in os.listdir(SPECFILES_DIR):
+            langdir = os.path.join(SPECFILES_DIR, archname, "data", "languages")
+            if not (os.path.exists(langdir) and os.path.isdir(langdir)):
+                continue
+            for filename in os.listdir(langdir):
+                if not filename.endswith(".opinion"):
+                    continue
+                path = os.path.join(langdir, filename)
+                opinion = xml.etree.ElementTree.parse(path).getroot()
+                for c in opinion.findall("constraint"):
+                    if c.attrib["loader"] == "Executable and Linking Format (ELF)":
+                        elf_opinions.extend(flatten_constraints(c))
+        return elf_opinions
+
+    @staticmethod
+    def _get_compatible_pcode_languages(reader):
+        """
+        Find compatible pypcode languages for this ELF file.
+        """
+        if pypcode is None:
+            raise CLEError("pypcode is not installed")
+
+        e_machine = reader.header.e_machine
+        if isinstance(e_machine, str):
+            e_machine = enums.ENUM_E_MACHINE[e_machine]
+
+        endian = {"ELFDATANONE": None, "ELFDATA2LSB": "little", "ELFDATA2MSB": "big"}[reader.header.e_ident.EI_DATA]
+
+        opinions = []
+        for o in ELF._get_pcode_elf_opinions():
+            if "endian" in o and o["endian"] != endian:
+                continue
+            if e_machine not in {int(p) for p in o["primary"].split(",")}:
+                continue
+            if "secondary" in o:
+                try:
+                    value = int(o["secondary"])
+                    if value != reader.header.e_type:
+                        continue
+                except ValueError:
+                    # FIXME: Mask parsing (spaces and DC 0b .... ..1. ..0.)
+                    pass
+            opinions.append(o)
+
+        l.info("Available opinions: %s", opinions)
+
+        languages = []
+        for arch in pypcode.Arch.enumerate():
+            for lang in arch.languages:
+                for o in opinions:
+                    if (reader.elfclass == 32 and int(lang.size) > 32) or (
+                        reader.elfclass == 64 and int(lang.size) <= 32
+                    ):
+                        continue
+                    if all(k not in lang.ldef.attrib or lang.ldef.attrib[k] == v for k, v in o.items()):
+                        languages.append(lang)
+
+        l.info("Found candidate languages: %s", [lang.id for lang in languages])
+        return languages
 
 
 register_backend("elf", ELF)
