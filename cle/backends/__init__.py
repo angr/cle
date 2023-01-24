@@ -88,7 +88,7 @@ class ExceptionHandling:
                 self.start_addr, self.start_addr + self.size, self.handler_addr
             )
         else:
-            return "<ExceptionHandling@{:#x}-{:#x}: no handler>".format(self.start_addr, self.start_addr + self.size)
+            return f"<ExceptionHandling@{self.start_addr:#x}-{self.start_addr + self.size:#x}: no handler>"
 
 
 class Backend:
@@ -262,7 +262,7 @@ class Backend:
         del self._binary_stream
 
     def __repr__(self):
-        return "<%s Object %s, maps [%#x:%#x]>" % (
+        return "<{} Object {}, maps [{:#x}:{:#x}]>".format(
             self.__class__.__name__,
             self.binary_basename,
             self.min_addr,

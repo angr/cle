@@ -399,7 +399,7 @@ class TestBindingHelper(unittest.TestCase):
                 self.assertEqual(
                     a,
                     b,
-                    "Error: Differences for symbol {}: {} != {}: ".format(name, a, b),
+                    f"Error: Differences for symbol {name}: {a} != {b}: ",
                 )
 
             if not found:
@@ -507,7 +507,7 @@ class TestBindingHelper(unittest.TestCase):
                 self.assertEqual(
                     a,
                     b,
-                    "Error: Differences for symbol {}: {} != {}: ".format(name, a, b),
+                    f"Error: Differences for symbol {name}: {a} != {b}: ",
                 )
 
             if not found:
