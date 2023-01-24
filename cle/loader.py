@@ -957,7 +957,7 @@ class Loader:
                 )
             base_addr = obj.linked_base
             if not self._is_range_free(obj.linked_base, obj_size):
-                raise CLEError("Position-DEPENDENT object %s cannot be loaded at %#x" % (obj.binary, base_addr))
+                raise CLEError(f"Position-DEPENDENT object {obj.binary} cannot be loaded at {base_addr:#x}")
 
         assert obj.mapped_base >= 0
 
