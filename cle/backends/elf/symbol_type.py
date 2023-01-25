@@ -1,6 +1,6 @@
 import logging
 
-from ..symbol import SymbolType, SymbolSubType
+from ..symbol import SymbolSubType, SymbolType
 
 _l = logging.getLogger(name=__name__)
 

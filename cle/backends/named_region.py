@@ -1,8 +1,5 @@
-from . import Backend, register_backend
+from .backend import Backend, register_backend
 from .region import EmptySegment
-import logging
-
-l = logging.getLogger(name=__name__)
 
 __all__ = ("NamedRegion",)
 

@@ -1,9 +1,10 @@
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional
+
+from cle.utils import key_bisect_find, key_bisect_insort_left
 
 if TYPE_CHECKING:
     from .. import Region
 
-from ..utils import key_bisect_find, key_bisect_insort_left
 
 if str is not bytes:
     long = int

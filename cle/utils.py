@@ -1,7 +1,10 @@
-import os
 import contextlib
+import os
+
+import elftools
 
 from .errors import CLEError, CLEFileNotFoundError
+
 
 # https://code.woboq.org/userspace/glibc/include/libc-pointer-arith.h.html#43
 def ALIGN_DOWN(base, size):
@@ -55,7 +58,8 @@ def ALIGN_UP(base, size):
 def get_mmaped_data(stream, offset, length, page_size):
     if offset % page_size != 0:
         raise CLEError(
-            f"libc helper for mmap: Invalid page offset, should be multiple of page size! Stream {stream}, offset {offset}, length: {length}"
+            "libc helper for mmap: Invalid page offset, should be multiple of page size! "
+            f"Stream {stream}, offset {offset}, length: {length}"
         )
 
     read_length = ALIGN_UP(length, page_size)
@@ -133,3 +137,13 @@ def key_bisect_insort_right(lst, item, lo=0, hi=None, keyfunc=lambda x: x):
         else:
             hi = mid
     lst.insert(lo, item)
+
+
+@staticmethod
+def get_text_offset(path):
+    """
+    Offset of .text in the binary.
+    """
+    with stream_or_path(path) as f:
+        e = elftools.elf.elffile.ELFFile(f)
+        return e.get_section_by_name(".text").header.sh_offset

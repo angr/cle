@@ -1,37 +1,44 @@
-from . import generic
+from .generic import (
+    GenericAbsoluteAddendReloc,
+    GenericAbsoluteReloc,
+    GenericRelativeReloc,
+    GenericTLSDoffsetReloc,
+    GenericTLSModIdReloc,
+    GenericTLSOffsetReloc,
+)
 
 arch = "MIPS32"
 
 
-class R_MIPS_32(generic.GenericAbsoluteAddendReloc):
+class R_MIPS_32(GenericAbsoluteAddendReloc):
     pass
 
 
-class R_MIPS_REL32(generic.GenericRelativeReloc):
+class R_MIPS_REL32(GenericRelativeReloc):
     pass
 
 
-class R_MIPS_JUMP_SLOT(generic.GenericAbsoluteReloc):
+class R_MIPS_JUMP_SLOT(GenericAbsoluteReloc):
     pass
 
 
-class R_MIPS_GLOB_DAT(generic.GenericAbsoluteReloc):
+class R_MIPS_GLOB_DAT(GenericAbsoluteReloc):
     pass
 
 
-class R_MIPS_TLS_DTPMOD32(generic.GenericTLSModIdReloc):
+class R_MIPS_TLS_DTPMOD32(GenericTLSModIdReloc):
     pass
 
 
-class R_MIPS_TLS_TPREL32(generic.GenericTLSOffsetReloc):
+class R_MIPS_TLS_TPREL32(GenericTLSOffsetReloc):
     pass
 
 
-class R_MIPS_TLS_DTPREL32(generic.GenericTLSDoffsetReloc):
+class R_MIPS_TLS_DTPREL32(GenericTLSDoffsetReloc):
     pass
 
 
-class R_MIPS_HI16(generic.GenericAbsoluteReloc):
+class R_MIPS_HI16(GenericAbsoluteReloc):
     def relocate(self):
         if not self.resolved:
             return False
@@ -40,7 +47,7 @@ class R_MIPS_HI16(generic.GenericAbsoluteReloc):
         return True
 
 
-class R_MIPS_LO16(generic.GenericAbsoluteReloc):
+class R_MIPS_LO16(GenericAbsoluteReloc):
     def relocate(self):
         if not self.resolved:
             return False

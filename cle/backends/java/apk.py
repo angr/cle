@@ -1,10 +1,11 @@
 import logging
 import os
 import tempfile
-from typing import List
+from typing import List, Tuple
 from zipfile import ZipFile
 
-from .. import register_backend
+from cle.backends.backend import register_backend
+
 from .android_lifecycle import callback
 from .soot import Soot
 
@@ -16,13 +17,13 @@ except ImportError:
     PYAXMLPARSER_INSTALLED = False
 
 try:
-    from pysoot.sootir.soot_method import SootMethod
     from pysoot.sootir.soot_class import SootClass
+    from pysoot.sootir.soot_method import SootMethod
 except ImportError:
     SootMethod = None
     SootClass = None
 
-l = logging.getLogger(name=__name__)
+log = logging.getLogger(name=__name__)
 
 # Default list of JNI archs (in descending order of preference)
 # => specifies which arch should be used for loading native libs from the APK
@@ -62,7 +63,7 @@ class Apk(Soot):
                                         Note: Directory of the APK is added by default.
         """
 
-        l.info("Loading APK from %s ...", apk_path)
+        log.info("Loading APK from %s ...", apk_path)
 
         if not android_sdk:
             raise ValueError(
@@ -76,10 +77,10 @@ class Apk(Soot):
 
         # if jni libs are not defined by the user, we try to extract them from the APK
         if not jni_libs:
-            l.info("No JNI libs provided. Trying to parse them from the APK.")
+            log.info("No JNI libs provided. Trying to parse them from the APK.")
             jni_libs, jni_libs_ld_path = self._extract_jni_libs(apk_path, supported_jni_archs)
         else:
-            l.info("Using user defined JNI lib(s) %s (load path(s) %s)", jni_libs, jni_libs_ld_path)
+            log.info("Using user defined JNI lib(s) %s (load path(s) %s)", jni_libs, jni_libs_ld_path)
 
         apk_parser = APKParser(apk_path) if PYAXMLPARSER_INSTALLED else None
 
@@ -89,7 +90,7 @@ class Apk(Soot):
                 entry_point = main_activity + "." + "onCreate"
                 entry_point_params = ("android.os.Bundle",)
             else:
-                l.error("Install pyaxmlparser to identify APK entry point.")
+                log.error("Install pyaxmlparser to identify APK entry point.")
                 raise ImportError
 
         # the actual lifting is done by the Soot superclass
@@ -113,7 +114,7 @@ class Apk(Soot):
         else:
             self.components = None
             self.callbacks = None
-            l.warning("Install pyaxmlparser, if you want to identify components with callbacks.")
+            log.warning("Install pyaxmlparser, if you want to identify components with callbacks.")
 
     def _set_lifecycle(self, apk_parser):
         """
@@ -133,7 +134,7 @@ class Apk(Soot):
             class_names = getter()
             self.components[key], self.callbacks[key] = self._extract_lifecycle(class_names, key)
 
-    def _extract_lifecycle(self, cls_name: List[str], component_kind: str) -> (List[SootClass], List[SootMethod]):
+    def _extract_lifecycle(self, cls_name: List[str], component_kind: str) -> Tuple[List[SootClass], List[SootMethod]]:
         """
         Extract components with callbacks from class names and component kind.
         Use general callback name for each component by component kind
@@ -211,9 +212,9 @@ class Apk(Soot):
             available_jni_archs = {lib_path[1] for lib_path in lib_filelist if len(lib_path) > 2}
 
             if not jni_libs:
-                l.info("No JNI libs found.")
+                log.info("No JNI libs found.")
                 return None, None
-            l.info("Found JNI lib(s): %s", ", ".join(jni_libs))
+            log.info("Found JNI lib(s): %s", ", ".join(jni_libs))
 
             # Step 3: get the first supported jni arch that is available in the APK
             jni_archs = [arch for arch in supported_jni_archs if arch in available_jni_archs]
@@ -223,7 +224,7 @@ class Apk(Soot):
                     "" % (available_jni_archs, supported_jni_archs)
                 )
             jni_arch = jni_archs[0]
-            l.info("Libs are available with arch(s): %s. Picking %s.", ", ".join(available_jni_archs), jni_arch)
+            log.info("Libs are available with arch(s): %s. Picking %s.", ", ".join(available_jni_archs), jni_arch)
 
             # Step 4: extract all used libaries from the APK
             # TODO: implement this w/o the need of actually writing files to disk
@@ -234,7 +235,7 @@ class Apk(Soot):
                 apk.extract(apk_file, path=tmp_dir)
             jni_libs_ld_path = os.path.join(tmp_dir, "lib", jni_arch)
 
-            l.info("Extracted lib(s) to %s", jni_libs_ld_path)
+            log.info("Extracted lib(s) to %s", jni_libs_ld_path)
             return jni_libs, jni_libs_ld_path
 
     @staticmethod

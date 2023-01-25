@@ -8,17 +8,17 @@ test_location = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", 
 
 def test_basic_named_region():
     bin_path = os.path.join(test_location, "armel", "lwip_udpecho_bm.elf")
-    l = Loader(bin_path)
+    loader = Loader(bin_path)
     # Standard CortexM regions
     mmio = NamedRegion("mmio", 0x40000000, 0x50000000)
     sys = NamedRegion("sys", 0xE000E000, 0xE0010000)
-    l.dynamic_load(mmio)
-    l.dynamic_load(sys)
+    loader.dynamic_load(mmio)
+    loader.dynamic_load(sys)
 
     # In order to ensure static analysis works, we must be able to ask
     # CLE what owns these addresses and get a valid answer.
-    obj1 = l.find_object_containing(0x4000023C)
-    obj2 = l.find_object_containing(0xE000ED08)
+    obj1 = loader.find_object_containing(0x4000023C)
+    obj2 = loader.find_object_containing(0xE000ED08)
     assert obj1 is not None
     assert obj2 is not None
     assert obj1.name == "mmio"

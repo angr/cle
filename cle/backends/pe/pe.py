@@ -1,17 +1,19 @@
+import logging
 import os
 import struct
-import logging
+
 import archinfo
 import pefile
-from .symbol import WinSymbol
+
+from cle.address_translator import AT
+from cle.backends.backend import Backend, register_backend
+
 from .regions import PESection
-from .relocation.generic import DllImport, IMAGE_REL_BASED_HIGHADJ, IMAGE_REL_BASED_ABSOLUTE
 from .relocation import get_relocation
-from .. import register_backend, Backend
-from ...address_translator import AT
+from .relocation.generic import IMAGE_REL_BASED_ABSOLUTE, IMAGE_REL_BASED_HIGHADJ, DllImport
+from .symbol import WinSymbol
 
-
-l = logging.getLogger(name=__name__)
+log = logging.getLogger(name=__name__)
 
 
 class PE(Backend):
@@ -211,7 +213,7 @@ class PE(Backend):
 
     def __register_relocs(self):
         if not hasattr(self._pe, "DIRECTORY_ENTRY_BASERELOC"):
-            l.debug("%s has no relocations", self.binary)
+            log.debug("%s has no relocations", self.binary)
             return []
 
         for base_reloc in self._pe.DIRECTORY_ENTRY_BASERELOC:
@@ -222,7 +224,7 @@ class PE(Backend):
                     reloc_data.type == pefile.RELOCATION_TYPE["IMAGE_REL_BASED_HIGHADJ"]
                 ):  # special case, occupies 2 entries
                     if entry_idx == len(base_reloc.entries):
-                        l.warning("PE contains corrupt base relocation table")
+                        log.warning("PE contains corrupt base relocation table")
                         break
 
                     next_entry = base_reloc.entries[entry_idx]
@@ -232,7 +234,8 @@ class PE(Backend):
                     reloc = self._make_reloc(addr=reloc_data.rva, reloc_type=reloc_data.type)
 
                 if reloc is not None:
-                    self.pic = True  # I've seen binaries with the DYNAMIC_BASE DllCharacteristic unset but have tons of fixup relocations
+                    # Some binaries have the DYNAMIC_BASE DllCharacteristic unset but have tons of fixup relocations
+                    self.pic = True
                     self.relocs.append(reloc)
 
                 entry_idx += 1
@@ -254,12 +257,12 @@ class PE(Backend):
         # Handle all the normal base relocations
         RelocClass = get_relocation(self.arch.name, reloc_type)
         if RelocClass is None:
-            l.debug("Failed to find relocation class for arch %s, type %d", "pe" + self.arch.name, reloc_type)
+            log.debug("Failed to find relocation class for arch %s, type %d", "pe" + self.arch.name, reloc_type)
             return None
 
         cls = RelocClass(owner=self, symbol=symbol, addr=addr)
         if cls is None:
-            l.warning("Failed to retrieve relocation for %s of type %s", symbol.name, reloc_type)
+            log.warning("Failed to retrieve relocation for %s of type %s", symbol.name, reloc_type)
 
         return cls
 

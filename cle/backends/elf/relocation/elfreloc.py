@@ -1,7 +1,8 @@
 import logging
-from ...relocation import Relocation
 
-l = logging.getLogger(name=__name__)
+from cle.backends.relocation import Relocation
+
+log = logging.getLogger(name=__name__)
 
 
 class ELFReloc(Relocation):
@@ -23,5 +24,5 @@ class ELFReloc(Relocation):
 
     @property
     def value(self):  # pylint: disable=no-self-use
-        l.error("Value property of Relocation must be overridden by subclass!")
+        log.error("Value property of Relocation must be overridden by subclass!")
         return 0

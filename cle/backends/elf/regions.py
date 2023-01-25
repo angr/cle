@@ -1,4 +1,4 @@
-from ..region import Segment, Section
+from ..region import Section, Segment
 
 
 def maybedecode(string):

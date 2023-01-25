@@ -3,12 +3,13 @@
 import logging
 from typing import TYPE_CHECKING
 
-from .. import Symbol, SymbolType, Backend
+from cle.backends.backend import Backend
+from cle.backends.symbol import Symbol, SymbolType
 
 if TYPE_CHECKING:
     from . import MachO
 
-l = logging.getLogger(name=__name__)
+log = logging.getLogger(name=__name__)
 
 # some constants:
 SYMBOL_TYPE_UNDEF = 0x0
@@ -38,9 +39,9 @@ class AbstractMachOSymbol(Symbol):
 
         # additional properties
         self.bind_xrefs = []  # XREFs discovered during binding of the symbol
-        self.symbol_stubs = (
-            []
-        )  # starting addresses of stubs that resolve to this symbol - note that this must be obtained through an analysis of some sort
+        # starting addresses of stubs that resolve to this symbol - note that this
+        # must be obtained through an analysis of some sort
+        self.symbol_stubs = []
 
     @property
     def library_ordinal(self):
@@ -108,7 +109,7 @@ class SymbolTableSymbol(AbstractMachOSymbol):
     def library_name(self):
         if self.is_import:
             if LIBRARY_ORDINAL_DYN_LOOKUP == self.library_ordinal:
-                l.warning("LIBRARY_ORDINAL_DYN_LOOKUP found, cannot handle")
+                log.warning("LIBRARY_ORDINAL_DYN_LOOKUP found, cannot handle")
                 return None
             else:
                 return self.owner.imported_libraries[self.library_ordinal]
@@ -151,7 +152,7 @@ class SymbolTableSymbol(AbstractMachOSymbol):
     @property
     def is_function(self):
         # Incompatibility to CLE
-        l.debug("It is not possible to decide wether a symbol is a function or not for MachOSymbols")
+        log.debug("It is not possible to decide wether a symbol is a function or not for MachOSymbols")
         return False
 
     @property
@@ -249,14 +250,14 @@ class DyldBoundSymbol(AbstractMachOSymbol):
     @property
     def library_name(self):
         if BIND_SPECIAL_DYLIB_FLAT_LOOKUP == self.lib_ordinal:
-            l.warning("BIND_SPECIAL_DYLIB_FLAT_LOOKUP found, cannot handle")
+            log.warning("BIND_SPECIAL_DYLIB_FLAT_LOOKUP found, cannot handle")
             return None
         elif BIND_SPECIAL_DYLIB_WEAK_LOOKUP == self.lib_ordinal:
             return None
         try:
             return self.owner_obj.imported_libraries[self.lib_ordinal]
         except IndexError:
-            l.error(
+            log.error(
                 "Symbol %s has library ordinal %d, but there are only %d imported libraries",
                 self,
                 self.lib_ordinal,
@@ -267,7 +268,7 @@ class DyldBoundSymbol(AbstractMachOSymbol):
     @property
     def is_function(self):
         # Incompatibility to CLE
-        l.debug("It is not possible to decide wether a symbol is a function or not for MachOSymbols")
+        log.debug("It is not possible to decide wether a symbol is a function or not for MachOSymbols")
         return False
 
     @property
@@ -301,7 +302,8 @@ class BindingSymbol(AbstractMachOSymbol):
         # pointing to the symobl.
         # Stub addresses must be obtained through some sort of higher-level analysis
         # Note 3: A symbols name may not be unique!
-        # Note 4: The symbol type of all symbols is SymbolType.TYPE_OTHER because without docs I was unable to problerly map Mach-O symbol types to CLE's notion of a symbol type
+        # Note 4: The symbol type of all symbols is SymbolType.TYPE_OTHER because without docs I was unable to problerly
+        # map Mach-O symbol types to CLE's notion of a symbol type
 
         # store the mach-o properties, all these are raw values straight from the binary
         self.lib_ordinal = lib_ordinal
@@ -318,7 +320,7 @@ class BindingSymbol(AbstractMachOSymbol):
     @property
     def library_name(self):
         if LIBRARY_ORDINAL_DYN_LOOKUP == self.lib_ordinal:
-            l.warning("LIBRARY_ORDINAL_DYN_LOOKUP found, cannot handle")
+            log.warning("LIBRARY_ORDINAL_DYN_LOOKUP found, cannot handle")
             return None
 
         return self.owner_obj.imported_libraries[self.lib_ordinal]
@@ -326,12 +328,12 @@ class BindingSymbol(AbstractMachOSymbol):
     @property
     def is_function(self):
         # Incompatibility to CLE
-        l.debug("It is not possible to decide wether a symbol is a function or not for MachOSymbols")
+        log.debug("It is not possible to decide wether a symbol is a function or not for MachOSymbols")
         return False
 
     @property
     def rebased_addr(self):
-        l.warning("Rebasing not implemented for Mach-O")
+        log.warning("Rebasing not implemented for Mach-O")
         return self.linked_addr
 
     def demangled_name(self):

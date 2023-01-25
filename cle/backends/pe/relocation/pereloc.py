@@ -1,7 +1,8 @@
 import logging
-from ...relocation import Relocation
 
-l = logging.getLogger(name=__name__)
+from cle.backends.relocation import Relocation
+
+log = logging.getLogger(name=__name__)
 
 # Reference: https://msdn.microsoft.com/en-us/library/ms809762.aspx
 class PEReloc(Relocation):
@@ -37,7 +38,7 @@ class PEReloc(Relocation):
         if self.symbol is None:  # relocation described in the DIRECTORY_ENTRY_BASERELOC table
             value = self.value
             if value is None:
-                l.debug("Unresolved relocation with no symbol.")
+                log.debug("Unresolved relocation with no symbol.")
                 return
             self.owner.memory.store(self.relative_addr, value)
         else:

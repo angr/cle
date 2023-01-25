@@ -1,17 +1,14 @@
-import logging
+import archinfo
+
+from cle.errors import CLEError
+
+from .backend import Backend, register_backend
+from .region import Section, Segment
 
 try:
     from xbe import Xbe
 except ImportError:
     Xbe = None
-
-import archinfo
-
-from ..errors import CLEError
-from . import Backend, register_backend
-from .region import Segment, Section
-
-l = logging.getLogger(name=__name__)
 
 
 class XBESection(Section):

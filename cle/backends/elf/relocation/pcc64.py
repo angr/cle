@@ -1,8 +1,17 @@
 import logging
-from . import generic
-from .elfreloc import ELFReloc
 
-l = logging.getLogger(name=__name__)
+from .elfreloc import ELFReloc
+from .generic import (
+    GenericAbsoluteAddendReloc,
+    GenericIRelativeReloc,
+    GenericJumpslotReloc,
+    GenericRelativeReloc,
+    GenericTLSDoffsetReloc,
+    GenericTLSModIdReloc,
+    GenericTLSOffsetReloc,
+)
+
+log = logging.getLogger(name=__name__)
 
 # http://refspecs.linuxfoundation.org/ELF/ppc64/PPC-elf64abi-1.9.pdf
 arch = "PPC64"
@@ -25,31 +34,31 @@ class R_PPC64_JMP_SLOT(ELFReloc):
         return True
 
 
-class R_PPC64_RELATIVE(generic.GenericRelativeReloc):
+class R_PPC64_RELATIVE(GenericRelativeReloc):
     pass
 
 
-class R_PPC64_IRELATIVE(generic.GenericIRelativeReloc):
+class R_PPC64_IRELATIVE(GenericIRelativeReloc):
     pass
 
 
-class R_PPC64_ADDR64(generic.GenericAbsoluteAddendReloc):
+class R_PPC64_ADDR64(GenericAbsoluteAddendReloc):
     pass
 
 
-class R_PPC64_GLOB_DAT(generic.GenericJumpslotReloc):
+class R_PPC64_GLOB_DAT(GenericJumpslotReloc):
     pass
 
 
-class R_PPC64_DTPMOD64(generic.GenericTLSModIdReloc):
+class R_PPC64_DTPMOD64(GenericTLSModIdReloc):
     pass
 
 
-class R_PPC64_DTPREL64(generic.GenericTLSDoffsetReloc):
+class R_PPC64_DTPREL64(GenericTLSDoffsetReloc):
     pass
 
 
-class R_PPC64_TPREL64(generic.GenericTLSOffsetReloc):
+class R_PPC64_TPREL64(GenericTLSOffsetReloc):
     pass
 
 
@@ -88,7 +97,7 @@ class R_PPC64_TOC16_LO(ELFReloc):
         A = self.addend
         S = self.resolvedby.rebased_addr
         if self.owner.ppc64_initial_rtoc is None:
-            l.warning(".TOC. value not found")
+            log.warning(".TOC. value not found")
             return (S + A) & 0xFFFF
         TOC = self.owner.ppc64_initial_rtoc
         return (S + A - TOC) & 0xFFFF
@@ -112,7 +121,7 @@ class R_PPC64_TOC16_HI(ELFReloc):
         A = self.addend
         S = self.resolvedby.rebased_addr
         if self.owner.ppc64_initial_rtoc is None:
-            l.warning(".TOC. value not found")
+            log.warning(".TOC. value not found")
             return ((S + A) >> 16) & 0xFFFF
         TOC = self.owner.ppc64_initial_rtoc
         return ((S + A - TOC) >> 16) & 0xFFFF
@@ -136,7 +145,7 @@ class R_PPC64_TOC16_HA(ELFReloc):
         A = self.addend
         S = self.resolvedby.rebased_addr
         if self.owner.ppc64_initial_rtoc is None:
-            l.warning(".TOC. value not found")
+            log.warning(".TOC. value not found")
             return (((S + A) >> 16) + (1 if ((S + A) & 0x8000) else 0)) & 0xFFFF
         TOC = self.owner.ppc64_initial_rtoc
         return (((S + A - TOC) >> 16) + (1 if ((S + A - TOC) & 0x8000) else 0)) & 0xFFFF
@@ -158,6 +167,6 @@ class R_PPC64_TOC(ELFReloc):
     @property
     def value(self):
         if self.owner.ppc64_initial_rtoc is None:
-            l.warning(".TOC. value not found")
+            log.warning(".TOC. value not found")
             return 0
         return self.owner.ppc64_initial_rtoc

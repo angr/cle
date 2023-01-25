@@ -1,7 +1,8 @@
-import archinfo
 import logging
 
-l = logging.getLogger(__name__)
+import archinfo
+
+log = logging.getLogger(__name__)
 
 
 class ELFCoreThreadManager:
@@ -10,7 +11,7 @@ class ELFCoreThreadManager:
         self.arch = arch
         self.threads = [ELFCoreThread(loader, arch, threadinfo) for threadinfo in loader.main_object._threads]
         if arch.name not in ("AMD64", "X86"):
-            l.warning("TLS for coredumps won't be right for this arch - idk how to do it")
+            log.warning("TLS for coredumps won't be right for this arch - idk how to do it")
         self.modules = []  # ???
 
     def new_thread(self, insert=False):  # pylint: disable=no-self-use

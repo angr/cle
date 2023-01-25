@@ -1,5 +1,5 @@
-from io import BytesIO
 import os
+from io import BytesIO
 
 import cle
 

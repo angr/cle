@@ -1,10 +1,20 @@
 import logging
-from . import generic
+
+from cle.errors import CLEOperationError
+
 from .elfreloc import ELFReloc
-from ....errors import CLEOperationError
+from .generic import (
+    GenericAbsoluteAddendReloc,
+    GenericCopyReloc,
+    GenericJumpslotReloc,
+    GenericPCRelativeAddendReloc,
+    GenericRelativeReloc,
+    GenericTLSDoffsetReloc,
+    GenericTLSModIdReloc,
+    GenericTLSOffsetReloc,
+)
 
-
-l = logging.getLogger(name=__name__)
+log = logging.getLogger(name=__name__)
 arch = "ARM"
 
 # Reference: "ELF for the ARM Architecture ABI r2.10"
@@ -20,7 +30,7 @@ def _applyReloc(inst, result, mask=0xFFFFFFFF):
         if result & ~mask:
             raise ValueError("result & ~mask is not 0.")
     except ValueError as ex:
-        l.warning("Relocation failed: %r", ex)
+        log.warning("Relocation failed: %r", ex)
         return 0  # worst case, you hook it yourself
     return (inst & ~mask) | (result & mask)  # pylint: disable=superfluous-parens
 
@@ -73,7 +83,7 @@ class R_ARM_CALL(ELFReloc):
             mask = 0xFFFFFF
             result = _applyReloc(inst, imm24, mask)
 
-        l.debug("%s relocated as R_ARM_CALL with new instruction: %#x", self.symbol.name, result)
+        log.debug("%s relocated as R_ARM_CALL with new instruction: %#x", self.symbol.name, result)
         return result
 
 
@@ -106,14 +116,14 @@ class R_ARM_PREL31(ELFReloc):
         mask = 0x7FFFFFFF
         rel31 = result & mask
         result = _applyReloc(A, rel31, mask)
-        l.debug("%s relocated as R_ARM_PREL31 to: 0x%x", self.symbol.name, result)
+        log.debug("%s relocated as R_ARM_PREL31 to: 0x%x", self.symbol.name, result)
         return result
 
 
 class R_ARM_REL32(ELFReloc):
     """
     Relocate R_ARM_REL32 symbols. This is essentially the same as
-    generic.GenericPCRelativeAddendReloc with the addition of a check
+    GenericPCRelativeAddendReloc with the addition of a check
     for whether or not the target is Thumb.
 
     - Class: Static
@@ -133,14 +143,14 @@ class R_ARM_REL32(ELFReloc):
         S = self.resolvedby.rebased_addr  # The symbol's "value", where it points to
         T = _isThumbFunc(self.symbol, S)
         result = ((S + A) | T) - P
-        l.debug("%s relocated as R_ARM_REL32 to: 0x%x", self.symbol.name, result)
+        log.debug("%s relocated as R_ARM_REL32 to: 0x%x", self.symbol.name, result)
         return result
 
 
 class R_ARM_ABS32(ELFReloc):
     """
     Relocate R_ARM_ABS32 symbols. This is essentially the same as
-    generic.GenericAbsoluteAddendReloc with the addition of a check
+    GenericAbsoluteAddendReloc with the addition of a check
     for whether or not the target is Thumb.
 
     - Class: Static
@@ -158,7 +168,7 @@ class R_ARM_ABS32(ELFReloc):
         S = self.resolvedby.rebased_addr  # The symbol's "value", where it points to
         T = _isThumbFunc(self.symbol, S)
         result = (S + A) | T
-        l.debug("%s relocated as R_ARM_ABS32 to: 0x%x", self.symbol.name, result)
+        log.debug("%s relocated as R_ARM_ABS32 to: 0x%x", self.symbol.name, result)
         return result
 
 
@@ -194,7 +204,7 @@ class R_ARM_MOVW_ABS_NC(ELFReloc):
         inst &= 0xFFF0F000  # clears inst[11, 0] and inst[19, 16]
         inst |= (part1 << 16) & 0xF0000  # inst[19, 16] = part1
         inst |= part2 & 0xFFF  # inst[11, 0] = part2
-        l.debug("%s relocated as R_ARM_MOVW_ABS_NC to: 0x%x", self.symbol.name, inst)
+        log.debug("%s relocated as R_ARM_MOVW_ABS_NC to: 0x%x", self.symbol.name, inst)
         return inst
 
 
@@ -228,7 +238,7 @@ class R_ARM_MOVT_ABS(ELFReloc):
         inst &= 0xFFF0F000  # clears inst[11, 0] and inst[19, 16]
         inst |= (part1 << 16) & 0xF0000  # inst[19, 16] = part1
         inst |= part2 & 0xFFF  # inst[11, 0] = part2
-        l.debug("%s relocated as R_ARM_MOVT_ABS to: 0x%x", self.symbol.name, inst)
+        log.debug("%s relocated as R_ARM_MOVT_ABS to: 0x%x", self.symbol.name, inst)
         return inst
 
 
@@ -243,11 +253,14 @@ class R_ARM_THM_CALL(ELFReloc):
       - S is the address of the symbol
       - A is the addend
       - P is the target location (place being relocated)
-      - T is 1 if the symbol is of type STT_FUNC and addresses a Thumb instruction (This bit is entirely irrelevant because the 1-bit of the address gets shifted off in the encoding)
+      - T is 1 if the symbol is of type STT_FUNC and addresses a Thumb instruction (This bit is entirely irrelevant
+        because the 1-bit of the address gets shifted off in the encoding)
     - Encoding: See http://hermes.wings.cs.wisc.edu/files/Thumb-2SupplementReferenceManual.pdf
       - Page 71 (3-31) has the chart
-      - It appears that it mistakenly references the I1 and I2 bits as J1 and J2 in the chart (see the notes at the bottom of the page -- the ranges don't make sense)
-      - However, the J1/J2 bits are XORed with !S bit in this case (see vex implementation: https://github.com/angr/vex/blob/6d1252c7ce8fe8376318b8f8bb8034058454c841/priv/guest_arm_toIR.c#L19219 )
+      - It appears that it mistakenly references the I1 and I2 bits as J1 and J2 in the chart (see the notes at the
+        bottom of the page -- the ranges don't make sense)
+      - However, the J1/J2 bits are XORed with !S bit in this case (see vex implementation:
+        https://github.com/angr/vex/blob/6d1252c7ce8fe8376318b8f8bb8034058454c841/priv/guest_arm_toIR.c#L19219 )
       - Implementation appears correct with the bits placed into offset[23:22]
     """
 
@@ -346,43 +359,43 @@ class R_ARM_THM_CALL(ELFReloc):
 
         result = (raw[3] << 24) | (raw[2] << 16) | (raw[1] << 8) | raw[0]
 
-        l.debug("%s relocated as R_ARM_THM_CALL with new instruction: %#x", self.symbol.name, result)
+        log.debug("%s relocated as R_ARM_THM_CALL with new instruction: %#x", self.symbol.name, result)
         return result
 
 
-class R_ARM_COPY(generic.GenericCopyReloc):
+class R_ARM_COPY(GenericCopyReloc):
     pass
 
 
-class R_ARM_GLOB_DAT(generic.GenericJumpslotReloc):
+class R_ARM_GLOB_DAT(GenericJumpslotReloc):
     pass
 
 
-class R_ARM_JUMP_SLOT(generic.GenericJumpslotReloc):
+class R_ARM_JUMP_SLOT(GenericJumpslotReloc):
     pass
 
 
-class R_ARM_RELATIVE(generic.GenericRelativeReloc):
+class R_ARM_RELATIVE(GenericRelativeReloc):
     pass
 
 
-class R_ARM_ABS32_NOI(generic.GenericAbsoluteAddendReloc):
+class R_ARM_ABS32_NOI(GenericAbsoluteAddendReloc):
     pass
 
 
-class R_ARM_REL32_NOI(generic.GenericPCRelativeAddendReloc):
+class R_ARM_REL32_NOI(GenericPCRelativeAddendReloc):
     pass
 
 
-class R_ARM_TLS_DTPMOD32(generic.GenericTLSModIdReloc):
+class R_ARM_TLS_DTPMOD32(GenericTLSModIdReloc):
     pass
 
 
-class R_ARM_TLS_DTPOFF32(generic.GenericTLSDoffsetReloc):
+class R_ARM_TLS_DTPOFF32(GenericTLSDoffsetReloc):
     pass
 
 
-class R_ARM_TLS_TPOFF32(generic.GenericTLSOffsetReloc):
+class R_ARM_TLS_TPOFF32(GenericTLSOffsetReloc):
     pass
 
 
@@ -445,7 +458,7 @@ class R_ARM_THM_MOVW_ABS_NC(ELFReloc):
         inst |= (part4 << 0) & 0b0000_0000_0000_0000_0000_0000_1111_1111
         raw = ((inst & 0x00FF0000) >> 16, (inst & 0xFF000000) >> 24, (inst & 0x00FF), (inst & 0xFF00) >> 8)
         inst = (raw[3] << 24) | (raw[2] << 16) | (raw[1] << 8) | raw[0]
-        l.debug("%s relocated as R_ARM_THM_MOVW_ABS_NC to: 0x%x", self.symbol.name, inst)
+        log.debug("%s relocated as R_ARM_THM_MOVW_ABS_NC to: 0x%x", self.symbol.name, inst)
         return inst
 
 
@@ -485,5 +498,32 @@ class R_ARM_THM_MOVT_ABS(ELFReloc):
         inst |= (part4 << 0) & 0b0000_0000_0000_0000_0000_0000_1111_1111
         raw = ((inst & 0x00FF0000) >> 16, (inst & 0xFF000000) >> 24, (inst & 0x00FF), (inst & 0xFF00) >> 8)
         inst = (raw[3] << 24) | (raw[2] << 16) | (raw[1] << 8) | raw[0]
-        l.debug("%s relocated as R_ARM_THM_MOVT_ABS to: 0x%x", self.symbol.name, inst)
+        log.debug("%s relocated as R_ARM_THM_MOVT_ABS to: 0x%x", self.symbol.name, inst)
         return inst
+
+
+__all__ = [
+    "arch",
+    "R_ARM_CALL",
+    "R_ARM_PREL31",
+    "R_ARM_REL32",
+    "R_ARM_ABS32",
+    "R_ARM_MOVW_ABS_NC",
+    "R_ARM_MOVT_ABS",
+    "R_ARM_THM_CALL",
+    "R_ARM_COPY",
+    "R_ARM_GLOB_DAT",
+    "R_ARM_JUMP_SLOT",
+    "R_ARM_RELATIVE",
+    "R_ARM_ABS32_NOI",
+    "R_ARM_REL32_NOI",
+    "R_ARM_TLS_DTPOFF32",
+    "R_ARM_TLS_TPOFF32",
+    "R_ARM_JUMP24",
+    "R_ARM_PC24",
+    "R_ARM_THM_JUMP24",
+    "R_ARM_THM_JUMP19",
+    "R_ARM_THM_JUMP6",
+    "R_ARM_THM_MOVW_ABS_NC",
+    "R_ARM_THM_MOVT_ABS",
+]

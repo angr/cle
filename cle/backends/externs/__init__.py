@@ -1,12 +1,26 @@
 import logging
 
-from cle.backends import Backend, Symbol, Segment, SymbolType
-from cle.backends.relocation import Relocation
-from cle.utils import ALIGN_UP
-from cle.errors import CLEOperationError, CLEError
 from cle.address_translator import AT
+from cle.backends.backend import Backend
+from cle.backends.region import Segment
+from cle.backends.relocation import Relocation
+from cle.backends.symbol import Symbol, SymbolType
+from cle.errors import CLEError, CLEOperationError
+from cle.utils import ALIGN_UP
 
-l = logging.getLogger(name=__name__)
+from .simdata import SimData, lookup
+from .simdata.common import PointTo, SimDataSimpleRelocation
+
+log = logging.getLogger(name=__name__)
+
+
+__all__ = [
+    "ExternSegment",
+    "TOCRelocation",
+    "ExternObject",
+    "KernelObject",
+    "PointToPrecise",
+]
 
 
 class ExternSegment(Segment):
@@ -102,7 +116,7 @@ class ExternObject(Backend):
             SymbolCls = simdata
             size = simdata.static_size(self)
             if sym_type != simdata.type:
-                l.warning("Symbol type mismatch between export request and response for %s. What's going on?", name)
+                log.warning("Symbol type mismatch between export request and response for %s. What's going on?", name)
 
         real_size = max(size, 1)
 
@@ -119,7 +133,7 @@ class ExternObject(Backend):
             name += "#func"
 
         if size == 0 and sym_type in (SymbolType.TYPE_NONE, SymbolType.TYPE_OBJECT, SymbolType.TYPE_TLS_OBJECT):
-            l.warning(
+            log.warning(
                 "Symbol was allocated without a known size; emulation may fail if it is used non-opaquely: %s", name
             )
             self._warned_data_import = True
@@ -135,7 +149,7 @@ class ExternObject(Backend):
                 name, size=size, alignment=alignment, sym_type=sym_type, libname=libname
             )
 
-        l.info("Created extern symbol for %s", name)
+        log.info("Created extern symbol for %s", name)
 
         new_symbol = SymbolCls(self, name, local_addr, size, sym_type)
         new_symbol.is_export = True
@@ -273,10 +287,6 @@ class KernelObject(Backend):
     @property
     def max_addr(self):
         return AT.from_rva(self.map_size - 1, self).to_mva()
-
-
-from .simdata import lookup, SimData
-from .simdata.common import PointTo, SimDataSimpleRelocation
 
 
 class PointToPrecise(PointTo):

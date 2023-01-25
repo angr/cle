@@ -1,6 +1,11 @@
-import archinfo
 import ntpath
 import struct
+
+import archinfo
+
+from cle.backends.backend import Backend, register_backend
+from cle.backends.region import Section, Segment
+from cle.errors import CLEError, CLEInvalidBinaryError
 
 try:
     from minidump import minidumpfile
@@ -8,10 +13,6 @@ try:
 except ImportError:
     minidumpfile = None
     SystemInfoStream = None
-
-from .. import register_backend, Backend
-from ..region import Section, Segment
-from ...errors import CLEError, CLEInvalidBinaryError
 
 
 class MinidumpMissingStreamError(Exception):

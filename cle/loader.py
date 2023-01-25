@@ -1,19 +1,32 @@
-import os
-import sys
-import platform
 import logging
+import os
+import platform
+import sys
 from collections import OrderedDict
-from typing import Optional, List
+from typing import List, Optional
 
 import archinfo
 from archinfo.arch_soot import ArchSoot
 
-from .address_translator import AT
-from .utils import ALIGN_UP, key_bisect_floor_key, key_bisect_insort_right
+from cle.address_translator import AT
+from cle.errors import CLECompatibilityError, CLEError, CLEFileNotFoundError, CLEOperationError
+from cle.memory import Clemory
+from cle.utils import ALIGN_UP, key_bisect_floor_key, key_bisect_insort_right, stream_or_path
+
+from .backends import ALL_BACKENDS, ELF, PE, Backend, Blob, ELFCore, MetaELF, Minidump
+from .backends.externs import ExternObject, KernelObject
+from .backends.tls import (
+    ELFCoreThreadManager,
+    ELFThreadManager,
+    MinidumpThreadManager,
+    PEThreadManager,
+    ThreadManager,
+    TLSObject,
+)
 
 __all__ = ("Loader",)
 
-l = logging.getLogger(name=__name__)
+log = logging.getLogger(name=__name__)
 
 
 class Loader:
@@ -142,10 +155,10 @@ class Loader:
         self.memory = None
         self.main_object = None
         self.tls = None
-        self._kernel_object = None  # type: Optional[KernelObject]
-        self._extern_object = None  # type: Optional[ExternObject]
+        self._kernel_object: Optional[KernelObject] = None
+        self._extern_object: Optional[ExternObject] = None
         self.shared_objects = OrderedDict()
-        self.all_objects = []  # type: List[Backend]
+        self.all_objects: List[Backend] = []
         self.requested_names = set()
         if arch is not None:
             self._main_opts.update({"arch": arch})
@@ -158,14 +171,15 @@ class Loader:
         self._last_object = None
 
         if self._extern_object and self._extern_object._warned_data_import:
-            l.warning(
-                'For more information about "Symbol was allocated without a known size", see https://docs.angr.io/extending-angr/environment#simdata'
+            log.warning(
+                'For more information about "Symbol was allocated without a known size",'
+                "see https://docs.angr.io/extending-angr/environment#simdata"
             )
 
     # Basic functions and properties
 
     def close(self):
-        l.warning("You don't need to close the loader anymore :)")
+        log.warning("You don't need to close the loader anymore :)")
 
     def __repr__(self):
         if self._main_binary_stream is None:
@@ -237,9 +251,9 @@ class Loader:
             1) extern objects are a linked list. the one in loader._extern_object is the head of the list
             2) each round of explicit loads generates a new extern object if it has unresolved dependencies. this object
                has exactly the size necessary to hold all its exports.
-            3) All requests for size are passed down the chain until they reach an object which has the space to service it
-               or an object which has not yet been mapped. If all objects have been mapped and are full, a new extern object
-               is mapped with a fixed size.
+            3) All requests for size are passed down the chain until they reach an object which has the space to service
+               it or an object which has not yet been mapped. If all objects have been mapped and are full, a new extern
+               object is mapped with a fixed size.
         """
         if self._extern_object is None:
             if self.main_object.arch.bits < 32:
@@ -647,7 +661,7 @@ class Loader:
         try:
             return self._internal_load(spec)
         except CLEFileNotFoundError as e:
-            l.warning("Dynamic load failed: %r", e)
+            log.warning("Dynamic load failed: %r", e)
             return None
 
     def get_loader_symbolic_constraints(self):
@@ -663,7 +677,7 @@ class Loader:
             claripy = None
 
         if not claripy:
-            l.error("Please install claripy to get symbolic constraints")
+            log.error("Please install claripy to get symbolic constraints")
             return []
         outputlist = []
         for obj in self.all_objects:
@@ -715,7 +729,7 @@ class Loader:
         for main_spec in args:
             is_preloading = any(spec is main_spec for spec in preloading)
             if self.find_object(main_spec, extra_objects=objects) is not None:
-                l.info("Skipping load request %s - already loaded", main_spec)
+                log.info("Skipping load request %s - already loaded", main_spec)
                 continue
             obj = self._load_object_isolated(main_spec)
             objects.append(obj)
@@ -750,17 +764,17 @@ class Loader:
         while self._auto_load_libs and dependencies:
             spec = dependencies.pop(0)
             if spec in cached_failures:
-                l.debug("Skipping implicit dependency %s - cached failure", spec)
+                log.debug("Skipping implicit dependency %s - cached failure", spec)
                 continue
             if self.find_object(spec, extra_objects=objects) is not None:
-                l.debug("Skipping implicit dependency %s - already loaded", spec)
+                log.debug("Skipping implicit dependency %s - already loaded", spec)
                 continue
 
             try:
-                l.info("Loading %s...", spec)
+                log.info("Loading %s...", spec)
                 obj = self._load_object_isolated(spec)  # loading dependencies
             except CLEFileNotFoundError:
-                l.info("... not found")
+                log.info("... not found")
                 cached_failures.add(spec)
                 if self._except_missing_libs:
                     raise
@@ -818,7 +832,7 @@ class Loader:
         # link everything
         if self._perform_relocations:
             for obj in ordered_objects:
-                l.info("Linking %s", obj.binary)
+                log.info("Linking %s", obj.binary)
                 sibling_objs = list(obj.parent_object.child_objects) if obj.parent_object is not None else []
                 stripped_deps = [
                     dep if not self._ignore_import_version_numbers else dep.rstrip(".0123456789") for dep in obj.deps
@@ -884,7 +898,7 @@ class Loader:
             close = False
         elif type(spec) in (bytes, str):
             binary = self._search_load_path(spec)  # this is allowed to cheat and do partial static loading
-            l.debug("... using full path %s", binary)
+            log.debug("... using full path %s", binary)
             binary_stream = open(binary, "rb")
             close = True
         else:
@@ -915,7 +929,7 @@ class Loader:
                 )
 
             # STEP 4: LOAD!
-            l.debug("... loading with %s", backend_cls)
+            log.debug("... loading with %s", backend_cls)
 
             result = backend_cls(binary, binary_stream, is_main_bin=self.main_object is None, loader=self, **options)
             result.close()
@@ -938,7 +952,7 @@ class Loader:
             elif not obj.is_main_bin:
                 base_addr = self._find_safe_rebase_addr(obj_size)
             else:
-                l.warning(
+                log.warning(
                     "The main binary is a position-independent executable. "
                     "It is being loaded with a base address of 0x400000."
                 )
@@ -951,7 +965,7 @@ class Loader:
                 and obj.linked_base != obj._custom_base_addr
                 and not isinstance(obj, Blob)
             ):
-                l.warning(
+                log.warning(
                     "%s: base_addr was specified but the object is not PIC. " "specify force_rebase=True to override",
                     obj.binary_basename,
                 )
@@ -963,7 +977,7 @@ class Loader:
 
         if obj.has_memory:
             assert obj.min_addr <= obj.max_addr
-            l.info("Mapping %s at %#x", obj.binary, base_addr)
+            log.info("Mapping %s at %#x", obj.binary, base_addr)
             self.memory.add_backer(base_addr, obj.memory)
         obj._is_mapped = True
         key_bisect_insort_right(self.all_objects, obj, keyfunc=lambda o: o.min_addr)
@@ -1057,7 +1071,7 @@ class Loader:
                 # ... extend with load path of native libraries
                 dirs.extend(self.main_object.extra_load_path)
                 if self._use_system_libs:
-                    l.debug(
+                    log.debug(
                         "Path to system libraries (usually added as dependencies of JNI libs) needs "
                         "to be specified manually, by using the custom_ld_path option."
                     )
@@ -1227,18 +1241,3 @@ class Loader:
             return default
         else:
             raise CLEError("Invalid backend: %s" % backend)
-
-
-from .errors import CLEError, CLEFileNotFoundError, CLECompatibilityError, CLEOperationError
-from .memory import Clemory
-from .backends import MetaELF, ELF, PE, ELFCore, Minidump, Blob, ALL_BACKENDS, Backend
-from .backends.tls import (
-    ThreadManager,
-    ELFThreadManager,
-    PEThreadManager,
-    ELFCoreThreadManager,
-    MinidumpThreadManager,
-    TLSObject,
-)
-from .backends.externs import ExternObject, KernelObject
-from .utils import stream_or_path

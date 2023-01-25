@@ -1,8 +1,17 @@
 import logging
-from . import generic
-from .elfreloc import ELFReloc
 
-l = logging.getLogger(name=__name__)
+from .elfreloc import ELFReloc
+from .generic import (
+    GenericAbsoluteAddendReloc,
+    GenericCopyReloc,
+    GenericJumpslotReloc,
+    GenericRelativeReloc,
+    GenericTLSDoffsetReloc,
+    GenericTLSModIdReloc,
+    GenericTLSOffsetReloc,
+)
+
+log = logging.getLogger(name=__name__)
 arch = "PPC32"
 
 # Reference: System V Application Binary Interface, PowerPC Processor Supplement
@@ -18,7 +27,7 @@ PPC_HALF16 = 0xFFFF
 PPC_BL_INST = 0x48000001
 
 
-class R_PPC_ADDR32(generic.GenericAbsoluteAddendReloc):
+class R_PPC_ADDR32(GenericAbsoluteAddendReloc):
     pass
 
 
@@ -258,22 +267,22 @@ class R_PPC_REL14_BRNTAKEN(ELFReloc):
         return result
 
 
-class R_PPC_COPY(generic.GenericCopyReloc):
+class R_PPC_COPY(GenericCopyReloc):
     pass
 
 
-class R_PPC_GLOB_DAT(generic.GenericJumpslotReloc):
+class R_PPC_GLOB_DAT(GenericJumpslotReloc):
     pass
 
 
-class R_PPC_JMP_SLOT(generic.GenericJumpslotReloc):
+class R_PPC_JMP_SLOT(GenericJumpslotReloc):
     def relocate(self):
         if "DT_PPC_GOT" not in self.owner._dynamic and "DT_LOPROC" not in self.owner._dynamic:
-            l.error("This binary is relocated incorrectly. See https://github.com/angr/cle/issues/142 for details.")
+            log.error("This binary is relocated incorrectly. See https://github.com/angr/cle/issues/142 for details.")
         super().relocate()
 
 
-class R_PPC_RELATIVE(generic.GenericRelativeReloc):
+class R_PPC_RELATIVE(GenericRelativeReloc):
     pass
 
 
@@ -410,13 +419,13 @@ class R_PPC_ADDR30(ELFReloc):
         return result
 
 
-class R_PPC_DTPMOD32(generic.GenericTLSModIdReloc):
+class R_PPC_DTPMOD32(GenericTLSModIdReloc):
     pass
 
 
-class R_PPC_DTPREL32(generic.GenericTLSDoffsetReloc):
+class R_PPC_DTPREL32(GenericTLSDoffsetReloc):
     pass
 
 
-class R_PPC_TPREL32(generic.GenericTLSOffsetReloc):
+class R_PPC_TPREL32(GenericTLSOffsetReloc):
     pass

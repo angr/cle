@@ -2,8 +2,9 @@
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
 from typing import Optional
 
+from cle.backends.region import Section
+
 from .segment import MachOSegment
-from .. import Section
 
 TYPE_MASK = 0x000000FF
 ATTRIBUTES_MASK = 0xFFFFFF00

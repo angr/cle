@@ -1,31 +1,38 @@
-from . import generic
+from .generic import (
+    GenericAbsoluteAddendReloc,
+    GenericCopyReloc,
+    GenericIRelativeReloc,
+    GenericJumpslotReloc,
+    GenericRelativeReloc,
+    GenericTLSOffsetReloc,
+)
 
 arch = "S390X"
 
 
-class R_390_GLOB_DAT(generic.GenericJumpslotReloc):
+class R_390_GLOB_DAT(GenericJumpslotReloc):
     pass
 
 
-class R_390_JMP_SLOT(generic.GenericJumpslotReloc):
+class R_390_JMP_SLOT(GenericJumpslotReloc):
     pass
 
 
-class R_390_RELATIVE(generic.GenericRelativeReloc):
+class R_390_RELATIVE(GenericRelativeReloc):
     pass
 
 
-class R_390_64(generic.GenericAbsoluteAddendReloc):
+class R_390_64(GenericAbsoluteAddendReloc):
     pass
 
 
-class R_390_TLS_TPOFF(generic.GenericTLSOffsetReloc):
+class R_390_TLS_TPOFF(GenericTLSOffsetReloc):
     pass
 
 
-class R_390_IRELATIVE(generic.GenericIRelativeReloc):
+class R_390_IRELATIVE(GenericIRelativeReloc):
     pass
 
 
-class R_390_COPY(generic.GenericCopyReloc):
+class R_390_COPY(GenericCopyReloc):
     pass

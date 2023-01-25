@@ -1,10 +1,11 @@
 import logging
 from zipfile import ZipFile
 
-from .. import register_backend
+from cle.backends.backend import register_backend
+
 from .soot import Soot
 
-l = logging.getLogger(name=__name__)
+log = logging.getLogger(name=__name__)
 
 
 class Jar(Soot):
@@ -38,7 +39,7 @@ class Jar(Soot):
                                         Note: Directory of the JAR is added by default.
         """
 
-        l.debug("Loading JAR from %s ...", jar_path)
+        log.debug("Loading JAR from %s ...", jar_path)
 
         if not entry_point:
             # try to parse main class from manifest

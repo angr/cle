@@ -1,5 +1,6 @@
-from . import InternalTLSRelocation, ThreadManager, TLSObject
-from ...address_translator import AT
+from cle.address_translator import AT
+
+from .tls_object import InternalTLSRelocation, ThreadManager, TLSObject
 
 
 class PEThreadManager(ThreadManager):

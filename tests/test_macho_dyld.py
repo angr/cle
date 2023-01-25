@@ -44,8 +44,8 @@ class TestMachODyld(unittest.TestCase):
         self.assertDictEqual(binary._dyld_rebases, expected)
 
     def test_symbols(self):
-        l = cle.Loader(str(TEST_BASE / "tests" / "aarch64" / "dyld_ios15.macho"))
-        binary: MachO = cast(MachO, l.main_object)
+        loader = cle.Loader(str(TEST_BASE / "tests" / "aarch64" / "dyld_ios15.macho"))
+        binary: MachO = cast(MachO, loader.main_object)
 
         expected = [
             (0x100008000, "_$s10Foundation5NSLogyySS_s7CVarArg_pdtF"),

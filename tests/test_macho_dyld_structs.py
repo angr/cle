@@ -1,8 +1,8 @@
 from cle.backends.macho.structs import (
+    ChainedFixupPointerOnDisk,
+    Generic64,
     dyld_chained_import,
     dyld_chained_ptr_64_rebase,
-    Generic64,
-    ChainedFixupPointerOnDisk,
 )
 
 

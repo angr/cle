@@ -2,7 +2,6 @@
 import unittest
 
 import cle
-
 from cle.address_translator import AT
 
 

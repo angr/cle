@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
 import logging
-import cle
-
 import os
+
+import cle
 
 test_location = os.path.join(
     os.path.dirname(os.path.realpath(__file__)),
