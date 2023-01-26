@@ -63,7 +63,7 @@ from .errors import (
     CLEOperationError,
     CLEUnknownFormatError,
 )
-from .gdb import convert_info_proc_maps, convert_info_sharedlibrary
+from .gdb import GDB_SEARCH_PATH, convert_info_proc_maps, convert_info_sharedlibrary
 from .loader import Loader
 from .memory import Clemory, ClemoryBase, ClemoryView
 from .patched_stream import PatchedStream
@@ -115,6 +115,7 @@ __all__ = [
     "CLEUnknownFormatError",
     "convert_info_proc_maps",
     "convert_info_sharedlibrary",
+    "GDB_SEARCH_PATH",
     "Loader",
     "Clemory",
     "ClemoryBase",
