@@ -1,7 +1,7 @@
 import copy
 import logging
+import os
 import xml.etree.ElementTree
-from typing import List, Optional, Dict
 from collections import OrderedDict, defaultdict
 from typing import Dict, List, Optional
 
@@ -15,6 +15,12 @@ from elftools.dwarf.dwarf_expr import DWARFExprParser
 from elftools.dwarf.dwarfinfo import DWARFInfo
 from elftools.elf import dynamic, elffile, enums, sections
 from sortedcontainers import SortedDict
+
+from cle.address_translator import AT
+from cle.backends.backend import ExceptionHandling, FunctionHint, FunctionHintSource, register_backend
+from cle.errors import CLECompatibilityError, CLEError, CLEInvalidBinaryError
+from cle.patched_stream import PatchedStream
+from cle.utils import ALIGN_DOWN, ALIGN_UP, get_mmaped_data, stream_or_path
 
 from .compilation_unit import CompilationUnit
 from .hashtable import ELFHashTable, GNUHashTable
@@ -1356,7 +1362,7 @@ class ELF(MetaELF):
                 c.update(attribs)
             return constraints
 
-        l.info("Loading opinions...")
+        log.info("Loading opinions...")
         SPECFILES_DIR = pypcode.SPECFILES_DIR
         elf_opinions = []
         for archname in os.listdir(SPECFILES_DIR):
@@ -1403,7 +1409,7 @@ class ELF(MetaELF):
                     pass
             opinions.append(o)
 
-        l.info("Available opinions: %s", opinions)
+        log.info("Available opinions: %s", opinions)
 
         languages = []
         for arch in pypcode.Arch.enumerate():
@@ -1416,7 +1422,7 @@ class ELF(MetaELF):
                     if all(k not in lang.ldef.attrib or lang.ldef.attrib[k] == v for k, v in o.items()):
                         languages.append(lang)
 
-        l.info("Found candidate languages: %s", [lang.id for lang in languages])
+        log.info("Found candidate languages: %s", [lang.id for lang in languages])
         return languages
 
 

@@ -1,6 +1,6 @@
 # pylint:disable=no-self-use
-import unittest
 import os
+import unittest
 
 import archinfo
 
