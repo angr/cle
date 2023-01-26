@@ -1,11 +1,11 @@
 import logging
 from typing import Optional
 
-from ...errors import CLEError
-from .. import Backend
-from ..relocation import Relocation
+from cle.backends.backend import Backend
+from cle.backends.relocation import Relocation
+from cle.errors import CLEError
 
-_l = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 class ThreadManager:
@@ -35,10 +35,10 @@ class ThreadManager:
     @staticmethod
     def initialization_image(obj) -> Optional[bytes]:
         if obj.tls_data_start < 0:
-            _l.warning("The provided object has a negative tls_data_start. Skip TLS loading.")
+            log.warning("The provided object has a negative tls_data_start. Skip TLS loading.")
             return None
         if obj.tls_data_size <= 0:
-            _l.warning("The provided object has an invalid tls_data_size. Skip TLS loading.")
+            log.warning("The provided object has an invalid tls_data_size. Skip TLS loading.")
             return None
         return obj.memory.load(obj.tls_data_start, obj.tls_data_size).ljust(obj.tls_block_size, b"\0")
 

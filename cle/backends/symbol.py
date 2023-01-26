@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from cle.address_translator import AT
 
 if TYPE_CHECKING:
-    from .. import Backend
+    from .backend import Backend
 
 log = logging.getLogger(name=__name__)
 

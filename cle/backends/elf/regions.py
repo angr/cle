@@ -1,4 +1,4 @@
-from ..region import Section, Segment
+from cle.backends.region import Section, Segment
 
 
 def maybedecode(string):

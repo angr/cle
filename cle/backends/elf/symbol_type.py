@@ -1,8 +1,4 @@
-import logging
-
-from ..symbol import SymbolSubType, SymbolType
-
-_l = logging.getLogger(name=__name__)
+from cle.backends.symbol import SymbolSubType, SymbolType
 
 
 class ELFSymbolType(SymbolSubType):

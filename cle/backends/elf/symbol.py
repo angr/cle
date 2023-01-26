@@ -1,7 +1,8 @@
 from elftools.elf.enums import ENUM_ST_INFO_TYPE
 
-from ...address_translator import AT
-from ..symbol import Symbol, SymbolType
+from cle.address_translator import AT
+from cle.backends.symbol import Symbol, SymbolType
+
 from .symbol_type import ELFSymbolType
 
 

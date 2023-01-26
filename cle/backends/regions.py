@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, List, Optional
 from cle.utils import key_bisect_find, key_bisect_insort_left
 
 if TYPE_CHECKING:
-    from .. import Region
+    from .region import Region
 
 
 if str is not bytes:
