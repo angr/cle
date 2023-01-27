@@ -142,7 +142,7 @@ def key_bisect_insort_right(lst, item, lo=0, hi=None, keyfunc=lambda x: x):
 @staticmethod
 def get_text_offset(path):
     """
-    Offset of .text in the binary.
+    Offset of text section in the binary.
     """
     with stream_or_path(path) as f:
         e = elftools.elf.elffile.ELFFile(f)

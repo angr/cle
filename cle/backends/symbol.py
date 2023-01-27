@@ -53,7 +53,7 @@ class Symbol:
     :ivar str name:         The name of this symbol
     :ivar int addr:         The un-based address of this symbol, an RVA
     :ivar int size:         The size of this symbol
-    :ivar SymbolType _type: The ABI-agnostic type of this symbol
+    :ivar _type:            The ABI-agnostic type of this symbol
     :ivar bool resolved:    Whether this import symbol has been resolved to a real symbol
     :ivar resolvedby:       The real symbol this import symbol has been resolve to
     :vartype resolvedby:    None or cle.backends.Symbol
@@ -68,7 +68,7 @@ class Symbol:
         self.name = name
         self.relative_addr = relative_addr
         self.size = size
-        self._type = SymbolType(sym_type)
+        self._type: SymbolType = SymbolType(sym_type)
         self.resolved = False
         self.resolvedby = None
 

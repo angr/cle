@@ -250,17 +250,22 @@ class R_ARM_THM_CALL(ELFReloc):
     - Type: ARM (R_ARM_THM_CALL)
     - Code: 10
     - Operation: ((S + A) | T) - P
+
       - S is the address of the symbol
       - A is the addend
       - P is the target location (place being relocated)
       - T is 1 if the symbol is of type STT_FUNC and addresses a Thumb instruction (This bit is entirely irrelevant
         because the 1-bit of the address gets shifted off in the encoding)
+
     - Encoding: See http://hermes.wings.cs.wisc.edu/files/Thumb-2SupplementReferenceManual.pdf
+
       - Page 71 (3-31) has the chart
       - It appears that it mistakenly references the I1 and I2 bits as J1 and J2 in the chart (see the notes at the
         bottom of the page -- the ranges don't make sense)
+
       - However, the J1/J2 bits are XORed with !S bit in this case (see vex implementation:
         https://github.com/angr/vex/blob/6d1252c7ce8fe8376318b8f8bb8034058454c841/priv/guest_arm_toIR.c#L19219 )
+
       - Implementation appears correct with the bits placed into offset[23:22]
     """
 
