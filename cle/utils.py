@@ -139,7 +139,6 @@ def key_bisect_insort_right(lst, item, lo=0, hi=None, keyfunc=lambda x: x):
     lst.insert(lo, item)
 
 
-@staticmethod
 def get_text_offset(path):
     """
     Offset of text section in the binary.
