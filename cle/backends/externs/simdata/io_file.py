@@ -1,11 +1,12 @@
-import struct
 import logging
+import struct
 
-from . import SimData, register
-from ...symbol import SymbolType
+from cle.backends.symbol import SymbolType
+
 from .common import PointTo
+from .simdata import SimData, register
 
-l = logging.getLogger(name=__name__)
+log = logging.getLogger(name=__name__)
 
 #
 # Here, we define a specific structure (part of it at least) for the FILE structure.
@@ -55,7 +56,7 @@ _IO_FILE["ARMHF"] = _IO_FILE["ARM"]
 
 def io_file_data_for_arch(arch):
     if arch.name not in _IO_FILE:
-        l.error("missing _IO_FILE offsets for arch: %s", arch.name)
+        log.error("missing _IO_FILE offsets for arch: %s", arch.name)
         return _IO_FILE["AMD64"]
     return _IO_FILE[arch.name]
 
@@ -83,7 +84,7 @@ class IoStderrPointer(IoFilePointer):
 class IoFile(SimData):
     libname = "libc.so.6"
     type = SymbolType.TYPE_OBJECT
-    fd = NotImplemented  # type: int
+    fd: int = NotImplemented
 
     @classmethod
     def static_size(cls, owner):

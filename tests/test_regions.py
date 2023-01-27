@@ -2,9 +2,8 @@ import os
 import unittest
 
 import cle
-from cle.backends import Section, Segment
 from cle.address_translator import AT
-
+from cle.backends import Section, Segment
 
 TESTS_BASE = os.path.join(
     os.path.dirname(os.path.realpath(__file__)),

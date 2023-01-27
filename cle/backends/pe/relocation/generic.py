@@ -1,9 +1,21 @@
-import struct
 import logging
-from .pereloc import PEReloc
-from ....address_translator import AT
+import struct
 
-l = logging.getLogger(name=__name__)
+from cle.address_translator import AT
+
+from .pereloc import PEReloc
+
+log = logging.getLogger(name=__name__)
+
+__all__ = [
+    "DllImport",
+    "IMAGE_REL_BASED_ABSOLUTE",
+    "IMAGE_REL_BASED_HIGHADJ",
+    "IMAGE_REL_BASED_HIGHLOW",
+    "IMAGE_REL_BASED_DIR64",
+    "IMAGE_REL_BASED_HIGH",
+    "IMAGE_REL_BASED_LOW",
+]
 
 
 class DllImport(PEReloc):
@@ -57,7 +69,7 @@ class IMAGE_REL_BASED_DIR64(PEReloc):
         org_value = struct.unpack("<Q", org_bytes)[0]
         rebased_value = AT.from_lva(org_value, self.owner).to_mva()
         if rebased_value < 0 or rebased_value >= 0x10000000000000000:
-            l.error(
+            log.error(
                 "Incorrect rebased address %x found at %s. Maybe the relocation table is broken.",
                 rebased_value,
                 self.owner,

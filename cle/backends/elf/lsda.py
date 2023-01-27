@@ -25,7 +25,7 @@ class ExceptionTableHeader:
     def __init__(self, lp_start, ttype_encoding, ttype_offset, call_site_encoding, call_site_table_len):
         self.lp_start = lp_start  # landing pad start offset
         self.ttype_encoding = ttype_encoding  # encoding of pointers in type table
-        self.ttype_offset = ttype_offset  # type table offset
+        self.ttype_offset = ttype_offset  # Type table offset
         self.call_site_encoding = call_site_encoding  # encoding of items in call site table
         self.call_site_table_len = call_site_table_len  # total length of call site table
 
@@ -90,7 +90,7 @@ class LSDAExceptionTable:
         self.stream.seek(offset)
         header = self._parse_lsda_header()
 
-        csrs = []  # type: List[CallSiteEntry]
+        csrs: List[CallSiteEntry] = []
         start_offset = self.stream.tell()
         while self.stream.tell() - start_offset < header.call_site_table_len:
             csr = self._parse_call_site_entry(header.call_site_encoding)

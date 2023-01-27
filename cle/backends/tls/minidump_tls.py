@@ -1,7 +1,4 @@
 import archinfo
-import logging
-
-l = logging.getLogger(__name__)
 
 
 class MinidumpThreadManager:

@@ -1,4 +1,4 @@
-from ..region import Section
+from cle.backends.region import Section
 
 
 class PESection(Section):

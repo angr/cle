@@ -1,13 +1,19 @@
-from enum import Enum
 import logging
+from enum import Enum
 from typing import TYPE_CHECKING
 
-from ..address_translator import AT
+from cle.address_translator import AT
 
 if TYPE_CHECKING:
-    from .. import Backend
+    from .backend import Backend
 
-l = logging.getLogger(name=__name__)
+log = logging.getLogger(name=__name__)
+
+__all__ = [
+    "SymbolType",
+    "SymbolSubType",
+    "Symbol",
+]
 
 
 class SymbolType(Enum):
@@ -47,7 +53,7 @@ class Symbol:
     :ivar str name:         The name of this symbol
     :ivar int addr:         The un-based address of this symbol, an RVA
     :ivar int size:         The size of this symbol
-    :ivar SymbolType _type: The ABI-agnostic type of this symbol
+    :ivar _type:            The ABI-agnostic type of this symbol
     :ivar bool resolved:    Whether this import symbol has been resolved to a real symbol
     :ivar resolvedby:       The real symbol this import symbol has been resolve to
     :vartype resolvedby:    None or cle.backends.Symbol
@@ -62,7 +68,7 @@ class Symbol:
         self.name = name
         self.relative_addr = relative_addr
         self.size = size
-        self._type = SymbolType(sym_type)
+        self._type: SymbolType = SymbolType(sym_type)
         self.resolved = False
         self.resolvedby = None
 
@@ -133,7 +139,7 @@ class Symbol:
     def owner_obj(self):
         if not Symbol._complained_owner:
             Symbol._complained_owner = True
-            l.critical("Deprecation warning: use symbol.owner instead of symbol.owner_obj")
+            log.critical("Deprecation warning: use symbol.owner instead of symbol.owner_obj")
         return self.owner
 
     def __getstate__(self):

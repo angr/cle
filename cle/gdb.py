@@ -1,10 +1,10 @@
-import os
 import logging
+import os
 
-from .backends.elf.metaelf import MetaELF
-from .errors import CLEFileNotFoundError
+from cle.errors import CLEFileNotFoundError
+from cle.utils import get_text_offset
 
-l = logging.getLogger(name=__name__)
+log = logging.getLogger(name=__name__)
 
 
 def convert_info_sharedlibrary(fname):
@@ -85,9 +85,9 @@ def _parse_gdb_map(gdb_map, gdb_fix):
         if gdb_fix:
             found = _simple_search(lib)
             if found:
-                addr = addr - MetaELF.get_text_offset(found)
+                addr = addr - get_text_offset(found)
 
-        l.info("gdb_plugin: mapped %s to %#x", lib, addr)
+        log.info("gdb_plugin: mapped %s to %#x", lib, addr)
         opts["base_addr"] = addr
 
     return {"force_load_libs": force_load_libs, "main_opts": main_opts, "lib_opts": lib_opts}

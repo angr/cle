@@ -1,21 +1,22 @@
-import pyvex
-import elftools
-import os
 import logging
+import os
+from collections import OrderedDict
+from enum import Enum
 
-from .. import Backend
-from ..symbol import SymbolType
-from ...address_translator import AT
-from ...utils import stream_or_path
+import elftools
+import pyvex
 from elftools.elf.descriptions import describe_ei_osabi
 from elftools.elf.dynamic import DynamicSection
 from elftools.elf.enums import ENUM_DT_FLAGS
-from enum import Enum
-from collections import OrderedDict
+
+from cle.address_translator import AT
+from cle.backends.backend import Backend
+from cle.backends.symbol import SymbolType
+from cle.utils import stream_or_path
 
 __all__ = ("MetaELF",)
 
-l = logging.getLogger(name=__name__)
+log = logging.getLogger(name=__name__)
 
 
 class Relro(Enum):
@@ -462,7 +463,7 @@ class MetaELF(Backend):
         """
         got_section = self.sections_map.get(".got", None)
         if got_section is None:
-            l.warning("Failed to guess initial rtoc value due to missing .got")
+            log.warning("Failed to guess initial rtoc value due to missing .got")
             return None
         return got_section.vaddr + 0x8000
 
@@ -484,12 +485,3 @@ class MetaELF(Backend):
             except elftools.common.exceptions.ELFError:
                 pass
             return None
-
-    @staticmethod
-    def get_text_offset(path):
-        """
-        Offset of .text in the binary.
-        """
-        with stream_or_path(path) as f:
-            e = elftools.elf.elffile.ELFFile(f)
-            return e.get_section_by_name(".text").header.sh_offset

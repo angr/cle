@@ -1,6 +1,7 @@
+from cle.backends.backend import register_backend
+from cle.backends.region import Segment
+
 from .cgc import CGC
-from .. import register_backend
-from ..region import Segment
 
 
 class FakeSegment(Segment):

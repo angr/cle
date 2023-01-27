@@ -2,8 +2,8 @@
 # This file takes some liberties to match the naming from the dyld implementation
 import ctypes
 import enum
-from ctypes import Structure, c_uint32, c_uint64, c_uint16
-from typing import Union, Type, Tuple, Optional
+from ctypes import Structure, c_uint16, c_uint32, c_uint64
+from typing import Optional, Tuple, Type, Union
 
 # Some type aliases
 FilePointer = int  # Offset into a raw binary file

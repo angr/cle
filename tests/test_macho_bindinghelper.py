@@ -1,25 +1,22 @@
 #!/usr/bin/env python
 # Contributed September 2019 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
-import unittest
 import os
+import unittest
 
 import cle
-
-from cle.backends.macho.binding import BindingState, read_sleb, read_uleb
-
+from cle import CLEInvalidBinaryError, MachO
 from cle.backends.macho.binding import (
+    BindingState,
     n_opcode_done,
+    n_opcode_set_addend_sleb,
     n_opcode_set_dylib_ordinal_imm,
     n_opcode_set_dylib_ordinal_uleb,
-)
-from cle.backends.macho.binding import (
     n_opcode_set_dylib_special_imm,
     n_opcode_set_trailing_flags_imm,
     n_opcode_set_type_imm,
+    read_sleb,
+    read_uleb,
 )
-from cle.backends.macho.binding import n_opcode_set_addend_sleb
-
-from cle import CLEInvalidBinaryError, MachO
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
 
@@ -72,7 +69,8 @@ class TestBindingState(unittest.TestCase):
         self.uut_32.add_address_ov(3294967295, 1000100000)
         self.assertEqual(self.uut_32.address, 99999)
 
-        # TODO test_add_address_ov_32: we do probably do not expect negative numbers as second argument, but then the address will be negative... and it does not wrap around. Test is commented out.
+        # TODO test_add_address_ov_32: we do probably do not expect negative numbers as second argument,
+        # but then the address will be negative... and it does not wrap around. Test is commented out.
         self.uut_32.add_address_ov(10000, -10000)
         self.assertEqual(self.uut_32.address, 0)
 
@@ -96,7 +94,8 @@ class TestBindingState(unittest.TestCase):
         self.uut_64.add_address_ov(17000000000000000000, 1900000000000000000)
         self.assertEqual(self.uut_64.address, 453255926290448384)
 
-        # TODO test_add_address_ov_64: we do probably do not expect negative numbers as second argument, but then the address will be negative... and it does not wrap around. Test is commented out.
+        # TODO test_add_address_ov_64: we do probably do not expect negative numbers as second argument,
+        # but then the address will be negative... and it does not wrap around. Test is commented out.
         # self.uut_64.add_address_ov(123456, -10000000000)
         # self.assertEqual(self.uut_64.address, 18446744063709551616)
 
@@ -280,8 +279,7 @@ class TestBindingHelper(unittest.TestCase):
         self.n_opcode_set_addend_sleb_helper(b"\xFF\x1F\xEE", 4095)
 
     def test_n_opcode_set_segment_and_offset_uleb(self):
-        # pylint: disable=unused-variable
-        s = BindingState(is_64=True)
+        BindingState(is_64=True)
         self.skipTest("TODO: The function needs a binary with segments to test")
 
     def test_n_opcode_add_addr_uleb(self):

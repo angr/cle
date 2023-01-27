@@ -1,15 +1,17 @@
-import os
-import logging
 import importlib
-import archinfo
+import logging
+import os
 from collections import defaultdict
-from ...relocation import Relocation
+
+import archinfo
+
+from cle.backends.relocation import Relocation
 
 ALL_RELOCATIONS = defaultdict(dict)
 complaint_log = set()
 
 path = os.path.dirname(os.path.abspath(__file__))
-l = logging.getLogger(name=__name__)
+log = logging.getLogger(name=__name__)
 
 
 def load_relocations():
@@ -19,7 +21,7 @@ def load_relocations():
         if filename == "__init__.py":
             continue
 
-        l.debug("Importing PE relocation module: %s", filename[:-3])
+        log.debug("Importing PE relocation module: %s", filename[:-3])
         module = importlib.import_module(".%s" % filename[:-3], "cle.backends.pe.relocation")
 
         try:
@@ -45,7 +47,7 @@ def get_relocation(arch, r_type):
     except KeyError:
         if (arch, r_type) not in complaint_log:
             complaint_log.add((arch, r_type))
-            l.warning("Unknown reloc %d on %s", r_type, arch)
+            log.warning("Unknown reloc %d on %s", r_type, arch)
         return None
 
 

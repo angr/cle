@@ -1,5 +1,6 @@
-import cle
 import os
+
+import cle
 
 test_location = str(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../binaries/tests"))
 binpath = os.path.join(test_location, "x86_64/test_gdb_plugin")

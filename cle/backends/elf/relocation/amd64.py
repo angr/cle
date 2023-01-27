@@ -1,69 +1,79 @@
-import logging
-from . import generic
+from .generic import (
+    GenericAbsoluteAddendReloc,
+    GenericCopyReloc,
+    GenericIRelativeReloc,
+    GenericJumpslotReloc,
+    GenericPCRelativeAddendReloc,
+    GenericRelativeReloc,
+    GenericTLSDoffsetReloc,
+    GenericTLSModIdReloc,
+    GenericTLSOffsetReloc,
+    RelocGOTMixin,
+    RelocTruncate32Mixin,
+)
 
-l = logging.getLogger(name=__name__)
 arch = "AMD64"
 
 
-class R_X86_64_64(generic.GenericAbsoluteAddendReloc):
+class R_X86_64_64(GenericAbsoluteAddendReloc):
     pass
 
 
-class R_X86_64_COPY(generic.GenericCopyReloc):
+class R_X86_64_COPY(GenericCopyReloc):
     pass
 
 
-class R_X86_64_RELATIVE(generic.GenericRelativeReloc):
+class R_X86_64_RELATIVE(GenericRelativeReloc):
     pass
 
 
-class R_X86_64_IRELATIVE(generic.GenericIRelativeReloc):
+class R_X86_64_IRELATIVE(GenericIRelativeReloc):
     pass
 
 
-class R_X86_64_GLOB_DAT(generic.GenericJumpslotReloc):
+class R_X86_64_GLOB_DAT(GenericJumpslotReloc):
     pass
 
 
-class R_X86_64_JUMP_SLOT(generic.GenericJumpslotReloc):
+class R_X86_64_JUMP_SLOT(GenericJumpslotReloc):
     pass
 
 
-class R_X86_64_DTPMOD64(generic.GenericTLSModIdReloc):
+class R_X86_64_DTPMOD64(GenericTLSModIdReloc):
     pass
 
 
-class R_X86_64_DTPOFF64(generic.GenericTLSDoffsetReloc):
+class R_X86_64_DTPOFF64(GenericTLSDoffsetReloc):
     pass
 
 
-class R_X86_64_TPOFF64(generic.GenericTLSOffsetReloc):
+class R_X86_64_TPOFF64(GenericTLSOffsetReloc):
     pass
 
 
-class R_X86_64_PC32(generic.RelocTruncate32Mixin, generic.GenericPCRelativeAddendReloc):
+class R_X86_64_PC32(RelocTruncate32Mixin, GenericPCRelativeAddendReloc):
     check_sign_extend = True
 
 
-class R_X86_64_32(generic.RelocTruncate32Mixin, generic.GenericAbsoluteAddendReloc):
+class R_X86_64_32(RelocTruncate32Mixin, GenericAbsoluteAddendReloc):
     check_zero_extend = True
 
 
-class R_X86_64_32S(generic.RelocTruncate32Mixin, generic.GenericAbsoluteAddendReloc):
+class R_X86_64_32S(RelocTruncate32Mixin, GenericAbsoluteAddendReloc):
     check_sign_extend = True
 
 
-class R_X86_64_PLT32(generic.RelocTruncate32Mixin, generic.GenericPCRelativeAddendReloc):
+class R_X86_64_PLT32(RelocTruncate32Mixin, GenericPCRelativeAddendReloc):
     check_sign_extend = True
 
 
-class R_X86_64_GOTPCREL(generic.RelocGOTMixin, generic.RelocTruncate32Mixin, generic.GenericPCRelativeAddendReloc):
+class R_X86_64_GOTPCREL(RelocGOTMixin, RelocTruncate32Mixin, GenericPCRelativeAddendReloc):
     check_sign_extend = True
 
 
-class R_X86_64_GOTPCRELX(generic.RelocGOTMixin, generic.RelocTruncate32Mixin, generic.GenericPCRelativeAddendReloc):
+class R_X86_64_GOTPCRELX(RelocGOTMixin, RelocTruncate32Mixin, GenericPCRelativeAddendReloc):
     check_sign_extend = True
 
 
-class R_X86_64_REX_GOTPCRELX(generic.RelocGOTMixin, generic.RelocTruncate32Mixin, generic.GenericPCRelativeAddendReloc):
+class R_X86_64_REX_GOTPCRELX(RelocGOTMixin, RelocTruncate32Mixin, GenericPCRelativeAddendReloc):
     check_sign_extend = True

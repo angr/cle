@@ -1,8 +1,8 @@
 import logging
 
-from ..symbol import Symbol, SymbolType
+from cle.backends.symbol import Symbol, SymbolType
 
-l = logging.getLogger(name=__name__)
+log = logging.getLogger(name=__name__)
 
 
 class WinSymbol(Symbol):
@@ -26,7 +26,7 @@ class WinSymbol(Symbol):
         seen = set()
         while sym is not None and sym.is_forward and sym.forwarder is not None:  # FORWARDING
             if sym.forwarder in seen:
-                l.warning("Infinite forwarding loop for %s", self)
+                log.warning("Infinite forwarding loop for %s", self)
                 return None
             seen.add(sym.forwarder)
             owner_name, name = sym.forwarder.split(".", 1)

@@ -1,7 +1,7 @@
-from ...address_translator import AT
-from .. import register_backend
-from ..elf import ELF
-from ...patched_stream import PatchedStream
+from cle.address_translator import AT
+from cle.backends.backend import register_backend
+from cle.backends.elf import ELF
+from cle.patched_stream import PatchedStream
 
 ELF_HEADER = bytes.fromhex("7f454c46010101000000000000000000")
 CGC_HEADER = bytes.fromhex("7f43474301010143014d6572696e6f00")

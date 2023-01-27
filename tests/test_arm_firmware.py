@@ -1,8 +1,9 @@
 import os
-import cle
-import pyvex
 import struct
 
+import pyvex
+
+import cle
 
 test_location = str(os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "binaries", "tests"))
 
@@ -27,14 +28,14 @@ def test_thumb_object():
     :return:
     """
     path = os.path.join(test_location, "armel", "i2c_api.o")
-    l = cle.Loader(path, rebase_granularity=0x1000)
-    for r in l.main_object.relocs:
+    loader = cle.Loader(path, rebase_granularity=0x1000)
+    for r in loader.main_object.relocs:
         if r.__class__ == cle.backends.elf.relocation.arm.R_ARM_THM_JUMP24:
             if r.symbol.name == "HAL_I2C_ER_IRQHandler":
                 irsb = pyvex.lift(
                     struct.pack("<I", r.value),
                     r.rebased_addr + 1,
-                    l.main_object.arch,
+                    loader.main_object.arch,
                     bytes_offset=1,
                 )
                 assert irsb.default_exit_target == r.resolvedby.rebased_addr

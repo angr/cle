@@ -1,5 +1,6 @@
-import cle
 import os
+
+import cle
 
 
 def test_relocated():

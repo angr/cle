@@ -1,9 +1,11 @@
-from . import Backend, register_backend
-from ..errors import CLEError
-from .region import Segment
 import logging
 
-l = logging.getLogger(name=__name__)
+from cle.errors import CLEError
+
+from .backend import Backend, register_backend
+from .region import Segment
+
+log = logging.getLogger(name=__name__)
 
 __all__ = ("Blob",)
 
@@ -26,14 +28,14 @@ class Blob(Backend):
         """
         if "custom_offset" in kwargs:
             offset = kwargs.pop("custom_offset")
-            l.critical("Deprecation warning: the custom_offset parameter has been renamed to offset")
+            log.critical("Deprecation warning: the custom_offset parameter has been renamed to offset")
         super().__init__(*args, **kwargs)
 
         if self.arch is None:
             raise CLEError("Must specify arch when loading blob!")
 
         if self._custom_entry_point is None:
-            l.warning("No entry_point was specified for blob %s, assuming 0", self.binary_basename)
+            log.warning("No entry_point was specified for blob %s, assuming 0", self.binary_basename)
 
         self._entry = 0
         self._max_addr = 0
@@ -42,14 +44,14 @@ class Blob(Backend):
         try:
             self.linked_base = kwargs["base_addr"]
         except KeyError:
-            l.warning("No base_addr was specified for blob %s, assuming 0", self.binary_basename)
+            log.warning("No base_addr was specified for blob %s, assuming 0", self.binary_basename)
         self.mapped_base = self.linked_base
 
         self.os = "unknown"
 
         if offset is not None:
             if segments is not None:
-                l.error("You can't specify both offset and segments. Taking only the segments data")
+                log.error("You can't specify both offset and segments. Taking only the segments data")
             else:
                 self._binary_stream.seek(0, 2)
                 segments = [(offset, self.linked_base, self._binary_stream.tell() - offset)]

@@ -1,6 +1,7 @@
-from . import SimData, register
+from cle.backends.symbol import SymbolType
+
 from .common import PointTo, StaticWord
-from ...symbol import SymbolType
+from .simdata import SimData, register
 
 
 class DummyProgname(SimData):

@@ -1,8 +1,9 @@
 import struct
 
-from . import SimData
-from ...relocation import Relocation
-from ...symbol import SymbolType
+from cle.backends.relocation import Relocation
+from cle.backends.symbol import SymbolType
+
+from .simdata import SimData
 
 
 class StaticData(SimData):
@@ -16,7 +17,7 @@ class StaticData(SimData):
     """
 
     type = SymbolType.TYPE_OBJECT
-    data = NotImplemented  # type: bytes
+    data: bytes = NotImplemented
 
     @classmethod
     def static_size(cls, owner):
@@ -38,8 +39,8 @@ class StaticWord(SimData):
     """
 
     type = SymbolType.TYPE_OBJECT
-    word = NotImplemented  # type: int
-    wordsize = None  # type: int
+    word: int = NotImplemented
+    wordsize: int = None
 
     @classmethod
     def static_size(cls, owner):
@@ -62,10 +63,10 @@ class PointTo(SimData):
     :cvar addend:       (optional) an integer to be added to the symbol's address before storage
     """
 
-    pointto_name = NotImplemented  # type: str
-    pointto_type = NotImplemented  # type: SymbolType
-    type = SymbolType.TYPE_OBJECT  # type: SymbolType
-    addend = 0  # type: int
+    pointto_name: str = NotImplemented
+    pointto_type: SymbolType = NotImplemented
+    type: SymbolType = SymbolType.TYPE_OBJECT
+    addend: int = 0
 
     @classmethod
     def static_size(cls, owner):

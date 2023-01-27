@@ -1,8 +1,9 @@
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from elftools.dwarf.die import DIE
 
 from cle.address_translator import AT
+
 from .variable_type import VariableType
 
 if TYPE_CHECKING:

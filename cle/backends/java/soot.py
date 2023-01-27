@@ -3,8 +3,8 @@ import time
 
 from archinfo.arch_soot import ArchSoot, SootAddressDescriptor, SootMethodDescriptor
 
-from .. import Backend
-from ...errors import CLEError
+from cle.backends.backend import Backend
+from cle.errors import CLEError
 
 try:
     import pysoot
@@ -13,7 +13,7 @@ except ImportError:
     pysoot = None
     Lifter = None
 
-l = logging.getLogger(name=__name__)
+log = logging.getLogger(name=__name__)
 
 
 class Soot(Backend):
@@ -49,7 +49,7 @@ class Soot(Backend):
             raise ValueError("Cannot use the Soot backend loading from a stream")
 
         # load the classes
-        l.debug("Lifting to Soot IR ...")
+        log.debug("Lifting to Soot IR ...")
         start_time = time.time()
         pysoot_lifter = Lifter(
             self.binary,
@@ -59,7 +59,7 @@ class Soot(Backend):
             additional_jar_roots=additional_jar_roots,
         )
         end_time = time.time()
-        l.debug("Lifting completed in %ds", round(end_time - start_time, 2))
+        log.debug("Lifting completed in %ds", round(end_time - start_time, 2))
         self._classes = pysoot_lifter.classes
 
         # find entry method
@@ -68,9 +68,9 @@ class Soot(Backend):
                 ep_method = self.get_soot_method(entry_point, params=entry_point_params)
                 ep_method_descriptor = SootMethodDescriptor.from_soot_method(ep_method)
                 self._entry = SootAddressDescriptor(ep_method_descriptor, 0, 0)
-                l.debug("Entry point set to %s", self._entry)
+                log.debug("Entry point set to %s", self._entry)
             except CLEError:
-                l.warning("Couldn't find entry point %s.", entry_point)
+                log.warning("Couldn't find entry point %s.", entry_point)
                 self._entry = None
 
         self.os = "javavm"
@@ -182,7 +182,7 @@ class Soot(Backend):
 
         if len(methods) > 1:
             # Warn if we found several matching methods
-            l.warning(
+            log.warning(
                 "Method with description %s is ambiguous in class %s.",
                 method_description,
                 method_description["class_name"],

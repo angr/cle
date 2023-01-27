@@ -1,29 +1,32 @@
-import logging
-from . import generic
+from .generic import (
+    IMAGE_REL_BASED_DIR64,
+    IMAGE_REL_BASED_HIGH,
+    IMAGE_REL_BASED_HIGHADJ,
+    IMAGE_REL_BASED_HIGHLOW,
+    IMAGE_REL_BASED_LOW,
+)
 from .pereloc import PEReloc
-
-l = logging.getLogger(name=__name__)
 
 arch = "arm"
 
 
-class IMAGE_REL_BASED_HIGHADJ(generic.IMAGE_REL_BASED_HIGHADJ):
+class IMAGE_REL_BASED_HIGHADJ(IMAGE_REL_BASED_HIGHADJ):
     pass
 
 
-class IMAGE_REL_BASED_DIR64(generic.IMAGE_REL_BASED_DIR64):
+class IMAGE_REL_BASED_DIR64(IMAGE_REL_BASED_DIR64):
     pass
 
 
-class IMAGE_REL_BASED_HIGHLOW(generic.IMAGE_REL_BASED_HIGHLOW):
+class IMAGE_REL_BASED_HIGHLOW(IMAGE_REL_BASED_HIGHLOW):
     pass
 
 
-class IMAGE_REL_BASED_HIGH(generic.IMAGE_REL_BASED_HIGH):
+class IMAGE_REL_BASED_HIGH(IMAGE_REL_BASED_HIGH):
     pass
 
 
-class IMAGE_REL_BASED_LOW(generic.IMAGE_REL_BASED_LOW):
+class IMAGE_REL_BASED_LOW(IMAGE_REL_BASED_LOW):
     pass
 
 

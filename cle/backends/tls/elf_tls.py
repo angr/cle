@@ -10,7 +10,7 @@ ELF TLS is implemented based on the following documents:
     - https://www.linux-mips.org/wiki/NPTL
 """
 
-from . import InternalTLSRelocation, ThreadManager, TLSObject
+from .tls_object import InternalTLSRelocation, ThreadManager, TLSObject
 
 TLS_BLOCK_ALIGN = 0x10
 TLS_TOTAL_HEAD_SIZE = 0x4000
@@ -146,7 +146,8 @@ class ELFTLSObjectV1(ELFTLSObject):
     #         ^ thread pointer
     def _calculate_pointers(self, used_data, max_modules):
         self.tcb_offset = TLS_TOTAL_HEAD_SIZE - self.arch.elf_tls.tcbhead_size
-        self.tp_offset = TLS_TOTAL_HEAD_SIZE  # CRITICAL DIFFERENCE FROM THE DOC - variant 1 seems to expect the thread pointer points to the end of the TCB
+        # CRITICAL DIFFERENCE FROM THE DOC - variant 1 seems to expect the thread pointer points to the end of the TCB
+        self.tp_offset = TLS_TOTAL_HEAD_SIZE
         self.dtv_offset = TLS_TOTAL_HEAD_SIZE + used_data + 2 * self.arch.bytes
         self.head_offset = 0  # ^^ that's the point of this field
         self._max_addr = self.dtv_offset + 2 * self.arch.bytes * max_modules - 1

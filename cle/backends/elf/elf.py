@@ -1,45 +1,46 @@
 import copy
-import os
 import logging
+import os
 import xml.etree.ElementTree
-from typing import List, Optional, Dict
 from collections import OrderedDict, defaultdict
-from sortedcontainers import SortedDict
-
-import elftools
-from elftools.elf import elffile, sections, dynamic, enums
-from elftools.dwarf import callframe
-from elftools.common.exceptions import ELFError, DWARFError, ELFParseError
-from elftools.dwarf.dwarf_expr import DWARFExprParser
-from elftools.dwarf.descriptions import describe_form_class, describe_attr_value
-from elftools.dwarf.dwarfinfo import DWARFInfo
-from elftools.dwarf.die import DIE
+from typing import Dict, List, Optional
 
 import archinfo
+import elftools
+from elftools.common.exceptions import DWARFError, ELFError, ELFParseError
+from elftools.dwarf import callframe
+from elftools.dwarf.descriptions import describe_attr_value, describe_form_class
+from elftools.dwarf.die import DIE
+from elftools.dwarf.dwarf_expr import DWARFExprParser
+from elftools.dwarf.dwarfinfo import DWARFInfo
+from elftools.elf import dynamic, elffile, enums, sections
+from sortedcontainers import SortedDict
+
+from cle.address_translator import AT
+from cle.backends.backend import ExceptionHandling, FunctionHint, FunctionHintSource, register_backend
+from cle.errors import CLECompatibilityError, CLEError, CLEInvalidBinaryError
+from cle.patched_stream import PatchedStream
+from cle.utils import ALIGN_DOWN, ALIGN_UP, get_mmaped_data, stream_or_path
+
+from .compilation_unit import CompilationUnit
+from .hashtable import ELFHashTable, GNUHashTable
+from .lsda import LSDAExceptionTable
+from .metaelf import MetaELF, maybedecode
+from .regions import ELFSection, ELFSegment
+from .relocation import get_relocation
+from .relocation.generic import MipsGlobalReloc, MipsLocalReloc
+from .subprogram import LexicalBlock, Subprogram
+from .symbol import ELFSymbol, Symbol, SymbolType
+from .variable import Variable
+from .variable_type import VariableType
 
 try:
     import pypcode
 except ImportError:
     pypcode = None
 
-from .compilation_unit import CompilationUnit
-from .variable import Variable
-from .variable_type import VariableType
-from .subprogram import LexicalBlock, Subprogram
-from .symbol import ELFSymbol, Symbol, SymbolType
-from .regions import ELFSection, ELFSegment
-from .hashtable import ELFHashTable, GNUHashTable
-from .metaelf import MetaELF, maybedecode
-from .lsda import LSDAExceptionTable
-from .. import register_backend, FunctionHint, FunctionHintSource, ExceptionHandling
-from .relocation import get_relocation
-from .relocation.generic import MipsGlobalReloc, MipsLocalReloc
-from ...patched_stream import PatchedStream
-from ...errors import CLEError, CLEInvalidBinaryError, CLECompatibilityError
-from ...utils import ALIGN_DOWN, ALIGN_UP, get_mmaped_data, stream_or_path
-from ...address_translator import AT
 
-l = logging.getLogger(name=__name__)
+log = logging.getLogger(name=__name__)
 
 __all__ = ("ELFSymbol", "ELF")
 
@@ -98,7 +99,7 @@ class ELF(MetaELF):
                 patch_undo.append((offset, self._binary_stream.read(len(patch))))
 
             self._binary_stream = PatchedStream(self._binary_stream, patch_data)
-            l.error("PyReadELF couldn't load this file. Trying again without section headers...")
+            log.error("PyReadELF couldn't load this file. Trying again without section headers...")
 
             try:
                 self._reader = elffile.ELFFile(self._binary_stream)
@@ -112,7 +113,7 @@ class ELF(MetaELF):
             try:
                 other_arch = self.extract_arch(self._reader)
                 if other_arch != self.arch:
-                    l.warning("User specified %s but autodetected %s. Proceed with caution.", self.arch, other_arch)
+                    log.warning("User specified %s but autodetected %s. Proceed with caution.", self.arch, other_arch)
             except archinfo.ArchNotFound:
                 pass
 
@@ -171,7 +172,7 @@ class ELF(MetaELF):
         try:
             self.mapped_base = self.linked_base = min(seg_addrs)
         except ValueError:
-            l.info("no PT_LOAD segments identified")
+            log.info("no PT_LOAD segments identified")
 
         if not discard_program_headers:
             self.__register_segments()
@@ -187,7 +188,7 @@ class ELF(MetaELF):
             try:
                 dwarf = self._reader.get_dwarf_info()
             except ELFError:
-                l.warning(
+                log.warning(
                     "An exception occurred in pyelftools when loading the DWARF information for %s. "
                     "Marking DWARF as not available for this binary.",
                     self.binary_basename,
@@ -389,7 +390,7 @@ class ELF(MetaELF):
             try:
                 re_sym = symbol_table.get_symbol(symid)
             except Exception:  # pylint: disable=broad-except
-                l.exception("Error parsing symbol %#08x", symid)
+                log.exception("Error parsing symbol %#08x", symid)
                 return None
             cache_key = self._symbol_to_tuple(re_sym)
             cached = self._symbol_cache.get(cache_key, None)
@@ -399,7 +400,7 @@ class ELF(MetaELF):
                 version = self._vertable.get_symbol(symid).entry.ndx
         elif type(symid) is str:
             if not symid:
-                l.warning("Trying to resolve a symbol by its empty name")
+                log.warning("Trying to resolve a symbol by its empty name")
                 return None
             cached = self._symbols_by_name.get(symid, None)
             if cached:
@@ -500,13 +501,13 @@ class ELF(MetaELF):
         ph = seg.header
 
         if ph.p_align & (self.loader.page_size - 1) != 0:
-            l.error(
+            log.error(
                 "ELF file %s is loading a segment which is not page-aligned... do you need to change the page size?",
                 self.binary,
             )
 
         if (ph.p_vaddr - ph.p_offset) & (ph.p_align - 1) != 0:
-            l.warning(
+            log.warning(
                 "ELF file %s is loading a segment with an inappropriate alignment. It might not work in all contexts.",
                 self.binary,
             )
@@ -543,7 +544,7 @@ class ELF(MetaELF):
                 data = data.ljust(zeroend - mapstart, b"\0")
             loaded_segment.memsize = zeroend - mapstart
         elif not data:
-            l.warning("Segment %s is empty at %#08x!", seg.header.p_type, mapstart)
+            log.warning("Segment %s is empty at %#08x!", seg.header.p_type, mapstart)
             return
 
         self.memory.add_backer(AT.from_lva(mapstart, self).to_rva(), data, overwrite=True)
@@ -561,7 +562,7 @@ class ELF(MetaELF):
         try:
             return RelocClass(self, symbol, address, addend)
         except KeyError:
-            l.error("Malformed relocation: access to unmapped %#x", readelf_reloc.entry.r_offset)
+            log.error("Malformed relocation: access to unmapped %#x", readelf_reloc.entry.r_offset)
             return None
 
     def _load_function_hints_from_fde(self, dwarf, source):
@@ -584,7 +585,7 @@ class ELF(MetaELF):
                         )
                     )
         except (DWARFError, ValueError):
-            l.warning("An exception occurred in pyelftools when loading FDE information.", exc_info=True)
+            log.warning("An exception occurred in pyelftools when loading FDE information.", exc_info=True)
 
     def _load_exception_handling(self, dwarf):
         """
@@ -602,7 +603,7 @@ class ELF(MetaELF):
                     # function address
                     func_addr = entry.header.get("initial_location", None)
                     if func_addr is None:
-                        l.warning(
+                        log.warning(
                             "Unexpected FDE structure: "
                             "initial_location is not specified while LSDA pointer is available."
                         )
@@ -621,7 +622,7 @@ class ELF(MetaELF):
                         self.exception_handlings.append(handling)
 
         except (DWARFError, ValueError):
-            l.warning("An exception occurred in pyelftools when loading FDE information.", exc_info=True)
+            log.warning("An exception occurred in pyelftools when loading FDE information.", exc_info=True)
 
     def _load_line_info(self, dwarf):
         """
@@ -691,7 +692,7 @@ class ELF(MetaELF):
         elif highpc_attr_class == "constant":
             highpc = lowpc + highpc_attr.value
         else:
-            l.warning("Error: invalid DW_AT_high_pc class:%s", highpc_attr_class)
+            log.warning("Error: invalid DW_AT_high_pc class:%s", highpc_attr_class)
             return lowpc, None
         return lowpc, highpc
 
@@ -722,7 +723,7 @@ class ELF(MetaELF):
             top_die = cu.get_top_DIE()
 
             if top_die.tag != "DW_TAG_compile_unit":
-                l.warning("ignore a top die with unexpected tag")
+                log.warning("ignore a top die with unexpected tag")
                 continue
 
             die_name = top_die.attributes.get("DW_AT_name", None)
@@ -863,7 +864,7 @@ class ELF(MetaELF):
 
         strtab = seg_readelf._get_stringtable()
         if strtab is None:
-            l.warning("Unexpected return value from pyelftools: stringtable object is None.")
+            log.warning("Unexpected return value from pyelftools: stringtable object is None.")
             return
         self.__neuter_streams(strtab)
 
@@ -897,7 +898,7 @@ class ELF(MetaELF):
                     dynsym, self.memory, AT.from_lva(self._dynamic["DT_HASH"], self).to_rva(), self.arch
                 )
             else:
-                l.warning("No hash table available in %s", self.binary)
+                log.warning("No hash table available in %s", self.binary)
 
             # SYMBOL VERSIONING
             # REJOICE
@@ -1034,8 +1035,9 @@ class ELF(MetaELF):
             if self.binary is not None:
                 part = part.replace("$ORIGIN", os.path.dirname(self.binary))
             elif "$ORIGIN" in part:
-                l.warning(
-                    "DT_RUNPATH/DT_RPATH of the binary contains $ORIGIN tokens but no self.binary, some libraries might be not found"
+                log.warning(
+                    "DT_RUNPATH/DT_RPATH of the binary contains $ORIGIN tokens but no self.binary, "
+                    "some libraries might be not found"
                 )
             parts.append(part)
         return parts
@@ -1063,7 +1065,7 @@ class ELF(MetaELF):
             try:
                 dest_sec = self.sections[dest_sec_idx]
             except IndexError:
-                l.warning("the relocation section %s refers to unknown section index: %d", section.name, dest_sec_idx)
+                log.warning("the relocation section %s refers to unknown section index: %d", section.name, dest_sec_idx)
             else:
                 if dest_sec.is_active and not dest_sec.occupies_memory:
                     # The target section is not loaded into memory, so just continue
@@ -1080,7 +1082,7 @@ class ELF(MetaELF):
             if self.arch.name == "MIPS64":
                 if not hasattr(readelf_reloc.entry, "r_info_type2") and hasattr(readelf_reloc.entry, "r_info_type3"):
                     raise CLECompatibilityError(
-                        "This code relies on `pyelftools` features that are not available on versions 0.26 and downwards."
+                        "This code relies on `pyelftools` features that are not available on versions 0.26 and below."
                     )
 
                 type_1 = readelf_reloc.entry.r_info_type
@@ -1146,7 +1148,7 @@ class ELF(MetaELF):
         overlapping_segments = [seg for seg in self.segments if ___segments_overlap(segment_relro, seg)]
 
         if len(overlapping_segments) == 0:
-            l.error("RELRO segment does not overlap with any loaded segment.")
+            log.error("RELRO segment does not overlap with any loaded segment.")
             return
 
         if len(overlapping_segments) > 1:
@@ -1154,7 +1156,7 @@ class ELF(MetaELF):
             # probably also split the RELRO segment so that each one
             # has the right permissions in case the two overlapping
             # segments have different permissions.
-            l.warning("RELRO segment overlaps multiple segments.")
+            log.warning("RELRO segment overlaps multiple segments.")
 
         for overlapping_segment in overlapping_segments:
             # We will split the overlapping segment into two pieces:
@@ -1242,7 +1244,7 @@ class ELF(MetaELF):
         for note in sec_readelf.iter_notes():
             if note.n_type == "NT_GNU_BUILD_ID" and note.n_name == "GNU":
                 if self.build_id is not None and self.build_id != note.n_desc:
-                    l.error("Mismatched build IDs present")
+                    log.error("Mismatched build IDs present")
                 self.build_id = note.n_desc
 
     def __analyze_comments(self, data):
@@ -1316,7 +1318,7 @@ class ELF(MetaELF):
             try:
                 elf = elffile.ELFFile(fp)
             except ELFError:
-                l.warning("pyelftools failed to load debug file %s", filename, exc_info=True)
+                log.warning("pyelftools failed to load debug file %s", filename, exc_info=True)
                 return
 
             for sec_readelf in elf.iter_sections():
@@ -1330,7 +1332,7 @@ class ELF(MetaELF):
                 try:
                     dwarf = elf.get_dwarf_info()
                 except ELFError:
-                    l.warning(
+                    log.warning(
                         "An exception occurred in pyelftools when loading the DWARF information on %s.",
                         filename,
                         exc_info=True,
@@ -1360,7 +1362,7 @@ class ELF(MetaELF):
                 c.update(attribs)
             return constraints
 
-        l.info("Loading opinions...")
+        log.info("Loading opinions...")
         SPECFILES_DIR = pypcode.SPECFILES_DIR
         elf_opinions = []
         for archname in os.listdir(SPECFILES_DIR):
@@ -1407,7 +1409,7 @@ class ELF(MetaELF):
                     pass
             opinions.append(o)
 
-        l.info("Available opinions: %s", opinions)
+        log.info("Available opinions: %s", opinions)
 
         languages = []
         for arch in pypcode.Arch.enumerate():
@@ -1420,7 +1422,7 @@ class ELF(MetaELF):
                     if all(k not in lang.ldef.attrib or lang.ldef.attrib[k] == v for k, v in o.items()):
                         languages.append(lang)
 
-        l.info("Found candidate languages: %s", [lang.id for lang in languages])
+        log.info("Found candidate languages: %s", [lang.id for lang in languages])
         return languages
 
 

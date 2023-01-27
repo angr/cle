@@ -1,50 +1,61 @@
 import logging
-from . import generic
-from .elfreloc import ELFReloc
 
-l = logging.getLogger(name=__name__)
+from .elfreloc import ELFReloc
+from .generic import (
+    GenericAbsoluteAddendReloc,
+    GenericCopyReloc,
+    GenericIRelativeReloc,
+    GenericJumpslotReloc,
+    GenericRelativeReloc,
+    GenericTLSDescriptorReloc,
+    GenericTLSDoffsetReloc,
+    GenericTLSModIdReloc,
+    GenericTLSOffsetReloc,
+)
+
+log = logging.getLogger(name=__name__)
 
 # http://infocenter.arm.com/help/topic/com.arm.doc.ihi0056b/IHI0056B_aaelf64.pdf
 arch = "AARCH64"
 
 
-class R_AARCH64_ABS64(generic.GenericAbsoluteAddendReloc):
+class R_AARCH64_ABS64(GenericAbsoluteAddendReloc):
     pass
 
 
-class R_AARCH64_COPY(generic.GenericCopyReloc):
+class R_AARCH64_COPY(GenericCopyReloc):
     pass
 
 
-class R_AARCH64_GLOB_DAT(generic.GenericJumpslotReloc):
+class R_AARCH64_GLOB_DAT(GenericJumpslotReloc):
     pass
 
 
-class R_AARCH64_JUMP_SLOT(generic.GenericJumpslotReloc):
+class R_AARCH64_JUMP_SLOT(GenericJumpslotReloc):
     pass
 
 
-class R_AARCH64_RELATIVE(generic.GenericRelativeReloc):
+class R_AARCH64_RELATIVE(GenericRelativeReloc):
     pass
 
 
-class R_AARCH64_IRELATIVE(generic.GenericIRelativeReloc):
+class R_AARCH64_IRELATIVE(GenericIRelativeReloc):
     pass
 
 
-class R_AARCH64_TLS_DTPREL(generic.GenericTLSDoffsetReloc):
+class R_AARCH64_TLS_DTPREL(GenericTLSDoffsetReloc):
     pass
 
 
-class R_AARCH64_TLS_DTPMOD(generic.GenericTLSModIdReloc):
+class R_AARCH64_TLS_DTPMOD(GenericTLSModIdReloc):
     pass
 
 
-class R_AARCH64_TLS_TPREL(generic.GenericTLSOffsetReloc):
+class R_AARCH64_TLS_TPREL(GenericTLSOffsetReloc):
     pass
 
 
-class R_AARCH64_TLSDESC(generic.GenericTLSDescriptorReloc):
+class R_AARCH64_TLSDESC(GenericTLSDescriptorReloc):
     RESOLVER_ADDR = 0xFFFF_FFFF_FFFF_FE00
 
 
@@ -65,7 +76,7 @@ class R_AARCH64_CALL26(ELFReloc):
         if not self.resolved:
             return False
         if not ((-(2**27)) <= self.value and self.value < (2**27)):
-            l.warning("relocation out of range")
+            log.warning("relocation out of range")
         instr = self.owner.memory.unpack_word(self.relative_addr, size=4) & 0b11111100000000000000000000000000
         imm = self.value >> 2 & 0x3FFFFFF
         self.owner.memory.pack_word(self.relative_addr, instr | imm, size=4)
@@ -89,7 +100,7 @@ class R_AARCH64_ADR_PREL_PG_HI21(ELFReloc):
         if not self.resolved:
             return False
         if not ((-(2**32)) <= self.value and self.value < (2**32)):
-            l.warning("relocation out of range")
+            log.warning("relocation out of range")
         instr = self.owner.memory.unpack_word(self.relative_addr, size=4) & 0b10011111000000000000000000011111
         imm = self.value >> 12 & 0x1FFFFF
         immlo = imm & 0b11

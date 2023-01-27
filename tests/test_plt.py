@@ -1,6 +1,6 @@
 import os
-import subprocess
 import pickle
+import subprocess
 import unittest
 
 import cle
