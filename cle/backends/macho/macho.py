@@ -813,27 +813,20 @@ class MachO(Backend):
         return buffer[:end]
 
 
-
-    def _parse_dyld_chained_fixups(self):
-        header: dyld_chained_fixups_header = self._get_struct(
-            dyld_chained_fixups_header, self._dyld_chained_fixups_offset
-        )
-
-        if header.symbols_format != 0:
-            raise NotImplementedError("Dyld fixup symbols are compressed, this isn't supported yet")
-
+    def _parse_dyld_imports(self, header):
         # Address of Array of dyld_chained_import* structs
         imports_start_addr: FilePointer = self._dyld_chained_fixups_offset + header.imports_offset
         symbols_start_addr: FilePointer = self._dyld_chained_fixups_offset + header.symbols_offset
 
         import_struct = DyldImportStruct.get_struct(header.imports_format)
+
         # Parse Imports
         for i in range(header.imports_count):
             import_addr = imports_start_addr + i * ctypes.sizeof(import_struct)
             imp = self._get_struct(import_struct, import_addr)
             sym_name_addr = symbols_start_addr + imp.name_offset
             try:
-                sym_name_bytes = self._read_cstring_from_file(sym_name_addr, max_length=2**21)
+                sym_name_bytes = self._read_cstring_from_file(sym_name_addr, max_length=2 ** 21)
                 sym_name = sym_name_bytes.decode("utf-8")
             except ValueError as e:
                 # This symbol string is probably not null terminated, so we can't read it
@@ -863,6 +856,17 @@ class MachO(Backend):
                 raise NotImplementedError(
                     f"Multiple symbols with name {sym_name}" f"for library {self.imported_libraries[imp.lib_ordinal]}."
                 )
+
+    def _parse_dyld_chained_fixups(self):
+
+        header: dyld_chained_fixups_header = self._get_struct(
+            dyld_chained_fixups_header, self._dyld_chained_fixups_offset
+        )
+
+        if header.symbols_format != 0:
+            raise NotImplementedError("Dyld fixup symbols are compressed, this isn't supported yet")
+
+        self._parse_dyld_imports(header)
 
         # Address of the dyld_chained_starts_in_image struct
         segs_addr: FilePointer = self._dyld_chained_fixups_offset + header.starts_offset
