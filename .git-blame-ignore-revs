@@ -1,0 +1,4 @@
+# Black + pre-commit
+156cf0ec7ba5391a8361a115d403368b14879526 # ruff
+dd803757b99b2bc0bdb984a739892fb6264d094b # Black
+44cc9c32fb4c53fbf55aa9bd6a8d802860e31d16 # Whitespace, pyupgrade, prefer builtins
