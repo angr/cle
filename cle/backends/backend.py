@@ -74,7 +74,6 @@ class ExceptionHandling:
     )
 
     def __init__(self, start_addr, size, handler_addr=None, type_=None, func_addr=None):
-
         self.start_addr = start_addr
         self.size = size
         self.handler_addr = handler_addr

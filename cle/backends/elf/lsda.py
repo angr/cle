@@ -13,7 +13,6 @@ from elftools.dwarf.structs import DWARFStructs, Struct
 
 
 class ExceptionTableHeader:
-
     __slots__ = (
         "lp_start",
         "ttype_encoding",
@@ -31,7 +30,6 @@ class ExceptionTableHeader:
 
 
 class CallSiteEntry:
-
     __slots__ = ("cs_start", "cs_len", "cs_lp", "cs_action")
 
     def __init__(self, cs_start, cs_len, cs_lp, cs_action):
@@ -100,7 +98,6 @@ class LSDAExceptionTable:
         return csrs
 
     def _parse_lsda_header(self):
-
         # lpstart
         lpstart_encoding = self.stream.read(1)[0]
         if lpstart_encoding != DW_EH_encoding_flags["DW_EH_PE_omit"]:
@@ -143,7 +140,6 @@ class LSDAExceptionTable:
         )
 
     def _parse_call_site_entry(self, encoding):
-
         base_encoding = encoding & 0x0F
         modifier = encoding & 0xF0
 

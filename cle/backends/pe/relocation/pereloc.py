@@ -4,6 +4,7 @@ from cle.backends.relocation import Relocation
 
 log = logging.getLogger(name=__name__)
 
+
 # Reference: https://msdn.microsoft.com/en-us/library/ms809762.aspx
 class PEReloc(Relocation):
     AUTO_HANDLE_NONE = True

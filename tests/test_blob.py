@@ -7,7 +7,6 @@ TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.jo
 
 
 def test_blob_0():
-
     BASE_ADDR = 0x8000000
     ENTRYPOINT = 0x8001337
 
@@ -37,7 +36,6 @@ def test_blob_0():
 
 
 def test_blob_1():
-
     # Make sure the base address behaves as expected regardless of whether offset is specified or not.
 
     BASE_ADDR = 0x8000000

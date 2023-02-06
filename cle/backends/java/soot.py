@@ -37,7 +37,6 @@ class Soot(Backend):
         android_sdk=None,
         **kwargs,
     ):
-
         if not pysoot:
             raise ImportError("Cannot import PySoot. The Soot backend requires PySoot.")
 

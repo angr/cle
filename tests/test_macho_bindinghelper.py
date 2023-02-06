@@ -153,7 +153,6 @@ class TestLEB(unittest.TestCase):
 
 # noinspection PyTypeChecker
 class TestBindingHelper(unittest.TestCase):
-
     # Note: These tests will require mocking MachOBinary objects
 
     def setUp(self):
@@ -388,7 +387,7 @@ class TestBindingHelper(unittest.TestCase):
             "_CFStringGetCStringPtr": [0xC0D8],
         }
 
-        for (name, xrefs) in expected.items():
+        for name, xrefs in expected.items():
             found = False
             for sym in macho.get_symbol(name):
                 found = True
@@ -496,7 +495,7 @@ class TestBindingHelper(unittest.TestCase):
 
         executed = False
 
-        for (name, xrefs) in expected.items():
+        for name, xrefs in expected.items():
             found = False
             for sym in macho.get_symbol(name):
                 found = True

@@ -17,7 +17,7 @@ def get_binary_directory():
 def check_objects_loaded(ld):
     # we should have child objects if everything loaded correctly
     assert ld.elfcore_object.child_objects
-    for (_, _, _, fn) in ld.elfcore_object.filename_lookup:
+    for _, _, _, fn in ld.elfcore_object.filename_lookup:
         assert "/tmp/foobar/does-not-exist" not in fn
 
 

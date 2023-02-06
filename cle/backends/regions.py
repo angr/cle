@@ -131,7 +131,6 @@ class Regions:
 
     @staticmethod
     def _is_region_mapped(region: Region) -> bool:
-
         # delayed import
         # pylint: disable=import-outside-toplevel
         from .elf.regions import ELFSection
