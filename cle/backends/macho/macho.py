@@ -134,7 +134,6 @@ class MachO(Backend):
 
         # Begin parsing the file
         try:
-
             binary_file = self._binary_stream
             # get magic value and determine endianness
             self.struct_byteorder = self._detect_byteorder(struct.unpack("=I", binary_file.read(4))[0])
@@ -636,7 +635,6 @@ class MachO(Backend):
         self.symtab_offset = symoff
 
     def _parse_symbols(self, f):
-
         # parse the symbol entries and create (unresolved) MachOSymbols.
         if self.arch.bits == 64:
             packstr = "I2BHQ"
@@ -812,7 +810,6 @@ class MachO(Backend):
         return buffer
 
     def _parse_dyld_chained_fixups(self):
-
         header: dyld_chained_fixups_header = self._get_struct(
             dyld_chained_fixups_header, self._dyld_chained_fixups_offset
         )
@@ -884,7 +881,7 @@ class MachO(Backend):
 
             pointer_format: DyldChainedPtrFormats = starts.pointer_format
             log.info("Page has pointer_format: %s", pointer_format)
-            for (j, start) in enumerate(page_starts):
+            for j, start in enumerate(page_starts):
                 if start == DYLD_CHAINED_PTR_START_NONE:
                     continue
                 chain_entry_addr = starts.segment_offset + (j * starts.page_size) + start
@@ -944,7 +941,6 @@ class MachO(Backend):
         """
         result = []
         for sym in self.symbols:
-
             if sym.is_stab and not include_stab:
                 continue
 

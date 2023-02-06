@@ -21,7 +21,6 @@ class HelperStruct(Structure):
     def __repr__(self):
         r = [f"<struct {self.__class__.__name__}"]
         for name, *_ in self._fields_:
-
             r.append(f"{name}={hex(getattr(self, name))}")
         r.append(">")
         return " ".join(r)

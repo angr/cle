@@ -763,7 +763,6 @@ class ELF(MetaELF):
         self.compilation_units = compilation_units
 
     def _load_die_lex_block(self, die: DIE, expr_parser, type_list, cu, file_path, subprogram) -> LexicalBlock:
-
         if "DW_AT_name" in die.attributes:
             name = die.attributes["DW_AT_name"].value.decode("utf-8")
         else:

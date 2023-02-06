@@ -56,7 +56,6 @@ groundtruth = {
 
 class TestRunSections(unittest.TestCase):
     def _run_sections(self, arch, filename, sections):
-
         binary_path = os.path.join(TESTS_BASE, arch, filename)
 
         ld = cle.Loader(binary_path, auto_load_libs=False)
@@ -110,7 +109,6 @@ class TestRunSections(unittest.TestCase):
         self.assertIsNone(ld.main_object.find_section_containing(0xFFFFFFFF), None)
 
     def _run_segments(self, arch, filename, segments):
-
         binary_path = os.path.join(TESTS_BASE, arch, filename)
 
         ld = cle.Loader(binary_path, auto_load_libs=False)
