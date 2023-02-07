@@ -394,6 +394,11 @@ class MachORelocation(Relocation):
     """
 
     def __init__(self, owner: Backend, symbol: AbstractMachOSymbol, relative_addr: int, data):
+        # This is a sanity check
+        # There should never be a reloc inside PAGEZERO
+        # If it supposedly is, it implies that the address calculation went wrong
+        sec = owner.find_section_containing(addr=relative_addr)
+        assert sec.name != "__PAGEZERO", "Reloc inside __PAGEZERO implies addr calculation error"
         super().__init__(owner, symbol, relative_addr)
         self.data = data
 

@@ -5,7 +5,7 @@ from typing import List, Tuple, Union
 
 import archinfo
 
-__all__ = ("ClemoryBase", "Clemory", "ClemoryView")
+__all__ = ("ClemoryBase", "Clemory", "ClemoryView", "UninitializedClemory")
 
 
 class ClemoryBase:
@@ -353,11 +353,11 @@ class Clemory(ClemoryBase):
         started = False
         for start, backer in self._backers:
             if not started:
-                end = start + backer.max_addr if type(backer) is Clemory else start + len(backer)
+                end = start + backer.max_addr if isinstance(backer, Clemory) else start + len(backer)
                 if addr >= end:
                     continue
                 started = True
-            if type(backer) is Clemory:
+            if isinstance(backer, Clemory):
                 for s, b in backer.backers(addr - start):
                     yield s + start, b
             else:
@@ -429,7 +429,7 @@ class Clemory(ClemoryBase):
             search_max = self.max_addr
 
         for start, backer in self._backers:
-            if type(backer) is Clemory:
+            if isinstance(backer, Clemory):
                 if search_max < backer.min_addr + start or search_min > backer.max_addr + start:
                     continue
                 yield from (addr + start for addr in backer.find(data, search_min - start, search_max - start))
@@ -604,3 +604,56 @@ class ClemoryTranslator(ClemoryBase):
 
     def find(self, data, search_min=None, search_max=None):
         raise TypeError("Cannot perform finds through address translation")
+
+
+class UninitializedClemory(Clemory):
+    """
+    A special kind of Clemory that acts as a placeholder for uninitialized and invalid memory.
+    This is needed for the PAGEZERO segment for MachO binaries, which is 4GB worth of memory
+    This does _not_ handle data being written to it, this is only for uninitialized memory that is technically occupied
+    but should never be accessed
+    """
+
+    def __init__(self, arch, size):
+        super().__init__(arch, root=False)
+        self.max_addr = size
+
+    def add_backer(self, start, data, overwrite=False):
+        raise ValueError("Cannot add backers to an uninitialized clemory")
+
+    def split_backer(self, addr):
+        raise ValueError("This is an uninitialized clemory, it cannot be split")
+
+    def update_backer(self, start, data):
+        raise ValueError("This is an uninitialized clemory, it cannot be updated")
+
+    def remove_backer(self, start):
+        raise ValueError("This is an uninitialized clemory, backers cannot be removed")
+
+    def backers(self, addr=0):
+        """
+        Technically this object has no real backer
+        We could create a fake backer on demand, but that would be a waste of memory, and code like the
+        function prolog discovery for MachO binaries would search 4GB worth of nullbytes for a prolog,
+        which is a waste of time
+        Instead we just return an empty byte array, which seems to pass the test cases
+        :param addr:
+        :return:
+        """
+        return [(0, b"")]
+
+    def load(self, addr, n):
+        return b"\x00" * n
+
+    def store(self, addr, data):
+        raise ValueError()
+
+    def find(self, data, search_min=None, search_max=None):
+        """
+        The memory has no value, so matter what is searched for, it won't be found.
+        :param data:
+        :param search_min:
+        :param search_max:
+        :return:
+        """
+        return iter(())

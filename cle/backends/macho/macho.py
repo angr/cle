@@ -15,6 +15,7 @@ from sortedcontainers import SortedKeyList
 
 from cle.backends.backend import AT, Backend, register_backend
 from cle.errors import CLECompatibilityError, CLEInvalidBinaryError, CLEOperationError
+from cle.memory import UninitializedClemory
 
 from .binding import BindingHelper, MachORelocation, read_uleb
 from .macho_load_commands import LoadCommands as LC
@@ -114,7 +115,7 @@ class MachO(Backend):
         self.lc_data_in_code = []  # data from LC_DATA_IN_CODE (if encountered). Format: (offset,length,kind)
         self.mod_init_func_pointers = []  # may be TUMB interworking
         self.mod_term_func_pointers = []  # may be THUMB interworking
-        self.export_blob = None  # exports trie
+        self.export_blob: Optional[bytes] = None  # exports trie
         self.binding_blob: Optional[bytes] = None  # binding information
         self.lazy_binding_blob: Optional[bytes] = None  # lazy binding information
         self.weak_binding_blob: Optional[bytes] = None  # weak binidng information
@@ -165,102 +166,110 @@ class MachO(Backend):
             # Start reading load commands
             lc_offset = (7 if self.arch.bits == 32 else 8) * 4
 
-            # Possible optimization: Remove all unecessary calls to seek()
-            # Load commands have a common structure: First 4 bytes identify the command by a magic number
-            # second 4 bytes determine the commands size. Everything after this generic "header" is command-specific
-            # this makes parsing the commands easy.
-            # The documentation for Mach-O is at
-            # http://opensource.apple.com//source/xnu/xnu-1228.9.59/EXTERNAL_HEADERS/mach-o/loader.h
-            count = 0
-            offset = lc_offset
-            while count < self.ncmds and (offset - lc_offset) < self.sizeofcmds:
-                count += 1
-                (cmd, size) = self._unpack("II", binary_file, offset, 8)
+            self._parse_load_commands(lc_offset)
 
-                # check for segments that interest us
-                if cmd in [LC.LC_SEGMENT, LC.LC_SEGMENT_64]:  # LC_SEGMENT,LC_SEGMENT_64
-                    log.debug("Found LC_SEGMENT(_64) @ %#x", offset)
-                    self._load_segment(binary_file, offset)
-                elif cmd == LC.LC_SYMTAB:  # LC_SYMTAB
-                    log.debug("Found LC_SYMTAB @ %#x", offset)
-                    self._load_symtab(binary_file, offset)
-                elif cmd in [LC.LC_DYLD_INFO, LC.LC_DYLD_INFO_ONLY]:  # LC_DYLD_INFO(_ONLY)
-                    log.debug("Found LC_DYLD_INFO(_ONLY) @ %#x", offset)
-                    self._load_dyld_info(binary_file, offset)
-                elif cmd in [LC.LC_LOAD_DYLIB, 0x8000001C, LC.LC_LOAD_WEAK_DYLIB]:
-                    # TODO: Old comment claimed that 0x8000001c is LC_REEXPORT_DYLIB
-                    #  but 0x8000001c should be LC_RPATH = 0x1C | LC_REQ_DYLD
-                    #  So there is something wrong here that might be harmless
-                    #  but it definitely doesn't seem correct
-                    log.debug("Found LC_*_DYLIB @ %#x", offset)
-                    self._load_dylib_info(binary_file, offset)
-                elif cmd == LC.LC_MAIN:  # LC_MAIN
-                    log.debug("Found LC_MAIN @ %#x", offset)
-                    self._load_lc_main(binary_file, offset)
-                elif cmd == LC.LC_UNIXTHREAD:  # LC_UNIXTHREAD
-                    log.debug("Found LC_UNIXTHREAD @ %#x", offset)
-                    self._load_lc_unixthread(binary_file, offset)
-                elif cmd == LC.LC_FUNCTION_STARTS:  # LC_FUNCTION_STARTS
-                    log.debug("Found LC_FUNCTION_STARTS @ %#x", offset)
-                    self._load_lc_function_starts(binary_file, offset)
-                elif cmd == LC.LC_DATA_IN_CODE:  # LC_DATA_IN_CODE
-                    log.debug("Found LC_DATA_IN_CODE @ %#x", offset)
-                    self._load_lc_data_in_code(binary_file, offset)
-                elif cmd in [LC.LC_ENCRYPTION_INFO, LC.LC_ENCRYPTION_INFO_64]:  # LC_ENCRYPTION_INFO(_64)
-                    log.debug("Found LC_ENCRYPTION_INFO @ %#x", offset)
-                    # self._assert_unencrypted(binary_file, offset)
-                elif cmd in [LC.LC_DYLD_CHAINED_FIXUPS]:
-                    log.info("Found LC_DYLD_CHAINED_FIXUPS @ %#x", offset)
-                    (_, _, dataoff, datasize) = self._unpack("4I", binary_file, offset, 16)
-                    self._dyld_chained_fixups_offset: int = dataoff
-                elif cmd in [LC.LC_BUILD_VERSION]:
-                    log.info("Found LC_BUILD_VERSION @ %#x", offset)
-                    (_, _, _platform, minos, _sdk, _ntools) = self._unpack("6I", binary_file, offset, 6 * 4)
-                    patch = (minos >> (8 * 0)) & 0xFF
-                    minor = (minos >> (8 * 1)) & 0xFF
-                    major = (minos >> (8 * 2)) & 0xFFFF
-                    self._minimum_version = (major, minor, patch)
-                    log.info("Found minimum version %s", ".".join([str(i) for i in self._minimum_version]))
-                else:
-                    try:
-                        command_name = LC(cmd)
-                        log.warning(f"{str(command_name)} is not handled yet")
-                    except ValueError:
-                        log.error(f"Command {hex(cmd)} is not recognized!")
-                # update bookkeeping
-                offset += size
-
-            # Assertion to catch malformed binaries - YES this is needed!
-            if count < self.ncmds or (offset - lc_offset) < self.sizeofcmds:
-                raise CLEInvalidBinaryError(
-                    "Assertion triggered: {} < {} or {} < {}".format(
-                        count, self.ncmds, (offset - lc_offset), self.sizeofcmds
-                    )
-                )
         except OSError as e:
             log.exception(e)
             raise CLEOperationError(e)
 
         # File is read, begin populating internal fields
-        self._resolve_entry()
         log.info("Parsing exports")
         self._parse_exports()
+        self._resolve_entry()
         log.info(f"Parsing {self.symtab_nsyms} symbols")
         self._parse_symbols(binary_file)
         log.info("Parsing module init/term function pointers")
         self._parse_mod_funcs()
 
-        text_segment = self.find_segment_by_name("__TEXT")
-        if text_segment is not None:
-            self.mapped_base: MemoryPointer = text_segment.vaddr
-        else:
-            log.warning("No text segment found")
         if self._dyld_chained_fixups_offset:
             log.info("Parsing dyld bound symbols and fixup chains (ios15 and above)")
             self._parse_dyld_chained_fixups()
         else:
             log.info("Parsing binding bytecode stream")
             self.do_binding()
+
+    @property
+    def macho_base(self) -> int:
+        return self.exports_by_name["__mh_execute_header"][1]
+
+    def _parse_load_commands(self, lc_offset):
+        # Possible optimization: Remove all unecessary calls to seek()
+        # Load commands have a common structure: First 4 bytes identify the command by a magic number
+        # second 4 bytes determine the commands size. Everything after this generic "header" is command-specific
+        # this makes parsing the commands easy.
+        # The documentation for Mach-O is at
+        # http://opensource.apple.com//source/xnu/xnu-1228.9.59/EXTERNAL_HEADERS/mach-o/loader.h
+        binary_file = self._binary_stream
+        count = 0
+        offset = lc_offset
+        while count < self.ncmds and (offset - lc_offset) < self.sizeofcmds:
+            count += 1
+            (cmd, size) = self._unpack("II", binary_file, offset, 8)
+
+            # check for segments that interest us
+            if cmd in [LC.LC_SEGMENT, LC.LC_SEGMENT_64]:  # LC_SEGMENT,LC_SEGMENT_64
+                log.debug("Found LC_SEGMENT(_64) @ %#x", offset)
+                self._load_segment(binary_file, offset)
+            elif cmd == LC.LC_SYMTAB:  # LC_SYMTAB
+                log.debug("Found LC_SYMTAB @ %#x", offset)
+                self._load_symtab(binary_file, offset)
+            elif cmd in [LC.LC_DYLD_INFO, LC.LC_DYLD_INFO_ONLY]:  # LC_DYLD_INFO(_ONLY)
+                log.debug("Found LC_DYLD_INFO(_ONLY) @ %#x", offset)
+                self._load_dyld_info(binary_file, offset)
+            elif cmd in [LC.LC_LOAD_DYLIB, 0x8000001C, LC.LC_LOAD_WEAK_DYLIB]:
+                # TODO: Old comment claimed that 0x8000001c is LC_REEXPORT_DYLIB
+                #  but 0x8000001c should be LC_RPATH = 0x1C | LC_REQ_DYLD
+                #  So there is something wrong here that might be harmless
+                #  but it definitely doesn't seem correct
+                log.debug("Found LC_*_DYLIB @ %#x", offset)
+                self._load_dylib_info(binary_file, offset)
+            elif cmd == LC.LC_MAIN:  # LC_MAIN
+                log.debug("Found LC_MAIN @ %#x", offset)
+                self._load_lc_main(binary_file, offset)
+            elif cmd == LC.LC_UNIXTHREAD:  # LC_UNIXTHREAD
+                log.debug("Found LC_UNIXTHREAD @ %#x", offset)
+                self._load_lc_unixthread(binary_file, offset)
+            elif cmd == LC.LC_FUNCTION_STARTS:  # LC_FUNCTION_STARTS
+                log.debug("Found LC_FUNCTION_STARTS @ %#x", offset)
+                self._load_lc_function_starts(binary_file, offset)
+            elif cmd == LC.LC_DATA_IN_CODE:  # LC_DATA_IN_CODE
+                log.debug("Found LC_DATA_IN_CODE @ %#x", offset)
+                self._load_lc_data_in_code(binary_file, offset)
+            elif cmd in [LC.LC_ENCRYPTION_INFO, LC.LC_ENCRYPTION_INFO_64]:  # LC_ENCRYPTION_INFO(_64)
+                log.debug("Found LC_ENCRYPTION_INFO @ %#x", offset)
+                # self._assert_unencrypted(binary_file, offset)
+            elif cmd in [LC.LC_DYLD_CHAINED_FIXUPS]:
+                log.info("Found LC_DYLD_CHAINED_FIXUPS @ %#x", offset)
+                (_, _, dataoff, datasize) = self._unpack("4I", binary_file, offset, 16)
+                self._dyld_chained_fixups_offset: int = dataoff
+            elif cmd in [LC.LC_BUILD_VERSION]:
+                log.info("Found LC_BUILD_VERSION @ %#x", offset)
+                (_, _, _platform, minos, _sdk, _ntools) = self._unpack("6I", binary_file, offset, 6 * 4)
+                patch = (minos >> (8 * 0)) & 0xFF
+                minor = (minos >> (8 * 1)) & 0xFF
+                major = (minos >> (8 * 2)) & 0xFFFF
+                self._minimum_version = (major, minor, patch)
+                log.info("Found minimum version %s", ".".join([str(i) for i in self._minimum_version]))
+            elif cmd in [LC.LC_DYLD_EXPORTS_TRIE]:
+                log.info("Found LC_DYLD_EXPORTS_TRIE @ %#x", offset)
+                (_, _, dataoff, datasize) = self._unpack("4I", binary_file, offset, 16)
+                self.export_blob = self._read(binary_file, dataoff, datasize)
+            else:
+                try:
+                    command_name = LC(cmd)
+                    log.warning(f"{str(command_name)} is not handled yet")
+                except ValueError:
+                    log.error(f"Command {hex(cmd)} is not recognized!")
+            # update bookkeeping
+            offset += size
+
+        # Assertion to catch malformed binaries - YES this is needed!
+        if count < self.ncmds or (offset - lc_offset) < self.sizeofcmds:
+            raise CLEInvalidBinaryError(
+                "Assertion triggered: {} < {} or {} < {}".format(
+                    count, self.ncmds, (offset - lc_offset), self.sizeofcmds
+                )
+            )
 
     @classmethod
     def is_compatible(cls, stream):
@@ -320,7 +329,7 @@ class MachO(Backend):
 
     def _resolve_entry(self):
         if self.entryoff:
-            self._entry = self.entryoff
+            self._entry = self.macho_base + self.entryoff
         elif self.unixthread_pc:
             self._entry = self.unixthread_pc
         else:
@@ -773,6 +782,8 @@ class MachO(Backend):
             #  (segment has access set to no access)
             #  This optimization is here as otherwise several GB worth of zeroes would clutter our memory
             log.info("Found PAGEZERO, skipping backer for memory conservation")
+            page_zero = UninitializedClemory(arch=self.arch, size=seg.memsize)
+            self.memory.add_backer(seg.vaddr, page_zero)
         elif seg.filesize > 0:
             # Append segment data to memory
             blob = self._read(f, seg.offset, seg.filesize)
@@ -807,11 +818,10 @@ class MachO(Backend):
         buffer = b""
         while end == -1:
             buffer += self._read(self._binary_stream, start, 1024)
-            end = buffer.find(b'\x00')
+            end = buffer.find(b"\x00")
             if max_length is not None and len(buffer) > max_length:
                 raise ValueError(f"Symbol name exceeds {max_length} bytes, giving up")
         return buffer[:end]
-
 
     def _parse_dyld_imports(self, header):
         # Address of Array of dyld_chained_import* structs
@@ -826,7 +836,7 @@ class MachO(Backend):
             imp = self._get_struct(import_struct, import_addr)
             sym_name_addr = symbols_start_addr + imp.name_offset
             try:
-                sym_name_bytes = self._read_cstring_from_file(sym_name_addr, max_length=2 ** 21)
+                sym_name_bytes = self._read_cstring_from_file(sym_name_addr, max_length=2**21)
                 sym_name = sym_name_bytes.decode("utf-8")
             except ValueError as e:
                 # This symbol string is probably not null terminated, so we can't read it
@@ -858,7 +868,6 @@ class MachO(Backend):
                 )
 
     def _parse_dyld_chained_fixups(self):
-
         header: dyld_chained_fixups_header = self._get_struct(
             dyld_chained_fixups_header, self._dyld_chained_fixups_offset
         )
@@ -902,7 +911,7 @@ class MachO(Backend):
                         ChainedFixupPointerOnDisk, current_chain_addr
                     )
                     bind = chained_rebase_ptr.isBind(pointer_format)
-                    rebase = chained_rebase_ptr.isRebase(pointer_format, self.mapped_base)
+                    rebase = chained_rebase_ptr.isRebase(pointer_format, self.macho_base)
                     if bind is not None:
                         libOrdinal, addend = bind
                         try:
@@ -910,14 +919,14 @@ class MachO(Backend):
                         except IndexError:
                             log.error("There is no import with ordinal %d, see SIT issue #33", libOrdinal)
                         else:
-                            reloc = MachORelocation(self, import_symbol, current_chain_addr, None)
+                            reloc = MachORelocation(self, import_symbol, self.macho_base + current_chain_addr, None)
                             self.relocs.append(reloc)
                             # Legacy Code uses bind_xrefs, explicitly add this to make this compatible for now
                             import_symbol.bind_xrefs.append(reloc.dest_addr)
                             log.debug("Binding for %s found at %x", import_symbol, current_chain_addr)
                     elif rebase is not None:
-                        target = self.mapped_base + rebase
-                        location: MemoryPointer = self.mapped_base + current_chain_addr
+                        target = self.macho_base + rebase
+                        location: MemoryPointer = self.macho_base + current_chain_addr
                         self._dyld_rebases[location] = target
                         # TODO: Technically this is basically a relocation, i.e. relevant for rebasing
                         # But it isn't clear to me currently how relocations without a corresponding symbol would
