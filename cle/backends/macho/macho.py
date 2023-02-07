@@ -894,6 +894,21 @@ class MachO(Backend):
             starts_addr: FilePointer = segs_addr + segs[i]
             starts = self._get_struct(dyld_chained_starts_in_segment, starts_addr)
 
+            seg = self.find_segment_containing(self.macho_base + starts.segment_offset)
+            # There are weird binaries where the offsets inside the file
+            # and inside the virtual addr space don't match anymore.
+            # This isn't properly supported yet, and the only known case is the __PII section inside the __ETC segment
+            # of rare binaries, which isn't that important for most purposes
+            shift = seg.vaddr - (seg.offset + self.macho_base)
+            if shift != 0:
+                assert isinstance(seg, MachOSegment)
+                assert seg.segname == "__ETC", (
+                    "Only __ETC segments are known to have this shift, please open an"
+                    " issue for this binary so it can be investigated"
+                )
+                log.error("Segment shift detected in, not handling fixups here for now")
+                continue
+
             page_starts_data = self._read(self._binary_stream, starts_addr + 22, starts.page_count * 2)
             page_starts = struct.unpack("<" + ("H" * starts.page_count), page_starts_data)
 
@@ -914,16 +929,12 @@ class MachO(Backend):
                     rebase = chained_rebase_ptr.isRebase(pointer_format, self.macho_base)
                     if bind is not None:
                         libOrdinal, addend = bind
-                        try:
-                            import_symbol = self._dyld_imports[libOrdinal]
-                        except IndexError:
-                            log.error("There is no import with ordinal %d, see SIT issue #33", libOrdinal)
-                        else:
-                            reloc = MachORelocation(self, import_symbol, self.macho_base + current_chain_addr, None)
-                            self.relocs.append(reloc)
-                            # Legacy Code uses bind_xrefs, explicitly add this to make this compatible for now
-                            import_symbol.bind_xrefs.append(reloc.dest_addr)
-                            log.debug("Binding for %s found at %x", import_symbol, current_chain_addr)
+                        import_symbol = self._dyld_imports[libOrdinal]
+                        reloc = MachORelocation(self, import_symbol, self.macho_base + current_chain_addr, None)
+                        self.relocs.append(reloc)
+                        # Legacy Code uses bind_xrefs, explicitly add this to make this compatible for now
+                        import_symbol.bind_xrefs.append(reloc.dest_addr)
+                        log.debug("Binding for %s found at %x", import_symbol, current_chain_addr)
                     elif rebase is not None:
                         target = self.macho_base + rebase
                         location: MemoryPointer = self.macho_base + current_chain_addr
