@@ -113,15 +113,19 @@ class MachO(Backend):
         self.unixthread_pc = None
         self.os = "macos"
         self.lc_data_in_code = []  # data from LC_DATA_IN_CODE (if encountered). Format: (offset,length,kind)
+        self.lc_function_starts: Optional[List[int]] = None  # data from LC_FUNCTION_STARTS (if encountered)
         self.mod_init_func_pointers = []  # may be TUMB interworking
         self.mod_term_func_pointers = []  # may be THUMB interworking
         self.export_blob: Optional[bytes] = None  # exports trie
         self.binding_blob: Optional[bytes] = None  # binding information
         self.lazy_binding_blob: Optional[bytes] = None  # lazy binding information
         self.weak_binding_blob: Optional[bytes] = None  # weak binidng information
+        self.rebase_blob: Optional[bytes] = None  # rebasing information
         self.symtab_offset = None  # offset to the symtab
         self.symtab_nsyms = None  # number of symbols in the symtab
         self.binding_done = False  # if true binding was already done and do_bind will be a no-op
+        self.strtab: Optional[bytes] = None
+        self._indexed_strtab: Optional[Dict[int, bytes]] = None
         self._dyld_chained_fixups_offset: Optional[int] = None
         self._dyld_rebases: Dict[MemoryPointer, MemoryPointer] = {}
         self._dyld_imports: List[AbstractMachOSymbol] = []
@@ -170,7 +174,7 @@ class MachO(Backend):
 
         except OSError as e:
             log.exception(e)
-            raise CLEOperationError(e)
+            raise CLEOperationError(e) from e
 
         # File is read, begin populating internal fields
         log.info("Parsing exports")
@@ -257,9 +261,9 @@ class MachO(Backend):
             else:
                 try:
                     command_name = LC(cmd)
-                    log.warning(f"{str(command_name)} is not handled yet")
+                    log.warning("%s is not handled yet", str(command_name))
                 except ValueError:
-                    log.error(f"Command {hex(cmd)} is not recognized!")
+                    log.error("Command %s is not recognized!", hex(cmd))
             # update bookkeeping
             offset += size
 
@@ -802,9 +806,9 @@ class MachO(Backend):
 
     S = typing.TypeVar("S", bound=Union[ctypes.Structure, ctypes.Union])
 
-    def _get_struct(self, struct: typing.Type[S], offset: int) -> S:
-        data = self._read(self._binary_stream, offset, ctypes.sizeof(struct))
-        return struct.from_buffer_copy(data)
+    def _get_struct(self, struct_type: typing.Type[S], offset: int) -> S:
+        data = self._read(self._binary_stream, offset, ctypes.sizeof(struct_type))
+        return struct_type.from_buffer_copy(data)
 
     def _read_cstring_from_file(self, start: FilePointer, max_length=None):
         """
@@ -928,7 +932,7 @@ class MachO(Backend):
                     bind = chained_rebase_ptr.isBind(pointer_format)
                     rebase = chained_rebase_ptr.isRebase(pointer_format, self.macho_base)
                     if bind is not None:
-                        libOrdinal, addend = bind
+                        libOrdinal, _addend = bind
                         import_symbol = self._dyld_imports[libOrdinal]
                         reloc = MachORelocation(self, import_symbol, self.macho_base + current_chain_addr, None)
                         self.relocs.append(reloc)
