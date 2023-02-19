@@ -510,7 +510,10 @@ class R_ARM_THM_MOVT_ABS(ELFReloc):
 
 
 class R_ARM_GOT_PREL(GenericPCRelativeAddendReloc, RelocTruncate32Mixin, RelocGOTMixin):
-    pass
+    """
+    GOT(S) + A - P
+    Ref: https://github.com/ARM-software/abi-aa/blob/main/aaelf32/aaelf32.rst
+    """
 
 
 __all__ = [
