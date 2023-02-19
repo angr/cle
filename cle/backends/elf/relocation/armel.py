@@ -21,6 +21,7 @@ from .arm import (
     R_ARM_THM_MOVW_ABS_NC,
     R_ARM_TLS_DTPOFF32,
     R_ARM_TLS_TPOFF32,
+    R_ARM_GOT_PREL,
 )
 
 arch = "ARMEL"
@@ -49,4 +50,5 @@ __all__ = [
     "R_ARM_THM_JUMP6",
     "R_ARM_THM_MOVW_ABS_NC",
     "R_ARM_THM_MOVT_ABS",
+    "R_ARM_GOT_PREL",
 ]
