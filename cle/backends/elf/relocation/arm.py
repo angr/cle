@@ -512,6 +512,7 @@ class R_ARM_THM_MOVT_ABS(ELFReloc):
 class R_ARM_GOT_PREL(GenericPCRelativeAddendReloc, RelocTruncate32Mixin, RelocGOTMixin):
     pass
 
+
 __all__ = [
     "arch",
     "R_ARM_CALL",
