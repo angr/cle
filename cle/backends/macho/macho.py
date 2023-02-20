@@ -196,6 +196,10 @@ class MachO(Backend):
     def macho_base(self) -> int:
         return self.exports_by_name["__mh_execute_header"][1]
 
+    @property
+    def min_addr(self) -> int:
+        return self.macho_base
+
     def _parse_load_commands(self, lc_offset):
         # Possible optimization: Remove all unecessary calls to seek()
         # Load commands have a common structure: First 4 bytes identify the command by a magic number
