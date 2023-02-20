@@ -4,6 +4,7 @@ import logging
 import os
 
 import cle
+from cle.backends.macho.section import MachOSection
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
 
@@ -172,6 +173,38 @@ def test_dummy():
     for k, v in expected_memory.items():
         # print hex(k)
         assert v == macho.memory[k]
+
+
+def test_find_object_containing():
+    machofile = os.path.join(TEST_BASE, "tests", "x86_64", "fauxware.macho")
+    ld = cle.Loader(machofile, auto_load_libs=False)
+
+    assert ld.find_object_containing(ld.main_object.entry) is ld.main_object
+
+
+def test_find_section_containing():
+    machofile = os.path.join(TEST_BASE, "tests", "x86_64", "fauxware.macho")
+    ld = cle.Loader(machofile, auto_load_libs=False)
+
+    section = ld.find_section_containing(ld.main_object.entry)
+    assert section is not None
+    assert section.name == "__text"
+
+
+def test_find_region_containing():
+    machofile = os.path.join(TEST_BASE, "tests", "x86_64", "fauxware.macho")
+    ld = cle.Loader(machofile, auto_load_libs=False)
+
+    region = ld.main_object.sections.find_region_containing(ld.main_object.entry)
+    assert isinstance(region, MachOSection)
+    assert region.name == "__text"
+
+
+def test_describe_addr():
+    machofile = os.path.join(TEST_BASE, "tests", "x86_64", "fauxware.macho")
+    ld = cle.Loader(machofile, auto_load_libs=False)
+
+    assert ld.describe_addr(ld.main_object.entry) == "_main+0x0 in fauxware.macho (0x100000de0)"
 
 
 if __name__ == "__main__":
