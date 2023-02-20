@@ -12,6 +12,8 @@ from .generic import (
     GenericTLSDoffsetReloc,
     GenericTLSModIdReloc,
     GenericTLSOffsetReloc,
+    RelocGOTMixin,
+    RelocTruncate32Mixin,
 )
 
 log = logging.getLogger(name=__name__)
@@ -507,6 +509,13 @@ class R_ARM_THM_MOVT_ABS(ELFReloc):
         return inst
 
 
+class R_ARM_GOT_PREL(GenericPCRelativeAddendReloc, RelocTruncate32Mixin, RelocGOTMixin):
+    """
+    GOT(S) + A - P
+    Ref: https://github.com/ARM-software/abi-aa/blob/main/aaelf32/aaelf32.rst
+    """
+
+
 __all__ = [
     "arch",
     "R_ARM_CALL",
@@ -531,4 +540,5 @@ __all__ = [
     "R_ARM_THM_JUMP6",
     "R_ARM_THM_MOVW_ABS_NC",
     "R_ARM_THM_MOVT_ABS",
+    "R_ARM_GOT_PREL",
 ]
