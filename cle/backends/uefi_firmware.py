@@ -23,10 +23,18 @@ log = logging.getLogger(__name__)
 
 
 class UefiDriverLoadError(Exception):
+    """
+    This error is raised (and caught internally) if the data contained in the UEFI entity tree doesn't make sense.
+    """
+
     pass
 
 
 class UefiFirmware(Backend):
+    """
+    A UEFI firmware blob loader. Support is provided by the ``uefi_firmware`` package.
+    """
+
     is_default = True
 
     @classmethod
@@ -98,7 +106,7 @@ class UefiFirmware(Backend):
             self.loader.main_object = None
 
     @singledispatchmethod
-    def _load(self, uefi_obj):
+    def _load(self, uefi_obj):  # pylint: disable=no-self-use
         raise CLEUnknownFormatError(f"Can't load firmware object: {uefi_obj}")
 
     if uefi_firmware is not None:
@@ -134,6 +142,10 @@ class UefiFirmware(Backend):
 
 @dataclass
 class UefiModulePending:
+    """
+    A worklist entry for the UEFI firmware loader.
+    """
+
     name: Optional[str] = None
     pe_image: Optional[bytes] = None
     te_image: Optional[bytes] = None
@@ -156,6 +168,10 @@ class UefiModulePending:
 
 
 class UefiModuleMixin(Backend):
+    """
+    A mixin to make other kinds of backends load as UEFI modules.
+    """
+
     def __init__(self, *args, guid: UUID, name: Optional[str], **kwargs):
         super().__init__(*args, **kwargs)
         self.guid = guid
@@ -173,10 +189,18 @@ class UefiModuleMixin(Backend):
 
 
 class UefiPE(UefiModuleMixin, PE):
+    """
+    A PE file contained in a UEFI image.
+    """
+
     pass
 
 
 class UefiTE(UefiModuleMixin, TE):
+    """
+    A TE file contained in a UEFI image.
+    """
+
     pass
 
 

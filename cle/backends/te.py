@@ -51,6 +51,10 @@ ARCH_MAPPING = {
 
 
 class TE(Backend):
+    """
+    A "Terse Executable" format image, commonly used as part of UEFI firmware drivers.
+    """
+
     is_default = True
 
     @classmethod
