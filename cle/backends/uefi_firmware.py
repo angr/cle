@@ -1,24 +1,25 @@
-from typing import Optional, Dict
-import logging
-from functools import singledispatchmethod
-from dataclasses import dataclass
 import io
+import logging
 import mmap
+from dataclasses import dataclass
+from functools import singledispatchmethod
+from typing import Dict, Optional
 from uuid import UUID
 
 import archinfo
+
+from cle.errors import CLEError, CLEUnknownFormatError
+
+from . import Backend, register_backend
+from .pe import PE
+from .te import TE
 
 try:
     import uefi_firmware
 except ImportError:
     uefi_firmware = None
 
-from . import Backend, register_backend
-from ..errors import CLEError, CLEUnknownFormatError
-from .pe import PE
-from .te import TE
-
-l = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 class UefiDriverLoadError(Exception):
@@ -79,7 +80,7 @@ class UefiFirmware(Backend):
             try:
                 child = pending.build(self, uuid)
             except UefiDriverLoadError as e:
-                l.warning("Failed to load %s: %s", uuid, e.args[0])
+                log.warning("Failed to load %s: %s", uuid, e.args[0])
             else:
                 self._drivers[uuid] = child
                 child.parent_object = self
@@ -88,7 +89,7 @@ class UefiFirmware(Backend):
         if self.child_objects:
             self.arch = self.child_objects[0].arch
         else:
-            l.warning("Loaded empty static archive?")
+            log.warning("Loaded empty static archive?")
         self.has_memory = False
         self.pic = True
 
@@ -101,7 +102,7 @@ class UefiFirmware(Backend):
         raise CLEUnknownFormatError(f"Can't load firmware object: {uefi_obj}")
 
     @_load.register
-    def _load_generic(self, uefi_obj: uefi_firmware.FirmwareObject):
+    def _load_generic(self, uefi_obj: "uefi_firmware.FirmwareObject"):
         for obj in uefi_obj.objects:
             self._load(obj)
 
@@ -110,14 +111,14 @@ class UefiFirmware(Backend):
         pass
 
     @_load.register
-    def _load_firmwarefile(self, uefi_obj: uefi_firmware.uefi.FirmwareFile):
+    def _load_firmwarefile(self, uefi_obj: "uefi_firmware.uefi.FirmwareFile"):
         if uefi_obj.type == 7:  # driver
             uuid = UUID(bytes=uefi_obj.guid)
             self._drivers_pending[uuid] = UefiModulePending()
         self._load_generic(uefi_obj)
 
     @_load.register
-    def _load_firmwarefilesection(self, uefi_obj: uefi_firmware.uefi.FirmwareFileSystemSection):
+    def _load_firmwarefilesection(self, uefi_obj: "uefi_firmware.uefi.FirmwareFileSystemSection"):
         pending = self._drivers_pending.get(UUID(bytes=uefi_obj.guid), None)
         if pending is not None:
             if uefi_obj.type == 16:  # pe32 image
@@ -162,7 +163,11 @@ class UefiModuleMixin(Backend):
             self.pic = True
 
     def __repr__(self):
-        return f'<{type(self).__name__} Object {self.guid}{f" {self.user_interface_name}" if self.user_interface_name else ""}, maps [{self.min_addr:#x}:{self.max_addr:#x}]>'
+        return (
+            f"<{type(self).__name__} Object "
+            f'{self.guid}{f" {self.user_interface_name}" if self.user_interface_name else ""}, '
+            f"maps [{self.min_addr:#x}:{self.max_addr:#x}]>"
+        )
 
 
 class UefiPE(UefiModuleMixin, PE):
