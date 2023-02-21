@@ -101,33 +101,35 @@ class UefiFirmware(Backend):
     def _load(self, uefi_obj):
         raise CLEUnknownFormatError(f"Can't load firmware object: {uefi_obj}")
 
-    @_load.register
-    def _load_generic(self, uefi_obj: "uefi_firmware.FirmwareObject"):
-        for obj in uefi_obj.objects:
-            self._load(obj)
+    if uefi_firmware is not None:
 
-    @_load.register
-    def _load_none(self, uefi_obj: None):
-        pass
+        @_load.register
+        def _load_generic(self, uefi_obj: uefi_firmware.FirmwareObject):
+            for obj in uefi_obj.objects:
+                self._load(obj)
 
-    @_load.register
-    def _load_firmwarefile(self, uefi_obj: "uefi_firmware.uefi.FirmwareFile"):
-        if uefi_obj.type == 7:  # driver
-            uuid = UUID(bytes=uefi_obj.guid)
-            self._drivers_pending[uuid] = UefiModulePending()
-        self._load_generic(uefi_obj)
+        @_load.register
+        def _load_none(self, uefi_obj: None):
+            pass
 
-    @_load.register
-    def _load_firmwarefilesection(self, uefi_obj: "uefi_firmware.uefi.FirmwareFileSystemSection"):
-        pending = self._drivers_pending.get(UUID(bytes=uefi_obj.guid), None)
-        if pending is not None:
-            if uefi_obj.type == 16:  # pe32 image
-                pending.pe_image = uefi_obj.content
-            elif uefi_obj.type == 18:  # te image
-                pending.te_image = uefi_obj.content
-            elif uefi_obj.type == 21:  # user interface name
-                pending.name = uefi_obj.content.decode("utf-16").strip("\0")
-        self._load_generic(uefi_obj)
+        @_load.register
+        def _load_firmwarefile(self, uefi_obj: uefi_firmware.uefi.FirmwareFile):
+            if uefi_obj.type == 7:  # driver
+                uuid = UUID(bytes=uefi_obj.guid)
+                self._drivers_pending[uuid] = UefiModulePending()
+            self._load_generic(uefi_obj)
+
+        @_load.register
+        def _load_firmwarefilesection(self, uefi_obj: uefi_firmware.uefi.FirmwareFileSystemSection):
+            pending = self._drivers_pending.get(UUID(bytes=uefi_obj.guid), None)
+            if pending is not None:
+                if uefi_obj.type == 16:  # pe32 image
+                    pending.pe_image = uefi_obj.content
+                elif uefi_obj.type == 18:  # te image
+                    pending.te_image = uefi_obj.content
+                elif uefi_obj.type == 21:  # user interface name
+                    pending.name = uefi_obj.content.decode("utf-16").strip("\0")
+            self._load_generic(uefi_obj)
 
 
 @dataclass
