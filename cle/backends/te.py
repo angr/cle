@@ -2,7 +2,8 @@ import struct
 from collections import namedtuple
 
 import archinfo
-from . import Backend, register_backend, Section
+
+from . import Backend, Section, register_backend
 
 HEADER = struct.Struct("<HHBBHIIQIIII")
 SECTION_HEADER = struct.Struct("<8sIIIIIIHHI")
@@ -98,8 +99,6 @@ class TE(Backend):
         self._segments = self._sections
 
         self.pic = has_relocs
-
-        breakpoint()
 
 
 register_backend("te", TE)

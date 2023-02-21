@@ -13,6 +13,7 @@ from .backends import (
     CGC,
     ELF,
     PE,
+    TE,
     XBE,
     Apk,
     BackedCGC,
@@ -37,6 +38,7 @@ from .backends import (
     Symbol,
     SymbolSubType,
     SymbolType,
+    UefiFirmware,
     register_backend,
 )
 from .backends.externs import (
@@ -127,4 +129,6 @@ __all__ = [
     "Symbol",
     "SymbolType",
     "SymbolSubType",
+    "TE",
+    "UefiFirmware",
 ]
