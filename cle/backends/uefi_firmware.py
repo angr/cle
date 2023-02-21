@@ -27,8 +27,6 @@ class UefiDriverLoadError(Exception):
     This error is raised (and caught internally) if the data contained in the UEFI entity tree doesn't make sense.
     """
 
-    pass
-
 
 class UefiFirmware(Backend):
     """
@@ -193,15 +191,11 @@ class UefiPE(UefiModuleMixin, PE):
     A PE file contained in a UEFI image.
     """
 
-    pass
-
 
 class UefiTE(UefiModuleMixin, TE):
     """
     A TE file contained in a UEFI image.
     """
-
-    pass
 
 
 register_backend("uefi", UefiFirmware)
