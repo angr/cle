@@ -1228,6 +1228,8 @@ class ELF(MetaELF):
                             b"\0" * sec_readelf.header["sh_size"],
                             overwrite=True,
                         )
+                    elif section.type == "SHT_NOTE":
+                        pass  # observed this case in angr/angr#3829
                     else:  # elif section.type == 'SHT_PROGBITS':
                         self.memory.add_backer(
                             AT.from_lva(section.vaddr, self).to_rva(), sec_readelf.data(), overwrite=True

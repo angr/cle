@@ -431,7 +431,7 @@ class ELFCore(ELF):
             try:
                 with open(filename, "rb") as fp:
                     obj = self.loader._load_object_isolated(fp)
-            except (FileNotFoundError, CLECompatibilityError) as ex:
+            except (FileNotFoundError, PermissionError, CLECompatibilityError) as ex:
                 if isinstance(ex, FileNotFoundError):
                     log.warning(
                         "Dependency %s does not exist on the current system; this core may be incomplete.", filename
