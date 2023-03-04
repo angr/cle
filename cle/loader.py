@@ -1241,3 +1241,21 @@ class Loader:
             return default
         else:
             raise CLEError("Invalid backend: %s" % backend)
+
+    #
+    # Memory data loading methods
+    #
+
+    def fast_memory_load_pointer(self, addr: int, size: Optional[int] = None) -> Optional[int]:
+        """
+        Perform a fast memory loading of a pointer.
+
+        :param addr:    Address to read from.
+        :param size:    Size of the pointer. Default to machine-word size.
+        :return:        A pointer or None if the address does not exist.
+        """
+
+        try:
+            return self.memory.unpack_word(addr, size=size)
+        except KeyError:
+            return None
