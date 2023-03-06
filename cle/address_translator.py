@@ -98,4 +98,5 @@ class AddressTranslator:
     to_relative_va = to_rva
 
 
-AT = AddressTranslator
+class AT(AddressTranslator):
+    pass

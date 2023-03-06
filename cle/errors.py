@@ -5,6 +5,7 @@ __all__ = (
     "CLEInvalidBinaryError",
     "CLEOperationError",
     "CLECompatibilityError",
+    "CLEMemoryError",
 )
 
 

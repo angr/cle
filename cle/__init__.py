@@ -62,12 +62,13 @@ from .errors import (
     CLEError,
     CLEFileNotFoundError,
     CLEInvalidBinaryError,
+    CLEMemoryError,
     CLEOperationError,
     CLEUnknownFormatError,
 )
 from .gdb import GDB_SEARCH_PATH, convert_info_proc_maps, convert_info_sharedlibrary
 from .loader import Loader
-from .memory import Clemory, ClemoryBase, ClemoryView, UninitializedClemory
+from .memory import Clemory, ClemoryBase, ClemoryTranslator, ClemoryView, UninitializedClemory
 from .patched_stream import PatchedStream
 
 __all__ = [
@@ -115,6 +116,7 @@ __all__ = [
     "CLEInvalidBinaryError",
     "CLEOperationError",
     "CLEUnknownFormatError",
+    "CLEMemoryError",
     "convert_info_proc_maps",
     "convert_info_sharedlibrary",
     "GDB_SEARCH_PATH",
@@ -122,6 +124,7 @@ __all__ = [
     "Clemory",
     "ClemoryBase",
     "ClemoryView",
+    "ClemoryTranslator",
     "UninitializedClemory",
     "PatchedStream",
     "AddressTranslator",

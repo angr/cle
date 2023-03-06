@@ -5,7 +5,7 @@ from typing import List, Tuple, Union
 
 import archinfo
 
-__all__ = ("ClemoryBase", "Clemory", "ClemoryView", "UninitializedClemory")
+__all__ = ("ClemoryBase", "Clemory", "ClemoryView", "ClemoryTranslator", "UninitializedClemory")
 
 
 class ClemoryBase:
