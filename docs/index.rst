@@ -1,10 +1,15 @@
-Welcome to cle's documentation!
+Welcome to CLE's documentation!
 ===============================
+
+This documentation has two sections.
+The first shows basic usage of CLE, and the second shows the API reference.
+
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
+   Quickstart <quickstart>
    API <api>
 
 
