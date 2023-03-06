@@ -23,7 +23,7 @@ jobs:
         run: >
           pip install git+https://github.com/angr/archinfo.git
           pip install git+https://github.com/angr/pyvex.git
-          pip install .[doc]
+          pip install .[docs]
       - name: Build docs
         run: cd docs && make html
       - name: Build coverage
