@@ -80,19 +80,19 @@ please complain through whatever channel you feel appropriate.
 CLE's loader is implemented in the Loader class.
 There are several backends that can be used to load a single file:
 
-    - ELF, as its name says, loads ELF binaries. ELF files loaded this way are
-      statically parsed using PyElfTools.
+  - ELF, as its name says, loads ELF binaries. ELF files loaded this way are
+    statically parsed using PyElfTools.
 
-    - PE is a backend to load Microsoft's Portable Executable format,
-      effectively Windows binaries. It uses the (optional) `pefile` module.
+  - PE is a backend to load Microsoft's Portable Executable format,
+    effectively Windows binaries. It uses the (optional) `pefile` module.
 
-    - Mach-O is a backend to load, you guessed it, Mach-O binaries. It is
-      subject to several limitations, which you can read about in the
-      [readme in the macho directory](backends/macho/README.md)
+  - Mach-O is a backend to load, you guessed it, Mach-O binaries. It is
+    subject to several limitations, which you can read about in the
+    [readme in the macho directory](backends/macho/README.md)
 
-    - Blob is a backend to load unknown data. It requires that you specify
-      the architecture it would be run on, in the form of a class from
-      ArchInfo.
+  - Blob is a backend to load unknown data. It requires that you specify
+    the architecture it would be run on, in the form of a class from
+    ArchInfo.
 
 Which backend you use can be specified as an argument to Loader. If left
 unspecified, the loader will pick a reasonable default.
