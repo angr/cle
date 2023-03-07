@@ -44,6 +44,10 @@ autodoc_typehints = "both"
 # -- Options for coverage ----------------------------------------------------
 coverage_write_headline = False
 
+coverage_ignore_classes = [
+    "cle.address_translator.AT",  # Alias to AddressTranslator
+]
+
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
