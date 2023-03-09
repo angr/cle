@@ -23,14 +23,6 @@ HEX_TYPE_STARTSEGADDR = 0x03
 HEX_TYPE_EXTLINEARADDR = 0x04
 HEX_TYPE_STARTLINEARADDR = 0x05
 
-if bytes is not str:
-
-    def chh(x):
-        return x
-
-else:
-    chh = ord
-
 
 class Hex(Backend):
     """
@@ -49,7 +41,7 @@ class Hex(Backend):
         count, addr, rectype, data, cksum = m.groups()
         cksum = int(cksum, 16)
         for d in binascii.unhexlify(line[1:-2]):
-            my_cksum = (my_cksum + chh(d)) % 256
+            my_cksum = (my_cksum + d) % 256
         my_cksum = ((my_cksum ^ 0xFF) + 1) % 256
         if my_cksum != cksum:
             raise CLEError(f"Invalid checksum: Computed {hex(my_cksum)}, found {hex(cksum)}")

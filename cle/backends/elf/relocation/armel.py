@@ -20,6 +20,7 @@ from .arm import (
     R_ARM_THM_JUMP24,
     R_ARM_THM_MOVT_ABS,
     R_ARM_THM_MOVW_ABS_NC,
+    R_ARM_TLS_DTPMOD32,
     R_ARM_TLS_DTPOFF32,
     R_ARM_TLS_TPOFF32,
 )
@@ -42,6 +43,7 @@ __all__ = [
     "R_ARM_RELATIVE",
     "R_ARM_ABS32_NOI",
     "R_ARM_REL32_NOI",
+    "R_ARM_TLS_DTPMOD32",
     "R_ARM_TLS_DTPOFF32",
     "R_ARM_TLS_TPOFF32",
     "R_ARM_JUMP24",

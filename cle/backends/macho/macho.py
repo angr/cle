@@ -36,7 +36,7 @@ from .symbol import AbstractMachOSymbol, DyldBoundSymbol, SymbolTableSymbol
 
 log = logging.getLogger(name=__name__)
 
-__all__ = ("MachO", "MachOSection", "MachOSegment")
+__all__ = ("MachO", "MachOSection", "MachOSegment", "SymbolList")
 
 
 # pylint: disable=abstract-method

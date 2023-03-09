@@ -14,7 +14,7 @@ from cle.backends.backend import Backend
 from cle.backends.symbol import SymbolType
 from cle.utils import stream_or_path
 
-__all__ = ("MetaELF",)
+__all__ = ("MetaELF", "Relro", "maybedecode")
 
 log = logging.getLogger(name=__name__)
 
@@ -31,7 +31,7 @@ def maybedecode(string):
     return string if type(string) is str else string.decode()
 
 
-def get_relro(elf):
+def _get_relro(elf):
     # The tests for partial and full RELRO have been taken from
     # checksec.sh v1.5 (https://www.trapkit.de/tools/checksec/):
     #   - Partial RELRO has a 'GNU_RELRO' segment
@@ -61,7 +61,7 @@ class MetaELF(Backend):
         tmp_reader = elftools.elf.elffile.ELFFile(self._binary_stream)
         self.os = describe_ei_osabi(tmp_reader.header.e_ident.EI_OSABI)
         self.elfflags = tmp_reader.header.e_flags
-        self.relro = get_relro(tmp_reader)
+        self.relro = _get_relro(tmp_reader)
         self._plt = {}
         self._ppc64_abiv1_initial_rtoc = None
 
