@@ -1,16 +1,25 @@
-CLE
-===
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+# CLE
+[![Latest Release](https://img.shields.io/pypi/v/cle.svg)](https://pypi.python.org/pypi/cle/)
+[![Python Version](https://img.shields.io/pypi/pyversions/cle)](https://pypi.python.org/pypi/cle/)
+[![PyPI Statistics](https://img.shields.io/pypi/dm/cle.svg)](https://pypistats.org/packages/cle)
+[![License](https://img.shields.io/github/license/angr/cle.svg)](https://github.com/angr/cle/blob/master/LICENSE)
 
 CLE loads binaries and their associated libraries, resolves imports and
 provides an abstraction of process memory the same way as if it was loader by
 the OS's loader.
 
-# Installation
+## Project Links
+Project repository: https://github.com/angr/cle
 
-`$ pip install cle`
+Documentation: https://api.angr.io/projects/cle/en/latest/
 
-# Usage example
+## Installation
+
+```sh
+pip install cle
+```
+
+## Usage example
 
 ```python
 >>> import cle
@@ -68,14 +77,14 @@ IRSB {
 }
 ```
 
-# Valid options
+## Valid options
 
 For a full listing and description of the options that can be provided to the
 loader and the methods it provides, please examine the docstrings in
 `cle/loader.py`. If anything is unclear or poorly documented (there is much)
 please complain through whatever channel you feel appropriate.
 
-# Loading Backends
+## Loading Backends
 
 CLE's loader is implemented in the Loader class.
 There are several backends that can be used to load a single file:
@@ -97,7 +106,7 @@ There are several backends that can be used to load a single file:
 Which backend you use can be specified as an argument to Loader. If left
 unspecified, the loader will pick a reasonable default.
 
-# Finding shared libraries
+## Finding shared libraries
 
 - If the `auto_load_libs` option is set to False, the Loader will not
   automatically load libraries requested by loaded objects. Otherwise...
