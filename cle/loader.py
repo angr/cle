@@ -3,7 +3,7 @@ import os
 import platform
 import sys
 from collections import OrderedDict
-from typing import List, Optional
+from typing import List, Optional, Type
 
 import archinfo
 from archinfo.arch_soot import ArchSoot
@@ -1210,7 +1210,7 @@ class Loader:
             for name in self._possible_idents(spec, lowercase=True):
                 yield name.lower()
 
-    def _static_backend(self, spec, ignore_hints=False):
+    def _static_backend(self, spec, ignore_hints=False) -> Optional[Type[Backend]]:
         """
         Returns the correct loader for the file at `spec`.
         Returns None if it's a blob or some unknown type.

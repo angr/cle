@@ -1,7 +1,7 @@
 # This file is part of Mach-O Loader for CLE.
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/) and updated in September 2019.
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from cle import AT
 from cle.backends.backend import Backend
@@ -35,6 +35,8 @@ class AbstractMachOSymbol(Symbol):
     Defines the minimum common properties all types of mach-o symbols must have
     """
 
+    owner: "MachO"
+
     def __init__(self, owner: Backend, name: str, relative_addr: int, size: int, sym_type: SymbolType):
         super().__init__(owner, name, relative_addr, size, sym_type)
 
@@ -53,8 +55,16 @@ class AbstractMachOSymbol(Symbol):
         return False
 
     @property
-    def library_name(self):
+    def library_name(self) -> Optional[bytes]:
         return None
+
+    @property
+    def library_base_name(self) -> Optional[str]:
+        full_name = self.library_name
+        if full_name is None:
+            return None
+
+        return full_name.decode().rsplit("/", 1)[-1]
 
 
 class SymbolTableSymbol(AbstractMachOSymbol):
@@ -68,8 +78,6 @@ class SymbolTableSymbol(AbstractMachOSymbol):
 
     Much of the code below is based on heuristics as official documentation is sparse, consider yourself warned!
     """
-
-    owner: "MachO"
 
     def __init__(self, owner: "MachO", symtab_offset, n_strx, n_type, n_sect, n_desc, n_value):
         # Note 1: Setting size = owner.arch.bytes has been directly taken over from the PE backend,
@@ -112,7 +120,7 @@ class SymbolTableSymbol(AbstractMachOSymbol):
         self.is_export = self.name in self.owner.exports_by_name
 
     @property
-    def library_name(self):
+    def library_name(self) -> Optional[bytes]:
         if self.is_import:
             if LIBRARY_ORDINAL_DYN_LOOKUP == self.library_ordinal:
                 log.warning("LIBRARY_ORDINAL_DYN_LOOKUP found, cannot handle")
@@ -160,10 +168,6 @@ class SymbolTableSymbol(AbstractMachOSymbol):
         # Incompatibility to CLE
         log.debug("It is not possible to decide wether a symbol is a function or not for MachOSymbols")
         return False
-
-    @property
-    def rebased_addr(self):
-        return self.linked_addr
 
     # real symbols have properties, mach-o symbols have plenty of them:
     @property
@@ -239,6 +243,8 @@ class DyldBoundSymbol(AbstractMachOSymbol):
     The new kind of symbol handling introduced with ios15
     """
 
+    owner: "MachO"
+
     def __init__(self, owner, name, lib_ordinal):
         """Based on the constructor of BindingSymbol"""
 
@@ -261,13 +267,13 @@ class DyldBoundSymbol(AbstractMachOSymbol):
         elif BIND_SPECIAL_DYLIB_WEAK_LOOKUP == self.lib_ordinal:
             return None
         try:
-            return self.owner_obj.imported_libraries[self.lib_ordinal]
+            return self.owner.imported_libraries[self.lib_ordinal]
         except IndexError:
             log.error(
                 "Symbol %s has library ordinal %d, but there are only %d imported libraries",
                 self,
                 self.lib_ordinal,
-                len(self.owner_obj.imported_libraries),
+                len(self.owner.imported_libraries),
             )
             return None
 
@@ -276,10 +282,6 @@ class DyldBoundSymbol(AbstractMachOSymbol):
         # Incompatibility to CLE
         log.debug("It is not possible to decide wether a symbol is a function or not for MachOSymbols")
         return False
-
-    @property
-    def rebased_addr(self):
-        return self.linked_addr
 
     def demangled_name(self):
         return self.name  # it is not THAT easy with Mach-O
@@ -321,7 +323,7 @@ class BindingSymbol(AbstractMachOSymbol):
 
         # set further fields
         self.is_import = True  # this is always an import
-        self.is_export = self.name in self.owner_obj.exports_by_name
+        self.is_export = self.name in self.owner.exports_by_name
 
     @property
     def library_name(self):
@@ -329,18 +331,13 @@ class BindingSymbol(AbstractMachOSymbol):
             log.warning("LIBRARY_ORDINAL_DYN_LOOKUP found, cannot handle")
             return None
 
-        return self.owner_obj.imported_libraries[self.lib_ordinal]
+        return self.owner.imported_libraries[self.lib_ordinal]
 
     @property
     def is_function(self):
         # Incompatibility to CLE
         log.debug("It is not possible to decide wether a symbol is a function or not for MachOSymbols")
         return False
-
-    @property
-    def rebased_addr(self):
-        log.warning("Rebasing not implemented for Mach-O")
-        return self.linked_addr
 
     def demangled_name(self):
         return self.name  # it is not THAT easy with Mach-O

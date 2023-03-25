@@ -398,11 +398,13 @@ class MachORelocation(Relocation):
 
     def resolve_symbol(self, solist, thumb=False, extern_object=None, **kwargs):
         if isinstance(self.symbol, (SymbolTableSymbol, BindingSymbol, DyldBoundSymbol)):
-            if self.symbol.library_name in [so.binary_basename for so in solist]:
-                raise NotImplementedError(
-                    "Symbol could actually be resolved because we have the required library,"
-                    " but that isn't implemented yet"
-                )
+            for so in solist:
+                if self.symbol.library_base_name == so.binary_basename:
+                    [symbol] = so.get_symbol(self.symbol.name)
+                    assert symbol.is_export
+                    self.resolve(symbol, extern_object=extern_object)
+                    log.info("Resolved %s to %s", self.symbol.name, symbol)
+                    return
             else:
                 # Create an extern symbol for it
                 new_symbol = extern_object.make_extern(self.symbol.name, sym_type=self.symbol._type, thumb=thumb)

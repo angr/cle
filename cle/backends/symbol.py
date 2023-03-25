@@ -64,7 +64,7 @@ class Symbol:
         """
         Not documenting this since if you try calling it, you're wrong.
         """
-        self.owner = owner
+        self.owner: Backend = owner
         self.name = name
         self.relative_addr = relative_addr
         self.size = size
