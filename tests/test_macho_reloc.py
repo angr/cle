@@ -1,6 +1,7 @@
 import os
 
 import cle
+from cle.backends.macho.binding import MachOChainedFixup
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
 
@@ -98,10 +99,24 @@ def test_basic_reloc_functionality():
         0x1000081F0: "_CFStringGetCStringPtr",
     }
 
-    result = {reloc.dest_addr: reloc.resolvedby.name for reloc in macho.relocs}
+    result = {reloc.rebased_addr: reloc.resolvedby.name for reloc in macho.relocs}
 
     assert expected == result
 
 
+def test_chained_fixups_relocs():
+    machofile = os.path.join(TEST_BASE, "tests", "aarch64", "dyld_ios15.macho")
+    ld = cle.Loader(machofile)
+    for reloc in ld.main_object.relocs:
+        if not isinstance(reloc, MachOChainedFixup):
+            continue
+        mem_val = ld.memory.unpack_word(reloc.rebased_addr)
+        # Check that the value at this location is a reasonable pointer
+        assert ld.min_addr <= mem_val <= ld.max_addr
+        # Check that the reloc was actually applied
+        assert ld.memory.unpack_word(reloc.rebased_addr) == reloc.value
+
+
 if __name__ == "__main__":
     test_basic_reloc_functionality()
+    test_chained_fixups_relocs()

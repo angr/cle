@@ -68,7 +68,7 @@ from .errors import (
 )
 from .gdb import GDB_SEARCH_PATH, convert_info_proc_maps, convert_info_sharedlibrary
 from .loader import Loader
-from .memory import Clemory, ClemoryBase, ClemoryTranslator, ClemoryView, UninitializedClemory
+from .memory import Clemory, ClemoryBase, ClemoryTranslator, ClemoryView
 from .patched_stream import PatchedStream
 
 __all__ = [
@@ -125,7 +125,6 @@ __all__ = [
     "ClemoryBase",
     "ClemoryView",
     "ClemoryTranslator",
-    "UninitializedClemory",
     "PatchedStream",
     "AddressTranslator",
     "AT",
