@@ -28,7 +28,7 @@ class Relocation:
     :ivar resolved:         Whether the application of this relocation was successful
     """
 
-    def __init__(self, owner: "Backend", symbol: Symbol, relative_addr: int):
+    def __init__(self, owner: "Backend", symbol: Optional[Symbol], relative_addr: int):
         self.owner = owner
         self.arch = owner.arch
         self.symbol = symbol

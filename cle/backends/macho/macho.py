@@ -14,11 +14,11 @@ import archinfo
 from sortedcontainers import SortedKeyList
 
 from cle.backends.backend import AT, Backend, register_backend
+from cle.backends.macho.binding import BindingHelper, MachOChainedFixup, MachORelocation, read_uleb
 from cle.errors import CLECompatibilityError, CLEInvalidBinaryError, CLEOperationError
-from cle.memory import UninitializedClemory
 
-from .binding import BindingHelper, MachORelocation, read_uleb
-from .macho_load_commands import LoadCommands as LC
+from .macho_enums import LoadCommands as LC
+from .macho_enums import MachoFiletype, MH_flags
 from .section import MachOSection
 from .segment import MachOSegment
 from .structs import (
@@ -79,7 +79,10 @@ class MachO(Backend):
     *   Sections are always part of a segment, self.sections will thus be empty
     *   Symbols cannot be categorized like in ELF
     *   Symbol resolution must be handled by the binary
-    *   Rebasing cannot be done statically (i.e. self.mapped_base is ignored for now)
+    *   Rebasing in dyld is implemented via adding a small slide to addresses inside the binary, instead of
+        changing the base address of the binary and the addresses being relative. CLE needs relative addresses,
+        so there are a lot of AT.from_lva().to_rva() calls in this backend.
+
     *   ...
     """
 
@@ -103,7 +106,6 @@ class MachO(Backend):
         self.cputype = None
         self.cpusubtype = None
         self.filetype = None
-        self.pie = None  # position independent executable?
         self.flags = None  # binary flags
         self.imported_libraries = ["Self"]  # ordinal 0 = SELF_LIBRARY_ORDINAL
         self.sections_by_ordinal = [None]  # ordinal 0 = None == Self
@@ -127,7 +129,6 @@ class MachO(Backend):
         self.strtab: Optional[bytes] = None
         self._indexed_strtab: Optional[Dict[int, bytes]] = None
         self._dyld_chained_fixups_offset: Optional[int] = None
-        self._dyld_rebases: Dict[MemoryPointer, MemoryPointer] = {}
         self._dyld_imports: List[AbstractMachOSymbol] = []
 
         # For some analysis the insertion order of the symbols is relevant and needs to be kept.
@@ -149,9 +150,9 @@ class MachO(Backend):
                 "7I", binary_file, 0, 28
             )
 
-            self.pie = bool(self.flags & 0x200000)  # MH_PIE
+            self.pic = bool(self.flags & MH_flags.MH_PIE)
 
-            if not bool(self.flags & 0x80):  # ensure MH_TWOLEVEL
+            if not bool(self.flags & MH_flags.MH_TWOLEVEL):  # ensure MH_TWOLEVEL
                 log.error(
                     "Binary is not using MH_TWOLEVEL namespacing."
                     "This isn't properly implemented yet and will degrade results in unpredictable ways."
@@ -167,6 +168,18 @@ class MachO(Backend):
             # Note that this should be customized for Apple ABI (TODO)
             self.set_arch(archinfo.arch_from_id(arch_ident, endness="lsb" if self.struct_byteorder == "<" else "msb"))
 
+            if bool(self.filetype & MachoFiletype.MH_EXECUTE) and self.pic and self.is_main_bin:
+                # a Position Independent Main binary would later be loaded at 0x400000, which isn't legal for Mach-O
+                # In theory this is the place where the slide for rebasing should be added, but this isn't supported yet
+                if self.arch.bits == 64:
+                    self.linked_base = self.mapped_base = 2**32
+                elif self.arch.bits == 32:
+                    self.linked_base = self.mapped_base = 0x4000
+            # elif bool(self.filetype & MachoFiletype.MH_DYLIB) and self.is_main_bin:
+            #     pass
+            else:
+                raise CLECompatibilityError("Unsupported case for Mach-O binaries, we don't know where to load it")
+
             # Start reading load commands
             lc_offset = (7 if self.arch.bits == 32 else 8) * 4
 
@@ -179,7 +192,15 @@ class MachO(Backend):
         # File is read, begin populating internal fields
         log.info("Parsing exports")
         self._parse_exports()
+
+        if "__mh_execute_header" in self.exports_by_name:
+            assert self.exports_by_name["__mh_execute_header"][1] == self.linked_base, (
+                "This binary doesn't have a proper __mh_execute_header export, "
+                "this breaks assumptions, please report this"
+            )
+
         self._resolve_entry()
+
         log.info(f"Parsing {self.symtab_nsyms} symbols")
         self._parse_symbols(binary_file)
         log.info("Parsing module init/term function pointers")
@@ -193,12 +214,8 @@ class MachO(Backend):
             self.do_binding()
 
     @property
-    def macho_base(self) -> int:
-        return self.exports_by_name["__mh_execute_header"][1]
-
-    @property
-    def min_addr(self) -> int:
-        return self.macho_base
+    def min_addr(self):
+        return self.mapped_base
 
     def _parse_load_commands(self, lc_offset):
         # Possible optimization: Remove all unecessary calls to seek()
@@ -312,7 +329,8 @@ class MachO(Backend):
         # factoring out common code
         def parse_mod_funcs_internal(s, target):
             for i in range(s.vaddr, s.vaddr + s.memsize, size):
-                addr = self._unpack_with_byteorder(fmt, self.memory.load(i, size))[0]
+                rel_address = AT.from_lva(i, self).to_rva()
+                addr = self._unpack_with_byteorder(fmt, self.memory.load(rel_address, size))[0]
                 log.debug("Addr: %#x", addr)
                 target.append(addr)
 
@@ -337,7 +355,7 @@ class MachO(Backend):
 
     def _resolve_entry(self):
         if self.entryoff:
-            self._entry = self.macho_base + self.entryoff
+            self._entry = self.linked_base + self.entryoff
         elif self.unixthread_pc:
             self._entry = self.unixthread_pc
         else:
@@ -483,7 +501,7 @@ class MachO(Backend):
                         # normal: offset from mach header
                         tmp = read_uleb(blob, blob_f.tell())
                         blob_f.seek(tmp[1], SEEK_CUR)
-                        symbol_offset = tmp[0] + self.segments[1].vaddr
+                        symbol_offset = tmp[0] + self.linked_base
                         log.debug("Found normal export %r: %#x", sym_str, symbol_offset)
                         self.exports_by_name[sym_str.decode()] = (flags, symbol_offset)
 
@@ -785,24 +803,20 @@ class MachO(Backend):
         self.sections_by_ordinal.extend(seg.sections)
 
         if segname == b"__PAGEZERO":
-            # TODO: What we actually need at this point is some sort of smart on-demand string or memory
-            #  This should not cause trouble because accesses to __PAGEZERO are SUPPOSED to crash
-            #  (segment has access set to no access)
-            #  This optimization is here as otherwise several GB worth of zeroes would clutter our memory
+            # PAGEZERO is a complicated mess so we ignore it entirely
+            # It would allocate 4GB of unneeded memory and also break rebasing
+            # because now there is a segment that must be at address 0, while the other segments should be slid
             log.info("Found PAGEZERO, skipping backer for memory conservation")
-            page_zero = UninitializedClemory(arch=self.arch, size=seg.memsize)
-            self.memory.add_backer(seg.vaddr, page_zero)
         elif seg.filesize > 0:
             # Append segment data to memory
             blob = self._read(f, seg.offset, seg.filesize)
             if seg.filesize < seg.memsize:
                 blob += b"\0" * (seg.memsize - seg.filesize)  # padding
 
-            # for some reason seg.offset is not always the same as seg.vaddr - baseaddress
-            # when they differ the vaddr seems to be the correct choice according to loaders like in Ghidra
-            # but there isn't necessarily a clear definition of a baseaddress
-            # because the vmaddr just specifies the the address in the global memory space
-            vaddr_offset = AT.from_mva(seg.vaddr, self).to_rva()
+            # The memory of the Backend itself should start at 0, where 0 is the lowest meaningful address
+            # In our case this would be the Mach header magic
+            # Later this will be loaded at an address like 0x1000000, but that's the job of the loader
+            vaddr_offset = AT.from_lva(seg.vaddr, self).to_rva()
             self.memory.add_backer(vaddr_offset, blob)
 
         # Store segment
@@ -902,12 +916,12 @@ class MachO(Backend):
             starts_addr: FilePointer = segs_addr + segs[i]
             starts = self._get_struct(dyld_chained_starts_in_segment, starts_addr)
 
-            seg = self.find_segment_containing(self.macho_base + starts.segment_offset)
+            seg = self.find_segment_containing(starts.segment_offset)
             # There are weird binaries where the offsets inside the file
             # and inside the virtual addr space don't match anymore.
             # This isn't properly supported yet, and the only known case is the __PII section inside the __ETC segment
             # of rare binaries, which isn't that important for most purposes
-            shift = seg.vaddr - (seg.offset + self.macho_base)
+            shift = seg.vaddr - (seg.offset)
             if shift != 0:
                 assert isinstance(seg, MachOSegment)
                 assert seg.segname == "__ETC", (
@@ -934,23 +948,20 @@ class MachO(Backend):
                         ChainedFixupPointerOnDisk, current_chain_addr
                     )
                     bind = chained_rebase_ptr.isBind(pointer_format)
-                    rebase = chained_rebase_ptr.isRebase(pointer_format, self.macho_base)
+                    rebase = chained_rebase_ptr.isRebase(pointer_format, self.mapped_base)
                     if bind is not None:
                         libOrdinal, _addend = bind
                         import_symbol = self._dyld_imports[libOrdinal]
-                        reloc = MachORelocation(self, import_symbol, self.macho_base + current_chain_addr, None)
+                        reloc = MachORelocation(self, import_symbol, current_chain_addr, None)
                         self.relocs.append(reloc)
                         # Legacy Code uses bind_xrefs, explicitly add this to make this compatible for now
-                        import_symbol.bind_xrefs.append(reloc.dest_addr)
+                        import_symbol.bind_xrefs.append(reloc.dest_addr + self.linked_base)
                         log.debug("Binding for %s found at %x", import_symbol, current_chain_addr)
                     elif rebase is not None:
-                        target = self.macho_base + rebase
-                        location: MemoryPointer = self.macho_base + current_chain_addr
-                        self._dyld_rebases[location] = target
-                        # TODO: Technically this is basically a relocation, i.e. relevant for rebasing
-                        # But it isn't clear to me currently how relocations without a corresponding symbol would
-                        # be handled
-                        self.memory.store(location, struct.pack("Q", target))
+                        target = self.linked_base + rebase
+                        location: MemoryPointer = self.linked_base + current_chain_addr
+                        anon_reloc = MachOChainedFixup(owner=self, relative_addr=current_chain_addr, data=rebase)
+                        self.relocs.append(anon_reloc)
                         log.debug("Rebase to %x found at %x", target, location)
 
                     else:

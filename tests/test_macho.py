@@ -4,6 +4,7 @@ import logging
 import os
 
 import cle
+from cle import MachO
 from cle.backends.macho.section import MachOSection
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
@@ -15,6 +16,7 @@ def test_fauxware():
     assert isinstance(ld.main_object, cle.MachO)
     assert ld.main_object.os == "macos"
     assert ld.main_object.entry == 0x100000DE0
+
     assert sorted(list(ld.main_object.exports_by_name))[-1] == "_sneaky"
 
 
@@ -25,7 +27,8 @@ def test_dummy():
 
     machofile = os.path.join(TEST_BASE, "tests", "armhf", "dummy.macho")
     ld = cle.Loader(machofile, auto_load_libs=False)
-    macho = ld.main_object
+    assert isinstance(ld.main_object, cle.MachO)
+    macho: MachO = ld.main_object
     expected_segments = [
         # segname, vaddr,vsize,foff,fsize,nsect,flags,
         ("__PAGEZERO", 0x0, 0x100000000, 0, 0, 0, 0),
@@ -172,14 +175,25 @@ def test_dummy():
     # Test memory layout - just a crude approximation by taking samples but sufficient for now
     for k, v in expected_memory.items():
         # print hex(k)
-        assert v == macho.memory[k]
+        assert v == ld.memory[k]
 
 
 def test_find_object_containing():
     machofile = os.path.join(TEST_BASE, "tests", "x86_64", "fauxware.macho")
     ld = cle.Loader(machofile, auto_load_libs=False)
 
-    assert ld.find_object_containing(ld.main_object.entry) is ld.main_object
+    entry = ld.main_object.entry
+    assert ld.find_object_containing(entry) is ld.main_object
+
+
+def test_addresses():
+    machofile = os.path.join(TEST_BASE, "tests", "x86_64", "fauxware.macho")
+    ld = cle.Loader(machofile, auto_load_libs=False)
+
+    assert ld.main_object.min_addr == 0x100000000
+    # The entry point is at
+    assert ld.main_object.entry == 0x100000DE0
+    assert ld.main_object.max_addr == 0x100002FFF
 
 
 def test_find_section_containing():
@@ -209,5 +223,9 @@ def test_describe_addr():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    test_fauxware()
     test_dummy()
+    test_find_object_containing()
+    test_addresses()
+    test_find_section_containing()
+    test_find_region_containing()
+    test_describe_addr()

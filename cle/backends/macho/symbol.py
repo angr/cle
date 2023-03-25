@@ -3,6 +3,7 @@
 import logging
 from typing import TYPE_CHECKING
 
+from cle import AT
 from cle.backends.backend import Backend
 from cle.backends.symbol import Symbol, SymbolType
 
@@ -88,13 +89,18 @@ class SymbolTableSymbol(AbstractMachOSymbol):
         self.n_value = n_value  # n_value field from the symbol table.
         self.n_strx = n_strx  # index into the string table
 
+        # For weird reasons the SymbolTable Symbols have a value that encodes a linked addr,
+        # e.g. the address of the __mh_execute_header symbol is 0x100000000
+        # so we need to convert this to an addr that is relative to the base of the binary
+        addr = AT.from_lva(n_value, owner).to_rva()
+
         # now we may call super
         # however we cannot access any properties yet that would touch superclass-initialized attributes
         # so we have to repeat some work
         super().__init__(
             owner,
             owner.get_string(n_strx).decode("utf-8") if n_strx != 0 else "",
-            self.value,
+            addr,
             owner.arch.bytes,
             SymbolType.TYPE_OTHER,
         )
