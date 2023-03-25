@@ -105,7 +105,7 @@ class MachO(Backend):
         self._mapped_base = None  # temporary holder für mapped base derived via loading
         self.cputype = None
         self.cpusubtype = None
-        self.filetype = None
+        self.filetype: int = None
         self.flags = None  # binary flags
         self.imported_libraries = ["Self"]  # ordinal 0 = SELF_LIBRARY_ORDINAL
         self.sections_by_ordinal = [None]  # ordinal 0 = None == Self
@@ -150,7 +150,8 @@ class MachO(Backend):
                 "7I", binary_file, 0, 28
             )
 
-            self.pic = bool(self.flags & MH_flags.MH_PIE)
+            # Libraries are always implicitly PIC
+            self.pic = bool(self.flags & MH_flags.MH_PIE) or bool(self.filetype & MachoFiletype.MH_DYLIB)
 
             if not bool(self.flags & MH_flags.MH_TWOLEVEL):  # ensure MH_TWOLEVEL
                 log.error(
@@ -168,17 +169,39 @@ class MachO(Backend):
             # Note that this should be customized for Apple ABI (TODO)
             self.set_arch(archinfo.arch_from_id(arch_ident, endness="lsb" if self.struct_byteorder == "<" else "msb"))
 
-            if bool(self.filetype & MachoFiletype.MH_EXECUTE) and self.pic and self.is_main_bin:
+            # Determine the base address the binary was linked against
+            # and set the values for the Backend and Loader accordingly
+            if self.pic and self.filetype == MachoFiletype.MH_EXECUTE:
+                assert self.is_main_bin, "An file of type MH_EXECUTE should be the main bin, this should not happen"
                 # a Position Independent Main binary would later be loaded at 0x400000, which isn't legal for Mach-O
+                # Also, its segment vaddrs are relative to 0x100000000, so we set this as the linked base
+                # and the MachO Backend code uses the AdressTranslator to translate linked addresses to relative ones
                 # In theory this is the place where the slide for rebasing should be added, but this isn't supported yet
                 if self.arch.bits == 64:
                     self.linked_base = self.mapped_base = 2**32
                 elif self.arch.bits == 32:
                     self.linked_base = self.mapped_base = 0x4000
-            # elif bool(self.filetype & MachoFiletype.MH_DYLIB) and self.is_main_bin:
-            #     pass
+            elif self.filetype == MachoFiletype.MH_DYLIB and self.is_main_bin:
+                # the segments of dylibs are just relative to the load address, i.e. the lowest segment addr is 0
+                # we need to set the load address to 0x100000000 because otherwise the loader will try to map the
+                # file to 0x400000, which is illegal for Mach-O
+                # But we can't set the linked base to request this, because the MachO Backend implementation
+                # uses this to recalculate the addresses
+                if self.arch.bits == 64:
+                    self._custom_base_addr = 2**32
+                elif self.arch.bits == 32:
+                    self._custom_base_addr = 0x4000
+            elif self.filetype == MachoFiletype.MH_DYLIB and not self.is_main_bin:
+                # A Library is loaded as a dependency, this is fine, the loader will map it to somewhere above the main
+                # binary, so we don't need to do anything
+                pass
             else:
-                raise CLECompatibilityError("Unsupported case for Mach-O binaries, we don't know where to load it")
+                # This case is not explicitly supported yet.
+                # There are various other MachoFiletypes, which might have different quirks in their loading
+                raise CLECompatibilityError(
+                    f"Unsupported Mach-O file type: {MachoFiletype(self.filetype)}. "
+                    "Please open an issue if you need support for this"
+                )
 
             # Start reading load commands
             lc_offset = (7 if self.arch.bits == 32 else 8) * 4
@@ -201,7 +224,7 @@ class MachO(Backend):
 
         self._resolve_entry()
 
-        log.info(f"Parsing {self.symtab_nsyms} symbols")
+        log.info("Parsing %s symbols", self.symtab_nsyms)
         self._parse_symbols(binary_file)
         log.info("Parsing module init/term function pointers")
         self._parse_mod_funcs()
@@ -216,6 +239,11 @@ class MachO(Backend):
     @property
     def min_addr(self):
         return self.mapped_base
+
+    @classmethod
+    def check_compatibility(cls, spec, obj):
+        # TODO: Check properly, but for now libs are just used via force load libs anyway
+        return True
 
     def _parse_load_commands(self, lc_offset):
         # Possible optimization: Remove all unecessary calls to seek()
@@ -241,13 +269,11 @@ class MachO(Backend):
             elif cmd in [LC.LC_DYLD_INFO, LC.LC_DYLD_INFO_ONLY]:  # LC_DYLD_INFO(_ONLY)
                 log.debug("Found LC_DYLD_INFO(_ONLY) @ %#x", offset)
                 self._load_dyld_info(binary_file, offset)
-            elif cmd in [LC.LC_LOAD_DYLIB, 0x8000001C, LC.LC_LOAD_WEAK_DYLIB]:
-                # TODO: Old comment claimed that 0x8000001c is LC_REEXPORT_DYLIB
-                #  but 0x8000001c should be LC_RPATH = 0x1C | LC_REQ_DYLD
-                #  So there is something wrong here that might be harmless
-                #  but it definitely doesn't seem correct
+            elif cmd in [LC.LC_LOAD_DYLIB, LC.LC_LOAD_WEAK_DYLIB, LC.LC_REEXPORT_DYLIB]:
                 log.debug("Found LC_*_DYLIB @ %#x", offset)
                 self._load_dylib_info(binary_file, offset)
+            elif cmd == LC.LC_RPATH:  # LC_RPATH
+                log.debug("Found LC_RPATH @ %#x", offset)
             elif cmd == LC.LC_MAIN:  # LC_MAIN
                 log.debug("Found LC_MAIN @ %#x", offset)
                 self._load_lc_main(binary_file, offset)
@@ -279,6 +305,9 @@ class MachO(Backend):
                 log.info("Found LC_DYLD_EXPORTS_TRIE @ %#x", offset)
                 (_, _, dataoff, datasize) = self._unpack("4I", binary_file, offset, 16)
                 self.export_blob = self._read(binary_file, dataoff, datasize)
+            elif cmd in [LC.LC_DYSYMTAB]:
+                # TODO: This probably relevant for library loading and symbols, but it isn't clear how yet
+                pass
             else:
                 try:
                     command_name = LC(cmd)
@@ -624,9 +653,11 @@ class MachO(Backend):
 
     def _load_dylib_info(self, f, offset):
         (_, _, name_offset, _, _, _) = self._unpack("6I", f, offset, 24)
-        lib_name = self.parse_lc_str(f, offset + name_offset)
-        log.debug("Adding library %r", lib_name)
-        self.imported_libraries.append(lib_name)
+        lib_path = self.parse_lc_str(f, offset + name_offset)
+        log.debug("Adding library %r", lib_path)
+        lib_base_name = lib_path.decode("utf-8").rsplit("/", 1)[-1]
+        self.deps.append(lib_base_name)
+        self.imported_libraries.append(lib_path)
 
     def _load_dyld_info(self, f: BufferedReader, offset):
         """
