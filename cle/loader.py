@@ -952,7 +952,7 @@ class Loader:
             elif not obj.is_main_bin:
                 base_addr = self._find_safe_rebase_addr(obj_size)
             else:
-                log.warning(
+                log.debug(
                     "The main binary is a position-independent executable. "
                     "It is being loaded with a base address of 0x400000."
                 )
