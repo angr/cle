@@ -133,7 +133,7 @@ class Soot(Backend):
                 "class_name": thing.class_name,
                 "name": thing.name,
                 "params": thing.params,
-                "return_type": thing.ret
+                "return_type": thing.ret,
             }
 
         elif isinstance(thing, (str, bytes)):
@@ -152,7 +152,7 @@ class Soot(Backend):
                 "class_name": class_name,
                 "name": method_name,
                 "params": params,
-                "return_type": return_type
+                "return_type": return_type,
             }
 
         else:

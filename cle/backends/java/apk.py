@@ -135,7 +135,9 @@ class Apk(Soot):
             class_names = getter()
             self.components[key], self.callbacks[key] = self._extract_lifecycle(class_names, key)
 
-    def _extract_lifecycle(self, class_names: List[str], component_kind: str) -> Tuple[List[SootClass], List[SootMethod]]:
+    def _extract_lifecycle(
+        self, class_names: List[str], component_kind: str
+    ) -> Tuple[List[SootClass], List[SootMethod]]:
         """
         Extract components with callbacks from class names and component kind.
         Use general callback name for each component by component kind
