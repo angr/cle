@@ -148,7 +148,7 @@ class Backend:
         self._binary_stream: BufferedReader = binary_stream
         if self.binary is not None:
             self.binary_basename = os.path.basename(self.binary)
-        elif hasattr(self._binary_stream, "name"):
+        elif hasattr(self._binary_stream, "name") and type(self._binary_stream.name) is str:
             self.binary_basename = os.path.basename(self._binary_stream.name)
         else:
             self.binary_basename = str(self._binary_stream)

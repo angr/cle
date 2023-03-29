@@ -116,12 +116,14 @@ class Soot(Backend):
             else:
                 raise CLEError('Class "%s" does not exist.' % cls_name)
 
-    def get_soot_method(self, thing, class_name=None, params=(), none_if_missing=False):
+    def get_soot_method(self, thing, class_name=None, params=(), return_type=None, none_if_missing=False):
         """
         Get Soot method object.
 
         :param thing:           Descriptor or the method, or name of the method.
         :param str class_name:  Name of the class. If not specified, class name can be parsed from method_name.
+        :param params:          The method parameters
+        :param return_type:     The methods return type
         :return:                Soot method that satisfy the criteria.
         """
 
@@ -131,6 +133,7 @@ class Soot(Backend):
                 "class_name": thing.class_name,
                 "name": thing.name,
                 "params": thing.params,
+                "return_type": thing.ret
             }
 
         elif isinstance(thing, (str, bytes)):
@@ -149,6 +152,7 @@ class Soot(Backend):
                 "class_name": class_name,
                 "name": method_name,
                 "params": params,
+                "return_type": return_type
             }
 
         else:
@@ -190,12 +194,14 @@ class Soot(Backend):
         return methods[0]
 
     @staticmethod
-    def _description_matches_soot_method(soot_method, name=None, class_name=None, params=()):
+    def _description_matches_soot_method(soot_method, name=None, class_name=None, params=(), return_type=None):
         if name and soot_method.name != name:
             return False
         if class_name and soot_method.class_name != class_name:
             return False
         if soot_method.params != params:
+            return False
+        if soot_method.ret != return_type:
             return False
         return True
 
