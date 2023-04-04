@@ -833,7 +833,9 @@ class ELF(MetaELF):
         self.type_list = type_list
         self.compilation_units = compilation_units
 
-    def _load_die_lex_block(self, dwarf, die: DIE, expr_parser, type_list, cu, file_path, cu_low_pc: int, subprogram) -> LexicalBlock:
+    def _load_die_lex_block(
+        self, dwarf, die: DIE, expr_parser, type_list, cu, file_path, cu_low_pc: int, subprogram
+    ) -> LexicalBlock:
         if "DW_AT_name" in die.attributes:
             name = die.attributes["DW_AT_name"].value.decode("utf-8")
         else:
@@ -855,7 +857,9 @@ class ELF(MetaELF):
                 var.decl_file = file_path
                 subprogram.local_variables.append(var)
             elif sub_die.tag == "DW_TAG_lexical_block":
-                sub_block = self._load_die_lex_block(dwarf, sub_die, expr_parser, type_list, cu, file_path, cu_low_pc, subprogram)
+                sub_block = self._load_die_lex_block(
+                    dwarf, sub_die, expr_parser, type_list, cu, file_path, cu_low_pc, subprogram
+                )
                 if sub_block is not None:
                     block.child_blocks.append(sub_block)
 

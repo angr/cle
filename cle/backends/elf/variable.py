@@ -81,7 +81,9 @@ class Variable:
         self._location: Optional[List[Tuple[int, int, Optional[VariableLocation]]]] = None
 
     @staticmethod
-    def from_die(die: DIE, expr_parser, elf_object: "ELF", dwarf, cu_low_pc: int, lexical_block: Optional["LexicalBlock"] = None):
+    def from_die(
+        die: DIE, expr_parser, elf_object: "ELF", dwarf, cu_low_pc: int, lexical_block: Optional["LexicalBlock"] = None
+    ):
         # first the address
         var = None
         if "DW_AT_location" in die.attributes:
@@ -153,11 +155,11 @@ class Variable:
         return self.rebased_addr
 
     @property
-    def location(self) -> Optional[List[Tuple[int,int, Optional[VariableLocation]]]]:
+    def location(self) -> Optional[List[Tuple[int, int, Optional[VariableLocation]]]]:
         if self._location is None:
             return None
         # rebase all addresses
-        locs = [ ]
+        locs = []
         for lo, hi, vl in self._location:
             tpl = AT.from_rva(lo, self._elf_object).to_mva(), AT.from_rva(hi, self._elf_object).to_mva(), vl
             locs.append(tpl)
