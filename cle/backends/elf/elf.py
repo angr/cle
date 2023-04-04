@@ -4,7 +4,7 @@ import logging
 import os
 import xml.etree.ElementTree
 from collections import OrderedDict, defaultdict
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 
 import archinfo
 import elftools
@@ -39,6 +39,9 @@ try:
     import pypcode
 except ImportError:
     pypcode = None
+
+if TYPE_CHECKING:
+    from elftools.dwarf.callframe import DecodedCallFrameTable
 
 
 log = logging.getLogger(name=__name__)
@@ -161,6 +164,9 @@ class ELF(MetaELF):
         self._dynamic = {}
         self.deps = []
 
+        # Decoded CFT (call frame table)
+        self.decoded_cft: List["DecodedCallFrameTable"] = []
+
         # The linked image base should be evaluated before registering any segment or section due to
         # the fact that elffile, used by those methods, is working only with un-based virtual addresses, but Clemories
         # themselves are organized as a tree where each node backer internally uses relative addressing
@@ -204,8 +210,12 @@ class ELF(MetaELF):
                 # Load function hints and exception handling artifacts
                 if dwarf.has_EH_CFI():
                     self._load_function_hints_from_fde(dwarf, FunctionHintSource.EH_FRAME)
+                    self._load_decoded_cft_from_eh_cfi_entries(dwarf)
                     self._load_exception_handling(dwarf)
                     self._load_line_info(dwarf)
+                # Load CFI entries
+                if dwarf.has_CFI():
+                    self._load_decoded_cft_from_cfi_entries(dwarf)
 
         if debug_symbols:
             self.__process_debug_file(debug_symbols)
@@ -437,6 +447,11 @@ class ELF(MetaELF):
 
         self.addr_to_line = SortedDict((addr + delta, value) for addr, value in self.addr_to_line.items())
 
+        for cft in self.decoded_cft:
+            for entry in cft.table:
+                if entry and "pc" in entry:
+                    entry["pc"] += self.image_base_delta
+
     #
     # Private Methods
     #
@@ -587,6 +602,37 @@ class ELF(MetaELF):
                     )
         except (DWARFError, ValueError):
             log.warning("An exception occurred in pyelftools when loading FDE information.", exc_info=True)
+
+    def _load_decoded_cft_from_eh_cfi_entries(self, dwarf):
+        """
+        Load decoded Call Frame Tables from EH-CFI entries in the binary.
+
+        :param dwarf:   The DWARF info object from pyelftools.
+        :return:        None
+        """
+
+        try:
+            for entry in dwarf.EH_CFI_entries():
+                if type(entry) is callframe.FDE:
+                    decoded = entry.get_decoded()
+                    self.decoded_cft.append(decoded)
+        except (DWARFError, ValueError):
+            log.warning("An exception occurred in pyelftools when loading FDE information.", exc_info=True)
+
+    def _load_decoded_cft_from_cfi_entries(self, dwarf):
+        """
+        Load decoded Call Frame Tables from CFI entries in the binary.
+
+        :param dwarf:   The DWARF info object from pyelftools.
+        :return:        None
+        """
+
+        try:
+            for entry in dwarf.CFI_entries():
+                decoded = entry.get_decoded()
+                self.decoded_cft.append(decoded)
+        except (DWARFError, ValueError):
+            log.warning("An exception occurred in pyelftools when loading CFI entries.", exc_info=True)
 
     def _load_exception_handling(self, dwarf):
         """
