@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional, List, Tuple, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 from elftools.dwarf.die import DIE
 

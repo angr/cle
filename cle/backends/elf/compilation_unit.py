@@ -1,5 +1,5 @@
 import os.path
-from typing import Dict, List, Tuple, Generator
+from typing import Dict, Generator, List, Tuple
 
 from cle.address_translator import AT
 
