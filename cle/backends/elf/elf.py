@@ -819,13 +819,13 @@ class ELF(MetaELF):
             for die_child in cu.iter_DIE_children(top_die):
                 if die_child.tag == "DW_TAG_variable":
                     # load global variable
-                    var = Variable.from_die(die_child, expr_parser, self, dwarf)
+                    var = Variable.from_die(die_child, expr_parser, self, dwarf, die_low_pc)
                     var.decl_file = cu_.file_path
                     cu_.global_variables.append(var)
                 elif die_child.tag == "DW_TAG_subprogram":
                     # load subprogram
                     sub_prog = self._load_die_lex_block(
-                        dwarf, die_child, expr_parser, type_list, cu, cu_.file_path, None
+                        dwarf, die_child, expr_parser, type_list, cu, cu_.file_path, die_low_pc, None
                     )
                     if sub_prog is not None:
                         cu_.functions[sub_prog.low_pc] = sub_prog
@@ -833,7 +833,7 @@ class ELF(MetaELF):
         self.type_list = type_list
         self.compilation_units = compilation_units
 
-    def _load_die_lex_block(self, dwarf, die: DIE, expr_parser, type_list, cu, file_path, subprogram) -> LexicalBlock:
+    def _load_die_lex_block(self, dwarf, die: DIE, expr_parser, type_list, cu, file_path, cu_low_pc: int, subprogram) -> LexicalBlock:
         if "DW_AT_name" in die.attributes:
             name = die.attributes["DW_AT_name"].value.decode("utf-8")
         else:
@@ -851,11 +851,11 @@ class ELF(MetaELF):
         for sub_die in cu.iter_DIE_children(die):
             if sub_die.tag in ["DW_TAG_variable", "DW_TAG_formal_parameter"]:
                 # load local variable
-                var = Variable.from_die(sub_die, expr_parser, self, dwarf, lexical_block=block)
+                var = Variable.from_die(sub_die, expr_parser, self, dwarf, cu_low_pc, lexical_block=block)
                 var.decl_file = file_path
                 subprogram.local_variables.append(var)
             elif sub_die.tag == "DW_TAG_lexical_block":
-                sub_block = self._load_die_lex_block(dwarf, sub_die, expr_parser, type_list, cu, file_path, subprogram)
+                sub_block = self._load_die_lex_block(dwarf, sub_die, expr_parser, type_list, cu, file_path, cu_low_pc, subprogram)
                 if sub_block is not None:
                     block.child_blocks.append(sub_block)
 

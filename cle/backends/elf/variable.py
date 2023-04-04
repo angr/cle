@@ -64,7 +64,7 @@ class Variable:
         "lexical_block",
         "external",
         "declaration_only",
-        "location",
+        "_location",
     )
 
     def __init__(self, elf_object: "ELF"):
@@ -78,10 +78,10 @@ class Variable:
         self.lexical_block = None
         self.external = False
         self.declaration_only = False
-        self.location: Optional[List[Tuple[int, int, Optional[VariableLocation]]]] = None
+        self._location: Optional[List[Tuple[int, int, Optional[VariableLocation]]]] = None
 
     @staticmethod
-    def from_die(die: DIE, expr_parser, elf_object: "ELF", dwarf, lexical_block: Optional["LexicalBlock"] = None):
+    def from_die(die: DIE, expr_parser, elf_object: "ELF", dwarf, cu_low_pc: int, lexical_block: Optional["LexicalBlock"] = None):
         # first the address
         var = None
         if "DW_AT_location" in die.attributes:
@@ -103,7 +103,7 @@ class Variable:
             elif loc_attr.form == "DW_FORM_sec_offset":
                 var = Variable(elf_object)
                 loc_lists = dwarf.location_lists()
-                var.location = Variable.load_variable_location(loc_lists, loc_attr.value, expr_parser)
+                var._location = Variable.load_variable_location(loc_lists, loc_attr.value, expr_parser, cu_low_pc)
 
         if var is None:
             var = Variable(elf_object)
@@ -125,7 +125,7 @@ class Variable:
 
     @staticmethod
     def load_variable_location(
-        location_lists, offset: int, expr_parser
+        location_lists, offset: int, expr_parser, cu_low_pc: int
     ) -> List[Tuple[int, int, Optional[VariableLocation]]]:
         loc_list = location_lists.get_location_list_at_offset(offset)
         locs = []
@@ -140,7 +140,7 @@ class Variable:
                     loc_expr = VariableLocation(VariableLocationType.Stack, the_parsed_expr.args[0])
                 elif the_parsed_expr.op_name.startswith("DW_OP_reg"):
                     loc_expr = VariableLocation(VariableLocationType.Register, the_parsed_expr.op - DW_OP_reg0)
-            locs.append((entry.begin_offset, entry.end_offset, loc_expr))
+            locs.append((cu_low_pc + entry.begin_offset, cu_low_pc + entry.end_offset, loc_expr))
         return locs
 
     # overwritten for stack variables
@@ -151,6 +151,17 @@ class Variable:
         :param cfa:     The canonical frame address as described by the DWARF standard.
         """
         return self.rebased_addr
+
+    @property
+    def location(self) -> Optional[List[Tuple[int,int, Optional[VariableLocation]]]]:
+        if self._location is None:
+            return None
+        # rebase all addresses
+        locs = [ ]
+        for lo, hi, vl in self._location:
+            tpl = AT.from_rva(lo, self._elf_object).to_mva(), AT.from_rva(hi, self._elf_object).to_mva(), vl
+            locs.append(tpl)
+        return locs
 
     @property
     def rebased_addr(self):
@@ -164,7 +175,7 @@ class Variable:
         return self.relative_addr
 
     @property
-    def type(self) -> VariableType:
+    def type(self) -> Optional[VariableType]:
         try:
             return self._elf_object.type_list[self._type_offset]
         except KeyError:
