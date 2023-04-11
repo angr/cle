@@ -3,7 +3,8 @@ import os
 import platform
 import sys
 from collections import OrderedDict
-from typing import List, Optional, Type
+from pathlib import Path
+from typing import BinaryIO, List, Optional, Type, Union
 
 import archinfo
 from archinfo.arch_soot import ArchSoot
@@ -89,7 +90,7 @@ class Loader:
 
     def __init__(
         self,
-        main_binary,
+        main_binary: Union[str, BinaryIO, Path],
         auto_load_libs=True,
         concrete_target=None,
         force_load_libs=(),
@@ -112,6 +113,9 @@ class Loader:
         if hasattr(main_binary, "seek") and hasattr(main_binary, "read"):
             self._main_binary_path = None
             self._main_binary_stream = main_binary
+        elif isinstance(main_binary, Path):
+            self._main_binary_path = str(main_binary.resolve())
+            self._main_binary_stream = None
         else:
             self._main_binary_path = os.path.realpath(str(main_binary))
             self._main_binary_stream = None
@@ -900,6 +904,10 @@ class Loader:
             binary = self._search_load_path(spec)  # this is allowed to cheat and do partial static loading
             log.debug("... using full path %s", binary)
             binary_stream = open(binary, "rb")
+            close = True
+        elif isinstance(spec, Path):
+            binary = str(spec)
+            binary_stream = spec.open("rb")
             close = True
         else:
             raise CLEError("Bad library specification: %s" % spec)
