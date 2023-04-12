@@ -405,10 +405,9 @@ class MachORelocation(Relocation):
                     self.resolve(symbol, extern_object=extern_object)
                     log.info("Resolved %s to %s", self.symbol.name, symbol)
                     return
-            else:
-                # Create an extern symbol for it
-                new_symbol = extern_object.make_extern(self.symbol.name, sym_type=self.symbol._type, thumb=thumb)
-                self.resolve(new_symbol, extern_object=extern_object)
+            # None of the available libraries contain it, so we create an extern symbol for it
+            new_symbol = extern_object.make_extern(self.symbol.name, sym_type=self.symbol._type, thumb=thumb)
+            self.resolve(new_symbol, extern_object=extern_object)
         else:
             raise NotImplementedError("Did not expect this to happen")
 
@@ -456,7 +455,6 @@ class MachOChainedFixup(Relocation):
         """
         # This needs to be set to true, so that the rebase will actually be applied later
         self.resolved = True
-        return
 
     def __repr__(self):
         return f"<MachO Ptr Fixup at {hex(self.relative_addr)} to {hex(self.data)}>"
