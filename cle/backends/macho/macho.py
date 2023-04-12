@@ -710,6 +710,7 @@ class MachO(Backend):
             structsize = 12
 
         for i in range(0, self.symtab_nsyms):
+            # The relevant struct is nlist_64 which is defined and documented in mach-o/nlist.h
             offset_in_symtab = i * structsize
             offset = offset_in_symtab + self.symtab_offset
             (n_strx, n_type, n_sect, n_desc, n_value) = self._unpack(packstr, f, offset, structsize)

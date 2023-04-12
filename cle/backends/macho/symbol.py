@@ -77,6 +77,9 @@ class SymbolTableSymbol(AbstractMachOSymbol):
     MachOSymbol.
 
     Much of the code below is based on heuristics as official documentation is sparse, consider yourself warned!
+
+    The relevant struct with documentation is nlist_64 defined in mach-o/nlist.h
+
     """
 
     def __init__(self, owner: "MachO", symtab_offset, n_strx, n_type, n_sect, n_desc, n_value):
@@ -97,10 +100,21 @@ class SymbolTableSymbol(AbstractMachOSymbol):
         self.n_value = n_value  # n_value field from the symbol table.
         self.n_strx = n_strx  # index into the string table
 
-        # For weird reasons the SymbolTable Symbols have a value that encodes a linked addr,
-        # e.g. the address of the __mh_execute_header symbol is 0x100000000
-        # so we need to convert this to an addr that is relative to the base of the binary
-        addr = AT.from_lva(n_value, owner).to_rva()
+        # The meaning of n_value isn't always an address, and the logic for this is complicated
+        # For now this is mostly a heuristic
+        if n_value == 0:
+            # This symbol doesn't have an address
+            addr = 0
+        elif n_value == 0x5614542:
+            # This is the radr://5614542 symbol
+            # The logic around this is somewhat explained here:
+            # https://opensource.apple.com/source/cctools/cctools-782/misc/strip.c
+            # The addr isn't really an address, but a magic value that is used to indicate that the symbol is
+            addr = 0x5614542
+            # addr = 0
+        else:
+            # The n_value is probably an address, but we need to convert it to a relative address
+            addr = AT.from_lva(n_value, owner).to_rva()
 
         # now we may call super
         # however we cannot access any properties yet that would touch superclass-initialized attributes
