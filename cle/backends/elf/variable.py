@@ -65,6 +65,7 @@ class Variable:
         "external",
         "declaration_only",
         "_location",
+        "parameter",
     )
 
     def __init__(self, elf_object: "ELF"):
@@ -79,6 +80,7 @@ class Variable:
         self.external = False
         self.declaration_only = False
         self._location: Optional[List[Tuple[int, int, Optional[VariableLocation]]]] = None
+        self.parameter: bool = False
 
     @staticmethod
     def from_die(
@@ -120,6 +122,7 @@ class Variable:
             var.external = True
         if "DW_AT_declaration" in die.attributes:
             var.declaration_only = True
+        var.parameter = die.tag == "DW_TAG_formal_parameter"
 
         var.lexical_block = lexical_block
 

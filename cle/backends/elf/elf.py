@@ -851,11 +851,14 @@ class ELF(MetaELF):
             block = LexicalBlock(low_pc, high_pc)
 
         for sub_die in cu.iter_DIE_children(die):
-            if sub_die.tag in ["DW_TAG_variable", "DW_TAG_formal_parameter"]:
+            if sub_die.tag in {"DW_TAG_variable", "DW_TAG_formal_parameter"}:
                 # load local variable
                 var = Variable.from_die(sub_die, expr_parser, self, dwarf, cu_low_pc, lexical_block=block)
                 var.decl_file = file_path
-                subprogram.local_variables.append(var)
+                if var.parameter:
+                    subprogram.parameters.append(var)
+                else:
+                    subprogram.local_variables.append(var)
             elif sub_die.tag == "DW_TAG_lexical_block":
                 sub_block = self._load_die_lex_block(
                     dwarf, sub_die, expr_parser, type_list, cu, file_path, cu_low_pc, subprogram
