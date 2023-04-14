@@ -14,6 +14,7 @@ from elftools.dwarf.descriptions import describe_attr_value, describe_form_class
 from elftools.dwarf.die import DIE
 from elftools.dwarf.dwarf_expr import DWARFExprParser
 from elftools.dwarf.dwarfinfo import DWARFInfo
+from elftools.dwarf.ranges import RangeEntry
 from elftools.elf import dynamic, elffile, enums, sections
 from sortedcontainers import SortedDict
 
@@ -758,7 +759,7 @@ class ELF(MetaELF):
         ranges_offset = die.attributes["DW_AT_ranges"].value
         ranges = range_lists.get_range_list_at_offset(ranges_offset)
 
-        return [(r.begin_offset, r.end_offset) for r in ranges]
+        return [(r.begin_offset, r.end_offset) for r in ranges if isinstance(r, RangeEntry)]
 
     def _load_dies(self, dwarf: DWARFInfo):
         """
