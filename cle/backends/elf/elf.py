@@ -664,7 +664,7 @@ class ELF(MetaELF):
                 relocated_addr = AT.from_lva(line.state.address, self).to_mva()
                 self.addr_to_line[relocated_addr].add((filename, line.state.line))
         self.addr_to_line = defaultdict(set, sorted(self.addr_to_line.items()))
-                
+
     @staticmethod
     def _load_low_high_pc_form_die(die: DIE):
         """
