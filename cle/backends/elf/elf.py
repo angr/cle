@@ -14,6 +14,7 @@ from elftools.dwarf.die import DIE
 from elftools.dwarf.dwarf_expr import DWARFExprParser
 from elftools.dwarf.dwarfinfo import DWARFInfo
 from elftools.elf import dynamic, elffile, enums, sections
+from sortedcontainers import SortedDict
 
 from cle.address_translator import AT
 from cle.backends.backend import ExceptionHandling, FunctionHint, FunctionHintSource, register_backend
@@ -663,8 +664,8 @@ class ELF(MetaELF):
 
                 relocated_addr = AT.from_lva(line.state.address, self).to_mva()
                 self.addr_to_line[relocated_addr].add((filename, line.state.line))
-        self.addr_to_line = defaultdict(set, sorted(self.addr_to_line.items()))
-                
+        self.addr_to_line = SortedDict(self.addr_to_line) 
+
     @staticmethod
     def _load_low_high_pc_form_die(die: DIE):
         """
