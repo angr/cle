@@ -148,7 +148,7 @@ class ELF(MetaELF):
         # DWARF data
         self.has_dwarf_info = bool(self._reader.has_dwarf_info())
         self.build_id = None
-        self.addr_to_line = SortedDict()
+        self.addr_to_line = defaultdict(set)
         self.variables: Optional[List[Variable]] = None
         self.compilation_units: Optional[List[CompilationUnit]] = None
 
@@ -663,7 +663,8 @@ class ELF(MetaELF):
                     file_cache[line.state.file] = filename
 
                 relocated_addr = AT.from_lva(line.state.address, self).to_mva()
-                self.addr_to_line[relocated_addr] = (filename, line.state.line)
+                self.addr_to_line[relocated_addr].add((filename, line.state.line))
+        self.addr_to_line = SortedDict(self.addr_to_line)
 
     @staticmethod
     def _load_low_high_pc_form_die(die: DIE):
