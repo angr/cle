@@ -1,9 +1,10 @@
+# pylint:disable=bad-builtin
 import copy
 import logging
 import os
 import xml.etree.ElementTree
 from collections import OrderedDict, defaultdict
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set, Tuple
 
 import archinfo
 import elftools
@@ -103,8 +104,8 @@ class ELF(MetaELF):
 
             try:
                 self._reader = elffile.ELFFile(self._binary_stream)
-            except Exception as e:  # pylint: disable=broad-except
-                raise CLECompatibilityError from e
+            except Exception as e1:  # pylint: disable=broad-except
+                raise CLECompatibilityError from e1
 
         # Get an appropriate archinfo.Arch for this binary, unless the user specified one
         if self.arch is None:
@@ -148,7 +149,7 @@ class ELF(MetaELF):
         # DWARF data
         self.has_dwarf_info = bool(self._reader.has_dwarf_info())
         self.build_id = None
-        self.addr_to_line = defaultdict(set)
+        self.addr_to_line: "SortedDict[int, Set[Tuple[int, int]]]" = SortedDict()
         self.variables: Optional[List[Variable]] = None
         self.compilation_units: Optional[List[CompilationUnit]] = None
 
@@ -374,7 +375,7 @@ class ELF(MetaELF):
     def symbols_by_name(self):
         return self._symbols_by_name.copy()
 
-    def get_symbol(self, symid, symbol_table=None):  # pylint: disable=arguments-differ
+    def get_symbol(self, symid, symbol_table=None):  # pylint: disable=arguments-differ,arguments-renamed
         """
         Gets a Symbol object for the specified symbol.
 
@@ -434,7 +435,7 @@ class ELF(MetaELF):
         delta = new_base - self.linked_base
         super().rebase(new_base)
 
-        self.addr_to_line = {addr + delta: value for addr, value in self.addr_to_line.items()}
+        self.addr_to_line = SortedDict((addr + delta, value) for addr, value in self.addr_to_line.items())
 
     #
     # Private Methods
@@ -663,8 +664,9 @@ class ELF(MetaELF):
                     file_cache[line.state.file] = filename
 
                 relocated_addr = AT.from_lva(line.state.address, self).to_mva()
+                if relocated_addr not in self.addr_to_line:
+                    self.addr_to_line[relocated_addr] = set()
                 self.addr_to_line[relocated_addr].add((filename, line.state.line))
-        self.addr_to_line = SortedDict(self.addr_to_line)
 
     @staticmethod
     def _load_low_high_pc_form_die(die: DIE):
