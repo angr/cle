@@ -3,7 +3,7 @@ import logging
 import os
 import xml.etree.ElementTree
 from collections import OrderedDict, defaultdict
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set, Tuple
 
 import archinfo
 import elftools
@@ -148,7 +148,7 @@ class ELF(MetaELF):
         # DWARF data
         self.has_dwarf_info = bool(self._reader.has_dwarf_info())
         self.build_id = None
-        self.addr_to_line = defaultdict(set)
+        self.addr_to_line: SortedDict[int, Set[Tuple[int, int]]] = SortedDict()
         self.variables: Optional[List[Variable]] = None
         self.compilation_units: Optional[List[CompilationUnit]] = None
 
@@ -434,7 +434,7 @@ class ELF(MetaELF):
         delta = new_base - self.linked_base
         super().rebase(new_base)
 
-        self.addr_to_line = {addr + delta: value for addr, value in self.addr_to_line.items()}
+        self.addr_to_line = SortedDict((addr + delta, value) for addr, value in self.addr_to_line.items())
 
     #
     # Private Methods
@@ -663,8 +663,9 @@ class ELF(MetaELF):
                     file_cache[line.state.file] = filename
 
                 relocated_addr = AT.from_lva(line.state.address, self).to_mva()
+                if relocated_addr not in self.addr_to_line:
+                    self.addr_to_line[relocated_addr] = set()
                 self.addr_to_line[relocated_addr].add((filename, line.state.line))
-        self.addr_to_line = SortedDict(self.addr_to_line)
 
     @staticmethod
     def _load_low_high_pc_form_die(die: DIE):
