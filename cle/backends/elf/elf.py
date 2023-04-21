@@ -1,3 +1,4 @@
+# pylint:disable=bad-builtin
 import copy
 import logging
 import os
@@ -103,8 +104,8 @@ class ELF(MetaELF):
 
             try:
                 self._reader = elffile.ELFFile(self._binary_stream)
-            except Exception as e:  # pylint: disable=broad-except
-                raise CLECompatibilityError from e
+            except Exception as e1:  # pylint: disable=broad-except
+                raise CLECompatibilityError from e1
 
         # Get an appropriate archinfo.Arch for this binary, unless the user specified one
         if self.arch is None:
@@ -148,7 +149,7 @@ class ELF(MetaELF):
         # DWARF data
         self.has_dwarf_info = bool(self._reader.has_dwarf_info())
         self.build_id = None
-        self.addr_to_line: SortedDict[int, Set[Tuple[int, int]]] = SortedDict()
+        self.addr_to_line: "SortedDict[int, Set[Tuple[int, int]]]" = SortedDict()
         self.variables: Optional[List[Variable]] = None
         self.compilation_units: Optional[List[CompilationUnit]] = None
 
@@ -374,7 +375,7 @@ class ELF(MetaELF):
     def symbols_by_name(self):
         return self._symbols_by_name.copy()
 
-    def get_symbol(self, symid, symbol_table=None):  # pylint: disable=arguments-differ
+    def get_symbol(self, symid, symbol_table=None):  # pylint: disable=arguments-differ,arguments-renamed
         """
         Gets a Symbol object for the specified symbol.
 
