@@ -3,7 +3,7 @@ import logging
 import mmap
 from dataclasses import dataclass
 from functools import singledispatchmethod
-from typing import Dict, Optional
+from typing import Dict, Optional, Type
 from uuid import UUID
 
 import archinfo
@@ -60,7 +60,7 @@ class UefiFirmware(Backend):
         parser = uefi_firmware.AutoParser(buffer)
         return parser.type() != "unknown"
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         if uefi_firmware is None:
             raise CLEError("run `pip install uefi_firmware==1.10` to load UEFI firmware")
         super().__init__(*args, **kwargs)
@@ -73,6 +73,7 @@ class UefiFirmware(Backend):
 
         self._drivers: Dict[UUID, "UefiModuleMixin"] = {}
         self._drivers_pending: Dict[UUID, "UefiModulePending"] = {}
+        self._current_file: Optional[UUID] = None
 
         self.set_arch(archinfo.arch_from_id("x86_64"))  # TODO: ???
 
@@ -95,7 +96,7 @@ class UefiFirmware(Backend):
         if self.child_objects:
             self.arch = self.child_objects[0].arch
         else:
-            log.warning("Loaded empty static archive?")
+            log.warning("Loaded empty UEFI firmware?")
         self.has_memory = False
         self.pic = True
 
@@ -120,14 +121,17 @@ class UefiFirmware(Backend):
 
         @_load.register
         def _load_firmwarefile(self, uefi_obj: uefi_firmware.uefi.FirmwareFile):
+            old_uuid = self._current_file
             if uefi_obj.type == 7:  # driver
                 uuid = UUID(bytes=uefi_obj.guid)
                 self._drivers_pending[uuid] = UefiModulePending()
+                self._current_file = uuid
             self._load_generic(uefi_obj)
+            self._current_file = old_uuid
 
         @_load.register
         def _load_firmwarefilesection(self, uefi_obj: uefi_firmware.uefi.FirmwareFileSystemSection):
-            pending = self._drivers_pending.get(UUID(bytes=uefi_obj.guid), None)
+            pending = self._drivers_pending.get(self._current_file, None)
             if pending is not None:
                 if uefi_obj.type == 16:  # pe32 image
                     pending.pe_image = uefi_obj.content
@@ -154,6 +158,7 @@ class UefiModulePending:
         count = (self.pe_image is not None) + (self.te_image is not None)
         if count > 1:
             raise UefiDriverLoadError("Multiple image sections")
+        cls: "Type[UefiModuleMixin]"
         if self.pe_image is not None:
             cls = UefiPE
             data = self.pe_image
