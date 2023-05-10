@@ -1,3 +1,4 @@
+from typing import Optional, List
 import binascii
 import logging
 import re
@@ -59,11 +60,20 @@ class Hex(Backend):
         # Lots of tiny memory regions is bad!
         # The greedy algorithm to smash them together:
         result = []
+        last_addr: Optional[int] = None
+        last_data: Optional[List[bytes]] = None
+        last_size: Optional[int] = None
         for addr, region in sorted(regions):
-            if result and result[-1][0] + len(result[-1][1]) == addr:
-                result[-1] = (result[-1][0], result[-1][1] + region)
+            if last_addr is not None and last_addr + last_size == addr:
+                last_data.append(region)
+                last_size += len(region)
             else:
-                result.append((addr, region))
+                if last_addr is not None:
+                    result.append((last_addr, b"".join(last_data)))
+                last_addr, last_data, last_size = addr, [region], len(region)
+
+        if last_addr is not None:
+            result.append((last_addr, b"".join(last_data)))
 
         return result
 
