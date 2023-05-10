@@ -1,8 +1,8 @@
-from typing import Optional, List
 import binascii
 import logging
 import re
 import struct
+from typing import List, Optional
 
 from cle.errors import CLEError
 
