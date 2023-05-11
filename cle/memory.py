@@ -441,7 +441,7 @@ class Clemory(ClemoryBase):
                 ptr = search_min - start - 1
                 while True:
                     ptr += 1
-                    ptr = backer.find(data, ptr)
+                    ptr = backer.find(data, max(0, ptr))
                     if ptr == -1 or ptr + len(data) > search_max - start - 1:
                         break
                     yield ptr + start
