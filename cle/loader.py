@@ -4,11 +4,26 @@ import platform
 import sys
 from collections import OrderedDict
 from pathlib import Path
-from typing import BinaryIO, List, Optional, Type, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    BinaryIO,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Set,
+    Type,
+    TypeVar,
+    Union,
+)
 
 import archinfo
 from archinfo.arch_soot import ArchSoot
 
+from cle import Symbol
 from cle.address_translator import AT
 from cle.errors import CLECompatibilityError, CLEError, CLEFileNotFoundError, CLEOperationError
 from cle.memory import Clemory
@@ -28,6 +43,12 @@ from .backends.tls import (
 __all__ = ("Loader",)
 
 log = logging.getLogger(name=__name__)
+
+if TYPE_CHECKING:
+    from .backends import Region, Section, Segment
+    from .backends.relocation import Relocation
+
+T = TypeVar("T")
 
 
 class Loader:
@@ -83,32 +104,27 @@ class Loader:
     More keys are defined on a per-backend basis.
     """
 
-    # _main_binary_path: str
-    memory: Optional["Clemory"]
-    main_object: Optional["Backend"]
-    tls: Optional["ThreadManager"]
-
     def __init__(
         self,
-        main_binary: Union[str, BinaryIO, Path],
-        auto_load_libs=True,
+        main_binary: Union[str, BinaryIO, Path, Backend],
+        auto_load_libs: bool = True,
         concrete_target=None,
-        force_load_libs=(),
-        skip_libs=(),
-        main_opts=None,
-        lib_opts=None,
-        ld_path=(),
-        use_system_libs=True,
-        ignore_import_version_numbers=True,
-        case_insensitive=False,
-        rebase_granularity=0x100000,
-        except_missing_libs=False,
-        aslr=False,
-        perform_relocations=True,
-        load_debug_info=False,
-        page_size=0x1,
-        preload_libs=(),
-        arch=None,
+        force_load_libs: Iterable[Union[str, BinaryIO, Path]] = (),
+        skip_libs: Iterable[str] = (),
+        main_opts: Optional[Dict[str, Any]] = None,
+        lib_opts: Optional[Dict[str, Dict[str, Any]]] = None,
+        ld_path: Iterable[Union[str, Path]] = (),
+        use_system_libs: bool = True,
+        ignore_import_version_numbers: bool = True,
+        case_insensitive: bool = False,
+        rebase_granularity: int = 0x100000,
+        except_missing_libs: bool = False,
+        aslr: bool = False,
+        perform_relocations: bool = True,
+        load_debug_info: bool = False,
+        page_size: int = 0x1,
+        preload_libs: Iterable[Union[str, BinaryIO, Path]] = (),
+        arch: Union[archinfo.Arch, str, None] = None,
     ):
         if hasattr(main_binary, "seek") and hasattr(main_binary, "read"):
             self._main_binary_path = None
@@ -129,7 +145,7 @@ class Loader:
 
         self._auto_load_libs = auto_load_libs
         self._load_debug_info = load_debug_info
-        self._satisfied_deps = {x: False for x in skip_libs}
+        self._satisfied_deps: Dict[str, Union[Literal[False], Backend]] = {x: False for x in skip_libs}
         self._main_opts = {} if main_opts is None else main_opts
         self._lib_opts = {} if lib_opts is None else lib_opts
         self._custom_ld_path = [ld_path] if type(ld_path) is str else ld_path
@@ -156,9 +172,9 @@ class Loader:
 
         self.aslr = aslr
         self.page_size = page_size
-        self.memory = None
-        self.main_object = None
-        self.tls = None
+        self._memory = None
+        self._main_object = None
+        self._tls = None
         self._kernel_object: Optional[KernelObject] = None
         self._extern_object: Optional[ExternObject] = None
         self.shared_objects = OrderedDict()
@@ -182,31 +198,52 @@ class Loader:
 
     # Basic functions and properties
 
+    @property
+    def main_object(self) -> Backend:
+        result = self._main_object
+        if result is None:
+            raise ValueError("Cannot access main_object before loading is complete")
+        return result
+
+    @property
+    def memory(self) -> Clemory:
+        result = self._memory
+        if result is None:
+            raise ValueError("Cannot access memory before loading is complete")
+        return result
+
+    @property
+    def tls(self) -> "ThreadManager":
+        result = self._tls
+        if result is None:
+            raise ValueError("Cannot access tls before loading is complete")
+        return result
+
     def close(self):
         log.warning("You don't need to close the loader anymore :)")
 
     def __repr__(self):
-        if self._main_binary_stream is None:
+        if self._main_binary_stream is None and self._main_binary_path is not None:
             return f"<Loaded {os.path.basename(self._main_binary_path)}, maps [{self.min_addr:#x}:{self.max_addr:#x}]>"
         else:
             return f"<Loaded from stream, maps [{self.min_addr:#x}:{self.max_addr:#x}]>"
 
     @property
-    def max_addr(self):
+    def max_addr(self) -> int:
         """
         The maximum address loaded as part of any loaded object (i.e., the whole address space).
         """
         return self.all_objects[-1].max_addr
 
     @property
-    def min_addr(self):
+    def min_addr(self) -> int:
         """
         The minimum address loaded as part of any loaded object (i.e., the whole address space).
         """
         return self.all_objects[0].min_addr
 
     @property
-    def initializers(self):
+    def initializers(self) -> List[int]:
         """
         Return a list of all the initializers that should be run before execution reaches the entry point, in the order
         they should be run.
@@ -214,7 +251,7 @@ class Loader:
         return sum((x.initializers for x in self.all_objects), [])
 
     @property
-    def finalizers(self):
+    def finalizers(self) -> List[int]:
         """
         Return a list of all the finalizers that should be run before the program exits.
         I'm not sure what order they should be run in.
@@ -222,7 +259,7 @@ class Loader:
         return sum((x.finalizers for x in self.all_objects), [])
 
     @property
-    def linux_loader_object(self):
+    def linux_loader_object(self) -> Optional[Backend]:
         """
         If the linux dynamic loader is present in memory, return it
         """
@@ -234,7 +271,7 @@ class Loader:
         return None
 
     @property
-    def elfcore_object(self):
+    def elfcore_object(self) -> Optional[ELFCore]:
         """
         If a corefile was loaded, this returns the actual core object instead of the main binary
         """
@@ -244,7 +281,7 @@ class Loader:
         return None
 
     @property
-    def extern_object(self):
+    def extern_object(self) -> ExternObject:
         """
         Return the extern object used to provide addresses to unresolved symbols and angr internals.
 
@@ -283,31 +320,31 @@ class Loader:
         return self._kernel_object
 
     @property
-    def all_elf_objects(self):
+    def all_elf_objects(self) -> List[MetaELF]:
         """
         Return a list of every object that was loaded from an ELF file.
         """
         return [o for o in self.all_objects if isinstance(o, MetaELF)]
 
     @property
-    def all_pe_objects(self):
+    def all_pe_objects(self) -> List[PE]:
         """
         Return a list of every object that was loaded from an ELF file.
         """
         return [o for o in self.all_objects if isinstance(o, PE)]
 
     @property
-    def missing_dependencies(self):
+    def missing_dependencies(self) -> Set[str]:
         """
         Return a set of every name that was requested as a shared object dependency but could not be loaded
         """
         return self.requested_names - {k for k, v in self._satisfied_deps.items() if v is not False}
 
     @property
-    def auto_load_libs(self):
+    def auto_load_libs(self) -> bool:
         return self._auto_load_libs
 
-    def describe_addr(self, addr) -> str:
+    def describe_addr(self, addr: int) -> str:
         """
         Returns a textual description of what's in memory at the provided address
         """
@@ -320,7 +357,7 @@ class Loader:
 
         rva = AT.from_va(addr, o).to_rva()
 
-        idx = o.symbols.bisect_key_right(rva) - 1
+        idx = o.symbols.bisect_key_right(rva) - 1  # type: ignore
         while idx >= 0:
             sym = o.symbols[idx]
             if not sym.name or sym.is_import:
@@ -353,7 +390,7 @@ class Loader:
 
     # Search functions
 
-    def find_object(self, spec, extra_objects=()):
+    def find_object(self, spec: Union[Backend, str], extra_objects: Iterable[Backend] = ()) -> Optional[Backend]:
         """
         If the given library specification has been loaded, return its object, otherwise return None.
         """
@@ -372,13 +409,15 @@ class Loader:
 
         for ident in self._possible_idents(spec):
             if ident in self._satisfied_deps:
-                return self._satisfied_deps[ident]
+                result = self._satisfied_deps[ident]
+                if result is not False:
+                    return result
             if ident in extra_idents:
                 return extra_idents[ident]
 
         return None
 
-    def find_object_containing(self, addr, membership_check=True):
+    def find_object_containing(self, addr: int, membership_check: bool = True) -> Optional[Backend]:
         """
         Return the object that contains the given address, or None if the address is unmapped.
 
@@ -414,7 +453,7 @@ class Loader:
         if addr > self.max_addr or addr < self.min_addr:
             return None
 
-        obj = key_bisect_floor_key(self.all_objects, addr, keyfunc=lambda obj: obj.min_addr)
+        obj = key_bisect_floor_key(self.all_objects, addr, keyfunc=lambda x: x.min_addr)
         if obj is None:
             return None
         if not obj.min_addr <= addr <= obj.max_addr:
@@ -427,7 +466,7 @@ class Loader:
             return obj
         return _check_object_memory(obj)
 
-    def find_segment_containing(self, addr, skip_pseudo_objects=True):
+    def find_segment_containing(self, addr: int, skip_pseudo_objects: bool = True) -> Optional["Segment"]:
         """
         Find the section object that the address belongs to.
 
@@ -449,7 +488,7 @@ class Loader:
 
         return obj.find_segment_containing(addr)
 
-    def find_section_containing(self, addr, skip_pseudo_objects=True):
+    def find_section_containing(self, addr: int, skip_pseudo_objects=True) -> Optional["Section"]:
         """
         Find the section object that the address belongs to.
 
@@ -471,7 +510,7 @@ class Loader:
 
         return obj.find_section_containing(addr)
 
-    def find_loadable_containing(self, addr, skip_pseudo_objects=True):
+    def find_loadable_containing(self, addr: int, skip_pseudo_objects=True) -> Optional["Region"]:
         """
         Find the section or segment object the address belongs to. Sections will only be used if the corresponding
         object does not have segments.
@@ -492,7 +531,7 @@ class Loader:
 
         return obj.find_loadable_containing(addr)
 
-    def find_section_next_to(self, addr, skip_pseudo_objects=True):
+    def find_section_next_to(self, addr: int, skip_pseudo_objects=True) -> Optional["Section"]:
         """
         Find the next section after the given address.
 
@@ -514,7 +553,7 @@ class Loader:
 
         return obj.sections.find_region_next_to(addr)
 
-    def find_symbol(self, thing, fuzzy=False):
+    def find_symbol(self, thing, fuzzy=False) -> Optional[Symbol]:
         """
         Search for the symbol with the given name or address.
 
@@ -525,7 +564,8 @@ class Loader:
         """
         if type(thing) is archinfo.arch_soot.SootAddressDescriptor:
             # Soot address
-            return thing.method.fullname
+            # TODO launch this shit into the sun
+            return thing.method.fullname  # type: ignore
         elif type(thing) is int:
             # address
             if fuzzy:
@@ -537,7 +577,7 @@ class Loader:
                 objs = self.all_objects
 
             for so in objs:
-                idx = so.symbols.bisect_key_right(AT.from_mva(thing, so).to_rva()) - 1
+                idx = so.symbols.bisect_key_right(AT.from_mva(thing, so).to_rva()) - 1  # type: ignore
                 while idx >= 0 and (fuzzy or so.symbols[idx].rebased_addr == thing):
                     if so.symbols[idx].is_import:
                         idx -= 1
@@ -570,7 +610,7 @@ class Loader:
         return None
 
     @property
-    def symbols(self):
+    def symbols(self) -> Iterator[Symbol]:
         peeks = []
         for so in self.all_objects:
             if so.symbols:
@@ -589,7 +629,9 @@ class Loader:
             except StopIteration:
                 peeks.pop(idx)
 
-    def find_all_symbols(self, name, exclude_imports=True, exclude_externs=False, exclude_forwards=True):
+    def find_all_symbols(
+        self, name: str, exclude_imports=True, exclude_externs=False, exclude_forwards=True
+    ) -> Iterable[Symbol]:
         """
         Iterate over all symbols present in the set of loaded binaries that have the given name
 
@@ -613,7 +655,7 @@ class Loader:
 
                 yield sym
 
-    def find_plt_stub_name(self, addr):
+    def find_plt_stub_name(self, addr: int) -> Optional[str]:
         """
         Return the name of the PLT stub starting at ``addr``.
         """
@@ -622,7 +664,7 @@ class Loader:
             return so.reverse_plt.get(addr, None)
         return None
 
-    def find_relevant_relocations(self, name):
+    def find_relevant_relocations(self, name: str) -> Iterator["Relocation"]:
         """
         Iterate through all the relocations referring to the symbol with the given ``name``
         """
@@ -740,10 +782,10 @@ class Loader:
             objects.extend(obj.child_objects)
             dependencies.extend(obj.deps)
 
-            if self.main_object is None:
+            if self._main_object is None:
                 # this is technically the first place we can start to initialize things based on platform
-                self.main_object = obj
-                self.memory = Clemory(obj.arch, root=True)
+                self._main_object = obj
+                self._memory = Clemory(obj.arch, root=True)
 
                 chk_obj = (
                     self.main_object
@@ -751,15 +793,15 @@ class Loader:
                     else self.main_object.child_objects[0]
                 )
                 if isinstance(chk_obj, ELFCore):
-                    self.tls = ELFCoreThreadManager(self, obj.arch)
+                    self._tls = ELFCoreThreadManager(self, obj.arch)
                 elif isinstance(obj, Minidump):
-                    self.tls = MinidumpThreadManager(self, obj.arch)
+                    self._tls = MinidumpThreadManager(self, obj.arch)
                 elif isinstance(chk_obj, MetaELF):
-                    self.tls = ELFThreadManager(self, obj.arch)
+                    self._tls = ELFThreadManager(self, obj.arch)
                 elif isinstance(chk_obj, PE):
-                    self.tls = PEThreadManager(self, obj.arch)
+                    self._tls = PEThreadManager(self, obj.arch)
                 else:
-                    self.tls = ThreadManager(self, obj.arch)
+                    self._tls = ThreadManager(self, obj.arch)
 
             elif is_preloading:
                 self.preload_libs.append(obj)
@@ -790,9 +832,9 @@ class Loader:
 
             if type(self.tls) is ThreadManager:  # ... java
                 if isinstance(obj, MetaELF):
-                    self.tls = ELFThreadManager(self, obj.arch)
+                    self._tls = ELFThreadManager(self, obj.arch)
                 elif isinstance(obj, PE):
-                    self.tls = PEThreadManager(self, obj.arch)
+                    self._tls = PEThreadManager(self, obj.arch)
 
         # STEP 1.5
         # produce dependency-ordered list of objects and soname map
@@ -914,7 +956,7 @@ class Loader:
 
         try:
             # STEP 2: collect options
-            if self.main_object is None:
+            if self._main_object is None:
                 options = dict(self._main_opts)
             else:
                 for ident in self._possible_idents(
@@ -939,7 +981,7 @@ class Loader:
             # STEP 4: LOAD!
             log.debug("... loading with %s", backend_cls)
 
-            result = backend_cls(binary, binary_stream, is_main_bin=self.main_object is None, loader=self, **options)
+            result = backend_cls(binary, binary_stream, is_main_bin=self._main_object is None, loader=self, **options)
             result.close()
             return result
         finally:
@@ -988,7 +1030,7 @@ class Loader:
             log.info("Mapping %s at %#x", obj.binary, base_addr)
             self.memory.add_backer(base_addr, obj.memory)
         obj._is_mapped = True
-        key_bisect_insort_right(self.all_objects, obj, keyfunc=lambda o: o.min_addr)
+        key_bisect_insort_right(self.all_objects, obj, keyfunc=lambda x: x.min_addr)
 
     # Address space management
 
@@ -1240,7 +1282,9 @@ class Loader:
         return None
 
     @staticmethod
-    def _backend_resolver(backend, default=None):
+    def _backend_resolver(
+        backend: Union[str, Type[Backend]], default: Optional[T] = None
+    ) -> Union[Type[Backend], Optional[T]]:
         if isinstance(backend, type) and issubclass(backend, Backend):
             return backend
         elif backend in ALL_BACKENDS:

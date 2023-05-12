@@ -3,7 +3,7 @@ import logging
 import os
 import typing
 from io import BufferedReader
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Any, BinaryIO, Dict, List, Optional, Type, Union
 
 import archinfo
 import sortedcontainers
@@ -17,6 +17,7 @@ from .relocation import Relocation
 from .symbol import Symbol
 
 if TYPE_CHECKING:
+    from cle.backends import Section, Segment
     from cle.loader import Loader
 
 log = logging.getLogger(name=__name__)
@@ -124,7 +125,6 @@ class Backend:
     """
 
     is_default = False
-    loader: "Loader"
 
     def __init__(
         self,
@@ -169,20 +169,18 @@ class Backend:
 
         self.is_main_bin = is_main_bin
         self.has_memory = has_memory
-        self.loader = loader
+        self._loader: "Optional[Loader]" = loader
         self._entry = 0
-        self._segments = Regions()  # List of segments
-        self._sections = Regions()  # List of sections
+        self._segments: Regions["Segment"] = Regions()  # List of segments
+        self._sections: Regions["Section"] = Regions()  # List of sections
         self.sections_map = {}  # Mapping from section name to section
-        self.symbols: "sortedcontainers.SortedKeyList[Symbol]" = sortedcontainers.SortedKeyList(
-            key=self._get_symbol_relative_addr
-        )
+        self.symbols: "List[Symbol]" = sortedcontainers.SortedKeyList(key=self._get_symbol_relative_addr)
         self.imports: typing.Dict[str, "Relocation"] = {}
         self.resolved_imports = []
         self.relocs: "List[Relocation]" = []
         self.irelatives = []  # list of tuples (resolver, destination), dest w/o rebase
         self.jmprel = {}
-        self.arch: Optional[archinfo.Arch] = None
+        self._arch: Optional[archinfo.Arch] = None
         self.os = None  # Let other stuff override this
         self.compiler = None, None  # compiler name, version
         self._symbol_cache = {}
@@ -206,6 +204,7 @@ class Backend:
         self.linking = None  # Dynamic or static linking
         self.pic = force_rebase
         self.execstack = False
+        self.aslr = False
 
         # tls info set by backend to communicate with thread manager
         self.tls_used = False
@@ -244,19 +243,33 @@ class Backend:
         self._last_segment = None
 
         if arch is None:
-            self.arch = None
+            pass
         elif isinstance(arch, str):
             self.set_arch(archinfo.arch_from_id(arch))
         elif isinstance(arch, archinfo.Arch):
             self.set_arch(arch)
         elif isinstance(arch, type) and issubclass(arch, archinfo.Arch):
-            self.set_arch(arch())
+            self.set_arch(arch())  # type: ignore
         else:
             raise CLEError("Bad parameter: arch=%s" % arch)
 
         self._checksum()
 
-    def close(self):
+    @property
+    def arch(self) -> archinfo.Arch:
+        result = self._arch
+        if result is None:
+            raise ValueError("No arch is assigned yet")
+        return result
+
+    @property
+    def loader(self) -> "Loader":
+        result = self._loader
+        if result is None:
+            raise ValueError("Backend does not have a loader associated")
+        return result
+
+    def close(self) -> None:
         del self._binary_stream
 
     def __repr__(self):
@@ -268,7 +281,7 @@ class Backend:
         )
 
     def set_arch(self, arch):
-        self.arch = arch
+        self._arch = arch
         self.memory = Clemory(arch)  # Private virtual address space, without relocations
 
     @property
@@ -282,11 +295,11 @@ class Backend:
         return AT.from_lva(self._entry, self).to_mva()
 
     @property
-    def segments(self) -> Regions:
+    def segments(self) -> Regions["Segment"]:
         return self._segments
 
     @segments.setter
-    def segments(self, v):
+    def segments(self, v: Union[Regions["Segment"], List["Segment"]]):
         if isinstance(v, list):
             self._segments = Regions(lst=v)
         elif isinstance(v, Regions):
@@ -295,11 +308,11 @@ class Backend:
             raise ValueError("Unsupported type %s set as sections." % type(v))
 
     @property
-    def sections(self):
+    def sections(self) -> Regions["Section"]:
         return self._sections
 
     @sections.setter
-    def sections(self, v):
+    def sections(self, v: Union[Regions["Section"], List["Section"]]):
         if isinstance(v, list):
             self._sections = Regions(lst=v)
         elif isinstance(v, Regions):
@@ -362,7 +375,7 @@ class Backend:
         lookup = self.find_segment_containing if self.segments else self.find_section_containing
         return lookup(addr)
 
-    def find_segment_containing(self, addr):
+    def find_segment_containing(self, addr: int) -> Optional["Segment"]:
         """
         Returns the segment that contains `addr`, or ``None``.
         """
@@ -374,7 +387,7 @@ class Backend:
             self._last_segment = r
         return r
 
-    def find_section_containing(self, addr):
+    def find_section_containing(self, addr: int) -> Optional["Section"]:
         """
         Returns the section that contains `addr` or ``None``.
         """
@@ -386,14 +399,14 @@ class Backend:
             self._last_section = r
         return r
 
-    def addr_to_offset(self, addr):
+    def addr_to_offset(self, addr: int) -> Optional[int]:
         loadable = self.find_loadable_containing(addr)
         if loadable is not None:
             return loadable.addr_to_offset(addr)
         else:
             return None
 
-    def offset_to_addr(self, offset):
+    def offset_to_addr(self, offset: int) -> Optional[int]:
         if self.segments:
             for s in self.segments:
                 if s.contains_offset(offset):
@@ -405,7 +418,7 @@ class Backend:
         return None
 
     @property
-    def min_addr(self):
+    def min_addr(self) -> int:
         """
         This returns the lowest virtual address contained in any loaded segment of the binary.
         """
@@ -413,7 +426,7 @@ class Backend:
         return self.mapped_base
 
     @property
-    def max_addr(self):
+    def max_addr(self) -> int:
         """
         This returns the highest virtual address contained in any loaded segment of the binary.
         """
@@ -421,12 +434,12 @@ class Backend:
         if self._max_addr is None:
             out = self.mapped_base
             if self.segments or self.sections:
-                out = max(map(lambda x: x.max_addr, self.segments or self.sections))
+                out = max(x.max_addr for x in (self.segments or self.sections))
             self._max_addr = out - self.mapped_base
         return self._max_addr + self.mapped_base
 
     @property
-    def initializers(self):  # pylint: disable=no-self-use
+    def initializers(self) -> List[int]:  # pylint: disable=no-self-use
         """
         Stub function. Should be overridden by backends that can provide initializer functions that ought to be run
         before execution reaches the entry point. Addresses should be rebased.
@@ -434,21 +447,21 @@ class Backend:
         return []
 
     @property
-    def finalizers(self):  # pylint: disable=no-self-use
+    def finalizers(self) -> List[int]:  # pylint: disable=no-self-use
         """
         Stub function. Like initializers, but with finalizers.
         """
         return []
 
     @property
-    def threads(self):  # pylint: disable=no-self-use
+    def threads(self) -> List:  # pylint: disable=no-self-use
         """
         If this backend represents a dump of a running program, it may contain one or more thread contexts, i.e.
         register files. This property should contain a list of names for these threads, which should be unique.
         """
         return []
 
-    def thread_registers(self, thread=None):  # pylint: disable=no-self-use,unused-argument
+    def thread_registers(self, thread=None) -> Dict[str, Any]:  # pylint: disable=no-self-use,unused-argument
         """
         If this backend represents a dump of a running program, it may contain one or more thread contexts, i.e.
         register files. This method should return the register file for a given thread (as named in ``Backend.threads``)
@@ -466,7 +479,7 @@ class Backend:
         )
         return self.thread_registers().items()
 
-    def get_symbol(self, name):  # pylint: disable=no-self-use,unused-argument
+    def get_symbol(self, name: str) -> Optional[Symbol]:  # pylint: disable=no-self-use,unused-argument
         """
         Stub function. Implement to find the symbol with name `name`.
         """
@@ -475,36 +488,36 @@ class Backend:
         return None
 
     @staticmethod
-    def extract_soname(path):  # pylint: disable=unused-argument
+    def extract_soname(path) -> Optional[str]:  # pylint: disable=unused-argument
         """
         Extracts the shared object identifier from the path, or returns None if it cannot.
         """
         return None
 
     @classmethod
-    def is_compatible(cls, stream):  # pylint:disable=unused-argument
+    def is_compatible(cls, stream) -> bool:  # pylint:disable=unused-argument
         """
         Determine quickly whether this backend can load an object from this stream
         """
         return False
 
     @classmethod
-    def check_compatibility(cls, spec, obj):  # pylint: disable=unused-argument
+    def check_compatibility(cls, spec, obj) -> bool:  # pylint: disable=unused-argument
         """
         Performs a minimal static load of ``spec`` and returns whether it's compatible with other_obj
         """
         return False
 
     @classmethod
-    def check_magic_compatibility(cls, stream):  # pylint: disable=unused-argument
+    def check_magic_compatibility(cls, stream: BinaryIO) -> bool:  # pylint: disable=unused-argument
         """
         Check if a stream of bytes contains the same magic number as the main object
         """
         return False
 
     @staticmethod
-    def _get_symbol_relative_addr(symbol):
-        return symbol.relative_addr
+    def _get_symbol_relative_addr(value):
+        return value.relative_addr
 
     def _checksum(self):
         """
@@ -529,7 +542,7 @@ class Backend:
             sym.owner = self
 
 
-ALL_BACKENDS = {}
+ALL_BACKENDS: Dict[str, Type[Backend]] = {}
 
 
 def register_backend(name, cls):

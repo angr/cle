@@ -1,11 +1,13 @@
-from typing import List, Optional
+from typing import Generic, List, Optional, TypeVar
 
 from cle.utils import key_bisect_find, key_bisect_insort_left
 
 from .region import Region
 
+R = TypeVar("R", bound=Region)
 
-class Regions:
+
+class Regions(Generic[R]):
     """
     A container class acting as a list of regions (sections or segments). Additionally, it keeps an sorted list of
     all regions that are mapped into memory to allow fast lookups.
@@ -13,16 +15,16 @@ class Regions:
     We assume none of the regions overlap with others.
     """
 
-    def __init__(self, lst=None):
+    def __init__(self, lst: Optional[List[R]] = None):
         self._list = lst if lst is not None else []
 
         if self._list:
-            self._sorted_list = self._make_sorted(self._list)
+            self._sorted_list: List[R] = self._make_sorted(self._list)
         else:
             self._sorted_list = []
 
     @property
-    def raw_list(self) -> List[Region]:
+    def raw_list(self) -> List[R]:
         """
         Get the internal list. Any change to it is not tracked, and therefore _sorted_list will not be updated.
         Therefore you probably does not want to modify the list.
@@ -46,10 +48,10 @@ class Regions:
             return self._sorted_list[-1].max_addr
         return None
 
-    def __getitem__(self, idx: int) -> Region:
+    def __getitem__(self, idx: int) -> R:
         return self._list[idx]
 
-    def __setitem__(self, idx: int, item: Region) -> None:
+    def __setitem__(self, idx: int, item: R) -> None:
         self._list[idx] = item
 
         # update self._sorted_list
@@ -73,7 +75,7 @@ class Regions:
         for x in self._list:
             x._rebase(delta)
 
-    def append(self, region: Region):
+    def append(self, region: R):
         """
         Append a new Region instance into the list.
 
@@ -82,9 +84,9 @@ class Regions:
         self._list.append(region)
 
         if self._is_region_mapped(region):
-            key_bisect_insort_left(self._sorted_list, region, keyfunc=lambda r: r.vaddr)
+            key_bisect_insort_left(self._sorted_list, region, keyfunc=lambda x: x.vaddr)
 
-    def remove(self, region: Region) -> None:
+    def remove(self, region: R) -> None:
         """
         Remove an existing Region instance from the list.
 
@@ -94,7 +96,7 @@ class Regions:
             self._sorted_list.remove(region)
         self._list.remove(region)
 
-    def find_region_containing(self, addr: int) -> Optional[Region]:
+    def find_region_containing(self, addr: int) -> Optional[R]:
         """
         Find the region that contains a specific address. Returns None if none of the regions covers the address.
 
@@ -103,7 +105,7 @@ class Regions:
         """
 
         pos = key_bisect_find(
-            self._sorted_list, addr, keyfunc=lambda r: r if isinstance(r, int) else r.vaddr + r.memsize
+            self._sorted_list, addr, keyfunc=lambda x: x if isinstance(x, int) else x.vaddr + x.memsize
         )
         if pos >= len(self._sorted_list):
             return None
@@ -112,7 +114,7 @@ class Regions:
             return region
         return None
 
-    def find_region_next_to(self, addr: int) -> Optional[Region]:
+    def find_region_next_to(self, addr: int) -> Optional[R]:
         """
         Find the next region after the given address.
 
@@ -122,7 +124,7 @@ class Regions:
         """
 
         pos = key_bisect_find(
-            self._sorted_list, addr, keyfunc=lambda r: r if isinstance(r, int) else r.vaddr + r.memsize
+            self._sorted_list, addr, keyfunc=lambda x: x if isinstance(x, int) else x.vaddr + x.memsize
         )
         if pos >= len(self._sorted_list):
             return None
@@ -130,7 +132,7 @@ class Regions:
         return self._sorted_list[pos]
 
     @staticmethod
-    def _is_region_mapped(region: Region) -> bool:
+    def _is_region_mapped(region: R) -> bool:
         # delayed import
         # pylint: disable=import-outside-toplevel
         from .elf.regions import ELFSection
@@ -143,7 +145,7 @@ class Regions:
         return mapped
 
     @staticmethod
-    def _make_sorted(lst: List[Region]):
+    def _make_sorted(lst: List[R]) -> List[R]:
         """
         Return a sorted list of regions that are mapped into memory.
 

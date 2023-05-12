@@ -68,8 +68,8 @@ class UefiFirmware(Backend):
         # hack: we are using a loader internal method in a non-kosher way which will cause our children to be
         # marked as the main binary if we are also the main binary
         # work around this by setting ourself here:
-        if self.loader.main_object is None:
-            self.loader.main_object = self
+        if self.loader._main_object is None:
+            self.loader._main_object = self
 
         self._drivers: Dict[UUID, "UefiModuleMixin"] = {}
         self._drivers_pending: Dict[UUID, "UefiModulePending"] = {}
@@ -101,8 +101,8 @@ class UefiFirmware(Backend):
         self.pic = True
 
         # hack pt. 2
-        if self.loader.main_object is self:
-            self.loader.main_object = None
+        if self.loader._main_object is self:
+            self.loader._main_object = None
 
     @singledispatchmethod
     def _load(self, uefi_obj):  # pylint: disable=no-self-use

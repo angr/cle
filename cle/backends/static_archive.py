@@ -28,8 +28,8 @@ class StaticArchive(Backend):
         # hack: we are using a loader internal method in a non-kosher way which will cause our children to be
         # marked as the main binary if we are also the main binary
         # work around this by setting ourself here:
-        if self.loader.main_object is None:
-            self.loader.main_object = self
+        if self.loader._main_object is None:
+            self.loader._main_object = self
 
         ar = arpy.Archive(fileobj=self._binary_stream)
         ar.read_all_headers()
@@ -47,8 +47,8 @@ class StaticArchive(Backend):
         self.pic = True
 
         # hack pt. 2
-        if self.loader.main_object is self:
-            self.loader.main_object = None
+        if self.loader._main_object is self:
+            self.loader._main_object = None
 
 
 register_backend("AR", StaticArchive)
