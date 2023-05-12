@@ -108,7 +108,7 @@ class ELF(MetaELF):
                 raise CLECompatibilityError from e1
 
         # Get an appropriate archinfo.Arch for this binary, unless the user specified one
-        if self.arch is None:
+        if self._arch is None:
             self.set_arch(self.extract_arch(self._reader))
         else:
             try:

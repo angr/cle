@@ -80,7 +80,7 @@ class Hex(Backend):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if self.arch is None:
+        if self._arch is None:
             raise CLEError("To use the Hex binary backend, you need to specify an architecture in the loader options.")
 
         # Do the whole thing in one shot.

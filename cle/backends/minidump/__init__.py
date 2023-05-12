@@ -38,7 +38,7 @@ class Minidump(Backend):
 
         self.wow64 = False
 
-        if self.arch is None:
+        if self._arch is None:
             if getattr(self._mdf, "sysinfo", None) is None:
                 raise MinidumpMissingStreamError("SystemInfo", "The architecture was not specified")
             arch = self._mdf.sysinfo.ProcessorArchitecture
