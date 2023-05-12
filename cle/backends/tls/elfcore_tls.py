@@ -2,7 +2,7 @@ import logging
 
 import archinfo
 
-from . import ThreadManager
+from .tls_object import ThreadManager
 
 log = logging.getLogger(__name__)
 
