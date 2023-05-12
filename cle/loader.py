@@ -1086,7 +1086,7 @@ class Loader:
         """
         # this could be converted to being an iterator pretty easily
         for path in self._possible_paths(spec):
-            if self.main_object is not None:
+            if self._main_object is not None:
                 backend_cls = self._static_backend(path)
                 if backend_cls is None:
                     continue
@@ -1111,7 +1111,7 @@ class Loader:
         dirs = []
         dirs.extend(self._custom_ld_path)  # if we say dirs = blah, we modify the original
 
-        if self.main_object is not None:
+        if self._main_object is not None:
             # add path of main binary
             if self.main_object.binary is not None:
                 dirs.append(os.path.dirname(self.main_object.binary))
