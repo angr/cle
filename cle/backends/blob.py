@@ -31,7 +31,7 @@ class Blob(Backend):
             log.critical("Deprecation warning: the custom_offset parameter has been renamed to offset")
         super().__init__(*args, **kwargs)
 
-        if self.arch is None:
+        if self._arch is None:
             raise CLEError("Must specify arch when loading blob!")
 
         if self._custom_entry_point is None:

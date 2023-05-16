@@ -2,10 +2,12 @@ import logging
 
 import archinfo
 
+from .tls_object import ThreadManager
+
 log = logging.getLogger(__name__)
 
 
-class ELFCoreThreadManager:
+class ELFCoreThreadManager(ThreadManager):
     def __init__(self, loader, arch, **kwargs):  # pylint: disable=unused-argument
         self.loader = loader
         self.arch = arch

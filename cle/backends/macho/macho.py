@@ -15,6 +15,7 @@ from sortedcontainers import SortedKeyList
 
 from cle.backends.backend import AT, Backend, register_backend
 from cle.backends.macho.binding import BindingHelper, MachOChainedFixup, MachORelocation, read_uleb
+from cle.backends.regions import Regions
 from cle.errors import CLECompatibilityError, CLEInvalidBinaryError, CLEOperationError
 
 from .macho_enums import LoadCommands as LC
@@ -1065,6 +1066,8 @@ class MachO(Backend):
         Syntactic sugar for get_segment_by_name
         """
         return self.get_segment_by_name(item)
+
+    segments: Regions[MachOSegment]
 
 
 register_backend("mach-o", MachO)

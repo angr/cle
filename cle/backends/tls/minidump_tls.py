@@ -1,7 +1,9 @@
 import archinfo
 
+from cle.backends.tls.tls_object import ThreadManager
 
-class MinidumpThreadManager:
+
+class MinidumpThreadManager(ThreadManager):
     def __init__(self, loader, arch, **kwargs):  # pylint: disable=unused-argument
         self.loader = loader
         self.arch = arch

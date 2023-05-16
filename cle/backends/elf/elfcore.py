@@ -413,8 +413,8 @@ class ELFCore(ELF):
         # hack: we are using a loader internal method in a non-kosher way which will cause our children to be
         # marked as the main binary if we are also the main binary
         # work around this by setting ourself here:
-        if self.loader.main_object is None:
-            self.loader.main_object = self
+        if self.loader._main_object is None:
+            self.loader._main_object = self
 
         child_patches = defaultdict(list)
         for vm_start, vm_end, offset, filename in self.filename_lookup:
@@ -440,8 +440,8 @@ class ELFCore(ELF):
                     log.warning("Could not find a compatible loader for %s; this core may be incomplete.", filename)
                 else:
                     log.warning("Could not load %s; this core may be incomplete.", filename)
-                if self.loader.main_object is self:
-                    self.loader.main_object = None
+                if self.loader._main_object is self:
+                    self.loader._main_object = None
                 self.child_objects.clear()
                 return
 
@@ -479,8 +479,8 @@ class ELFCore(ELF):
 
             if base_addr is None:
                 log.warning("Could not load %s (could not determine base); core may be incomplete", filename)
-                if self.loader.main_object is self:
-                    self.loader.main_object = None
+                if self.loader._main_object is self:
+                    self.loader._main_object = None
                 self.child_objects.clear()
                 return
 
@@ -580,8 +580,8 @@ class ELFCore(ELF):
         self.mapped_base = 0
         self._max_addr = 0
         self.has_memory = False
-        if self.loader.main_object is self:
-            self.loader.main_object = None
+        if self.loader._main_object is self:
+            self.loader._main_object = None
             self.__record_main_object()
 
     def __record_main_object(self):
