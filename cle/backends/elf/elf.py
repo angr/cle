@@ -2,6 +2,7 @@
 import copy
 import logging
 import os
+import pathlib
 import xml.etree.ElementTree
 from collections import OrderedDict, defaultdict
 from typing import Dict, List, Optional, Set, Tuple
@@ -654,19 +655,19 @@ class ELF(MetaELF):
                 else:
                     file_entry = lineprog.header["file_entry"][line.state.file - 1]
                     if file_entry["dir_index"] == 0:
-                        filename = os.path.join(comp_dir, file_entry.name.decode())
+                        filename = pathlib.PurePosixPath(comp_dir) / file_entry.name.decode()
                     else:
-                        filename = os.path.join(
-                            comp_dir,
-                            lineprog.header["include_directory"][file_entry["dir_index"] - 1].decode(),
-                            file_entry.name.decode(),
+                        filename = (
+                            pathlib.PurePosixPath(comp_dir)
+                            / lineprog.header["include_directory"][file_entry["dir_index"] - 1].decode()
+                            / file_entry.name.decode()
                         )
                     file_cache[line.state.file] = filename
 
                 relocated_addr = AT.from_lva(line.state.address, self).to_mva()
                 if relocated_addr not in self.addr_to_line:
                     self.addr_to_line[relocated_addr] = set()
-                self.addr_to_line[relocated_addr].add((filename, line.state.line))
+                self.addr_to_line[relocated_addr].add((str(filename), line.state.line))
 
     @staticmethod
     def _load_low_high_pc_form_die(die: DIE):
