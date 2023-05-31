@@ -19,6 +19,7 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.coverage",
+    "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
     "sphinx.ext.todo",
     "sphinx.ext.viewcode",
@@ -37,10 +38,14 @@ autodoc_default_options = {
     "member-order": "bysource",
     "inherited-members": True,
     "show-inheritance": True,
+    "special-members": "__init__",
     "undoc-members": True,
 }
+autodoc_class_signature = "separated"
 autodoc_inherit_docstrings = True
 autodoc_typehints = "both"
+typehints_use_signature = True
+typehints_use_signature_return = True
 
 # -- Options for coverage ----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/extensions/coverage.html
@@ -49,6 +54,14 @@ coverage_write_headline = False
 coverage_ignore_pyobjects = [
     "cle.address_translator.AT",  # Alias to AddressTranslator
 ]
+
+# -- Options for intersphinx -------------------------------------------------
+# https://www.sphinx-doc.org/en/master/usage/extensions/intersphinx.html
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+    "archinfo": ("https://docs.angr.io/projects/archinfo/en/latest/", None),
+    "pyvex": ("https://docs.angr.io/projects/pyvex/en/latest/", None),
+}
 
 
 # -- Options for HTML output -------------------------------------------------

@@ -55,53 +55,6 @@ class Loader:
     """
     The loader loads all the objects and exports an abstraction of the memory of the process. What you see here is an
     address space with loaded and rebased binaries.
-
-    :param main_binary:         The path to the main binary you're loading, or a file-like object with the binary
-                                in it.
-
-    The following parameters are optional.
-
-    :param auto_load_libs:      Whether to automatically load shared libraries that loaded objects depend on.
-    :param load_debug_info:     Whether to automatically parse DWARF data and search for debug symbol files.
-    :param concrete_target:     Whether to instantiate a concrete target for a concrete execution of the process.
-                                if this is the case we will need to instantiate a SimConcreteEngine that wraps the
-                                ConcreteTarget provided by the user.
-    :param force_load_libs:     A list of libraries to load regardless of if they're required by a loaded object.
-    :param skip_libs:           A list of libraries to never load, even if they're required by a loaded object.
-    :param main_opts:           A dictionary of options to be used loading the main binary.
-    :param lib_opts:            A dictionary mapping library names to the dictionaries of options to be used when
-                                loading them.
-    :param ld_path:      A list of paths in which we can search for shared libraries.
-    :param use_system_libs:     Whether or not to search the system load path for requested libraries. Default True.
-    :param ignore_import_version_numbers:
-                                Whether libraries with different version numbers in the filename will be considered
-                                equivalent, for example libc.so.6 and libc.so.0
-    :param case_insensitive:    If this is set to True, filesystem loads will be done case-insensitively regardless of
-                                the case-sensitivity of the underlying filesystem.
-    :param rebase_granularity:  The alignment to use for rebasing shared objects
-    :param except_missing_libs: Throw an exception when a shared library can't be found.
-    :param aslr:                Load libraries in symbolic address space. Do not use this option.
-    :param page_size:           The granularity with which data is mapped into memory. Set to 0x1000 if you are working
-                                in an environment where data will always be memory mapped in a page-graunlar way.
-    :param preload_libs:        Similar to `force_load_libs` but will provide for symbol resolution, with precedence
-                                over any dependencies.
-    :ivar memory:               The loaded, rebased, and relocated memory of the program.
-    :vartype memory:            cle.memory.Clemory
-    :ivar main_object:          The object representing the main binary (i.e., the executable).
-    :ivar shared_objects:       A dictionary mapping loaded library names to the objects representing them.
-    :ivar all_objects:          A list containing representations of all the different objects loaded.
-    :ivar requested_names:      A set containing the names of all the different shared libraries that were marked as a
-                                dependency by somebody.
-    :ivar initial_load_objects: A list of all the objects that were loaded as a result of the initial load request.
-
-    When reference is made to a dictionary of options, it requires a dictionary with zero or more of the following keys:
-
-    - backend :             "elf", "pe", "mach-o", "blob" : which loader backend to use
-    - arch :                The archinfo.Arch object to use for the binary
-    - base_addr :           The address to rebase the object at
-    - entry_point :         The entry point to use for the object
-
-    More keys are defined on a per-backend basis.
     """
 
     def __init__(
@@ -126,6 +79,55 @@ class Loader:
         preload_libs: Iterable[Union[str, BinaryIO, Path]] = (),
         arch: Union[archinfo.Arch, str, None] = None,
     ):
+        """
+        :param main_binary:         The path to the main binary you're loading, or a file-like object with the binary
+                                    in it.
+
+        :param auto_load_libs:      Whether to automatically load shared libraries that loaded objects depend on.
+        :param load_debug_info:     Whether to automatically parse DWARF data and search for debug symbol files.
+        :param concrete_target:     Whether to instantiate a concrete target for a concrete execution of the process.
+                                    if this is the case we will need to instantiate a SimConcreteEngine that wraps the
+                                    ConcreteTarget provided by the user.
+        :param force_load_libs:     A list of libraries to load regardless of if they're required by a loaded object.
+        :param skip_libs:           A list of libraries to never load, even if they're required by a loaded object.
+        :param main_opts:           A dictionary of options to be used loading the main binary.
+        :param lib_opts:            A dictionary mapping library names to the dictionaries of options to be used when
+                                    loading them.
+        :param ld_path:             A list of paths in which we can search for shared libraries.
+        :param use_system_libs:     Whether or not to search the system load path for requested libraries. Default True.
+        :param ignore_import_version_numbers:
+                                    Whether libraries with different version numbers in the filename will be considered
+                                    equivalent, for example libc.so.6 and libc.so.0
+        :param case_insensitive:    If this is set to True, filesystem loads will be done case-insensitively regardless
+                                    of the case-sensitivity of the underlying filesystem.
+        :param rebase_granularity:  The alignment to use for rebasing shared objects
+        :param except_missing_libs: Throw an exception when a shared library can't be found.
+        :param aslr:                Load libraries in symbolic address space. Do not use this option.
+        :param page_size:           The granularity with which data is mapped into memory. Set to 0x1000 if you are
+                                    working in an environment where data will always be memory mapped in a page-graunlar
+                                    way.
+        :param preload_libs:        Similar to `force_load_libs` but will provide for symbol resolution, with precedence
+                                    over any dependencies.
+
+        :ivar memory:               The loaded, rebased, and relocated memory of the program.
+        :vartype memory:            cle.memory.Clemory
+        :ivar main_object:          The object representing the main binary (i.e., the executable).
+        :ivar shared_objects:       A dictionary mapping loaded library names to the objects representing them.
+        :ivar all_objects:          A list containing representations of all the different objects loaded.
+        :ivar requested_names:      A set containing the names of all the different shared libraries that were marked as
+                                    a dependency by somebody.
+        :ivar initial_load_objects: A list of all the objects that were loaded as a result of the initial load request.
+
+        When reference is made to a dictionary of options, it requires a dictionary with zero or more of the following
+        keys:
+
+        - backend :             "elf", "pe", "mach-o", "blob" : which loader backend to use
+        - arch :                The archinfo.Arch object to use for the binary
+        - base_addr :           The address to rebase the object at
+        - entry_point :         The entry point to use for the object
+
+        More keys are defined on a per-backend basis.
+        """
         if hasattr(main_binary, "seek") and hasattr(main_binary, "read"):
             self._main_binary_path = None
             self._main_binary_stream = main_binary
@@ -289,12 +291,12 @@ class Loader:
 
         proposed model for how multiple extern objects should work:
 
-            1) extern objects are a linked list. the one in loader._extern_object is the head of the list
-            2) each round of explicit loads generates a new extern object if it has unresolved dependencies. this object
-               has exactly the size necessary to hold all its exports.
-            3) All requests for size are passed down the chain until they reach an object which has the space to service
-               it or an object which has not yet been mapped. If all objects have been mapped and are full, a new extern
-               object is mapped with a fixed size.
+        1) extern objects are a linked list. the one in loader._extern_object is the head of the list
+        2) each round of explicit loads generates a new extern object if it has unresolved dependencies. this object
+            has exactly the size necessary to hold all its exports.
+        3) All requests for size are passed down the chain until they reach an object which has the space to service
+            it or an object which has not yet been mapped. If all objects have been mapped and are full, a new extern
+            object is mapped with a fixed size.
         """
         if self._extern_object is None:
             if self.main_object.arch.bits < 32:

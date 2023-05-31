@@ -1,0 +1,4 @@
+Errors
+------
+
+.. automodule:: cle.errors
