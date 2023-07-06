@@ -1,4 +1,4 @@
-from typing import Generic, List, Optional, TypeVar
+from typing import Generic, Iterator, List, Optional, TypeVar
 
 from cle.utils import key_bisect_find, key_bisect_insort_left
 
@@ -56,6 +56,9 @@ class Regions(Generic[R]):
 
         # update self._sorted_list
         self._sorted_list = self._make_sorted(self._list)
+
+    def __iter__(self) -> Iterator[R]:
+        return iter(self._list)
 
     def __len__(self) -> int:
         return len(self._list)
