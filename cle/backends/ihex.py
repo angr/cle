@@ -2,7 +2,7 @@ import binascii
 import logging
 import re
 import struct
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from cle.errors import CLEError
 
@@ -144,8 +144,10 @@ class Hex(Backend):
             )
         # HEX specifies a ton of tiny little memory regions.  We now smash them together to make things faster.
         new_regions = Hex.coalesce_regions(regions)
+        self.regions: List[Tuple[int, int]] = []  # A list of (addr, size)
         for addr, data in new_regions:
             self.memory.add_backer(addr, data)
+            self.regions.append((addr, len(data)))
         self._max_addr = max_addr
         self._min_addr = min_addr
 
