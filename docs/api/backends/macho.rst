@@ -1,8 +1,8 @@
 Mach-O Backend
 ==============
 
-.. automodule:: cle.backends.macho.macho.MachO
-.. automodule:: cle.backends.macho.macho.SymbolList
+.. autoclass:: cle.backends.macho.macho.MachO
+.. autoclass:: cle.backends.macho.macho.SymbolList
 
 .. automodule:: cle.backends.macho.symbol
 .. automodule:: cle.backends.macho.section
