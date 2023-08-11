@@ -71,6 +71,7 @@ class SymbolList(SortedKeyList):
 
 # pylint: enable =abstract-method
 
+
 class MachO(Backend):
     """
     Mach-O binaries for CLE
