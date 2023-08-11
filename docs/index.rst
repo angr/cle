@@ -6,7 +6,7 @@ The first shows basic usage of CLE, and the second shows the API reference.
 
 
 .. toctree::
-   :maxdepth: 5
+   :maxdepth: 1
    :caption: Contents:
 
    Quickstart <quickstart>

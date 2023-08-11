@@ -71,20 +71,19 @@ class SymbolList(SortedKeyList):
 
 # pylint: enable =abstract-method
 
-
 class MachO(Backend):
     """
     Mach-O binaries for CLE
+    -----------------------
 
-    The Mach-O format is notably different from other formats, as such:
-    *   Sections are always part of a segment, self.sections will thus be empty
-    *   Symbols cannot be categorized like in ELF
-    *   Symbol resolution must be handled by the binary
-    *   Rebasing in dyld is implemented via adding a small slide to addresses inside the binary, instead of
-        changing the base address of the binary and the addresses being relative. CLE needs relative addresses,
-        so there are a lot of AT.from_lva().to_rva() calls in this backend.
+    The Mach-O format is notably different from other formats. Specifically:
 
-    *   ...
+    - Sections are always part of a segment, so `self.sections` will be empty.
+    - Symbols cannot be categorized like in ELF.
+    - Symbol resolution must be handled by the binary.
+    - Rebasing in dyld is implemented by adding a small slide to addresses inside the binary, instead of
+      changing the base address of the binary. Consequently, the addresses are absolute rather than relative.
+      CLE requires relative addresses, leading to numerous `AT.from_lva().to_rva()` calls in this backend.
     """
 
     is_default = True  # Tell CLE to automatically consider using the MachO backend

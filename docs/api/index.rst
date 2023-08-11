@@ -2,7 +2,7 @@ API Documentation
 =================
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 0
 
    Loader Interface <loader>
    Backend Interface <backend>

@@ -12,7 +12,6 @@ Look at the existing versions for details.
 .. automodule:: cle.backends.elf.relocation.elfreloc
 .. automodule:: cle.backends.elf.relocation.mips64
 .. automodule:: cle.backends.elf.relocation.generic
-.. automodule:: cle.backends.elf.relocation.armel
 .. automodule:: cle.backends.elf.relocation.ppc
 .. automodule:: cle.backends.elf.relocation.armhf
 .. automodule:: cle.backends.elf.relocation.pcc64

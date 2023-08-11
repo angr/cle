@@ -1,5 +1,5 @@
-PE Backend
-==========
+PE
+==
 
 .. autoclass:: cle.backends.PE
 

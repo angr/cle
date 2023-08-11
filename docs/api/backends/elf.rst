@@ -2,7 +2,6 @@ ELF Backend
 ===========
 
 .. autoclass:: cle.backends.ELF
-.. autoclass:: cle.backends.ELFSymbol
 
 .. autoclass:: cle.backends.elf.ELFCore
 
