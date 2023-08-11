@@ -95,9 +95,8 @@ There are several backends that can be used to load a single file:
   - PE is a backend to load Microsoft's Portable Executable format,
     effectively Windows binaries. It uses the (optional) `pefile` module.
 
-  - Mach-O is a backend to load, you guessed it, Mach-O binaries. It is
-    subject to several limitations, which you can read about in the
-    [readme in the macho directory](backends/macho/README.md)
+  - Mach-O is a backend to load, you guessed it, Mach-O binaries. Support is
+    limited for this backend.
 
   - Blob is a backend to load unknown data. It requires that you specify
     the architecture it would be run on, in the form of a class from
