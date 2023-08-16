@@ -40,7 +40,7 @@ class StaticArchive(Backend):
             self.child_objects.append(child)
 
         if self.child_objects:
-            self.arch = self.child_objects[0].arch
+            self._arch = self.child_objects[0].arch
         else:
             log.warning("Loaded empty static archive?")
         self.has_memory = False
