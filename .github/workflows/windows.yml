@@ -1,0 +1,42 @@
+name: Test on Windows
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  windows:
+    name: Test Windows
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          path: cle
+      - uses: actions/checkout@v3
+        with:
+          repository: angr/binaries
+          path: binaries
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.8"
+      - run: python -m venv $HOME/venv
+        name: Create venv
+        shell: bash
+      - run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          call %USERPROFILE%\venv\Scripts\activate
+          pip install git+https://github.com/angr/archinfo.git
+          pip install git+https://github.com/angr/pyvex.git
+        name: Install dependencies
+        shell: cmd
+      - run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          call %USERPROFILE%\venv\Scripts\activate
+          pip install ./cle[testing]
+        name: Install
+        shell: cmd
+      - run: |
+          call %USERPROFILE%\venv\Scripts\activate
+          pytest -n auto cle
+        name: Run pytest
+        shell: cmd

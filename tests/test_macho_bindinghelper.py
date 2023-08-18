@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # Contributed September 2019 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
 import os
 import unittest
@@ -517,5 +516,4 @@ class TestBindingHelper(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    # TODO run the testclasses without having to run each test in case the CI needs this
-    raise NotImplementedError()
+    unittest.main()

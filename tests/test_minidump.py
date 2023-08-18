@@ -1,7 +1,5 @@
-#!/usr/bin/env python
-
-import logging
 import os
+import unittest
 
 import archinfo
 
@@ -10,6 +8,7 @@ import cle
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
 
 
+@unittest.skipIf(cle.backends.minidump.minidumpfile is None, "minidump not available")
 def test_minidump():
     exe = os.path.join(TEST_BASE, "tests", "x86", "windows", "jusched_x86.dmp")
     ld = cle.Loader(exe, auto_load_libs=False)
@@ -44,5 +43,4 @@ def test_minidump():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
     test_minidump()

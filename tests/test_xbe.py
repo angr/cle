@@ -1,13 +1,13 @@
-#!/usr/bin/env python
-
 import logging
 import os
+import unittest
 
 import cle
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
 
 
+@unittest.skipIf(cle.backends.xbe.Xbe is None, "pyxbe not available")
 def test_xbe():
     xbe = os.path.join(TEST_BASE, "tests", "x86", "xbox", "triangle.xbe")
     ld = cle.Loader(xbe, auto_load_libs=False)

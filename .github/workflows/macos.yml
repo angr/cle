@@ -1,0 +1,37 @@
+name: Test on macOS
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  macos:
+    name: Test macOS
+    runs-on: macos-12
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          path: cle
+      - uses: actions/checkout@v3
+        with:
+          repository: angr/binaries
+          path: binaries
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.8"
+      - run: python -m venv $HOME/venv
+        name: Create venv
+        shell: bash
+      - run: |
+          source $HOME/venv/bin/activate
+          pip install git+https://github.com/angr/archinfo.git
+          pip install git+https://github.com/angr/pyvex.git
+        name: Install dependencies
+      - run: |
+          source $HOME/venv/bin/activate
+          pip install ./cle[testing]
+        name: Install
+      - run: |
+          source $HOME/venv/bin/activate
+          pytest -n auto cle
+        name: Run pytest
