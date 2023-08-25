@@ -10,6 +10,7 @@ Backends
 
    Binary Ninja <binja>
    Blob <blob>
+   COFF <coff>
    CGC <cgc>
    Intel Hex <ihex>
    Java <java>
