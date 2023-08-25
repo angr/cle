@@ -1,6 +1,7 @@
 from .backend import ALL_BACKENDS, Backend, ExceptionHandling, FunctionHint, FunctionHintSource, register_backend
 from .blob import Blob
 from .cgc import CGC, BackedCGC
+from .coff import Coff
 from .elf import ELF, ELFCore, MetaELF
 from .ihex import Hex
 from .java.apk import Apk
@@ -32,6 +33,7 @@ __all__ = [
     "ELFCore",
     "MetaELF",
     "PE",
+    "Coff",
     "Blob",
     "CGC",
     "BackedCGC",
