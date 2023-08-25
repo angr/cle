@@ -28,7 +28,7 @@ class Relro(Enum):
 def maybedecode(string):
     # so... it turns out that pyelftools is garbage and will transparently give you either strings or bytestrings
     # based on pretty much nothing whatsoever
-    return string if type(string) is str else string.decode()
+    return string if isinstance(string, str) else string.decode()
 
 
 def _get_relro(elf):
@@ -207,7 +207,7 @@ class MetaELF(Backend):
         tick.bailout_timer = 5
 
         def scan_forward(addr, name, push=False):
-            names = [name] if type(name) not in (list, tuple) else name
+            names = [name] if not isinstance(name, (list, tuple)) else name
 
             def block_is_good(blk):
                 all_constants = {c.value for c in blk.all_constants}
@@ -479,7 +479,7 @@ class MetaELF(Backend):
                         for tag in seg.iter_tags():
                             if tag.entry.d_tag == "DT_SONAME":
                                 return maybedecode(tag.soname)
-                        if type(path) is str:
+                        if isinstance(path, str):
                             return os.path.basename(path)
 
             except elftools.common.exceptions.ELFError:

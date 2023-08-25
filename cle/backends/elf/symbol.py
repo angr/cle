@@ -7,7 +7,7 @@ from .symbol_type import ELFSymbolType
 
 
 def maybedecode(string):
-    return string if type(string) is str else string.decode()
+    return string if isinstance(string, str) else string.decode()
 
 
 class ELFSymbol(Symbol):
@@ -49,7 +49,7 @@ class ELFSymbol(Symbol):
         self.version = None
         self.binding = symb.entry.st_info.bind
         self.is_hidden = symb.entry["st_other"]["visibility"] == "STV_HIDDEN"
-        self.section = sec_ndx if type(sec_ndx) is not str else None
+        self.section = sec_ndx if not isinstance(sec_ndx, str) else None
         self.is_static = self._type == SymbolType.TYPE_SECTION or sec_ndx == "SHN_ABS"
         self.is_common = sec_ndx == "SHN_COMMON"
         self.is_weak = self.binding == "STB_WEAK"

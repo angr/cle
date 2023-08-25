@@ -383,7 +383,7 @@ class ELF(MetaELF):
         :param symid: Either an index into .dynsym or the name of a symbol.
         """
         version = None
-        if type(symid) is int:
+        if isinstance(symid, int):
             if symid == 0:
                 # special case the null symbol, this is important for static binaries
                 return self._nullsymbol
@@ -400,7 +400,7 @@ class ELF(MetaELF):
                 return cached
             if self.hashtable is not None and symbol_table is self.hashtable.symtab and self._vertable is not None:
                 version = self._vertable.get_symbol(symid).entry.ndx
-        elif type(symid) is str:
+        elif isinstance(symid, str):
             if not symid:
                 log.warning("Trying to resolve a symbol by its empty name")
                 return None
@@ -578,7 +578,7 @@ class ELF(MetaELF):
 
         try:
             for entry in dwarf.EH_CFI_entries():
-                if type(entry) is callframe.FDE:
+                if isinstance(entry, callframe.FDE):
                     self.function_hints.append(
                         FunctionHint(
                             entry.header["initial_location"],
@@ -601,7 +601,11 @@ class ELF(MetaELF):
         try:
             lsda = LSDAExceptionTable(self._binary_stream, self.arch.bits, self.arch.memory_endness == "Iend_LE")
             for entry in dwarf.EH_CFI_entries():
-                if type(entry) is callframe.FDE and hasattr(entry, "lsda_pointer") and entry.lsda_pointer is not None:
+                if (
+                    isinstance(entry, callframe.FDE)
+                    and hasattr(entry, "lsda_pointer")
+                    and entry.lsda_pointer is not None
+                ):
                     # function address
                     func_addr = entry.header.get("initial_location", None)
                     if func_addr is None:
