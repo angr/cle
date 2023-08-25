@@ -213,7 +213,7 @@ class Clemory(ClemoryBase):
                     raise ValueError("Address %#x is already backed!" % start)
         if isinstance(data, Clemory) and data._root:
             raise ValueError("Cannot add a root clemory as a backer!")
-        if type(data) is bytes:
+        if isinstance(data, bytes):
             data = bytearray(data)
         bisect.insort(self._backers, (start, data))
         self._update_min_max()
@@ -243,7 +243,7 @@ class Clemory(ClemoryBase):
     def update_backer(self, start, data):
         if not isinstance(data, (bytes, list, Clemory)):
             raise TypeError("Data must be a bytes, list, or Clemory object.")
-        if type(data) is bytes:
+        if isinstance(data, bytes):
             data = bytearray(data)
         for i, (oldstart, _) in enumerate(self._backers):
             if oldstart == start:
@@ -275,7 +275,7 @@ class Clemory(ClemoryBase):
 
     def __getitem__(self, k):
         for start, data in self._backers:
-            if type(data) in (bytearray, list):
+            if isinstance(data, (bytearray, list)):
                 if 0 <= k - start < len(data):
                     return data[k - start]
             elif isinstance(data, Clemory):
@@ -288,7 +288,7 @@ class Clemory(ClemoryBase):
 
     def __setitem__(self, k, v):
         for start, data in self._backers:
-            if type(data) in (bytearray, list):
+            if isinstance(data, (bytearray, list)):
                 if 0 <= k - start < len(data):
                     data[k - start] = v
                     return
@@ -433,7 +433,7 @@ class Clemory(ClemoryBase):
                 if search_max < backer.min_addr + start or search_min > backer.max_addr + start:
                     continue
                 yield from (addr + start for addr in backer.find(data, search_min - start, search_max - start))
-            elif type(backer) is list:
+            elif isinstance(backer, list):
                 raise TypeError("find is not supported for list-backed clemories")
             else:
                 if search_max < start or search_min > start + len(data):

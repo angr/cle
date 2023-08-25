@@ -150,9 +150,9 @@ class Loader:
         self._satisfied_deps: Dict[str, Union[Literal[False], Backend]] = {x: False for x in skip_libs}
         self._main_opts = {} if main_opts is None else main_opts
         self._lib_opts = {} if lib_opts is None else lib_opts
-        self._custom_ld_path = [ld_path] if type(ld_path) is str else ld_path
-        force_load_libs = [force_load_libs] if type(force_load_libs) is str else force_load_libs
-        preload_libs = [preload_libs] if type(preload_libs) is str else preload_libs
+        self._custom_ld_path = [ld_path] if isinstance(ld_path, str) else ld_path
+        force_load_libs = [force_load_libs] if isinstance(force_load_libs, str) else force_load_libs
+        preload_libs = [preload_libs] if isinstance(preload_libs, str) else preload_libs
         self._use_system_libs = use_system_libs
         self._ignore_import_version_numbers = ignore_import_version_numbers
         self._case_insensitive = case_insensitive
@@ -165,7 +165,7 @@ class Loader:
         if sys.platform == "win32":  # TODO: a real check for case insensitive filesystems
             if self._main_binary_path:
                 self._main_binary_path = self._main_binary_path.lower()
-            force_load_libs = [x.lower() if type(x) is str else x for x in force_load_libs]
+            force_load_libs = [x.lower() if isinstance(x, str) else x for x in force_load_libs]
             for x in list(self._satisfied_deps):
                 self._satisfied_deps[x.lower()] = self._satisfied_deps[x]
             for x in list(self._lib_opts):
@@ -436,7 +436,7 @@ class Loader:
                     self._last_object = obj_
                     return obj_
                 return None
-            elif type(obj_.memory) is str:
+            elif isinstance(obj_.memory, str):
                 self._last_object = obj_
                 return obj_
             else:
@@ -564,11 +564,11 @@ class Loader:
 
         :returns:           A :class:`cle.backends.Symbol` object if found, None otherwise.
         """
-        if type(thing) is archinfo.arch_soot.SootAddressDescriptor:
+        if isinstance(thing, archinfo.arch_soot.SootAddressDescriptor):
             # Soot address
             # TODO launch this shit into the sun
             return thing.method.fullname  # type: ignore
-        elif type(thing) is int:
+        elif isinstance(thing, int):
             # address
             if fuzzy:
                 so = self.find_object_containing(thing)
@@ -832,7 +832,7 @@ class Loader:
             objects.extend(obj.child_objects)
             dependencies.extend(obj.deps)
 
-            if type(self.tls) is ThreadManager:  # ... java
+            if isinstance(self.tls, ThreadManager):  # ... java
                 if isinstance(obj, MetaELF):
                     self._tls = ELFThreadManager(self, obj.arch)
                 elif isinstance(obj, PE):
@@ -944,7 +944,7 @@ class Loader:
             binary_stream = spec
             binary = None
             close = False
-        elif type(spec) in (bytes, str):
+        elif isinstance(spec, (bytes, str)):
             binary = self._search_load_path(spec)  # this is allowed to cheat and do partial static loading
             log.debug("... using full path %s", binary)
             binary_stream = open(binary, "rb")
@@ -1242,7 +1242,7 @@ class Loader:
                     yield soname
                     if self._ignore_import_version_numbers:
                         yield soname.rstrip(".0123456789")
-        elif type(spec) in (bytes, str):
+        elif isinstance(spec, (bytes, str)):
             yield spec
             yield os.path.basename(spec)
             yield os.path.basename(spec).split(".")[0]

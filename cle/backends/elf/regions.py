@@ -2,7 +2,7 @@ from cle.backends.region import Section, Segment
 
 
 def maybedecode(string):
-    return string if type(string) is str else string.decode()
+    return string if isinstance(string, str) else string.decode()
 
 
 class ELFSegment(Segment):
