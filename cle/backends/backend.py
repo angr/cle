@@ -174,7 +174,7 @@ class Backend:
         self._segments: Regions["Segment"] = Regions()  # List of segments
         self._sections: Regions["Section"] = Regions()  # List of sections
         self.sections_map = {}  # Mapping from section name to section
-        self.symbols: "List[Symbol]" = sortedcontainers.SortedKeyList(key=self._get_symbol_relative_addr)
+        self.symbols = sortedcontainers.SortedKeyList(key=self._get_symbol_relative_addr)
         self.imports: typing.Dict[str, "Relocation"] = {}
         self.resolved_imports = []
         self.relocs: "List[Relocation]" = []
