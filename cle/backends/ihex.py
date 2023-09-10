@@ -37,7 +37,7 @@ class Hex(Backend):
     def parse_record(line):
         m = intel_hex_re.match(line)
         if not m:
-            raise CLEError("Invalid HEX record: " + line)
+            raise CLEError(f"Invalid HEX record: {line}")
         my_cksum = 0
         count, addr, rectype, data, cksum = m.groups()
         cksum = int(cksum, 16)
