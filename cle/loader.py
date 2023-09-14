@@ -878,19 +878,18 @@ class Loader:
             self.tls.register_object(obj)
 
         # link everything
-        if self._perform_relocations:
-            for obj in ordered_objects:
-                log.info("Linking %s", obj.binary)
-                sibling_objs = list(obj.parent_object.child_objects) if obj.parent_object is not None else []
-                stripped_deps = [
-                    dep if not self._ignore_import_version_numbers else dep.rstrip(".0123456789") for dep in obj.deps
-                ]
-                dep_objs = [soname_mapping[dep_name] for dep_name in stripped_deps if dep_name in soname_mapping]
-                main_objs = [self.main_object] if self.main_object is not obj else []
-                for reloc in obj.relocs:
-                    reloc.resolve_symbol(
-                        main_objs + preload_objects + sibling_objs + dep_objs + [obj], extern_object=extern_obj
-                    )
+        for obj in ordered_objects:
+            log.info("Linking %s", obj.binary)
+            sibling_objs = list(obj.parent_object.child_objects) if obj.parent_object is not None else []
+            stripped_deps = [
+                dep if not self._ignore_import_version_numbers else dep.rstrip(".0123456789") for dep in obj.deps
+            ]
+            dep_objs = [soname_mapping[dep_name] for dep_name in stripped_deps if dep_name in soname_mapping]
+            main_objs = [self.main_object] if self.main_object is not obj else []
+            for reloc in obj.relocs:
+                reloc.resolve_symbol(
+                    main_objs + preload_objects + sibling_objs + dep_objs + [obj], extern_object=extern_obj
+                )
 
         # if the extern object was used, add it to the list of objects we're mapping
         # also add it to the linked list of extern objects
