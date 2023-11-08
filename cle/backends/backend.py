@@ -541,6 +541,20 @@ class Backend:
         for sym in self.symbols:
             sym.owner = self
 
+    def __contains__(self, thing: Union[int]) -> bool:
+        """
+        This serves two purposes:
+        1. It's slightly more convenient than writing self.min_addr <= thing < self.max_addr yourself
+        2. If a Backend implements some form of __getitem__ that always returns False for an integer, running
+        `0 in backend` will run into an infinite loop. This prevents that, by just defining sensible semantics for `in`
+
+        This could also be extended to other types, in the future, if it makes sense.
+        """
+
+        if isinstance(thing, int):
+            return self.min_addr <= thing < self.max_addr
+        raise ValueError("Unsupported type %s for containment check" % type(thing))
+
 
 ALL_BACKENDS: Dict[str, Type[Backend]] = {}
 
