@@ -184,14 +184,19 @@ class MachO(Backend):
                     self.linked_base = self.mapped_base = 0x4000
             elif self.filetype == MachoFiletype.MH_DYLIB and self.is_main_bin:
                 # the segments of dylibs are just relative to the load address, i.e. the lowest segment addr is 0
-                # we need to set the load address to 0x100000000 because otherwise the loader will try to map the
-                # file to 0x400000, which is illegal for Mach-O
-                # But we can't set the linked base to request this, because the MachO Backend implementation
+                # we need to set the load address to something because otherwise the loader will try to map the
+                # file to 0x400000, which is technically illegal for Mach-O because of PAGEZERO
+                #
+                # The problem is that libraries also tend to have relative pointers (e.g. inside ObjC Metadata),
+                # which are rebased by parsing the rebase_blob, which isn't supported yet (but coming soon)
+                # so we set the base addr to 0 to make them work out without having to deal with this
+                # IDA and Ghidra both seem to handle it this way too
+                # AFAIU this isn't a problem with iOS15+ binaries anymore that use the new binding fixups
+                # but for now we just load all libraries, that are loaded as the main object, at address 0
+                #
+                # We can't set the linked base to request this, because the MachO Backend implementation
                 # uses this to recalculate the addresses
-                if self.arch.bits == 64:
-                    self._custom_base_addr = 2**32
-                elif self.arch.bits == 32:
-                    self._custom_base_addr = 0x4000
+                self._custom_base_addr = 0
             elif self.filetype == MachoFiletype.MH_DYLIB and not self.is_main_bin:
                 # A Library is loaded as a dependency, this is fine, the loader will map it to somewhere above the main
                 # binary, so we don't need to do anything
