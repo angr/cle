@@ -445,6 +445,8 @@ class Coff(Backend):
         self.memory.add_backer(0, bytes(self._image_vmem))
         self.mapped_base = self.linked_base = 0
         self.pic = True
+        # assume windows, this can be wrong, but is more often right.
+        self.os = "windows"
 
         self._add_defined_symbols()
         self._add_relocs()
