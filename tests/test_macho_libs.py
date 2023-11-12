@@ -18,10 +18,10 @@ def test_library_15():
     ld = cle.Loader(TEST_BASE / "FrameWorkApp.app_15" / "Frameworks" / "dynamicLibrary.framework" / "dynamicLibrary")
     lib = ld.main_object
     assert isinstance(lib, MachO)
-    # The base address should be 0x10000000
-    # 0 implies that the Backend failed to treat the library segment addresses as _relative_ to the base address
-    # 0x400000 implies that the Loader chose the default base address for PIE binaries, which is invalid for Mach-O
-    assert ld.main_object.min_addr == 0x100000000
+    # The base address should be 0 until full rebasing support is implemented
+    # because the rebase blob isn't parsed yet, some internal pointers aren't rebased from their relative values
+    # and only work out correctly if the library is loaded at 0
+    assert ld.main_object.min_addr == 0
 
 
 def test_library_14():
@@ -32,10 +32,10 @@ def test_library_14():
     ld = cle.Loader(TEST_BASE / "FrameWorkApp.app_14" / "Frameworks" / "dynamicLibrary.framework" / "dynamicLibrary")
     lib = ld.main_object
     assert isinstance(lib, MachO)
-    # The base address should be 0x10000000
-    # 0 implies that the Backend failed to treat the library segment addresses as _relative_ to the base address
-    # 0x400000 implies that the Loader chose the default base address for PIE binaries, which is invalid for Mach-O
-    assert ld.main_object.min_addr == 0x100000000
+    # The base address should be 0 until full rebasing support is implemented
+    # because the rebase blob isn't parsed yet, some internal pointers aren't rebased from their relative values
+    # and only work out correctly if the library is loaded at 0
+    assert ld.main_object.min_addr == 0
 
 
 def test_framework_ios15():
