@@ -166,7 +166,7 @@ class Hex(Backend):
         stream.seek(0)
         while len(data) < length and stream:
             byte = stream.read(1)
-            if re.match(br"\s", byte) is not None:
+            if re.match(rb"\s", byte) is not None:
                 continue
 
             data += byte
