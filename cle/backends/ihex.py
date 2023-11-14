@@ -97,7 +97,8 @@ class Hex(Backend):
         got_entry = False
         self._binary_stream.seek(0)
         string = self._binary_stream.read()
-        recs = string.splitlines()
+        # line exists and is not just spaces
+        recs = [line for line in string.splitlines() if line.strip()]
         regions = []
         max_addr = 0
         min_addr = 0xFFFFFFFFFFFFFFFF
@@ -160,11 +161,23 @@ class Hex(Backend):
         self._min_addr = min_addr
 
     @staticmethod
+    def seek_non_space_bytes(stream, length=0x10):
+        data = b""
+        stream.seek(0)
+        while len(data) < length and stream:
+            byte = stream.read(1)
+            if re.match(br"\s", byte) is not None:
+                continue
+
+            data += byte
+
+        stream.seek(0)
+        return data
+
+    @staticmethod
     def is_compatible(stream):
-        stream.seek(0)
-        s = stream.read(0x10)
-        stream.seek(0)
-        return s.startswith(b":")
+        s = Hex.seek_non_space_bytes(stream, length=0x10)
+        return len(s) == 0x10 and s.startswith(b":")
 
 
 register_backend("hex", Hex)
