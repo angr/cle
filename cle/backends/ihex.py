@@ -164,10 +164,12 @@ class Hex(Backend):
         self._min_addr = min_addr
 
     @staticmethod
-    def seek_non_space_bytes(stream: "BytesIO", length=0x10):
+    def seek_non_space_bytes(stream: "BytesIO", length=0x10, max_search=0x50):
         data = b""
         stream.seek(0)
-        while len(data) < length and stream:
+        search_len = 0
+        while search_len < max_search and len(data) < length and stream:
+            search_len += 1
             byte = stream.read(1)
             if not byte:
                 # we have exhausted the stream
