@@ -14,7 +14,7 @@ import archinfo
 from sortedcontainers import SortedKeyList
 
 from cle.backends.backend import AT, Backend, register_backend
-from cle.backends.macho.binding import BindingHelper, MachOChainedFixup, MachORelocation, read_uleb
+from cle.backends.macho.binding import BindingHelper, MachOPointerRelocation, MachOSymbolRelocation, read_uleb
 from cle.backends.regions import Regions
 from cle.errors import CLECompatibilityError, CLEInvalidBinaryError, CLEOperationError
 
@@ -458,6 +458,7 @@ class MachO(Backend):
         bh = BindingHelper(self)  # TODO: Make this configurable
         bh.do_normal_bind(self.binding_blob)
         bh.do_lazy_bind(self.lazy_binding_blob)
+        bh.do_rebases(self.rebase_blob)
         if self.weak_binding_blob is not None and len(self.weak_binding_blob) > 0:
             log.info(
                 "Found weak binding blob. According to current state of knowledge, weak binding "
@@ -990,7 +991,7 @@ class MachO(Backend):
                     if bind is not None:
                         libOrdinal, _addend = bind
                         import_symbol = self._dyld_imports[libOrdinal]
-                        reloc = MachORelocation(self, import_symbol, current_chain_addr, None)
+                        reloc = MachOSymbolRelocation(self, import_symbol, current_chain_addr, None)
                         self.relocs.append(reloc)
                         # Legacy Code uses bind_xrefs, explicitly add this to make this compatible for now
                         import_symbol.bind_xrefs.append(reloc.dest_addr + self.linked_base)
@@ -998,7 +999,7 @@ class MachO(Backend):
                     elif rebase is not None:
                         target = self.linked_base + rebase
                         location: MemoryPointer = self.linked_base + current_chain_addr
-                        anon_reloc = MachOChainedFixup(owner=self, relative_addr=current_chain_addr, data=rebase)
+                        anon_reloc = MachOPointerRelocation(owner=self, relative_addr=current_chain_addr, data=rebase)
                         self.relocs.append(anon_reloc)
                         log.debug("Rebase to %x found at %x", target, location)
 
