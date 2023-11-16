@@ -4,6 +4,8 @@ import re
 import struct
 from typing import List, Optional, Tuple
 
+import archinfo
+
 from cle.errors import CLEError
 
 from .backend import Backend, register_backend
@@ -77,11 +79,17 @@ class Hex(Backend):
 
         return result
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, ignore_missing_arch: bool = False, **kwargs):
         super().__init__(*args, **kwargs)
 
         if self._arch is None:
-            raise CLEError("To use the Hex binary backend, you need to specify an architecture in the loader options.")
+            if ignore_missing_arch:
+                # used internally for testing. we use a default architecture
+                self.set_arch(archinfo.arch_from_id("amd64"))
+            else:
+                raise CLEError(
+                    "To use the Hex binary backend, you need to specify an architecture in the loader options."
+                )
 
         # Do the whole thing in one shot.
         self.os = "unknown"

@@ -1276,7 +1276,7 @@ class Loader:
                     pass
 
         with stream_or_path(spec) as stream:
-            for rear in ALL_BACKENDS.values():
+            for rear in [bk for bk in ALL_BACKENDS.values() if bk is not Blob] + [Blob]:
                 if rear.is_default and rear.is_compatible(stream):
                     return rear
 
