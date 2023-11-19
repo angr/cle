@@ -3,12 +3,13 @@
 
 import logging
 import struct
-from typing import TYPE_CHECKING, Callable, Dict, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, Optional, Tuple
 
 from cle.address_translator import AT
 from cle.backends.relocation import Relocation
 from cle.errors import CLEInvalidBinaryError
 
+from .macho_enums import RebaseOpcode, RebaseType
 from .symbol import AbstractMachOSymbol, BindingSymbol, DyldBoundSymbol, SymbolTableSymbol
 
 if TYPE_CHECKING:
@@ -201,6 +202,103 @@ class BindingHelper:
 
         log.debug("Done binding lazy symbols")
 
+    def do_rebases(self, blob: bytes):
+        """
+        Handles the rebase blob
+        Implementation based closely on ImageLoaderMachOCompressed::rebase from dyld
+        https://github.com/apple-opensource/dyld/blob/e3f88907bebb8421f50f0943595f6874de70ebe0/src/ImageLoaderMachOCompressed.cpp#L382-L463
+
+        :param blob:
+        :return:
+        """
+        if blob is None:
+            return
+
+        # State variables
+        reloc_type: Optional[RebaseType] = None
+        done = False
+        segment = None
+        address = None
+        index = 0
+        end = len(blob)
+        while not done and index < end:
+            opcode, immediate = RebaseOpcode.parse_byte(blob[index])
+            index += 1
+
+            if opcode == RebaseOpcode.DONE:
+                done = True
+
+            elif opcode == RebaseOpcode.SET_TYPE_IMM:
+                reloc_type = RebaseType(immediate)
+
+            elif opcode == RebaseOpcode.SET_SEGMENT_AND_OFFSET_ULEB:
+                segment = self.binary.segments[immediate]
+                offset, index = self.read_uleb(blob, index)
+                address = segment.vaddr + offset
+
+            elif opcode == RebaseOpcode.ADD_ADDR_ULEB:
+                uleb, index = self.read_uleb(blob, index)
+                address += uleb
+
+            elif opcode == RebaseOpcode.ADD_ADDR_IMM_SCALED:
+                address += immediate * self.binary.arch.bytes
+
+            elif opcode == RebaseOpcode.DO_REBASE_IMM_TIMES:
+                for _ in range(immediate):
+                    self.rebase_at(address, reloc_type)
+                    address += self.binary.arch.bytes
+
+            elif opcode == RebaseOpcode.DO_REBASE_ULEB_TIMES:
+                count, index = self.read_uleb(blob, index)
+                for _ in range(count):
+                    if address >= segment.vaddr + segment.memsize:
+                        raise CLEInvalidBinaryError()
+                    self.rebase_at(address, reloc_type)
+                    address += self.binary.arch.bytes
+
+            elif opcode == RebaseOpcode.DO_REBASE_ADD_ADDR_ULEB:
+                self.rebase_at(address, reloc_type)
+                uleb, index = self.read_uleb(blob, index)
+                address += uleb + self.binary.arch.bytes
+
+            elif opcode == RebaseOpcode.DO_REBASE_ULEB_TIMES_SKIPPING_ULEB:
+                count, index = self.read_uleb(blob, index)
+                skip, index = self.read_uleb(blob, index)
+                for _ in range(count):
+                    if address >= segment.vaddr + segment.memsize:
+                        raise CLEInvalidBinaryError()
+                    self.rebase_at(address, reloc_type)
+                    address += skip + self.binary.arch.bytes
+
+            else:
+                raise CLEInvalidBinaryError("Invalid opcode for current binding: %#x" % opcode)
+
+    @staticmethod
+    def read_uleb(blob, offset) -> Tuple[int, int]:
+        """
+        little helper to read ulebs, that also returns the new index
+        :param blob:
+        :param offset:
+        :return:
+        """
+        uleb, length = read_uleb(blob, offset)
+        return uleb, offset + length
+
+    def rebase_at(self, address: int, ty: RebaseType):
+        relative_rebase_location = AT.from_lva(address, self.binary).to_rva()
+        unslid_pointer = self.binary.memory.unpack_word(relative_rebase_location)
+        relative_pointer = AT.from_lva(unslid_pointer, self.binary).to_rva()
+
+        if ty == RebaseType.POINTER:
+            reloc = MachOPointerRelocation(self.binary, relative_rebase_location, relative_pointer)
+        elif ty == RebaseType.TEXT_ABSOLUTE32:
+            reloc = MachOPointerRelocation(self.binary, relative_rebase_location, relative_pointer)
+        elif ty == RebaseType.TEXT_PCREL32:
+            raise NotImplementedError()
+        else:
+            raise ValueError("Invalid rebase type: %#x" % ty)
+        self.binary.relocs.append(reloc)
+
     def _do_bind_generic(
         self,
         blob,
@@ -387,7 +485,7 @@ def n_opcode_do_bind_uleb_times_skipping_uleb(s: BindingState, b: "MachO", _i: i
     return s
 
 
-class MachORelocation(Relocation):
+class MachOSymbolRelocation(Relocation):
     """
     Generic Relocation for MachO. It handles relocations that point to symbols
     """
@@ -423,11 +521,10 @@ class MachORelocation(Relocation):
         return f"<MachO Reloc for {self.symbol} at {hex(self.relative_addr)}>"
 
 
-class MachOChainedFixup(Relocation):
+class MachOPointerRelocation(Relocation):
     """
-    A special kind of relocation that handles internal pointers in the binary.
-    This was introduced with iOS15+ and is somewhat explained here
-    https://github.com/datatheorem/strongarm/blob/release/chained_fixup_pointers.md
+    A relocation for a pointer without any associated symbol
+    These are either generated while handling the rebase blob, or while parsing chained fixups
     """
 
     def __init__(self, owner: "MachO", relative_addr: int, data):
@@ -487,7 +584,7 @@ def default_binding_handler(state: BindingState, binary: "MachO"):
         log.debug("Updating address %#x with symobl %r @ %#x", location, state.sym_name, value)
         addr = AT.from_lva(location, binary).to_rva()
         data = struct.pack(binary.struct_byteorder + ("Q" if binary.arch.bits == 64 else "I"), value)
-        reloc = MachORelocation(binary, symbol, addr, data)
+        reloc = MachOSymbolRelocation(binary, symbol, addr, data)
         binary.relocs.append(reloc)
         symbol.bind_xrefs.append(location)
     elif state.binding_type == 2:  # ABSOLUTE32

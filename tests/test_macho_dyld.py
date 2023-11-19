@@ -3,7 +3,7 @@ from typing import cast
 
 import cle
 from cle import MachO
-from cle.backends.macho.binding import MachOChainedFixup, MachORelocation
+from cle.backends.macho.binding import MachOPointerRelocation, MachOSymbolRelocation
 
 TEST_BASE = Path(__file__).resolve().parent.parent.parent / "binaries"
 
@@ -39,7 +39,7 @@ def test_fixups():
         0x10000C128: 0x1000079F0,
     }
 
-    actual = {r.rebased_addr: r.value for r in binary.relocs if isinstance(r, MachOChainedFixup)}
+    actual = {r.rebased_addr: r.value for r in binary.relocs if isinstance(r, MachOPointerRelocation)}
     assert actual == expected
 
 
@@ -147,7 +147,7 @@ def test_symbols():
     result = [
         (r.rebased_addr, r.resolvedby.name)
         for r in binary.relocs
-        if isinstance(r, MachORelocation)  # only relocs that deal with symbols
+        if isinstance(r, MachOSymbolRelocation)  # only relocs that deal with symbols
     ]
     assert expected == result
 

@@ -1,4 +1,5 @@
 from enum import IntEnum
+from typing import Tuple
 
 
 class LoadCommands(IntEnum):
@@ -164,3 +165,51 @@ class MH_flags(IntEnum):
     # Only for use on dylibs.
     # When this bit is set, the dylib is part of the dyld shared cache, rather than loose in the filesystem
     MH_DYLIB_IN_CACHE = 0x80000000
+
+
+class RebaseType(IntEnum):
+    """
+    from mach-o/loader.h
+    """
+
+    POINTER = 1
+    TEXT_ABSOLUTE32 = 2
+    TEXT_PCREL32 = 3
+
+
+class RebaseOpcode(IntEnum):
+    """
+    from mach-o/loader.h
+
+    #define REBASE_OPCODE_MASK					0xF0
+    #define REBASE_IMMEDIATE_MASK					0x0F
+    #define REBASE_OPCODE_DONE					0x00
+    #define REBASE_OPCODE_SET_TYPE_IMM				0x10
+    #define REBASE_OPCODE_SET_SEGMENT_AND_OFFSET_ULEB		0x20
+    #define REBASE_OPCODE_ADD_ADDR_ULEB				0x30
+    #define REBASE_OPCODE_ADD_ADDR_IMM_SCALED			0x40
+    #define REBASE_OPCODE_DO_REBASE_IMM_TIMES			0x50
+    #define REBASE_OPCODE_DO_REBASE_ULEB_TIMES			0x60
+    #define REBASE_OPCODE_DO_REBASE_ADD_ADDR_ULEB			0x70
+    #define REBASE_OPCODE_DO_REBASE_ULEB_TIMES_SKIPPING_ULEB	0x80
+    """
+
+    DONE = 0x00
+    SET_TYPE_IMM = 0x10
+    SET_SEGMENT_AND_OFFSET_ULEB = 0x20
+    ADD_ADDR_ULEB = 0x30
+    ADD_ADDR_IMM_SCALED = 0x40
+    DO_REBASE_IMM_TIMES = 0x50
+    DO_REBASE_ULEB_TIMES = 0x60
+    DO_REBASE_ADD_ADDR_ULEB = 0x70
+    DO_REBASE_ULEB_TIMES_SKIPPING_ULEB = 0x80
+
+    @staticmethod
+    def parse_byte(byte: int) -> Tuple["RebaseOpcode", int]:
+        """
+        Split a byte into the RebaseOpcode and the immediate value
+        :param byte:
+        :return:
+        """
+        assert 0 <= byte <= 255
+        return RebaseOpcode(byte & 0xF0), byte & 0x0F
