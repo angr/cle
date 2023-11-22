@@ -62,6 +62,7 @@ class dyld_chained_ptr_arm64e_auth_rebase(HelperStruct):
     """
     https://github.com/apple-opensource/dyld/blob/852.2/include/mach-o/fixup-chains.h#L128-L138
     """
+
     _fields_ = [
         ("target", c_uint64, 32),
         ("diversity", c_uint64, 16),
@@ -72,11 +73,13 @@ class dyld_chained_ptr_arm64e_auth_rebase(HelperStruct):
         ("auth", c_uint64, 1),
     ]
 
+
 # noinspection PyPep8Naming
 class dyld_chained_ptr_arm64e_auth_bind(HelperStruct):
     """
     https://github.com/apple-opensource/dyld/blob/852.2/include/mach-o/fixup-chains.h#L140-L151
     """
+
     _fields_ = [
         ("ordinal", c_uint64, 16),
         ("zero", c_uint64, 16),
@@ -94,12 +97,13 @@ class dyld_chained_ptr_arm64e_rebase(HelperStruct):
     """
     https://github.com/apple-opensource/dyld/blob/852.2/include/mach-o/fixup-chains.h#L107-L115
     """
+
     _fields_ = [
         ("target", c_uint64, 43),
         ("high8", c_uint64, 8),
         ("next", c_uint64, 11),
         ("bind", c_uint64, 1),
-        ("auth", c_uint64, 1)
+        ("auth", c_uint64, 1),
     ]
 
 
@@ -108,14 +112,16 @@ class dyld_chained_ptr_arm64e_bind(HelperStruct):
     """
     https://github.com/apple-opensource/dyld/blob/852.2/include/mach-o/fixup-chains.h#L117-L126
     """
+
     _fields_ = [
         ("ordinal", c_uint64, 16),
         ("zero", c_uint64, 16),
         ("addend", c_uint64, 19),
         ("next", c_uint64, 11),
         ("bind", c_uint64, 1),
-        ("auth", c_uint64, 1)
+        ("auth", c_uint64, 1),
     ]
+
 
 # noinspection PyPep8Naming
 class dyld_chained_ptr_arm64e_bind24(HelperStruct):
@@ -129,6 +135,7 @@ class dyld_chained_ptr_arm64e_auth_bind24(HelperStruct):
     """
     https://github.com/apple-opensource/dyld/blob/852.2/include/mach-o/fixup-chains.h#L175-L186
     """
+
     _fields_ = [
         ("ordinal", c_uint64, 24),
         ("zero", c_uint64, 8),
@@ -139,6 +146,7 @@ class dyld_chained_ptr_arm64e_auth_bind24(HelperStruct):
         ("bind", c_uint64, 1),
         ("auth", c_uint64, 1),
     ]
+
 
 class Arm64e(ctypes.Union):
     """
@@ -326,8 +334,10 @@ class ChainedFixupPointerOnDisk(ctypes.Union):
                     return self.arm64e.authRebase.target
                 else:
                     targetRuntimeOffset = self.arm64e.unpack_target
-                    if pointer_format in [DyldChainedPtrFormats.DYLD_CHAINED_PTR_ARM64E,
-                                          DyldChainedPtrFormats.DYLD_CHAINED_PTR_ARM64E_FIRMWARE]:
+                    if pointer_format in [
+                        DyldChainedPtrFormats.DYLD_CHAINED_PTR_ARM64E,
+                        DyldChainedPtrFormats.DYLD_CHAINED_PTR_ARM64E_FIRMWARE,
+                    ]:
                         targetRuntimeOffset -= preferredLoadAddress
 
                     return targetRuntimeOffset
