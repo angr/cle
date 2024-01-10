@@ -8,6 +8,7 @@ from .generic import (
     GenericTLSDoffsetReloc,
     GenericTLSModIdReloc,
     GenericTLSOffsetReloc,
+    RelocGOTMixin,
 )
 
 arch = "X86"
@@ -50,4 +51,12 @@ class R_386_TLS_TPOFF(GenericTLSOffsetReloc):
 
 
 class R_386_TLS_DTPOFF32(GenericTLSDoffsetReloc):
+    pass
+
+
+class R_386_PLT32(GenericPCRelativeAddendReloc):
+    pass
+
+
+class R_386_GOTPC(GenericPCRelativeAddendReloc, RelocGOTMixin):
     pass
