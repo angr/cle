@@ -110,6 +110,9 @@ class Blob(Backend):
     def check_compatibility(cls, spec, obj):  # pylint: disable=unused-argument
         return True
 
+    def _cache_content(self):
+        return
+
     def _checksum(self):
         return
 
