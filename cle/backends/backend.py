@@ -242,6 +242,8 @@ class Backend:
         # cached last segment
         self._last_segment = None
 
+        self.cached_content: Optional[bytes] = None
+
         if arch is None:
             pass
         elif isinstance(arch, str):
@@ -253,6 +255,7 @@ class Backend:
         else:
             raise CLEError("Bad parameter: arch=%s" % arch)
 
+        self._cache_content()
         self._checksum()
 
     @property
@@ -519,12 +522,23 @@ class Backend:
     def _get_symbol_relative_addr(value):
         return value.relative_addr
 
+    def _cache_content(self):
+        """
+        Cache the raw content of this object.
+        """
+        if self._binary_stream is not None:
+            self._binary_stream.seek(0)
+            data = self._binary_stream.read()
+            self._binary_stream.seek(0)
+            self.cached_content = data
+
     def _checksum(self):
         """
         Calculate MD5 and SHA256 checksum for the binary.
         """
 
         if self._binary_stream is not None:
+            self._binary_stream.seek(0)
             data = self._binary_stream.read()
             self._binary_stream.seek(0)
             self.md5 = hashlib.md5(data).digest()
