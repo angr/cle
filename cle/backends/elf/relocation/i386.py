@@ -74,7 +74,7 @@ class R_386_TLS_DTPMOD32(GenericTLSModIdReloc):
     """
     Value: 35
     Field: word32
-    Calculation: 
+    Calculation:
     """
 
 
@@ -82,7 +82,7 @@ class R_386_TLS_TPOFF(GenericTLSOffsetReloc):
     """
     Value: 14
     Field: word32
-    Calculation: 
+    Calculation:
     """
 
 
@@ -90,7 +90,7 @@ class R_386_TLS_DTPOFF32(GenericTLSDoffsetReloc):
     """
     Value: 36
     Field: word32
-    Calculation: 
+    Calculation:
     """
 
 
