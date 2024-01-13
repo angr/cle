@@ -20,7 +20,6 @@ class R_386_32(GenericAbsoluteAddendReloc):
     Field: word32
     Calculation: S + A
     """
-    pass
 
 
 class R_386_PC32(GenericPCRelativeAddendReloc):
@@ -29,7 +28,6 @@ class R_386_PC32(GenericPCRelativeAddendReloc):
     Field: word32
     Calculation: S + A - P
     """
-    pass
 
 
 class R_386_COPY(GenericCopyReloc):
@@ -38,7 +36,6 @@ class R_386_COPY(GenericCopyReloc):
     Field:
     Calculation:
     """
-    pass
 
 
 class R_386_GLOB_DAT(GenericJumpslotReloc):
@@ -47,7 +44,6 @@ class R_386_GLOB_DAT(GenericJumpslotReloc):
     Field: word32
     Calculation: S
     """
-    pass
 
 
 class R_386_JMP_SLOT(GenericJumpslotReloc):
@@ -56,7 +52,6 @@ class R_386_JMP_SLOT(GenericJumpslotReloc):
     Field: word32
     Calculation: S
     """
-    pass
 
 
 class R_386_RELATIVE(GenericRelativeReloc):
@@ -65,7 +60,6 @@ class R_386_RELATIVE(GenericRelativeReloc):
     Field: word32
     Calculation: B + A
     """
-    pass
 
 
 class R_386_IRELATIVE(GenericIRelativeReloc):
@@ -74,7 +68,6 @@ class R_386_IRELATIVE(GenericIRelativeReloc):
     Field: word32
     Calculation: indirect (B + A)
     """
-    pass
 
 
 class R_386_TLS_DTPMOD32(GenericTLSModIdReloc):
@@ -83,7 +76,6 @@ class R_386_TLS_DTPMOD32(GenericTLSModIdReloc):
     Field: word32
     Calculation: 
     """
-    pass
 
 
 class R_386_TLS_TPOFF(GenericTLSOffsetReloc):
@@ -92,7 +84,6 @@ class R_386_TLS_TPOFF(GenericTLSOffsetReloc):
     Field: word32
     Calculation: 
     """
-    pass
 
 
 class R_386_TLS_DTPOFF32(GenericTLSDoffsetReloc):
@@ -101,7 +92,6 @@ class R_386_TLS_DTPOFF32(GenericTLSDoffsetReloc):
     Field: word32
     Calculation: 
     """
-    pass
 
 
 class R_386_PLT32(GenericPCRelativeAddendReloc):
@@ -110,7 +100,6 @@ class R_386_PLT32(GenericPCRelativeAddendReloc):
     Field: word32
     Calculation: L + A - P
     """
-    pass
 
 
 class R_386_GOTPC(GenericPCRelativeAddendReloc, RelocGOTMixin):
@@ -119,4 +108,3 @@ class R_386_GOTPC(GenericPCRelativeAddendReloc, RelocGOTMixin):
     Field: word32
     Calculation: GOT + A - P
     """
-    pass
