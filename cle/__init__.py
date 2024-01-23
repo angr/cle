@@ -5,7 +5,7 @@ produce an address space where that program is loaded and ready to run.
 The primary interface to CLE is the Loader class.
 """
 
-__version__ = "9.2.86.dev0"
+__version__ = "9.2.86"
 
 from .address_translator import AT, AddressTranslator
 from .backends import (
