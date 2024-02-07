@@ -2,13 +2,16 @@ import binascii
 import logging
 import re
 import struct
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
 import archinfo
 
 from cle.errors import CLEError
 
 from .backend import Backend, register_backend
+
+if TYPE_CHECKING:
+    from io import BytesIO
 
 log = logging.getLogger(name=__name__)
 
@@ -161,11 +164,14 @@ class Hex(Backend):
         self._min_addr = min_addr
 
     @staticmethod
-    def seek_non_space_bytes(stream, length=0x10):
+    def seek_non_space_bytes(stream: "BytesIO", length=0x10):
         data = b""
         stream.seek(0)
         while len(data) < length and stream:
             byte = stream.read(1)
+            if not byte:
+                # we have exhausted the stream
+                break
             if re.match(rb"\s", byte) is not None:
                 continue
 
