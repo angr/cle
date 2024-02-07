@@ -2,7 +2,7 @@ import binascii
 import logging
 import re
 import struct
-from typing import List, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 import archinfo
 
