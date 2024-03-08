@@ -25,6 +25,7 @@ from .backends import (
     FunctionHint,
     FunctionHintSource,
     Hex,
+    Jar,
     MachO,
     MetaELF,
     Minidump,
