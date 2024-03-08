@@ -8,46 +8,103 @@ from .generic import (
     GenericTLSDoffsetReloc,
     GenericTLSModIdReloc,
     GenericTLSOffsetReloc,
+    RelocGOTMixin,
 )
 
 arch = "X86"
 
 
 class R_386_32(GenericAbsoluteAddendReloc):
-    pass
+    """
+    Value: 1
+    Field: word32
+    Calculation: S + A
+    """
 
 
 class R_386_PC32(GenericPCRelativeAddendReloc):
-    pass
+    """
+    Value: 2
+    Field: word32
+    Calculation: S + A - P
+    """
 
 
 class R_386_COPY(GenericCopyReloc):
-    pass
+    """
+    Value: 5
+    Field:
+    Calculation:
+    """
 
 
 class R_386_GLOB_DAT(GenericJumpslotReloc):
-    pass
+    """
+    Value: 6
+    Field: word32
+    Calculation: S
+    """
 
 
 class R_386_JMP_SLOT(GenericJumpslotReloc):
-    pass
+    """
+    Value: 7
+    Field: word32
+    Calculation: S
+    """
 
 
 class R_386_RELATIVE(GenericRelativeReloc):
-    pass
+    """
+    Value: 8
+    Field: word32
+    Calculation: B + A
+    """
 
 
 class R_386_IRELATIVE(GenericIRelativeReloc):
-    pass
+    """
+    Value: 42
+    Field: word32
+    Calculation: indirect (B + A)
+    """
 
 
 class R_386_TLS_DTPMOD32(GenericTLSModIdReloc):
-    pass
+    """
+    Value: 35
+    Field: word32
+    Calculation:
+    """
 
 
 class R_386_TLS_TPOFF(GenericTLSOffsetReloc):
-    pass
+    """
+    Value: 14
+    Field: word32
+    Calculation:
+    """
 
 
 class R_386_TLS_DTPOFF32(GenericTLSDoffsetReloc):
-    pass
+    """
+    Value: 36
+    Field: word32
+    Calculation:
+    """
+
+
+class R_386_PLT32(GenericPCRelativeAddendReloc):
+    """
+    Value: 4
+    Field: word32
+    Calculation: L + A - P
+    """
+
+
+class R_386_GOTPC(GenericPCRelativeAddendReloc, RelocGOTMixin):
+    """
+    Value: 10
+    Field: word32
+    Calculation: GOT + A - P
+    """
