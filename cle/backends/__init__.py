@@ -4,7 +4,6 @@ from .cgc import CGC, BackedCGC
 from .coff import Coff
 from .elf import ELF, ELFCore, MetaELF
 from .ihex import Hex
-from .srec import SRec
 from .java.apk import Apk
 from .java.jar import Jar
 from .java.soot import Soot
@@ -14,6 +13,7 @@ from .named_region import NamedRegion
 from .pe import PE
 from .region import Region, Section, Segment
 from .regions import Regions
+from .srec import SRec
 from .static_archive import StaticArchive
 from .symbol import Symbol, SymbolSubType, SymbolType
 from .te import TE
