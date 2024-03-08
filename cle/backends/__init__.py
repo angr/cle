@@ -4,6 +4,7 @@ from .cgc import CGC, BackedCGC
 from .coff import Coff
 from .elf import ELF, ELFCore, MetaELF
 from .ihex import Hex
+from .srec import SRec
 from .java.apk import Apk
 from .java.jar import Jar
 from .java.soot import Soot
@@ -38,6 +39,7 @@ __all__ = [
     "CGC",
     "BackedCGC",
     "Hex",
+    "SRec",
     "Minidump",
     "MachO",
     "NamedRegion",
