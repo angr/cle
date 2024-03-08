@@ -25,6 +25,7 @@ from .backends import (
     FunctionHint,
     FunctionHintSource,
     Hex,
+    SRec,
     Jar,
     MachO,
     MetaELF,
@@ -88,6 +89,7 @@ __all__ = [
     "FunctionHint",
     "FunctionHintSource",
     "Hex",
+    "SRec"
     "Jar",
     "MachO",
     "MetaELF",
