@@ -13,6 +13,7 @@ from .named_region import NamedRegion
 from .pe import PE
 from .region import Region, Section, Segment
 from .regions import Regions
+from .srec import SRec
 from .static_archive import StaticArchive
 from .symbol import Symbol, SymbolSubType, SymbolType
 from .te import TE
@@ -38,6 +39,7 @@ __all__ = [
     "CGC",
     "BackedCGC",
     "Hex",
+    "SRec",
     "Minidump",
     "MachO",
     "NamedRegion",
