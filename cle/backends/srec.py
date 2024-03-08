@@ -1,7 +1,6 @@
 import binascii
 import logging
 import re
-import struct
 from typing import List, Optional, Tuple
 
 import archinfo
@@ -15,17 +14,7 @@ log = logging.getLogger(name=__name__)
 __all__ = ("SRec",)
 
 srec_regex = "S([0-9])([0-9a-fA-F]{{2}})([0-9a-fA-F]{{{addr_size}}})([0-9a-fA-F]{{4,64}})([0-9a-fA-F]{{2}})"
-SREC_ADDR_SIZE = {"0": 16,
-                  "1": 16,
-                  "5": 16,
-                  "9": 16,
-
-                  "2": 24,
-                  "6": 24,
-                  "8": 24,
-
-                  "3": 32,
-                  "7": 32}
+SREC_ADDR_SIZE = {"0": 16, "1": 16, "5": 16, "9": 16, "2": 24, "6": 24, "8": 24, "3": 32, "7": 32}
 
 
 SREC_HEADER = 0x00
@@ -36,6 +25,7 @@ HEX_TYPE_EXTSEGADDR = 0x02
 HEX_TYPE_STARTSEGADDR = 0x03
 HEX_TYPE_EXTLINEARADDR = 0x04
 HEX_TYPE_STARTLINEARADDR = 0x05
+
 
 class SRec(Backend):
     """
@@ -52,7 +42,7 @@ class SRec(Backend):
     @staticmethod
     def parse_record(line):
         addr_size = SREC_ADDR_SIZE[chr(line[1])]
-        srec_re = re.compile(srec_regex.format(addr_size=addr_size//4).encode())
+        srec_re = re.compile(srec_regex.format(addr_size=addr_size // 4).encode())
         m = srec_re.match(line)
         if not m:
             raise CLEError(f"Invalid SRec record: {line}")
