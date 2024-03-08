@@ -118,8 +118,7 @@ class SRec(Backend):
                 # Raw data.  Put the bytes
                 regions.append((addr, data))
                 # We have to be careful about the min and max addrs
-                if addr < min_addr:
-                    min_addr = addr
+                min_addr = min(min_addr, addr)
                 max_addr = max(max_addr, addr + len(data) - 1)
             elif rectype in SREC_START_EXEC:
                 got_entry = True
