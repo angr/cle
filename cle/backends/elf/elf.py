@@ -5,7 +5,7 @@ import os
 import pathlib
 import xml.etree.ElementTree
 from collections import OrderedDict, defaultdict
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 
 import archinfo
 import elftools
@@ -15,6 +15,7 @@ from elftools.dwarf.descriptions import describe_attr_value, describe_form_class
 from elftools.dwarf.die import DIE
 from elftools.dwarf.dwarf_expr import DWARFExprParser
 from elftools.dwarf.dwarfinfo import DWARFInfo
+from elftools.dwarf.ranges import RangeEntry
 from elftools.elf import dynamic, elffile, enums, sections
 from sortedcontainers import SortedDict
 
@@ -40,6 +41,9 @@ try:
     import pypcode
 except ImportError:
     pypcode = None
+
+if TYPE_CHECKING:
+    from elftools.dwarf.callframe import DecodedCallFrameTable
 
 
 log = logging.getLogger(name=__name__)
@@ -162,6 +166,9 @@ class ELF(MetaELF):
         self._dynamic = {}
         self.deps = []
 
+        # Decoded CFT (call frame table)
+        self.decoded_cft: List["DecodedCallFrameTable"] = []
+
         # The linked image base should be evaluated before registering any segment or section due to
         # the fact that elffile, used by those methods, is working only with un-based virtual addresses, but Clemories
         # themselves are organized as a tree where each node backer internally uses relative addressing
@@ -205,8 +212,12 @@ class ELF(MetaELF):
                 # Load function hints and exception handling artifacts
                 if dwarf.has_EH_CFI():
                     self._load_function_hints_from_fde(dwarf, FunctionHintSource.EH_FRAME)
+                    self._load_decoded_cft_from_eh_cfi_entries(dwarf)
                     self._load_exception_handling(dwarf)
                     self._load_line_info(dwarf)
+                # Load CFI entries
+                if dwarf.has_CFI():
+                    self._load_decoded_cft_from_cfi_entries(dwarf)
 
         if debug_symbols:
             self.__process_debug_file(debug_symbols)
@@ -438,6 +449,11 @@ class ELF(MetaELF):
 
         self.addr_to_line = SortedDict((addr + delta, value) for addr, value in self.addr_to_line.items())
 
+        for cft in self.decoded_cft:
+            for entry in cft.table:
+                if entry and "pc" in entry:
+                    entry["pc"] += self.image_base_delta
+
     #
     # Private Methods
     #
@@ -589,6 +605,37 @@ class ELF(MetaELF):
         except (DWARFError, ValueError):
             log.warning("An exception occurred in pyelftools when loading FDE information.", exc_info=True)
 
+    def _load_decoded_cft_from_eh_cfi_entries(self, dwarf):
+        """
+        Load decoded Call Frame Tables from EH-CFI entries in the binary.
+
+        :param dwarf:   The DWARF info object from pyelftools.
+        :return:        None
+        """
+
+        try:
+            for entry in dwarf.EH_CFI_entries():
+                if type(entry) is callframe.FDE:
+                    decoded = entry.get_decoded()
+                    self.decoded_cft.append(decoded)
+        except (DWARFError, ValueError):
+            log.warning("An exception occurred in pyelftools when loading FDE information.", exc_info=True)
+
+    def _load_decoded_cft_from_cfi_entries(self, dwarf):
+        """
+        Load decoded Call Frame Tables from CFI entries in the binary.
+
+        :param dwarf:   The DWARF info object from pyelftools.
+        :return:        None
+        """
+
+        try:
+            for entry in dwarf.CFI_entries():
+                decoded = entry.get_decoded()
+                self.decoded_cft.append(decoded)
+        except (DWARFError, ValueError):
+            log.warning("An exception occurred in pyelftools when loading CFI entries.", exc_info=True)
+
     def _load_exception_handling(self, dwarf):
         """
         Load exception handling information out of the .eh_frame and .gcc_except_table sections. We may support more
@@ -674,7 +721,7 @@ class ELF(MetaELF):
                 self.addr_to_line[relocated_addr].add((str(filename), line.state.line))
 
     @staticmethod
-    def _load_low_high_pc_form_die(die: DIE):
+    def _load_low_high_pc_form_die(die: DIE) -> Tuple[Optional[int], Optional[int]]:
         """
         Load low and high pc from a DIE.
 
@@ -704,6 +751,21 @@ class ELF(MetaELF):
             return lowpc, None
         return lowpc, highpc
 
+    @staticmethod
+    def _load_ranges_from_die(die: DIE, range_lists) -> List[Tuple[int, int]]:
+        """
+        When a compilation unit spans across multiple ranges, load them.
+
+        :param die: The DIE object from pyelftools.
+        :return:
+        """
+        if "DW_AT_ranges" not in die.attributes:
+            return []
+        ranges_offset = die.attributes["DW_AT_ranges"].value
+        ranges = range_lists.get_range_list_at_offset(ranges_offset)
+
+        return [(r.begin_offset, r.end_offset) for r in ranges if isinstance(r, RangeEntry)]
+
     def _load_dies(self, dwarf: DWARFInfo):
         """
         Load DIEs and CUs from DWARF.
@@ -713,6 +775,7 @@ class ELF(MetaELF):
         """
         compilation_units: List[CompilationUnit] = []
         type_list: Dict[int, VariableType] = {}
+        range_lists = dwarf.range_lists()
 
         for cu in dwarf.iter_CUs():
             expr_parser = DWARFExprParser(cu.structs)
@@ -736,41 +799,49 @@ class ELF(MetaELF):
 
             die_name = top_die.attributes.get("DW_AT_name", None)
             die_comp_dir = top_die.attributes.get("DW_AT_comp_dir", None)
-            die_low_pc, die_high_pc = self._load_low_high_pc_form_die(top_die)
             die_lang = top_die.attributes.get("DW_AT_language", None)
 
-            if (
-                die_name is None
-                or die_comp_dir is None
-                or die_low_pc is None
-                or die_high_pc is None
-                or die_lang is None
-            ):
+            die_low_pc, die_high_pc = self._load_low_high_pc_form_die(top_die)
+            ranges = None
+            if die_high_pc is None:
+                # load ranges instead
+                ranges = self._load_ranges_from_die(top_die, range_lists)
+                if not ranges:
+                    continue
+
+            if die_name is None or die_comp_dir is None or die_low_pc is None or die_lang is None:
                 continue
 
             die_name = die_name.value.decode("utf-8")
             die_comp_dir = die_comp_dir.value.decode("utf-8")
             die_lang = describe_attr_value(die_lang, top_die, top_die.offset)
 
-            cu_ = CompilationUnit(die_name, die_comp_dir, die_low_pc, die_high_pc, die_lang, self)
+            if ranges:
+                cu_ = CompilationUnit(die_name, die_comp_dir, die_lang, ranges, self)
+            else:
+                cu_ = CompilationUnit(die_name, die_comp_dir, die_lang, [(die_low_pc, die_high_pc)], self)
             compilation_units.append(cu_)
 
             for die_child in cu.iter_DIE_children(top_die):
                 if die_child.tag == "DW_TAG_variable":
                     # load global variable
-                    var = Variable.from_die(die_child, expr_parser, self)
+                    var = Variable.from_die(die_child, expr_parser, self, dwarf, die_low_pc)
                     var.decl_file = cu_.file_path
                     cu_.global_variables.append(var)
                 elif die_child.tag == "DW_TAG_subprogram":
                     # load subprogram
-                    sub_prog = self._load_die_lex_block(die_child, expr_parser, type_list, cu, cu_.file_path, None)
+                    sub_prog = self._load_die_lex_block(
+                        dwarf, die_child, expr_parser, type_list, cu, cu_.file_path, die_low_pc, None
+                    )
                     if sub_prog is not None:
                         cu_.functions[sub_prog.low_pc] = sub_prog
 
         self.type_list = type_list
         self.compilation_units = compilation_units
 
-    def _load_die_lex_block(self, die: DIE, expr_parser, type_list, cu, file_path, subprogram) -> LexicalBlock:
+    def _load_die_lex_block(
+        self, dwarf, die: DIE, expr_parser, type_list, cu, file_path, cu_low_pc: int, subprogram
+    ) -> LexicalBlock:
         if "DW_AT_name" in die.attributes:
             name = die.attributes["DW_AT_name"].value.decode("utf-8")
         else:
@@ -786,13 +857,18 @@ class ELF(MetaELF):
             block = LexicalBlock(low_pc, high_pc)
 
         for sub_die in cu.iter_DIE_children(die):
-            if sub_die.tag in ["DW_TAG_variable", "DW_TAG_formal_parameter"]:
+            if sub_die.tag in {"DW_TAG_variable", "DW_TAG_formal_parameter"}:
                 # load local variable
-                var = Variable.from_die(sub_die, expr_parser, self, block)
+                var = Variable.from_die(sub_die, expr_parser, self, dwarf, cu_low_pc, lexical_block=block)
                 var.decl_file = file_path
-                subprogram.local_variables.append(var)
+                if var.parameter:
+                    subprogram.parameters.append(var)
+                else:
+                    subprogram.local_variables.append(var)
             elif sub_die.tag == "DW_TAG_lexical_block":
-                sub_block = self._load_die_lex_block(sub_die, expr_parser, type_list, cu, file_path, subprogram)
+                sub_block = self._load_die_lex_block(
+                    dwarf, sub_die, expr_parser, type_list, cu, file_path, cu_low_pc, subprogram
+                )
                 if sub_block is not None:
                     block.child_blocks.append(sub_block)
 
