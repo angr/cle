@@ -33,6 +33,7 @@ default_jni_archs = ["x86", "armeabi", "armeabi-v7a", "x86_64", "arm64-v8a"]
 class Apk(Soot):
     """
     Backend for lifting Apk's to Soot.
+    Note that Soot doesn't support loading APK files from streams.
     """
 
     is_default = True  # let CLE automatically use this backend
@@ -134,7 +135,9 @@ class Apk(Soot):
             class_names = getter()
             self.components[key], self.callbacks[key] = self._extract_lifecycle(class_names, key)
 
-    def _extract_lifecycle(self, cls_name: List[str], component_kind: str) -> Tuple[List[SootClass], List[SootMethod]]:
+    def _extract_lifecycle(
+        self, class_names: List[str], component_kind: str
+    ) -> Tuple[List[SootClass], List[SootMethod]]:
         """
         Extract components with callbacks from class names and component kind.
         Use general callback name for each component by component kind
@@ -147,10 +150,10 @@ class Apk(Soot):
 
         components = []
         callbacks = []
-
-        for cls in cls_name:
-            components.append(self.classes[cls])
-            callbacks.extend(self.get_callbacks(cls, callback[component_kind]))
+        for cls in class_names:
+            if cls in self.classes.keys():
+                components.append(self.classes[cls])
+                callbacks.extend(self.get_callbacks(cls, callback[component_kind]))
 
         return components, callbacks
 
