@@ -2,13 +2,16 @@ import binascii
 import logging
 import re
 import struct
-from typing import List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 import archinfo
 
 from cle.errors import CLEError
 
 from .backend import Backend, register_backend
+
+if TYPE_CHECKING:
+    from io import BytesIO
 
 log = logging.getLogger(name=__name__)
 
@@ -97,7 +100,8 @@ class Hex(Backend):
         got_entry = False
         self._binary_stream.seek(0)
         string = self._binary_stream.read()
-        recs = string.splitlines()
+        # line exists and is not just spaces
+        recs = [line for line in string.splitlines() if line.strip()]
         regions = []
         max_addr = 0
         min_addr = 0xFFFFFFFFFFFFFFFF
@@ -160,11 +164,28 @@ class Hex(Backend):
         self._min_addr = min_addr
 
     @staticmethod
+    def seek_non_space_bytes(stream: "BytesIO", length=0x10, max_search=0x50):
+        data = b""
+        stream.seek(0)
+        search_len = 0
+        while search_len < max_search and len(data) < length and stream:
+            search_len += 1
+            byte = stream.read(1)
+            if not byte:
+                # we have exhausted the stream
+                break
+            if re.match(rb"\s", byte) is not None:
+                continue
+
+            data += byte
+
+        stream.seek(0)
+        return data
+
+    @staticmethod
     def is_compatible(stream):
-        stream.seek(0)
-        s = stream.read(0x10)
-        stream.seek(0)
-        return s.startswith(b":")
+        s = Hex.seek_non_space_bytes(stream, length=0x10)
+        return len(s) == 0x10 and s.startswith(b":")
 
 
 register_backend("hex", Hex)
