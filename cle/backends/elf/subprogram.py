@@ -47,3 +47,4 @@ class Subprogram(LexicalBlock):
         super().__init__(low_pc, high_pc)
         self.name = name
         self.local_variables: List[Variable] = []
+        self.parameters: List[Variable] = []
