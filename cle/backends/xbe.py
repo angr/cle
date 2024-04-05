@@ -29,7 +29,7 @@ class XBESection(Section):
         """
         Whether this section has write permissions
         """
-        return (self._xbe_sec.header.flags & self._xbe_sec.header.FLAG_WRITEABLE) != 0
+        return (self._xbe_sec.header.flags & self._xbe_sec.header.FLAG_WRITABLE) != 0
 
     @property
     def is_executable(self):
