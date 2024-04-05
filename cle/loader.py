@@ -692,7 +692,7 @@ class Loader:
             for resolver, dest in obj.irelatives:
                 val = resolver_func(resolver)
                 if val is not None:
-                    obj.memory.pack_word(dest, val)
+                    self.memory.pack_word(dest, val)
 
     def dynamic_load(self, spec):
         """
