@@ -29,14 +29,14 @@ class XBESection(Section):
         """
         Whether this section has write permissions
         """
-        return (self._xbe_sec.header.flags & self._xbe_sec.header.FLAG_WRITABLE) != 0
+        return (self._xbe_sec.header.flags & self._xbe_sec.header.flags.WRITABLE) != 0
 
     @property
     def is_executable(self):
         """
         Whether this section has execute permissions
         """
-        return (self._xbe_sec.header.flags & self._xbe_sec.header.FLAG_EXECUTABLE) != 0
+        return (self._xbe_sec.header.flags & self._xbe_sec.header.flags.EXECUTABLE) != 0
 
     @property
     def only_contains_uninitialized_data(self):
@@ -55,7 +55,7 @@ class XBE(Backend):
 
     def __init__(self, *args, **kwargs):
         if Xbe is None:
-            raise CLEError("Run `pip install pyxbe==0.0.2` to support loading XBE files")
+            raise CLEError("Run `pip install pyxbe==1.0.3` to support loading XBE files")
         super().__init__(*args, **kwargs)
         self.set_arch(archinfo.arch_from_id("x86"))
 
