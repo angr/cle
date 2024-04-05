@@ -551,7 +551,7 @@ class ELF(MetaELF):
 
         self.memory.add_backer(AT.from_lva(mapstart, self).to_rva(), data, overwrite=True)
 
-    def _make_reloc(self, readelf_reloc, symbol, dest_section=None):
+    def _make_reloc(self, readelf_reloc, symbol, dest_section: Optional[ELFSection] = None):
         addend = readelf_reloc.entry.r_addend if readelf_reloc.is_RELA() else None
         RelocClass = get_relocation(self.arch.name, readelf_reloc.entry.r_info_type)
         if RelocClass is None:
@@ -561,7 +561,7 @@ class ELF(MetaELF):
         if dest_section is not None:
             # note to the intrepid explorer: this code was changed as per cle#467
             # address += dest_section.remap_offset
-            address += dest_section.vaddr
+            address += AT.from_mva(dest_section.vaddr, self).to_rva()
 
         try:
             return RelocClass(self, symbol, address, addend)
