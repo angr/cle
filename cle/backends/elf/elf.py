@@ -561,7 +561,8 @@ class ELF(MetaELF):
         if dest_section is not None:
             # note to the intrepid explorer: this code was changed as per cle#467
             # address += dest_section.remap_offset
-            address += AT.from_mva(dest_section.vaddr, self).to_rva()
+            if self.is_relocatable:
+                address += AT.from_mva(dest_section.vaddr, self).to_rva()
 
         try:
             return RelocClass(self, symbol, address, addend)
