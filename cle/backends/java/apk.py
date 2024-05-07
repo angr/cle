@@ -1,7 +1,6 @@
 import logging
 import os
 import tempfile
-from typing import List, Tuple
 from zipfile import ZipFile
 
 from cle.backends.backend import register_backend
@@ -134,7 +133,7 @@ class Apk(Soot):
             class_names = getter()
             self.components[key], self.callbacks[key] = self._extract_lifecycle(class_names, key)
 
-    def _extract_lifecycle(self, cls_name: List[str], component_kind: str) -> Tuple[List[SootClass], List[SootMethod]]:
+    def _extract_lifecycle(self, cls_name: list[str], component_kind: str) -> tuple[list[SootClass], list[SootMethod]]:
         """
         Extract components with callbacks from class names and component kind.
         Use general callback name for each component by component kind
@@ -154,7 +153,7 @@ class Apk(Soot):
 
         return components, callbacks
 
-    def get_callbacks(self, class_name: str, callback_names: List[str]) -> List[SootMethod]:
+    def get_callbacks(self, class_name: str, callback_names: list[str]) -> list[SootMethod]:
         """
         Get callback methods from the name of callback methods.
 

@@ -1,9 +1,8 @@
 import hashlib
 import logging
 import os
-import typing
 from io import BufferedReader
-from typing import TYPE_CHECKING, Any, BinaryIO, Dict, List, Optional, Type, Union
+from typing import TYPE_CHECKING, Any, BinaryIO, List, Optional
 
 import archinfo
 import sortedcontainers
@@ -175,12 +174,12 @@ class Backend:
         self._sections: Regions["Section"] = Regions()  # List of sections
         self.sections_map = {}  # Mapping from section name to section
         self.symbols = sortedcontainers.SortedKeyList(key=self._get_symbol_relative_addr)
-        self.imports: typing.Dict[str, "Relocation"] = {}
+        self.imports: dict[str, "Relocation"] = {}
         self.resolved_imports = []
         self.relocs: "List[Relocation]" = []
         self.irelatives = []  # list of tuples (resolver, destination), dest w/o rebase
         self.jmprel = {}
-        self._arch: Optional[archinfo.Arch] = None
+        self._arch: archinfo.Arch | None = None
         self.os = None  # Let other stuff override this
         self.compiler = None, None  # compiler name, version
         self._symbol_cache = {}
@@ -199,7 +198,7 @@ class Backend:
         self.mapped_base = self.linked_base = 0  # not to be set manually - used by CLE
 
         self.deps = []  # Needed shared objects (libraries dependencies)
-        self.child_objects: List["Backend"] = []  # any objects loaded directly out of this
+        self.child_objects: list["Backend"] = []  # any objects loaded directly out of this
         self.parent_object = None
         self.linking = None  # Dynamic or static linking
         self.pic = force_rebase
@@ -217,11 +216,11 @@ class Backend:
 
         # exception handling
         # they should be rebased when .rebase() is called
-        self.exception_handlings: List[ExceptionHandling] = []
+        self.exception_handlings: list[ExceptionHandling] = []
 
         # Hints
         # they should be rebased when .rebase() is called
-        self.function_hints: List[FunctionHint] = []
+        self.function_hints: list[FunctionHint] = []
 
         # line number mapping
         self.addr_to_line = {}
@@ -242,7 +241,7 @@ class Backend:
         # cached last segment
         self._last_segment = None
 
-        self.cached_content: Optional[bytes] = None
+        self.cached_content: bytes | None = None
 
         if arch is None:
             pass
@@ -302,7 +301,7 @@ class Backend:
         return self._segments
 
     @segments.setter
-    def segments(self, v: Union[Regions["Segment"], List["Segment"]]):
+    def segments(self, v: Regions["Segment"] | list["Segment"]):
         if isinstance(v, list):
             self._segments = Regions(lst=v)
         elif isinstance(v, Regions):
@@ -315,7 +314,7 @@ class Backend:
         return self._sections
 
     @sections.setter
-    def sections(self, v: Union[Regions["Section"], List["Section"]]):
+    def sections(self, v: Regions["Section"] | list["Section"]):
         if isinstance(v, list):
             self._sections = Regions(lst=v)
         elif isinstance(v, Regions):
@@ -402,14 +401,14 @@ class Backend:
             self._last_section = r
         return r
 
-    def addr_to_offset(self, addr: int) -> Optional[int]:
+    def addr_to_offset(self, addr: int) -> int | None:
         loadable = self.find_loadable_containing(addr)
         if loadable is not None:
             return loadable.addr_to_offset(addr)
         else:
             return None
 
-    def offset_to_addr(self, offset: int) -> Optional[int]:
+    def offset_to_addr(self, offset: int) -> int | None:
         if self.segments:
             for s in self.segments:
                 if s.contains_offset(offset):
@@ -442,7 +441,7 @@ class Backend:
         return self._max_addr + self.mapped_base
 
     @property
-    def initializers(self) -> List[int]:  # pylint: disable=no-self-use
+    def initializers(self) -> list[int]:  # pylint: disable=no-self-use
         """
         Stub function. Should be overridden by backends that can provide initializer functions that ought to be run
         before execution reaches the entry point. Addresses should be rebased.
@@ -450,21 +449,21 @@ class Backend:
         return []
 
     @property
-    def finalizers(self) -> List[int]:  # pylint: disable=no-self-use
+    def finalizers(self) -> list[int]:  # pylint: disable=no-self-use
         """
         Stub function. Like initializers, but with finalizers.
         """
         return []
 
     @property
-    def threads(self) -> List:  # pylint: disable=no-self-use
+    def threads(self) -> list:  # pylint: disable=no-self-use
         """
         If this backend represents a dump of a running program, it may contain one or more thread contexts, i.e.
         register files. This property should contain a list of names for these threads, which should be unique.
         """
         return []
 
-    def thread_registers(self, thread=None) -> Dict[str, Any]:  # pylint: disable=no-self-use,unused-argument
+    def thread_registers(self, thread=None) -> dict[str, Any]:  # pylint: disable=no-self-use,unused-argument
         """
         If this backend represents a dump of a running program, it may contain one or more thread contexts, i.e.
         register files. This method should return the register file for a given thread (as named in ``Backend.threads``)
@@ -482,7 +481,7 @@ class Backend:
         )
         return self.thread_registers().items()
 
-    def get_symbol(self, name: str) -> Optional[Symbol]:  # pylint: disable=no-self-use,unused-argument
+    def get_symbol(self, name: str) -> Symbol | None:  # pylint: disable=no-self-use,unused-argument
         """
         Stub function. Implement to find the symbol with name `name`.
         """
@@ -491,7 +490,7 @@ class Backend:
         return None
 
     @staticmethod
-    def extract_soname(path) -> Optional[str]:  # pylint: disable=unused-argument
+    def extract_soname(path) -> str | None:  # pylint: disable=unused-argument
         """
         Extracts the shared object identifier from the path, or returns None if it cannot.
         """
@@ -555,7 +554,7 @@ class Backend:
         for sym in self.symbols:
             sym.owner = self
 
-    def __contains__(self, thing: Union[int]) -> bool:
+    def __contains__(self, thing: int) -> bool:
         """
         This serves two purposes:
         1. It's slightly more convenient than writing self.min_addr <= thing < self.max_addr yourself
@@ -570,7 +569,7 @@ class Backend:
         raise ValueError("Unsupported type %s for containment check" % type(thing))
 
 
-ALL_BACKENDS: Dict[str, Type[Backend]] = {}
+ALL_BACKENDS: dict[str, type[Backend]] = {}
 
 
 def register_backend(name, cls):

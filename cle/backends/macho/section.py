@@ -1,6 +1,5 @@
 # This file is part of Mach-O Loader for CLE.
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
-from typing import Optional
 
 from cle.backends.region import Section
 
@@ -41,7 +40,7 @@ class MachOSection(Section):
         flags,
         r1,
         r2,
-        parent_segment: Optional[MachOSegment] = None,
+        parent_segment: MachOSegment | None = None,
     ):
         super().__init__(sectname.decode(), offset, vaddr, size)
         self.filesize = size

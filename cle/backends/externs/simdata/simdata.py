@@ -1,5 +1,4 @@
 from collections import defaultdict
-from typing import List, Optional, Type
 
 from cle.backends.relocation import Relocation
 from cle.backends.symbol import Symbol, SymbolType
@@ -40,7 +39,7 @@ class SimData(Symbol):
         """
         return NotImplemented
 
-    def relocations(self) -> List[Relocation]:
+    def relocations(self) -> list[Relocation]:
         """
         Maybe implement me: If you like, return a list of relocation objects to apply. To create
         new import symbols, use ``self.owner.make_extern_import``.
@@ -51,7 +50,7 @@ class SimData(Symbol):
 registered_data = defaultdict(list)
 
 
-def register(simdata_cls: Type[SimData]):
+def register(simdata_cls: type[SimData]):
     """
     Register the given SimData class with CLE so it may be used during loading
     """
@@ -60,7 +59,7 @@ def register(simdata_cls: Type[SimData]):
     registered_data[simdata_cls.name].append(simdata_cls)
 
 
-def lookup(name: str, libname) -> Optional[Type[SimData]]:
+def lookup(name: str, libname) -> type[SimData] | None:
     weak_option = None
     for simdata_cls in registered_data[name]:
         if type(libname) is type(simdata_cls.libname) is str and simdata_cls.libname.startswith(libname):  # noqa: E721

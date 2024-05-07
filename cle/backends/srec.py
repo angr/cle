@@ -1,7 +1,6 @@
 import binascii
 import logging
 import re
-from typing import List, Optional, Tuple
 
 import archinfo
 
@@ -68,9 +67,9 @@ class SRec(Backend):
         # Lots of tiny memory regions is bad!
         # The greedy algorithm to smash them together:
         result = []
-        last_addr: Optional[int] = None
-        last_data: Optional[List[bytes]] = None
-        last_size: Optional[int] = None
+        last_addr: int | None = None
+        last_data: list[bytes] | None = None
+        last_size: int | None = None
         for addr, region in sorted(regions):
             if last_addr is not None and last_addr + last_size == addr:
                 last_data.append(region)
@@ -136,7 +135,7 @@ class SRec(Backend):
             )
         # HEX specifies a ton of tiny little memory regions.  We now smash them together to make things faster.
         new_regions = SRec.coalesce_regions(regions)
-        self.regions: List[Tuple[int, int]] = []  # A list of (addr, size)
+        self.regions: list[tuple[int, int]] = []  # A list of (addr, size)
         for addr, data in new_regions:
             self.memory.add_backer(addr, data)
             self.regions.append((addr, len(data)))

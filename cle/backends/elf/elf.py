@@ -5,7 +5,7 @@ import os
 import pathlib
 import xml.etree.ElementTree
 from collections import OrderedDict, defaultdict
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Set, Tuple
 
 import archinfo
 import elftools
@@ -49,7 +49,7 @@ __all__ = ("ELFSymbol", "ELF")
 
 # map 'e_machine' ELF header values (represented as `short int`s) to human-readable format (string)
 # There are mappings missing currently in `elftools`, so we provide them ourselves
-additional_e_machine_mappings: Dict[int, str] = {
+additional_e_machine_mappings: dict[int, str] = {
     247: "Linux BPF - in-kernel virtual machine",
     252: "C-SKY",
     0x5441: "Fujitsu FR-V",
@@ -151,8 +151,8 @@ class ELF(MetaELF):
         self.has_dwarf_info = bool(self._reader.has_dwarf_info())
         self.build_id = None
         self.addr_to_line: "SortedDict[int, Set[Tuple[int, int]]]" = SortedDict()
-        self.variables: Optional[List[Variable]] = None
-        self.compilation_units: Optional[List[CompilationUnit]] = None
+        self.variables: list[Variable] | None = None
+        self.compilation_units: list[CompilationUnit] | None = None
 
         # misc
         self._entry = self._reader.header.e_entry
@@ -551,7 +551,7 @@ class ELF(MetaELF):
 
         self.memory.add_backer(AT.from_lva(mapstart, self).to_rva(), data, overwrite=True)
 
-    def _make_reloc(self, readelf_reloc, symbol, dest_section: Optional[ELFSection] = None):
+    def _make_reloc(self, readelf_reloc, symbol, dest_section: ELFSection | None = None):
         addend = readelf_reloc.entry.r_addend if readelf_reloc.is_RELA() else None
         RelocClass = get_relocation(self.arch.name, readelf_reloc.entry.r_info_type)
         if RelocClass is None:
@@ -714,8 +714,8 @@ class ELF(MetaELF):
         :param dwarf:   The DWARF info object from pyelftools.
         :return:        None
         """
-        compilation_units: List[CompilationUnit] = []
-        type_list: Dict[int, VariableType] = {}
+        compilation_units: list[CompilationUnit] = []
+        type_list: dict[int, VariableType] = {}
 
         for cu in dwarf.iter_CUs():
             expr_parser = DWARFExprParser(cu.structs)

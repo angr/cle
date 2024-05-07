@@ -1,7 +1,6 @@
 import bisect
 import struct
 from mmap import mmap
-from typing import List, Tuple, Union
 
 import archinfo
 
@@ -166,7 +165,7 @@ class Clemory(ClemoryBase):
 
     def __init__(self, arch, root=False):
         super().__init__(arch)
-        self._backers: List[Tuple[int, Union[bytearray, Clemory, List[int]]]] = []
+        self._backers: list[tuple[int, bytearray | Clemory | list[int]]] = []
         self._root = root
         self.consecutive = True
         self.min_addr = 0
