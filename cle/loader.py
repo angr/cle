@@ -3,21 +3,15 @@ import os
 import platform
 import sys
 from collections import OrderedDict
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
     BinaryIO,
-    Dict,
-    Iterable,
-    Iterator,
-    List,
     Literal,
     Optional,
-    Set,
-    Type,
     TypeVar,
-    Union,
 )
 
 import archinfo
@@ -59,14 +53,14 @@ class Loader:
 
     def __init__(
         self,
-        main_binary: Union[str, BinaryIO, Path, Backend],
+        main_binary: str | BinaryIO | Path | Backend,
         auto_load_libs: bool = True,
         concrete_target=None,
-        force_load_libs: Iterable[Union[str, BinaryIO, Path]] = (),
+        force_load_libs: Iterable[str | BinaryIO | Path] = (),
         skip_libs: Iterable[str] = (),
-        main_opts: Optional[Dict[str, Any]] = None,
-        lib_opts: Optional[Dict[str, Dict[str, Any]]] = None,
-        ld_path: Iterable[Union[str, Path]] = (),
+        main_opts: dict[str, Any] | None = None,
+        lib_opts: dict[str, dict[str, Any]] | None = None,
+        ld_path: Iterable[str | Path] = (),
         use_system_libs: bool = True,
         ignore_import_version_numbers: bool = True,
         case_insensitive: bool = False,
@@ -76,8 +70,8 @@ class Loader:
         perform_relocations: bool = True,
         load_debug_info: bool = False,
         page_size: int = 0x1,
-        preload_libs: Iterable[Union[str, BinaryIO, Path]] = (),
-        arch: Union[archinfo.Arch, str, None] = None,
+        preload_libs: Iterable[str | BinaryIO | Path] = (),
+        arch: archinfo.Arch | str | None = None,
     ):
         """
         :param main_binary:         The path to the main binary you're loading, or a file-like object with the binary
@@ -147,7 +141,7 @@ class Loader:
 
         self._auto_load_libs = auto_load_libs
         self._load_debug_info = load_debug_info
-        self._satisfied_deps: Dict[str, Union[Literal[False], Backend]] = {x: False for x in skip_libs}
+        self._satisfied_deps: dict[str, Literal[False] | Backend] = {x: False for x in skip_libs}
         self._main_opts = {} if main_opts is None else main_opts
         self._lib_opts = {} if lib_opts is None else lib_opts
         self._custom_ld_path = [ld_path] if isinstance(ld_path, str) else ld_path
@@ -177,10 +171,10 @@ class Loader:
         self._memory = None
         self._main_object = None
         self._tls = None
-        self._kernel_object: Optional[KernelObject] = None
-        self._extern_object: Optional[ExternObject] = None
+        self._kernel_object: KernelObject | None = None
+        self._extern_object: ExternObject | None = None
         self.shared_objects = OrderedDict()
-        self.all_objects: List[Backend] = []
+        self.all_objects: list[Backend] = []
         self.requested_names = set()
         if arch is not None:
             self._main_opts.update({"arch": arch})
@@ -245,7 +239,7 @@ class Loader:
         return self.all_objects[0].min_addr
 
     @property
-    def initializers(self) -> List[int]:
+    def initializers(self) -> list[int]:
         """
         Return a list of all the initializers that should be run before execution reaches the entry point, in the order
         they should be run.
@@ -253,7 +247,7 @@ class Loader:
         return sum((x.initializers for x in self.all_objects), [])
 
     @property
-    def finalizers(self) -> List[int]:
+    def finalizers(self) -> list[int]:
         """
         Return a list of all the finalizers that should be run before the program exits.
         I'm not sure what order they should be run in.
@@ -261,7 +255,7 @@ class Loader:
         return sum((x.finalizers for x in self.all_objects), [])
 
     @property
-    def linux_loader_object(self) -> Optional[Backend]:
+    def linux_loader_object(self) -> Backend | None:
         """
         If the linux dynamic loader is present in memory, return it
         """
@@ -273,7 +267,7 @@ class Loader:
         return None
 
     @property
-    def elfcore_object(self) -> Optional[ELFCore]:
+    def elfcore_object(self) -> ELFCore | None:
         """
         If a corefile was loaded, this returns the actual core object instead of the main binary
         """
@@ -322,21 +316,21 @@ class Loader:
         return self._kernel_object
 
     @property
-    def all_elf_objects(self) -> List[MetaELF]:
+    def all_elf_objects(self) -> list[MetaELF]:
         """
         Return a list of every object that was loaded from an ELF file.
         """
         return [o for o in self.all_objects if isinstance(o, MetaELF)]
 
     @property
-    def all_pe_objects(self) -> List[PE]:
+    def all_pe_objects(self) -> list[PE]:
         """
         Return a list of every object that was loaded from an ELF file.
         """
         return [o for o in self.all_objects if isinstance(o, PE)]
 
     @property
-    def missing_dependencies(self) -> Set[str]:
+    def missing_dependencies(self) -> set[str]:
         """
         Return a set of every name that was requested as a shared object dependency but could not be loaded
         """
@@ -392,7 +386,7 @@ class Loader:
 
     # Search functions
 
-    def find_object(self, spec: Union[Backend, str], extra_objects: Iterable[Backend] = ()) -> Optional[Backend]:
+    def find_object(self, spec: Backend | str, extra_objects: Iterable[Backend] = ()) -> Backend | None:
         """
         If the given library specification has been loaded, return its object, otherwise return None.
         """
@@ -419,7 +413,7 @@ class Loader:
 
         return None
 
-    def find_object_containing(self, addr: int, membership_check: bool = True) -> Optional[Backend]:
+    def find_object_containing(self, addr: int, membership_check: bool = True) -> Backend | None:
         """
         Return the object that contains the given address, or None if the address is unmapped.
 
@@ -555,7 +549,7 @@ class Loader:
 
         return obj.sections.find_region_next_to(addr)
 
-    def find_symbol(self, thing, fuzzy=False) -> Optional[Symbol]:
+    def find_symbol(self, thing, fuzzy=False) -> Symbol | None:
         """
         Search for the symbol with the given name or address.
 
@@ -657,7 +651,7 @@ class Loader:
 
                 yield sym
 
-    def find_plt_stub_name(self, addr: int) -> Optional[str]:
+    def find_plt_stub_name(self, addr: int) -> str | None:
         """
         Return the name of the PLT stub starting at ``addr``.
         """
@@ -1261,7 +1255,7 @@ class Loader:
             for name in self._possible_idents(spec, lowercase=True):
                 yield name.lower()
 
-    def _static_backend(self, spec, ignore_hints=False) -> Optional[Type[Backend]]:
+    def _static_backend(self, spec, ignore_hints=False) -> type[Backend] | None:
         """
         Returns the correct loader for the file at `spec`.
         Returns None if it's a blob or some unknown type.
@@ -1283,9 +1277,7 @@ class Loader:
         return None
 
     @staticmethod
-    def _backend_resolver(
-        backend: Union[str, Type[Backend]], default: Optional[T] = None
-    ) -> Union[Type[Backend], Optional[T]]:
+    def _backend_resolver(backend: str | type[Backend], default: T | None = None) -> type[Backend] | T | None:
         if isinstance(backend, type) and issubclass(backend, Backend):
             return backend
         elif backend in ALL_BACKENDS:
@@ -1299,7 +1291,7 @@ class Loader:
     # Memory data loading methods
     #
 
-    def fast_memory_load_pointer(self, addr: int, size: Optional[int] = None) -> Optional[int]:
+    def fast_memory_load_pointer(self, addr: int, size: int | None = None) -> int | None:
         """
         Perform a fast memory loading of a pointer.
 

@@ -3,7 +3,6 @@
 import ctypes
 import enum
 from ctypes import Structure, c_uint16, c_uint32, c_uint64
-from typing import Optional, Tuple, Type, Union
 
 # Some type aliases
 FilePointer = int  # Offset into a raw binary file
@@ -208,7 +207,7 @@ class dyld_chained_ptr_64_rebase(HelperStruct):
     https://github.com/apple-opensource/dyld/blob/852.2/include/mach-o/fixup-chains.h#L153-L161
     """
 
-    target: Union[FilePointer, FileOffset]
+    target: FilePointer | FileOffset
     high8: int
     next: int
     bind: int
@@ -280,7 +279,7 @@ class ChainedFixupPointerOnDisk(ctypes.Union):
 
     _fields_ = [("generic64", Generic64), ("arm64e", Arm64e)]
 
-    def isBind(self, pointer_format: DyldChainedPtrFormats) -> Optional[Tuple[int, int]]:
+    def isBind(self, pointer_format: DyldChainedPtrFormats) -> tuple[int, int] | None:
         """
         Port of ChainedFixupPointerOnDisk::isBind(uint16_t pointerFormat, uint32_t& bindOrdinal, int64_t& addend)
         https://github.com/apple-opensource/dyld/blob/852.2/dyld3/MachOLoaded.cpp#L1098-L1147
@@ -315,7 +314,7 @@ class ChainedFixupPointerOnDisk(ctypes.Union):
 
     def isRebase(
         self, pointer_format: DyldChainedPtrFormats, preferredLoadAddress: MemoryPointer
-    ) -> Optional[MemoryPointer]:
+    ) -> MemoryPointer | None:
         """
         port of ChainedFixupPointerOnDisk::isRebase(
         uint16_t pointerFormat, uint64_t preferedLoadAddress, uint64_t& targetRuntimeOffset)
@@ -376,7 +375,7 @@ class DyldImportStruct(HelperStruct):
     name_offset: FileOffset
 
     @staticmethod
-    def get_struct(pointer: DyldImportFormats) -> Type["DyldImportStruct"]:
+    def get_struct(pointer: DyldImportFormats) -> type["DyldImportStruct"]:
         return {
             DyldImportFormats.DYLD_CHAINED_IMPORT: dyld_chained_import,
             DyldImportFormats.DYLD_CHAINED_IMPORT_ADDEND64: dyld_chained_import_addend64,

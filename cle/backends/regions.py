@@ -1,4 +1,5 @@
-from typing import Generic, Iterator, List, Optional, TypeVar
+from collections.abc import Iterator
+from typing import Generic, TypeVar
 
 from cle.utils import key_bisect_find, key_bisect_insort_left
 
@@ -15,16 +16,16 @@ class Regions(Generic[R]):
     We assume none of the regions overlap with others.
     """
 
-    def __init__(self, lst: Optional[List[R]] = None):
+    def __init__(self, lst: list[R] | None = None):
         self._list = lst if lst is not None else []
 
         if self._list:
-            self._sorted_list: List[R] = self._make_sorted(self._list)
+            self._sorted_list: list[R] = self._make_sorted(self._list)
         else:
             self._sorted_list = []
 
     @property
-    def raw_list(self) -> List[R]:
+    def raw_list(self) -> list[R]:
         """
         Get the internal list. Any change to it is not tracked, and therefore _sorted_list will not be updated.
         Therefore you probably does not want to modify the list.
@@ -36,7 +37,7 @@ class Regions(Generic[R]):
         return self._list
 
     @property
-    def max_addr(self) -> Optional[int]:
+    def max_addr(self) -> int | None:
         """
         Get the highest address of all regions.
 
@@ -99,7 +100,7 @@ class Regions(Generic[R]):
             self._sorted_list.remove(region)
         self._list.remove(region)
 
-    def find_region_containing(self, addr: int) -> Optional[R]:
+    def find_region_containing(self, addr: int) -> R | None:
         """
         Find the region that contains a specific address. Returns None if none of the regions covers the address.
 
@@ -117,7 +118,7 @@ class Regions(Generic[R]):
             return region
         return None
 
-    def find_region_next_to(self, addr: int) -> Optional[R]:
+    def find_region_next_to(self, addr: int) -> R | None:
         """
         Find the next region after the given address.
 
@@ -148,7 +149,7 @@ class Regions(Generic[R]):
         return mapped
 
     @staticmethod
-    def _make_sorted(lst: List[R]) -> List[R]:
+    def _make_sorted(lst: list[R]) -> list[R]:
         """
         Return a sorted list of regions that are mapped into memory.
 

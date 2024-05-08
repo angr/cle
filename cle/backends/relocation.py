@@ -1,5 +1,5 @@
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from cle.address_translator import AT
 
@@ -28,12 +28,12 @@ class Relocation:
     :ivar resolved:         Whether the application of this relocation was successful
     """
 
-    def __init__(self, owner: "Backend", symbol: Optional[Symbol], relative_addr: int):
+    def __init__(self, owner: "Backend", symbol: Symbol | None, relative_addr: int):
         self.owner = owner
         self.arch = owner.arch
         self.symbol = symbol
         self.relative_addr = relative_addr
-        self.resolvedby: Optional[Symbol] = None
+        self.resolvedby: Symbol | None = None
         self.resolved: bool = False
         self.resolvewith = None
         if self.symbol is not None and self.symbol.is_import:

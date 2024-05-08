@@ -6,7 +6,6 @@ import ctypes
 import logging
 import struct
 from enum import IntEnum, IntFlag
-from typing import Dict, List, Optional, Type
 
 import archinfo
 
@@ -146,15 +145,15 @@ class CoffParser:
 
     data: bytes
     header: CoffFileHeader
-    sections: List[CoffSectionTableEntry]
-    relocations: List[List[CoffRelocationTableEntry]]
-    symbols: List[CoffSymbolTableEntry]
+    sections: list[CoffSectionTableEntry]
+    relocations: list[list[CoffRelocationTableEntry]]
+    symbols: list[CoffSymbolTableEntry]
 
     # Note: Symbols are uniquely identified by their index. It is possible for multiple symbols to have the same name so
     # in idx_to_symbol_name and symbol_name_to_idx, numeric suffixes are appended when necessary. To get the true name
     # of a symbol at index `symbol_idx`, call get_symbol_name(symbol_idx, true_name=True).
-    idx_to_symbol_name: Dict[int, str]
-    symbol_name_to_idx: Dict[str, int]
+    idx_to_symbol_name: dict[int, str]
+    symbol_name_to_idx: dict[str, int]
 
     def __init__(self, data: bytes):
         if data.startswith(b"\x00\x00\xff\xff"):
@@ -223,7 +222,7 @@ class CoffParser:
             self.relocations.append(relocs)
 
     @staticmethod
-    def _decode_cstring(data: bytes, offset: int, encoding: Optional[str] = None) -> str:
+    def _decode_cstring(data: bytes, offset: int, encoding: str | None = None) -> str:
         name = bytearray()
         while True:
             x = data[offset]
@@ -378,7 +377,7 @@ class CoffRelocationSECREL(CoffRelocation):
         return struct.pack("<I", offset_to_symbol)
 
 
-RELOC_CLASSES: Dict[IntEnum, Dict[IntEnum, Type[Relocation]]] = {
+RELOC_CLASSES: dict[IntEnum, dict[IntEnum, type[Relocation]]] = {
     IMAGE_FILE_MACHINE.I386: {
         IMAGE_REL_I386.REL32: CoffRelocationREL32,
         IMAGE_REL_I386.DIR32: CoffRelocationDIR32,
@@ -491,7 +490,7 @@ class Coff(Backend):
         stream.seek(0)
         return int.from_bytes(identstring, "little") in (IMAGE_FILE_MACHINE.I386, IMAGE_FILE_MACHINE.AMD64)
 
-    def get_symbol(self, name: str, produce_extern_symbols: bool = False) -> Optional[Symbol]:
+    def get_symbol(self, name: str, produce_extern_symbols: bool = False) -> Symbol | None:
         if name not in self._coff.symbol_name_to_idx:
             return None
 

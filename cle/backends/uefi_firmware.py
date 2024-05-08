@@ -3,7 +3,7 @@ import logging
 import mmap
 from dataclasses import dataclass
 from functools import singledispatchmethod
-from typing import Dict, Optional, Type
+from typing import Type
 from uuid import UUID
 
 import archinfo
@@ -71,9 +71,9 @@ class UefiFirmware(Backend):
         if self.loader._main_object is None:
             self.loader._main_object = self
 
-        self._drivers: Dict[UUID, "UefiModuleMixin"] = {}
-        self._drivers_pending: Dict[UUID, "UefiModulePending"] = {}
-        self._current_file: Optional[UUID] = None
+        self._drivers: dict[UUID, "UefiModuleMixin"] = {}
+        self._drivers_pending: dict[UUID, "UefiModulePending"] = {}
+        self._current_file: UUID | None = None
 
         self.set_arch(archinfo.arch_from_id("x86_64"))  # TODO: ???
 
@@ -148,9 +148,9 @@ class UefiModulePending:
     A worklist entry for the UEFI firmware loader.
     """
 
-    name: Optional[str] = None
-    pe_image: Optional[bytes] = None
-    te_image: Optional[bytes] = None
+    name: str | None = None
+    pe_image: bytes | None = None
+    te_image: bytes | None = None
     # version
     # dependencies
 
@@ -175,7 +175,7 @@ class UefiModuleMixin(Backend):
     A mixin to make other kinds of backends load as UEFI modules.
     """
 
-    def __init__(self, *args, guid: UUID, name: Optional[str], **kwargs):
+    def __init__(self, *args, guid: UUID, name: str | None, **kwargs):
         super().__init__(*args, **kwargs)
         self.guid = guid
         self.user_interface_name = name

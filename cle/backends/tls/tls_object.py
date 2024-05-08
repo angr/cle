@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from cle.backends.backend import Backend
 from cle.backends.relocation import Relocation
@@ -33,7 +32,7 @@ class ThreadManager:
         return True
 
     @staticmethod
-    def initialization_image(obj) -> Optional[bytes]:
+    def initialization_image(obj) -> bytes | None:
         if obj.tls_data_start < 0:
             log.warning("The provided object has a negative tls_data_start. Skip TLS loading.")
             return None

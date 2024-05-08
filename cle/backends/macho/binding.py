@@ -3,7 +3,8 @@
 
 import logging
 import struct
-from typing import TYPE_CHECKING, Callable, Dict, Optional, Tuple
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from cle.address_translator import AT
 from cle.backends.relocation import Relocation
@@ -45,7 +46,7 @@ else:
     chh = ord
 
 
-def read_uleb(blob: bytes, offset: int) -> Tuple[int, int]:
+def read_uleb(blob: bytes, offset: int) -> tuple[int, int]:
     """Reads a number encoded as uleb128"""
     result = 0
     shift = 0
@@ -215,7 +216,7 @@ class BindingHelper:
             return
 
         # State variables
-        reloc_type: Optional[RebaseType] = None
+        reloc_type: RebaseType | None = None
         done = False
         segment = None
         address = None
@@ -274,7 +275,7 @@ class BindingHelper:
                 raise CLEInvalidBinaryError("Invalid opcode for current binding: %#x" % opcode)
 
     @staticmethod
-    def read_uleb(blob, offset) -> Tuple[int, int]:
+    def read_uleb(blob, offset) -> tuple[int, int]:
         """
         little helper to read ulebs, that also returns the new index
         :param blob:
@@ -303,7 +304,7 @@ class BindingHelper:
         self,
         blob,
         init_state: BindingState,
-        opcode_dict: Dict[int, Callable[[BindingState, "MachO", int, bytes], BindingState]],
+        opcode_dict: dict[int, Callable[[BindingState, "MachO", int, bytes], BindingState]],
     ):
         """
         Does the actual binding work. Represents a generic framework for interpreting binding opcodes

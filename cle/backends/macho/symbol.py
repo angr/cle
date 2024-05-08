@@ -1,7 +1,7 @@
 # This file is part of Mach-O Loader for CLE.
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/) and updated in September 2019.
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from cle import AT
 from cle.backends.backend import Backend
@@ -55,11 +55,11 @@ class AbstractMachOSymbol(Symbol):
         return False
 
     @property
-    def library_name(self) -> Optional[bytes]:
+    def library_name(self) -> bytes | None:
         return None
 
     @property
-    def library_base_name(self) -> Optional[str]:
+    def library_base_name(self) -> str | None:
         full_name = self.library_name
         if full_name is None:
             return None
@@ -134,7 +134,7 @@ class SymbolTableSymbol(AbstractMachOSymbol):
         self.is_export = self.name in self.owner.exports_by_name
 
     @property
-    def library_name(self) -> Optional[bytes]:
+    def library_name(self) -> bytes | None:
         if self.is_import:
             if LIBRARY_ORDINAL_DYN_LOOKUP == self.library_ordinal:
                 log.warning("LIBRARY_ORDINAL_DYN_LOOKUP found, cannot handle")

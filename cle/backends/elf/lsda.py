@@ -5,8 +5,6 @@ References:
     - https://www.airs.com/blog/archives/464
 """
 
-from typing import List  # pylint:disable=unused-import
-
 from elftools.common.utils import struct_parse
 from elftools.dwarf.enums import DW_EH_encoding_flags
 from elftools.dwarf.structs import DWARFStructs, Struct
@@ -88,7 +86,7 @@ class LSDAExceptionTable:
         self.stream.seek(offset)
         header = self._parse_lsda_header()
 
-        csrs: List[CallSiteEntry] = []
+        csrs: list[CallSiteEntry] = []
         start_offset = self.stream.tell()
         while self.stream.tell() - start_offset < header.call_site_table_len:
             csr = self._parse_call_site_entry(header.call_site_encoding)

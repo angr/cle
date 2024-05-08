@@ -8,7 +8,7 @@ import typing
 from collections import defaultdict
 from io import BufferedReader, BytesIO
 from os import SEEK_CUR, SEEK_SET
-from typing import DefaultDict, Dict, List, Optional, Tuple, Union
+from typing import DefaultDict, Union
 
 import archinfo
 from sortedcontainers import SortedKeyList
@@ -47,7 +47,7 @@ class SymbolList(SortedKeyList):
     without having to iterate over the whole list
     """
 
-    _symbol_cache: DefaultDict[Tuple[str, int], List[AbstractMachOSymbol]]
+    _symbol_cache: DefaultDict[tuple[str, int], list[AbstractMachOSymbol]]
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -62,7 +62,7 @@ class SymbolList(SortedKeyList):
             )
         ].append(value)
 
-    def get_by_name_and_ordinal(self, name: str, ordinal: int, include_stab=False) -> List[AbstractMachOSymbol]:
+    def get_by_name_and_ordinal(self, name: str, ordinal: int, include_stab=False) -> list[AbstractMachOSymbol]:
         if include_stab:
             return self._symbol_cache[(name, ordinal)]
         else:
@@ -116,28 +116,28 @@ class MachO(Backend):
         self.unixthread_pc = None
         self.os = "macos"
         self.lc_data_in_code = []  # data from LC_DATA_IN_CODE (if encountered). Format: (offset,length,kind)
-        self.lc_function_starts: Optional[List[int]] = None  # data from LC_FUNCTION_STARTS (if encountered)
+        self.lc_function_starts: list[int] | None = None  # data from LC_FUNCTION_STARTS (if encountered)
         self.mod_init_func_pointers = []  # may be TUMB interworking
         self.mod_term_func_pointers = []  # may be THUMB interworking
-        self.export_blob: Optional[bytes] = None  # exports trie
-        self.binding_blob: Optional[bytes] = None  # binding information
-        self.lazy_binding_blob: Optional[bytes] = None  # lazy binding information
-        self.weak_binding_blob: Optional[bytes] = None  # weak binidng information
-        self.rebase_blob: Optional[bytes] = None  # rebasing information
+        self.export_blob: bytes | None = None  # exports trie
+        self.binding_blob: bytes | None = None  # binding information
+        self.lazy_binding_blob: bytes | None = None  # lazy binding information
+        self.weak_binding_blob: bytes | None = None  # weak binidng information
+        self.rebase_blob: bytes | None = None  # rebasing information
         self.symtab_offset = None  # offset to the symtab
         self.symtab_nsyms = None  # number of symbols in the symtab
         self.binding_done = False  # if true binding was already done and do_bind will be a no-op
-        self.strtab: Optional[bytes] = None
-        self._indexed_strtab: Optional[Dict[int, bytes]] = None
-        self._dyld_chained_fixups_offset: Optional[int] = None
-        self._dyld_imports: List[AbstractMachOSymbol] = []
+        self.strtab: bytes | None = None
+        self._indexed_strtab: dict[int, bytes] | None = None
+        self._dyld_chained_fixups_offset: int | None = None
+        self._dyld_imports: list[AbstractMachOSymbol] = []
 
         # For some analysis the insertion order of the symbols is relevant and needs to be kept.
         # This is has to be separate from self.symbols because the latter is sorted by address
-        self._ordered_symbols: List[AbstractMachOSymbol] = []
+        self._ordered_symbols: list[AbstractMachOSymbol] = []
 
         # The minimum version encoded by the LC_BUILD_VERSION command
-        self._minimum_version: Optional[Tuple[int, int, int]] = None
+        self._minimum_version: tuple[int, int, int] | None = None
 
         # Begin parsing the file
         try:
@@ -370,7 +370,7 @@ class MachO(Backend):
                 target.append(addr)
 
         for seg in self.segments:
-            seg: Union[MachOSection, MachOSegment]
+            seg: MachOSection | MachOSegment
             for sec in seg.sections:
                 if sec.type == 0x9:  # S_MOD_INIT_FUNC_POINTERS
                     log.debug("Section %s contains init pointers", sec.sectname)
@@ -383,7 +383,7 @@ class MachO(Backend):
 
     def find_segment_by_name(self, name):
         for s in self.segments:
-            s: Union[MachOSection, MachOSegment]
+            s: MachOSection | MachOSegment
             if s.segname == name:
                 return s
         return None
@@ -408,14 +408,14 @@ class MachO(Backend):
         fp.seek(offset)
         return fp.read(size)
 
-    def _unpack_with_byteorder(self, fmt, data) -> Tuple[typing.Any, ...]:
+    def _unpack_with_byteorder(self, fmt, data) -> tuple[typing.Any, ...]:
         """
         Appends self.struct_byteorder before fmt to ensure usage of correct byteorder
         :return: struct.unpack(self.struct_byteorder+fmt,input)
         """
         return struct.unpack(self.struct_byteorder + fmt, data)
 
-    def _unpack(self, fmt: str, fp: BufferedReader, offset: FilePointer, size: int) -> Tuple[typing.Any, ...]:
+    def _unpack(self, fmt: str, fp: BufferedReader, offset: FilePointer, size: int) -> tuple[typing.Any, ...]:
         """Convenience"""
         return self._unpack_with_byteorder(fmt, self._read(fp, offset, size))
 
@@ -672,7 +672,7 @@ class MachO(Backend):
         """
         (_, _, roff, rsize, boff, bsize, wboff, wbsize, lboff, lbsize, eoff, esize) = self._unpack("12I", f, offset, 48)
 
-        def blob_or_None(f: BufferedReader, off: int, size: int) -> Optional[bytes]:  # helper
+        def blob_or_None(f: BufferedReader, off: int, size: int) -> bytes | None:  # helper
             return self._read(f, off, size) if off != 0 and size != 0 else None
 
         # Extract data blobs
@@ -696,7 +696,7 @@ class MachO(Backend):
         self.strtab = self._read(f, stroff, strsize)
 
         # Create Dictionary of offsets to strings for quick lookups e.g. during later symbol creation
-        _indexed_strtab: Dict[int, bytes] = {}
+        _indexed_strtab: dict[int, bytes] = {}
         idx = 0
         for s in self.strtab.split(b"\x00"):
             _indexed_strtab[idx] = s
@@ -744,7 +744,7 @@ class MachO(Backend):
             end += 1
         return self.strtab[start:]
 
-    def parse_lc_str(self, f, start, limit: Optional[int] = None):
+    def parse_lc_str(self, f, start, limit: int | None = None):
         """Parses a lc_str data structure"""
         tmp = self._unpack("c", f, start, 1)[0]
         s = b""
@@ -863,7 +863,7 @@ class MachO(Backend):
 
     S = typing.TypeVar("S", bound=Union[ctypes.Structure, ctypes.Union])
 
-    def _get_struct(self, struct_type: typing.Type[S], offset: int) -> S:
+    def _get_struct(self, struct_type: type[S], offset: int) -> S:
         data = self._read(self._binary_stream, offset, ctypes.sizeof(struct_type))
         return struct_type.from_buffer_copy(data)
 
@@ -944,7 +944,7 @@ class MachO(Backend):
         # The struct isn't straightforward to parse with ctypes, so we do it manually
         seg_count = self._unpack("I", self._binary_stream, segs_addr, 4)[0]
 
-        segs: List[FileOffset] = []
+        segs: list[FileOffset] = []
         for i in range(seg_count):
             s = self._unpack("I", self._binary_stream, (i * 4) + segs_addr + 4, 4)[0]
             segs.append(s)
@@ -1061,7 +1061,7 @@ class MachO(Backend):
         :return: MachOSegment or None
         """
         for seg in self.segments:
-            seg: Union[MachOSection, MachOSegment]
+            seg: MachOSection | MachOSegment
             if seg.segname == name:
                 return seg
 

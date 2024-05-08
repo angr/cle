@@ -1,5 +1,3 @@
-from typing import List
-
 from .variable import Variable
 
 
@@ -23,7 +21,7 @@ class LexicalBlock:
     def __init__(self, low_pc, high_pc) -> None:
         self.low_pc = low_pc
         self.high_pc = high_pc
-        self.child_blocks: List[LexicalBlock] = []
+        self.child_blocks: list[LexicalBlock] = []
 
 
 class Subprogram(LexicalBlock):
@@ -46,4 +44,4 @@ class Subprogram(LexicalBlock):
         self.subprogram = self
         super().__init__(low_pc, high_pc)
         self.name = name
-        self.local_variables: List[Variable] = []
+        self.local_variables: list[Variable] = []

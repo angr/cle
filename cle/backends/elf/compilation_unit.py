@@ -1,5 +1,4 @@
 import os.path
-from typing import Dict, List
 
 from cle.address_translator import AT
 
@@ -20,8 +19,8 @@ class CompilationUnit:
         self.low_pc = low_pc
         self.high_pc = high_pc
         self.language = language
-        self.functions: Dict[int, Subprogram] = {}
-        self.global_variables: List[Variable] = []
+        self.functions: dict[int, Subprogram] = {}
+        self.global_variables: list[Variable] = []
         self._elf_object = elf_object
 
     @property
