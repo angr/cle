@@ -6,6 +6,7 @@ from .generic import (
     GenericCopyReloc,
     GenericIRelativeReloc,
     GenericJumpslotReloc,
+    GenericPCRelativeAddendReloc,
     GenericRelativeReloc,
     GenericTLSDescriptorReloc,
     GenericTLSDoffsetReloc,
@@ -59,6 +60,37 @@ class R_AARCH64_TLSDESC(GenericTLSDescriptorReloc):
     RESOLVER_ADDR = 0xFFFF_FFFF_FFFF_FE00
 
 
+class R_AARCH64_PREL32(GenericPCRelativeAddendReloc):
+    """
+    Relocation Type: 261
+    Calculation: (S + A - P)
+    """
+
+
+class R_AARCH64_JUMP26(ELFReloc):
+    """
+    Relocation Type: 282
+    Calculation: (S + A - P)
+    """
+
+    @property
+    def value(self):
+        A = self.addend
+        S = self.resolvedby.rebased_addr
+        P = self.rebased_addr
+        return S + A - P
+
+    def relocate(self):
+        if not self.resolved:
+            return False
+        if not ((-(2**27)) <= self.value and self.value < (2**27)):
+            log.warning("relocation out of range")
+        instr = self.owner.memory.unpack_word(self.relative_addr, size=4) & 0b11111100000000000000000000000000
+        imm = self.value >> 2 & 0b0000_0011_1111_1111_1111_1111_1111_1111  # [27:2] of the value
+        self.owner.memory.pack_word(self.relative_addr, instr | imm, size=4)
+        return True
+
+
 class R_AARCH64_CALL26(ELFReloc):
     """
     Relocation Type: 283
@@ -78,7 +110,7 @@ class R_AARCH64_CALL26(ELFReloc):
         if not ((-(2**27)) <= self.value and self.value < (2**27)):
             log.warning("relocation out of range")
         instr = self.owner.memory.unpack_word(self.relative_addr, size=4) & 0b11111100000000000000000000000000
-        imm = self.value >> 2 & 0x3FFFFFF
+        imm = self.value >> 2 & 0b0000_0011_1111_1111_1111_1111_1111_1111  # [27:2] of the value
         self.owner.memory.pack_word(self.relative_addr, instr | imm, size=4)
         return True
 
