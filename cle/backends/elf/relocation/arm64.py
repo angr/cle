@@ -161,6 +161,7 @@ class R_AARCH64_ADD_ABS_LO12_NC(ELFReloc):
         self.owner.memory.pack_word(self.relative_addr, instr | (imm << 10), size=4)
         return True
 
+
 class R_AARCH64_LDST8_ABS_LO12_NC(ELFReloc):
     """
     Relocation Type: 278
@@ -180,7 +181,7 @@ class R_AARCH64_LDST8_ABS_LO12_NC(ELFReloc):
         imm = self.value & 0b1111_1111_1111
         self.owner.memory.pack_word(self.relative_addr, instr | (imm << 10), size=4)
         return True
-    
+
 
 class R_AARCH64_LDST16_ABS_LO12_NC(ELFReloc):
     """
@@ -201,7 +202,6 @@ class R_AARCH64_LDST16_ABS_LO12_NC(ELFReloc):
         imm = (self.value & 0b1111_1111_1111) >> 1
         self.owner.memory.pack_word(self.relative_addr, instr | (imm << 10), size=4)
         return True
-    
 
 
 class R_AARCH64_LDST32_ABS_LO12_NC(ELFReloc):
@@ -223,7 +223,7 @@ class R_AARCH64_LDST32_ABS_LO12_NC(ELFReloc):
         imm = (self.value & 0b1111_1111_1111) >> 2
         self.owner.memory.pack_word(self.relative_addr, instr | (imm << 10), size=4)
         return True
-    
+
 
 class R_AARCH64_LDST64_ABS_LO12_NC(ELFReloc):
     """
@@ -244,7 +244,7 @@ class R_AARCH64_LDST64_ABS_LO12_NC(ELFReloc):
         imm = (self.value & 0b1111_1111_1111) >> 3
         self.owner.memory.pack_word(self.relative_addr, instr | (imm << 10), size=4)
         return True
-    
+
 
 class R_AARCH64_LDST128_ABS_LO12_NC(ELFReloc):
     """
