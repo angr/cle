@@ -278,8 +278,11 @@ class R_PPC_GLOB_DAT(GenericJumpslotReloc):
 class R_PPC_JMP_SLOT(GenericJumpslotReloc):
     def relocate(self):
         if "DT_PPC_GOT" not in self.owner._dynamic and "DT_LOPROC" not in self.owner._dynamic:
-            log.error("This binary is relocated incorrectly. See https://github.com/angr/cle/issues/142 for details.")
-        super().relocate()
+            # old PowerPC ABI - we overwrite this location with a jump (b, 0x12. .. .. .1) to the actual target
+            val = (0x12 << 26) | ((self.value - self.rebased_addr) & 0x3FFFFFE)
+            self.owner.memory.pack_word(self.dest_addr, val)
+        else:
+            super().relocate()
 
 
 class R_PPC_RELATIVE(GenericRelativeReloc):
