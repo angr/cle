@@ -16,7 +16,7 @@ from .generic import (
 
 log = logging.getLogger(name=__name__)
 
-# http://infocenter.arm.com/help/topic/com.arm.doc.ihi0056b/IHI0056B_aaelf64.pdf
+# https://github.com/ARM-software/abi-aa/blob/main/aaelf64/aaelf64.rst
 arch = "AARCH64"
 
 
@@ -143,7 +143,7 @@ class R_AARCH64_ADR_PREL_PG_HI21(ELFReloc):
 
 class R_AARCH64_ADD_ABS_LO12_NC(ELFReloc):
     """
-    Relocation Type: 275
+    Relocation Type: 277
     Calculation: (S + A)
     """
 
@@ -157,6 +157,111 @@ class R_AARCH64_ADD_ABS_LO12_NC(ELFReloc):
         if not self.resolved:
             return False
         instr = self.owner.memory.unpack_word(self.relative_addr, size=4) & 0b11111111110000000000001111111111
-        imm = self.value & 0xFFF
+        imm = self.value & 0b1111_1111_1111
+        self.owner.memory.pack_word(self.relative_addr, instr | (imm << 10), size=4)
+        return True
+
+
+class R_AARCH64_LDST8_ABS_LO12_NC(ELFReloc):
+    """
+    Relocation Type: 278
+    Calculation: (S + A)
+    """
+
+    @property
+    def value(self):
+        A = self.addend
+        S = self.resolvedby.rebased_addr
+        return S + A
+
+    def relocate(self):
+        if not self.resolved:
+            return False
+        instr = self.owner.memory.unpack_word(self.relative_addr, size=4) & 0b11111111110000000000001111111111
+        imm = self.value & 0b1111_1111_1111
+        self.owner.memory.pack_word(self.relative_addr, instr | (imm << 10), size=4)
+        return True
+
+
+class R_AARCH64_LDST16_ABS_LO12_NC(ELFReloc):
+    """
+    Relocation Type: 284
+    Calculation: (S + A)
+    """
+
+    @property
+    def value(self):
+        A = self.addend
+        S = self.resolvedby.rebased_addr
+        return S + A
+
+    def relocate(self):
+        if not self.resolved:
+            return False
+        instr = self.owner.memory.unpack_word(self.relative_addr, size=4) & 0b11111111110000000000001111111111
+        imm = (self.value & 0b1111_1111_1111) >> 1
+        self.owner.memory.pack_word(self.relative_addr, instr | (imm << 10), size=4)
+        return True
+
+
+class R_AARCH64_LDST32_ABS_LO12_NC(ELFReloc):
+    """
+    Relocation Type: 285
+    Calculation: (S + A)
+    """
+
+    @property
+    def value(self):
+        A = self.addend
+        S = self.resolvedby.rebased_addr
+        return S + A
+
+    def relocate(self):
+        if not self.resolved:
+            return False
+        instr = self.owner.memory.unpack_word(self.relative_addr, size=4) & 0b11111111110000000000001111111111
+        imm = (self.value & 0b1111_1111_1111) >> 2
+        self.owner.memory.pack_word(self.relative_addr, instr | (imm << 10), size=4)
+        return True
+
+
+class R_AARCH64_LDST64_ABS_LO12_NC(ELFReloc):
+    """
+    Relocation Type: 286
+    Calculation: (S + A)
+    """
+
+    @property
+    def value(self):
+        A = self.addend
+        S = self.resolvedby.rebased_addr
+        return S + A
+
+    def relocate(self):
+        if not self.resolved:
+            return False
+        instr = self.owner.memory.unpack_word(self.relative_addr, size=4) & 0b11111111110000000000001111111111
+        imm = (self.value & 0b1111_1111_1111) >> 3
+        self.owner.memory.pack_word(self.relative_addr, instr | (imm << 10), size=4)
+        return True
+
+
+class R_AARCH64_LDST128_ABS_LO12_NC(ELFReloc):
+    """
+    Relocation Type: 299
+    Calculation: (S + A)
+    """
+
+    @property
+    def value(self):
+        A = self.addend
+        S = self.resolvedby.rebased_addr
+        return S + A
+
+    def relocate(self):
+        if not self.resolved:
+            return False
+        instr = self.owner.memory.unpack_word(self.relative_addr, size=4) & 0b11111111110000000000001111111111
+        imm = (self.value & 0b1111_1111_1111) >> 4
         self.owner.memory.pack_word(self.relative_addr, instr | (imm << 10), size=4)
         return True
