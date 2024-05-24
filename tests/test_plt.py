@@ -24,7 +24,14 @@ class TestCheckPltEntries(unittest.TestCase):
             self.assertEqual(diffs, [4] * len(diffs))
             return
 
-        # all our mips samples have no PLT, just resolver stubs
+        if filename == os.path.join("mips", "checkbyte"):
+            self.assertEqual(
+                ld.main_object.plt,
+                {"read": 0x4008c0, "puts": 0x4008d0, "__libc_start_main": 0x4008e0},
+            )
+            return
+
+        # remaining mips samples have no PLT, just resolver stubs
         if filename.startswith("mips"):
             self.assertEqual(ld.main_object.plt, {})
             return
