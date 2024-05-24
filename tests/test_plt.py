@@ -27,7 +27,7 @@ class TestCheckPltEntries(unittest.TestCase):
         if filename == os.path.join("mips", "checkbyte"):
             self.assertEqual(
                 ld.main_object.plt,
-                {"read": 0x4008c0, "puts": 0x4008d0, "__libc_start_main": 0x4008e0},
+                {"read": 0x4008C0, "puts": 0x4008D0, "__libc_start_main": 0x4008E0},
             )
             return
 
