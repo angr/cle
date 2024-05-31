@@ -24,7 +24,7 @@ class CARTFile(Backend):
 
     is_default = True
 
-    def __init__(self, binary, binary_stream, *args, **kwargs):
+    def __init__(self, binary, binary_stream, *args, arc4_key=None, **kwargs):
         if cart is None:
             raise CLEError(
                 "Please install the cart Python package before loading a CART file. You may run " "`pip install cart`."
@@ -36,21 +36,15 @@ class CARTFile(Backend):
         # work around this by setting ourself here:
         ostream = BytesIO()
         _ = cart.unpack_stream(
-            binary_stream, ostream, arc4_key_override=b"\x02\xf53asdf\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            binary_stream,
+            ostream,
+            arc4_key_override=arc4_key,
         )
         if self.loader._main_object is None:
             self.loader._main_object = self
         child = self.loader._load_object_isolated(ostream)
         self.child_objects.append(child)
-        child.binary = child.binary_basename = "testing"
-        child.parent_object = self
-        self._arch = child.arch
-        self.os = child.os
-
-        # self.pic = child.pic
         self.has_memory = False
-
-        self.supports_nx = child.supports_nx
 
         if self.loader._main_object is self:
             # clean up the main_object after use
