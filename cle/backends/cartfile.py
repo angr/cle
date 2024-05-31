@@ -53,9 +53,13 @@ class CARTFile(Backend):
         self.force_main_object = child  # the loader will pick it up
 
     @classmethod
-    def is_compatible(cls, stream):
+    def is_compatible(cls, stream) -> bool:
         stream.seek(0)
-        (magic, version) = struct.unpack("4sh", stream.read(6))
+        header = stream.read(6)
+        stream.seek(0)
+        if len(header) != 6:
+            return False
+        (magic, version) = struct.unpack("4sh", header)
         return magic == b"CART" and version == 1
 
 
