@@ -188,6 +188,9 @@ class Backend:
         # attributes to enable SimProcedure guessing
         self.guess_simprocs = False
         self.guess_simprocs_hint = None
+        # if we want one of our children to be the main object of the loader, we set this field to the child, and the
+        # loader will pick it up
+        self.force_main_object = None
 
         # checksums
         self.md5 = None
