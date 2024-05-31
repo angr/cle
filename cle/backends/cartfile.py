@@ -27,7 +27,7 @@ class CARTFile(Backend):
     def __init__(self, binary, binary_stream, *args, arc4_key=None, **kwargs):
         if cart is None:
             raise CLEError(
-                "Please install the cart Python package before loading a CART file. You may run " "`pip install cart`."
+                "Please install the cart Python package before loading a CART file. You may run `pip install cart`."
             )
         super().__init__(binary, binary_stream, *args, **kwargs)
 
