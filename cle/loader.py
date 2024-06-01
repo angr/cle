@@ -780,8 +780,13 @@ class Loader:
 
             if self._main_object is None:
                 # this is technically the first place we can start to initialize things based on platform
-                self._main_object = obj
-                self._memory = Clemory(obj.arch, root=True)
+                if obj.force_main_object is not None:
+                    self._main_object = obj.force_main_object
+                    # just to be safe, we clear obj.force_main_object here
+                    obj.force_main_object = None
+                else:
+                    self._main_object = obj
+                self._memory = Clemory(self._main_object.arch, root=True)
 
                 chk_obj = (
                     self.main_object
@@ -789,15 +794,15 @@ class Loader:
                     else self.main_object.child_objects[0]
                 )
                 if isinstance(chk_obj, ELFCore):
-                    self._tls = ELFCoreThreadManager(self, obj.arch)
-                elif isinstance(obj, Minidump):
-                    self._tls = MinidumpThreadManager(self, obj.arch)
+                    self._tls = ELFCoreThreadManager(self, self._main_object.arch)
+                elif isinstance(self._main_object, Minidump):
+                    self._tls = MinidumpThreadManager(self, self._main_object.arch)
                 elif isinstance(chk_obj, MetaELF):
-                    self._tls = ELFThreadManager(self, obj.arch)
+                    self._tls = ELFThreadManager(self, self._main_object.arch)
                 elif isinstance(chk_obj, PE):
-                    self._tls = PEThreadManager(self, obj.arch)
+                    self._tls = PEThreadManager(self, self._main_object.arch)
                 else:
-                    self._tls = ThreadManager(self, obj.arch)
+                    self._tls = ThreadManager(self, self._main_object.arch)
 
             elif is_preloading:
                 self.preload_libs.append(obj)

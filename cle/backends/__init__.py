@@ -1,5 +1,6 @@
 from .backend import ALL_BACKENDS, Backend, ExceptionHandling, FunctionHint, FunctionHintSource, register_backend
 from .blob import Blob
+from .cartfile import CARTFile
 from .cgc import CGC, BackedCGC
 from .coff import Coff
 from .elf import ELF, ELFCore, MetaELF
@@ -57,4 +58,5 @@ __all__ = [
     "SymbolSubType",
     "UefiFirmware",
     "TE",
+    "CARTFile",
 ]
