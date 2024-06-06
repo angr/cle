@@ -34,6 +34,60 @@ def test_cart_elf():
     assert ld.main_object.os == "UNIX - System V"
 
 
+def test_cart_elf_with_load_options():
+    cartfile = os.path.join(
+        TEST_BASE,
+        "tests",
+        "x86_64",
+        "1after909.cart",
+    )
+    unpacked_name = cle.backends.CARTFile.get_unpacked_name(cartfile)
+    ld = cle.Loader(
+        cartfile,
+        auto_load_libs=False,
+        main_opts={
+            "arc4_key": b"\x02\xf53asdf\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+        },
+        lib_opts={
+            unpacked_name: {
+                "base_addr": 0x500000,
+            }
+        },
+    )
+    assert isinstance(ld.main_object, cle.ELF)
+    assert ld.main_object.mapped_base == 0x500000
+
+
+def test_cart_blob_with_load_options():
+    cartfile = os.path.join(
+        TEST_BASE,
+        "tests",
+        "x86_64",
+        "1after909.cart",
+    )
+    unpacked_name = cle.backends.CARTFile.get_unpacked_name(cartfile)
+    ld = cle.Loader(
+        cartfile,
+        auto_load_libs=False,
+        main_opts={
+            "arc4_key": b"\x02\xf53asdf\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+        },
+        lib_opts={
+            unpacked_name: {
+                "backend": cle.backends.Blob,
+                "arch": "amd64",
+                "entry_point": 0x600000,
+                "base_addr": 0x500000,
+            }
+        },
+    )
+    assert isinstance(ld.main_object, cle.Blob)
+    assert ld.main_object.mapped_base == 0x500000
+    assert ld.main_object.entry == 0x600000
+
+
 if __name__ == "__main__":
     test_cart_pe()
     test_cart_elf()
+    test_cart_elf_with_load_options()
+    test_cart_blob_with_load_options()

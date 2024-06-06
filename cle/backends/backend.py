@@ -124,6 +124,7 @@ class Backend:
     """
 
     is_default = False
+    is_outer = False
 
     def __init__(
         self,
@@ -151,6 +152,8 @@ class Backend:
             self.binary_basename = os.path.basename(self._binary_stream.name)
         else:
             self.binary_basename = str(self._binary_stream)
+        # if the backend unpacks another file, this field will hold the name of the file
+        self.unpacked_name: str | None = None
 
         for k in list(kwargs.keys()):
             if k == "custom_entry_point":

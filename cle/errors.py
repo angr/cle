@@ -63,3 +63,19 @@ class CLEMemoryError(CLEError):
     """
 
     pass
+
+
+class CLEInvalidFileFormatError(CLEError):
+    """
+    Error raised when loading a file with an invalid format.
+    """
+
+
+class CLEInvalidEncryptionError(CLEError):
+    """
+    Error raised when loading an encrypted file (e.g., CART) with an incorrect encryption key.
+    """
+
+    def __init__(self, backend=None, enckey_argname=None):
+        self.backend = backend
+        self.enckey_argname = enckey_argname

@@ -19,6 +19,7 @@ class StaticArchive(Backend):
         return stream.read(8) == b"!<arch>\n"
 
     is_default = True
+    is_outer = True
 
     def __init__(self, *args, **kwargs):
         if arpy is None:
