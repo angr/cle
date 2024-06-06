@@ -1,5 +1,5 @@
-import logging
 import itertools
+import logging
 import os
 import platform
 import sys

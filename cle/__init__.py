@@ -64,11 +64,11 @@ from .errors import (
     CLEError,
     CLEFileNotFoundError,
     CLEInvalidBinaryError,
+    CLEInvalidEncryptionError,
+    CLEInvalidFileFormatError,
     CLEMemoryError,
     CLEOperationError,
     CLEUnknownFormatError,
-    CLEInvalidFileFormatError,
-    CLEInvalidEncryptionError,
 )
 from .gdb import GDB_SEARCH_PATH, convert_info_proc_maps, convert_info_sharedlibrary
 from .loader import Loader

@@ -1,6 +1,6 @@
 import logging
-import struct
 import os
+import struct
 from io import BytesIO
 
 from cle.errors import CLEError, CLEInvalidEncryptionError, CLEInvalidFileFormatError
