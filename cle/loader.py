@@ -1,3 +1,4 @@
+import itertools
 import logging
 import os
 import platform
@@ -169,6 +170,7 @@ class Loader:
         self.aslr = aslr
         self.page_size = page_size
         self._memory = None
+        self._original_main_object = None
         self._main_object = None
         self._tls = None
         self._kernel_object: KernelObject | None = None
@@ -199,6 +201,13 @@ class Loader:
         result = self._main_object
         if result is None:
             raise ValueError("Cannot access main_object before loading is complete")
+        return result
+
+    @property
+    def original_main_object(self) -> Backend:
+        result = self._original_main_object
+        if result is None:
+            raise ValueError("Cannot access original_main_object before loading is complete")
         return result
 
     @property
@@ -781,11 +790,13 @@ class Loader:
             if self._main_object is None:
                 # this is technically the first place we can start to initialize things based on platform
                 if obj.force_main_object is not None:
+                    self._original_main_object = obj
                     self._main_object = obj.force_main_object
+                    self._main_object.is_main_bin = True
                     # just to be safe, we clear obj.force_main_object here
                     obj.force_main_object = None
                 else:
-                    self._main_object = obj
+                    self._original_main_object = self._main_object = obj
                 self._memory = Clemory(self._main_object.arch, root=True)
 
                 chk_obj = (
@@ -930,7 +941,7 @@ class Loader:
 
         return objects
 
-    def _load_object_isolated(self, spec):
+    def _load_object_isolated(self, spec, obj_ident: str | None = None):
         """
         Given a partial specification of a dependency, this will return the loaded object as a backend instance.
         It will not touch any loader-global data.
@@ -959,9 +970,11 @@ class Loader:
             if self._main_object is None:
                 options = dict(self._main_opts)
             else:
-                for ident in self._possible_idents(
-                    binary_stream if binary is None else binary
+                for ident in itertools.chain(
+                    [obj_ident], self._possible_idents(binary_stream if binary is None else binary)
                 ):  # also allowed to cheat
+                    if ident is None:
+                        continue
                     if ident in self._lib_opts:
                         options = dict(self._lib_opts[ident])
                         break

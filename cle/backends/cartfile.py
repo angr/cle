@@ -1,8 +1,9 @@
 import logging
+import os
 import struct
 from io import BytesIO
 
-from cle.errors import CLEError
+from cle.errors import CLEError, CLEInvalidEncryptionError, CLEInvalidFileFormatError
 
 from .backend import Backend, register_backend
 
@@ -20,9 +21,13 @@ class CARTFile(Backend):
     cannot be executed and encrypts it so anti-virus software cannot flag the CaRT file as malware.
 
     Ref: https://github.com/CybercentreCanada/cart
+
+    CART file does not store the name of the unpacked file. This backend automatically creates one and stores at
+    self.unpacked_name.
     """
 
     is_default = True
+    is_outer = True
 
     def __init__(self, binary, binary_stream, *args, arc4_key=None, **kwargs):
         if cart is None:
@@ -35,14 +40,22 @@ class CARTFile(Backend):
         # marked as the main binary if we are also the main binary
         # work around this by setting ourself here:
         ostream = BytesIO()
-        _ = cart.unpack_stream(
-            binary_stream,
-            ostream,
-            arc4_key_override=arc4_key,
-        )
+        try:
+            _ = cart.unpack_stream(
+                binary_stream,
+                ostream,
+                arc4_key_override=arc4_key,
+            )
+        except cart.cart.InvalidARC4KeyException as ex:
+            raise CLEInvalidEncryptionError(backend=CARTFile, enckey_argname="arc4_key") from ex
+        except cart.cart.InvalidCARTException as ex:
+            raise CLEInvalidFileFormatError() from ex
+
+        self.unpacked_name = self.get_unpacked_name(binary)
+
         if self.loader._main_object is None:
             self.loader._main_object = self
-        child = self.loader._load_object_isolated(ostream)
+        child = self.loader._load_object_isolated(ostream, obj_ident=self.unpacked_name)
         self.child_objects.append(child)
         self.has_memory = False
 
@@ -61,6 +74,12 @@ class CARTFile(Backend):
             return False
         (magic, version) = struct.unpack("4sh", header)
         return magic == b"CART" and version == 1
+
+    @staticmethod
+    def get_unpacked_name(file_path: str) -> str:
+        if isinstance(file_path, str):
+            return os.path.basename(file_path) + ".unpacked"
+        return "cart.unpacked"
 
 
 register_backend("cart", CARTFile)
