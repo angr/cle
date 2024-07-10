@@ -87,6 +87,23 @@ class ClemoryBase:
 
         return self.unpack(addr, self._arch.struct_fmt(size=size, signed=signed, endness=endness))[0]
 
+    def load_null_terminated_bytes(self, addr, max_size=4096) -> bytes:
+        """
+        Load a null-terminated string from memory at address `addr` with a maximum size of `max_size`.
+        Useful
+        """
+        data = bytearray()
+        for i in range(max_size):
+            try:
+                byte = self[addr + i]
+            except KeyError:
+                break
+            if byte == 0:
+                break
+            data.append(byte)
+        return bytes(data)
+
+
     def pack(self, addr, fmt, *data):
         """
         Use the ``struct`` module to pack `data` into memory at address `addr` with the format `fmt`.
