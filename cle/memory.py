@@ -103,7 +103,6 @@ class ClemoryBase:
             data.append(byte)
         return bytes(data)
 
-
     def pack(self, addr, fmt, *data):
         """
         Use the ``struct`` module to pack `data` into memory at address `addr` with the format `fmt`.
