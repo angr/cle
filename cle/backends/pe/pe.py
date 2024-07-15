@@ -5,8 +5,14 @@ import struct
 import archinfo
 import pefile
 
+try:
+    import pyxdia
+except ImportError:
+    pyxdia = None
+
 from cle.address_translator import AT
 from cle.backends.backend import Backend, register_backend
+from cle.backends.symbol import SymbolType
 
 from .regions import PESection
 from .relocation import get_relocation
@@ -19,11 +25,15 @@ log = logging.getLogger(name=__name__)
 class PE(Backend):
     """
     Representation of a PE (i.e. Windows) binary.
+
+    Useful backend options:
+
+    - ``debug_symbols``: Provides the path to a PDB file which contains the binary's debug symbols
     """
 
     is_default = True  # Tell CLE to automatically consider using the PE backend
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, debug_symbols=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.segments = self.sections  # in a PE, sections and segments have the same meaning
         self.os = "windows"
@@ -88,6 +98,11 @@ class PE(Backend):
         self.jmprel = self._get_jmprel()
         self.memory.add_backer(0, self._pe.get_memory_mapped_image())
 
+        if debug_symbols or self.loader._load_debug_info:
+            pdb_path = debug_symbols or self._find_pdb_path()
+            if pdb_path:
+                self.load_symbols_from_pdb(pdb_path)
+
     _pefile_cache = {}
 
     @staticmethod
@@ -131,7 +146,35 @@ class PE(Backend):
         """
         if name.startswith("ordinal."):
             return self._ordinal_exports.get(int(name.split(".")[1]), None)
-        return self._exports.get(name, None)
+        return super().get_symbol(name)
+
+    def load_symbols_from_pdb(self, pdb_path):
+        """
+        Load available symbols from PDB at `pdb_path`
+        """
+        if pyxdia is None:
+            log.warning("Install pyxdia to load symbols from %s", pdb_path)
+            return
+
+        log.debug("Loading symbols from %s", pdb_path)
+        try:
+            pdb = pyxdia.PDB(pdb_path)
+        except:  # noqa:E722 pylint:disable=bare-except
+            log.exception("Failed to load PDB at %s", pdb_path)
+            return
+
+        for global_ in pdb.globals:
+            rva = global_["relativeVirtualAddress"]
+            if rva is None:
+                continue
+            name = global_["name"]
+            symbol_type = {
+                "Data": SymbolType.TYPE_OBJECT,
+                "Function": SymbolType.TYPE_FUNCTION,
+            }.get(global_["symTag"], SymbolType.TYPE_OTHER)
+            symb = WinSymbol(self, name, rva, False, False, None, None, symbol_type)
+            log.debug("Adding symbol %s", str(symb))
+            self.symbols.add(symb)
 
     #
     # Private methods
@@ -302,6 +345,42 @@ class PE(Backend):
             section = PESection(pe_section, remap_offset=self.linked_base)
             self.sections.append(section)
             self.sections_map[section.name] = section
+
+    def _find_pdb_path(self):
+        """
+        Find path to the PDB file containing debug information for this binary.
+        """
+        path = None
+        checks = []
+
+        # Check PE file for path to PDB
+        for de in self._pe.DIRECTORY_ENTRY_DEBUG:
+            if de.entry and hasattr(de.entry, "PdbFileName"):
+                path = de.entry.PdbFileName.rstrip(b"\x00").decode()
+                break
+
+        if path:
+            if os.path.exists(path):
+                return path
+            checks.append(path)
+
+            # PDB not at specified location; check next to binary
+            if self.binary:
+                filename = os.path.basename(path.replace("\\", "/"))
+                path = os.path.join(os.path.dirname(self.binary), filename)
+                if os.path.exists(path):
+                    return path
+                checks.append(path)
+
+        # Guess PDB has same name as binary
+        if self.binary:
+            path = os.path.splitext(self.binary)[0] + ".pdb"
+            if os.path.exists(path):
+                return path
+            checks.append(path)
+
+        log.warning("Unable to find PDB file for this PE. Tried: %s", str(checks))
+        return None
 
 
 register_backend("pe", PE)
