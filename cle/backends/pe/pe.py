@@ -19,6 +19,7 @@ from .relocation import get_relocation
 from .relocation.generic import IMAGE_REL_BASED_ABSOLUTE, IMAGE_REL_BASED_HIGHADJ, DllImport
 from .symbol import WinSymbol
 
+PDB_SUPPORT_ENABLED = pyxdia is not None
 log = logging.getLogger(name=__name__)
 
 
