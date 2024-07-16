@@ -493,6 +493,10 @@ class Backend:
         """
         if name in self._symbol_cache:
             return self._symbol_cache[name]
+        for sym in self.symbols:
+            if sym.name == name:
+                self._symbol_cache[name] = sym
+                return sym
         return None
 
     @staticmethod
