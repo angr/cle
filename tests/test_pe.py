@@ -5,7 +5,6 @@ import unittest
 
 import cle
 
-
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
 
 
@@ -122,6 +121,22 @@ class TestPEBackend(unittest.TestCase):
         assert tls is not None
         assert len(ld.tls.modules) == 1
         assert tls.get_tls_data_addr(0) == tls.memory.unpack_word(0)
+
+    @unittest.skipUnless(cle.backends.pe.pe.PDB_SUPPORT_ENABLED, "PDB")
+    def test_pdb(self):
+        exe = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "fauxware.exe")
+        pdb = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "fauxware.pdb")
+
+        ld = cle.Loader(exe, auto_load_libs=False)
+        assert not ld.find_symbol("authenticate")
+
+        # Automatically find fauxware.pdb
+        ld = cle.Loader(exe, auto_load_libs=False, load_debug_info=True)
+        assert ld.find_symbol("authenticate")
+
+        # Manually specify fauxware.pdb
+        ld = cle.Loader(exe, auto_load_libs=False, main_opts={"debug_symbols": pdb})
+        assert ld.find_symbol("authenticate")
 
 
 if __name__ == "__main__":
