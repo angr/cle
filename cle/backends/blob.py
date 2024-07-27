@@ -30,6 +30,7 @@ class Blob(Backend):
             offset = kwargs.pop("custom_offset")
             log.critical("Deprecation warning: the custom_offset parameter has been renamed to offset")
         super().__init__(*args, **kwargs)
+        self.set_load_args(offset=offset, segments=segments)
 
         if self._arch is None:
             raise CLEError("Must specify arch when loading blob!")
