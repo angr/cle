@@ -35,6 +35,7 @@ class CARTFile(Backend):
                 "Please install the cart Python package before loading a CART file. You may run `pip install cart`."
             )
         super().__init__(binary, binary_stream, *args, **kwargs)
+        self.set_load_args(arc4_key=arc4_key)
 
         # hack: we are using a loader internal method in a non-kosher way which will cause our children to be
         # marked as the main binary if we are also the main binary

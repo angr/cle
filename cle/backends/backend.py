@@ -144,6 +144,17 @@ class Backend:
         :param binary_stream:   The open stream to this binary. The reference to this will be held until you call close.
         :param is_main_bin:     Whether this binary should be loaded as the main executable
         """
+
+        self.load_args: dict[str, Any] = {} | kwargs
+        self.set_load_args(
+            loader=loader,
+            is_main_bin=is_main_bin,
+            entry_point=entry_point,
+            arch=arch,
+            base_addr=base_addr,
+            force_rebase=force_rebase,
+            has_memory=has_memory,
+        )
         self.binary = binary
         self._binary_stream: BufferedReader = binary_stream
         if self.binary is not None:
@@ -291,6 +302,9 @@ class Backend:
     def set_arch(self, arch):
         self._arch = arch
         self.memory = Clemory(arch)  # Private virtual address space, without relocations
+
+    def set_load_args(self, **kwargs) -> None:
+        self.load_args |= kwargs
 
     @property
     def image_base_delta(self):
