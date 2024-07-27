@@ -80,6 +80,7 @@ class Hex(Backend):
 
     def __init__(self, *args, ignore_missing_arch: bool = False, **kwargs):
         super().__init__(*args, **kwargs)
+        self.set_load_args(ignore_missing_arch=ignore_missing_arch)
 
         if self._arch is None:
             if ignore_missing_arch:

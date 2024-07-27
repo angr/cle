@@ -36,6 +36,7 @@ class PE(Backend):
 
     def __init__(self, *args, debug_symbols=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.set_load_args(debug_symbols=debug_symbols)
         self.segments = self.sections  # in a PE, sections and segments have the same meaning
         self.os = "windows"
         if self.binary is None:

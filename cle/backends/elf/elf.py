@@ -81,6 +81,12 @@ class ELF(MetaELF):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+        self.set_load_args(
+            addend=addend,
+            debug_symbols=debug_symbols,
+            discard_section_headers=discard_section_headers,
+            discard_program_headers=discard_program_headers,
+        )
         patch_undo = []
         try:
             self._reader = elffile.ELFFile(self._binary_stream)
