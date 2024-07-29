@@ -1,5 +1,7 @@
 # This file is part of Mach-O Loader for CLE.
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/) and updated in September 2019.
+from __future__ import annotations
+
 import logging
 from typing import TYPE_CHECKING
 
@@ -35,7 +37,7 @@ class AbstractMachOSymbol(Symbol):
     Defines the minimum common properties all types of mach-o symbols must have
     """
 
-    owner: "MachO"
+    owner: MachO
 
     def __init__(self, owner: Backend, name: str, relative_addr: int, size: int, sym_type: SymbolType):
         super().__init__(owner, name, relative_addr, size, sym_type)
@@ -82,7 +84,7 @@ class SymbolTableSymbol(AbstractMachOSymbol):
 
     """
 
-    def __init__(self, owner: "MachO", symtab_offset, n_strx, n_type, n_sect, n_desc, n_value):
+    def __init__(self, owner: MachO, symtab_offset, n_strx, n_type, n_sect, n_desc, n_value):
         # Note 1: Setting size = owner.arch.bytes has been directly taken over from the PE backend,
         # there is no meaningful definition of a symbol's size so I assume the size of an address counts here
         # Note 2: relative_addr will be the address of a symbols __got or __nl_symbol_ptr entry, not the addr of a stub
@@ -257,7 +259,7 @@ class DyldBoundSymbol(AbstractMachOSymbol):
     The new kind of symbol handling introduced with ios15
     """
 
-    owner: "MachO"
+    owner: MachO
 
     def __init__(self, owner, name, lib_ordinal):
         """Based on the constructor of BindingSymbol"""

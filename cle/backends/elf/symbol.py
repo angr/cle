@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from elftools.elf.enums import ENUM_ST_INFO_TYPE
 
 from cle.address_translator import AT

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from typing import TYPE_CHECKING
 
@@ -6,7 +8,7 @@ from cle.address_translator import AT
 from .symbol import Symbol, SymbolType
 
 if TYPE_CHECKING:
-    from typing import Any, List
+    from typing import Any
 
     from .backend import Backend
 
@@ -28,7 +30,7 @@ class Relocation:
     :ivar resolved:         Whether the application of this relocation was successful
     """
 
-    def __init__(self, owner: "Backend", symbol: Symbol | None, relative_addr: int):
+    def __init__(self, owner: Backend, symbol: Symbol | None, relative_addr: int):
         self.owner = owner
         self.arch = owner.arch
         self.symbol = symbol
@@ -42,7 +44,7 @@ class Relocation:
     AUTO_HANDLE_NONE = False
 
     def resolve_symbol(
-        self, solist: "List[Any]", thumb=False, extern_object=None, **kwargs
+        self, solist: list[Any], thumb=False, extern_object=None, **kwargs
     ):  # pylint: disable=unused-argument
         if self.resolved:
             return

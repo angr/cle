@@ -1,5 +1,7 @@
 # This file is part of Mach-O Loader for CLE.
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
+from __future__ import annotations
+
 import ctypes
 import logging
 import struct
@@ -8,7 +10,7 @@ import typing
 from collections import defaultdict
 from io import BufferedReader, BytesIO
 from os import SEEK_CUR, SEEK_SET
-from typing import DefaultDict, Union
+from typing import Union
 
 import archinfo
 from sortedcontainers import SortedKeyList
@@ -47,7 +49,7 @@ class SymbolList(SortedKeyList):
     without having to iterate over the whole list
     """
 
-    _symbol_cache: DefaultDict[tuple[str, int], list[AbstractMachOSymbol]]
+    _symbol_cache: defaultdict[tuple[str, int], list[AbstractMachOSymbol]]
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -326,9 +328,7 @@ class MachO(Backend):
         # Assertion to catch malformed binaries - YES this is needed!
         if count < self.ncmds or (offset - lc_offset) < self.sizeofcmds:
             raise CLEInvalidBinaryError(
-                "Assertion triggered: {} < {} or {} < {}".format(
-                    count, self.ncmds, (offset - lc_offset), self.sizeofcmds
-                )
+                f"Assertion triggered: {count} < {self.ncmds} or {offset - lc_offset} < {self.sizeofcmds}"
             )
 
     @classmethod

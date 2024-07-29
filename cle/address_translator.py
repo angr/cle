@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 class AddressTranslator:
     __slots__ = (
         "_rva",

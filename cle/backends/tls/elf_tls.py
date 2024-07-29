@@ -10,6 +10,8 @@ ELF TLS is implemented based on the following documents:
     - https://www.linux-mips.org/wiki/NPTL
 """
 
+from __future__ import annotations
+
 from .tls_object import InternalTLSRelocation, ThreadManager, TLSObject
 
 TLS_BLOCK_ALIGN = 0x10

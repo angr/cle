@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from cle.backends.macho.structs import (
     ChainedFixupPointerOnDisk,
     Generic64,

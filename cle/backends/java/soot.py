@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import time
 
@@ -114,7 +116,7 @@ class Soot(Backend):
             if none_if_missing:
                 return None
             else:
-                raise CLEError('Class "%s" does not exist.' % cls_name)
+                raise CLEError(f'Class "{cls_name}" does not exist.')
 
     def get_soot_method(self, thing, class_name=None, params=(), none_if_missing=False):
         """
@@ -143,7 +145,7 @@ class Soot(Backend):
                     class_name = method_name[:last_dot]
                     method_name = method_name[last_dot + 1 :]
                 else:
-                    raise ValueError("Cannot parse class name from method %s." % method_name)
+                    raise ValueError(f"Cannot parse class name from method {method_name}.")
 
             method_description = {
                 "class_name": class_name,
@@ -152,7 +154,7 @@ class Soot(Backend):
             }
 
         else:
-            raise TypeError('Unsupported type "%s" for the first argument.' % thing)
+            raise TypeError(f'Unsupported type "{thing}" for the first argument.')
 
         # Step 2: Load class containing the method
         try:
@@ -175,8 +177,9 @@ class Soot(Backend):
                 return None
             else:
                 raise CLEError(
-                    "Method with description %s does not exist in class %s."
-                    % (method_description, method_description["class_name"])
+                    "Method with description {} does not exist in class {}.".format(
+                        method_description, method_description["class_name"]
+                    )
                 )
 
         if len(methods) > 1:

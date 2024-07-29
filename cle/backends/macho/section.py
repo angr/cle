@@ -1,5 +1,6 @@
 # This file is part of Mach-O Loader for CLE.
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
+from __future__ import annotations
 
 from cle.backends.region import Section
 

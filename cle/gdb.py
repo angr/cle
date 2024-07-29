@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import os
 
@@ -31,7 +33,7 @@ def convert_info_proc_maps(fname):
 
 def _parse_gdb_map(gdb_map, gdb_fix):
     if not os.path.isfile(gdb_map):
-        raise CLEFileNotFoundError("gdb mapping file %s does not exist" % gdb_map)
+        raise CLEFileNotFoundError(f"gdb mapping file {gdb_map} does not exist")
     with open(gdb_map) as f:
         data = f.readlines()
 

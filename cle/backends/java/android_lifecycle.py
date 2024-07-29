@@ -2,6 +2,8 @@
 Constant values for lifecycle of Apk.
 """
 
+from __future__ import annotations
+
 component_class = [
     "android.app.Activity",
     "android.app.Service",

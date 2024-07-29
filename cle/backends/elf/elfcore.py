@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import os
 import struct
@@ -351,7 +353,7 @@ class ELFCore(ELF):
             ]
             nreg = 45
         else:
-            raise CLECompatibilityError("Architecture '%s' unsupported by ELFCore" % self.arch.name)
+            raise CLECompatibilityError(f"Architecture '{self.arch.name}' unsupported by ELFCore")
 
         assert nreg == len(rnames), "Please create an issue with this core-file attached to get this fixed."
         pos, *regvals = read_longs(nreg)

@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 class PatchedStream:
     """
     An object that wraps a readable stream, performing passthroughs on seek and read operations,

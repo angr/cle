@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import importlib
 import logging
 import os
@@ -22,7 +24,7 @@ def load_relocations():
             continue
 
         log.debug("Importing PE relocation module: %s", filename[:-3])
-        module = importlib.import_module(".%s" % filename[:-3], "cle.backends.pe.relocation")
+        module = importlib.import_module(f".{filename[:-3]}", "cle.backends.pe.relocation")
 
         try:
             arch_name = module.arch

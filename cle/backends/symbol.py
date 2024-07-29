@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from enum import Enum
 from typing import TYPE_CHECKING
@@ -60,7 +62,7 @@ class Symbol:
     :ivar str resolvewith:  The name of the library we must use to resolve this symbol, or None if none is required.
     """
 
-    def __init__(self, owner: "Backend", name: str, relative_addr: int, size: int, sym_type: SymbolType):
+    def __init__(self, owner: Backend, name: str, relative_addr: int, size: int, sym_type: SymbolType):
         """
         Not documenting this since if you try calling it, you're wrong.
         """

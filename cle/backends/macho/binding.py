@@ -1,5 +1,6 @@
 # This file is part of Mach-O Loader for CLE.
 # Contributed December 2016 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/) and updated in September 2019.
+from __future__ import annotations
 
 import logging
 import struct
@@ -122,7 +123,7 @@ class BindingHelper:
     """Factors out binding logic from MachO.
     Intended to work in close conjunction with MachO not for standalone use"""
 
-    binary: "MachO"
+    binary: MachO
 
     def __init__(self, binary):
         self.binary = binary
@@ -272,7 +273,7 @@ class BindingHelper:
                     address += skip + self.binary.arch.bytes
 
             else:
-                raise CLEInvalidBinaryError("Invalid opcode for current binding: %#x" % opcode)
+                raise CLEInvalidBinaryError(f"Invalid opcode for current binding: {opcode:#x}")
 
     @staticmethod
     def read_uleb(blob, offset) -> tuple[int, int]:
@@ -297,14 +298,14 @@ class BindingHelper:
         elif ty == RebaseType.TEXT_PCREL32:
             raise NotImplementedError()
         else:
-            raise ValueError("Invalid rebase type: %#x" % ty)
+            raise ValueError(f"Invalid rebase type: {ty:#x}")
         self.binary.relocs.append(reloc)
 
     def _do_bind_generic(
         self,
         blob,
         init_state: BindingState,
-        opcode_dict: dict[int, Callable[[BindingState, "MachO", int, bytes], BindingState]],
+        opcode_dict: dict[int, Callable[[BindingState, MachO, int, bytes], BindingState]],
     ):
         """
         Does the actual binding work. Represents a generic framework for interpreting binding opcodes
@@ -335,19 +336,19 @@ class BindingHelper:
 # pylint: disable=unused-argument
 # The following functions realize different variants of handling binding opcodes
 # the format is def X(state,binary,immediate,blob) => state
-def n_opcode_done(s: BindingState, _b: "MachO", _i: int, _blob: bytes) -> BindingState:
+def n_opcode_done(s: BindingState, _b: MachO, _i: int, _blob: bytes) -> BindingState:
     log.debug("BIND_OPCODE_DONE @ %#x", s.index)
     s.done = True
     return s
 
 
-def n_opcode_set_dylib_ordinal_imm(s: BindingState, _b: "MachO", i: int, _blob: bytes) -> BindingState:
+def n_opcode_set_dylib_ordinal_imm(s: BindingState, _b: MachO, i: int, _blob: bytes) -> BindingState:
     log.debug("SET_DYLIB_ORDINAL_IMM @ %#x: %d", s.index, i)
     s.lib_ord = i
     return s
 
 
-def n_opcode_set_dylib_ordinal_uleb(s: BindingState, _b: "MachO", _i: int, blob: bytes) -> BindingState:
+def n_opcode_set_dylib_ordinal_uleb(s: BindingState, _b: MachO, _i: int, blob: bytes) -> BindingState:
     uleb = read_uleb(blob, s.index)
     s.lib_ord = uleb[0]
     s.index += uleb[1]
@@ -355,7 +356,7 @@ def n_opcode_set_dylib_ordinal_uleb(s: BindingState, _b: "MachO", _i: int, blob:
     return s
 
 
-def n_opcode_set_dylib_special_imm(s: BindingState, _b: "MachO", i: int, _blob: bytes) -> BindingState:
+def n_opcode_set_dylib_special_imm(s: BindingState, _b: MachO, i: int, _blob: bytes) -> BindingState:
     if i == 0:
         s.lib_ord = 0
     else:
@@ -364,7 +365,7 @@ def n_opcode_set_dylib_special_imm(s: BindingState, _b: "MachO", i: int, _blob: 
     return s
 
 
-def n_opcode_set_trailing_flags_imm(s: BindingState, _b: "MachO", i: int, blob: bytes) -> BindingState:
+def n_opcode_set_trailing_flags_imm(s: BindingState, _b: MachO, i: int, blob: bytes) -> BindingState:
     s.sym_name = ""
     s.sym_flags = i
 
@@ -377,14 +378,14 @@ def n_opcode_set_trailing_flags_imm(s: BindingState, _b: "MachO", i: int, blob: 
     return s
 
 
-def n_opcode_set_type_imm(s: BindingState, _b: "MachO", i: int, _blob: bytes) -> BindingState:
+def n_opcode_set_type_imm(s: BindingState, _b: MachO, i: int, _blob: bytes) -> BindingState:
     # pylint: disable=unused-argument
     s.binding_type = i
     log.debug("SET_TYPE_IMM @ %#x: %d", s.index, s.binding_type)
     return s
 
 
-def n_opcode_set_addend_sleb(s: BindingState, _b: "MachO", _i: int, blob: bytes) -> BindingState:
+def n_opcode_set_addend_sleb(s: BindingState, _b: MachO, _i: int, blob: bytes) -> BindingState:
     sleb = read_sleb(blob, s.index)
     s.addend = sleb[0]
     log.debug("SET_ADDEND_SLEB @ %#x: %d", s.index, s.addend)
@@ -392,7 +393,7 @@ def n_opcode_set_addend_sleb(s: BindingState, _b: "MachO", _i: int, blob: bytes)
     return s
 
 
-def n_opcode_set_segment_and_offset_uleb(s: BindingState, b: "MachO", i: int, blob: bytes) -> BindingState:
+def n_opcode_set_segment_and_offset_uleb(s: BindingState, b: MachO, i: int, blob: bytes) -> BindingState:
     s.segment_index = i
     uleb = read_uleb(blob, s.index)
     log.debug("(n)SET_SEGMENT_AND_OFFSET_ULEB @ %#x: %d, %d", s.index, s.segment_index, uleb[0])
@@ -404,7 +405,7 @@ def n_opcode_set_segment_and_offset_uleb(s: BindingState, b: "MachO", i: int, bl
     return s
 
 
-def l_opcode_set_segment_and_offset_uleb(s: BindingState, b: "MachO", i: int, blob: bytes) -> BindingState:
+def l_opcode_set_segment_and_offset_uleb(s: BindingState, b: MachO, i: int, blob: bytes) -> BindingState:
     uleb = read_uleb(blob, s.index)
     log.debug("(l)SET_SEGMENT_AND_OFFSET_ULEB @ %#x: %d, %d", s.index, i, uleb[0])
     seg = b.segments[i]
@@ -413,7 +414,7 @@ def l_opcode_set_segment_and_offset_uleb(s: BindingState, b: "MachO", i: int, bl
     return s
 
 
-def n_opcode_add_addr_uleb(s: BindingState, _b: "MachO", _i: int, blob: bytes) -> BindingState:
+def n_opcode_add_addr_uleb(s: BindingState, _b: MachO, _i: int, blob: bytes) -> BindingState:
     uleb = read_uleb(blob, s.index)
     s.add_address_ov(s.address, uleb[0])
     log.debug("ADD_ADDR_ULEB @ %#x: %d", s.index, uleb[0])
@@ -421,7 +422,7 @@ def n_opcode_add_addr_uleb(s: BindingState, _b: "MachO", _i: int, blob: bytes) -
     return s
 
 
-def n_opcode_do_bind(s: BindingState, b: "MachO", _i: int, _blob: bytes) -> BindingState:
+def n_opcode_do_bind(s: BindingState, b: MachO, _i: int, _blob: bytes) -> BindingState:
     log.debug("(n)DO_BIND @ %#x", s.index)
     s.check_address_bounds()
     s.bind_handler(s, b)
@@ -429,13 +430,13 @@ def n_opcode_do_bind(s: BindingState, b: "MachO", _i: int, _blob: bytes) -> Bind
     return s
 
 
-def l_opcode_do_bind(s: BindingState, b: "MachO", _i: int, _blob: bytes) -> BindingState:
+def l_opcode_do_bind(s: BindingState, b: MachO, _i: int, _blob: bytes) -> BindingState:
     log.debug("(l)DO_BIND @ %#x", s.index)
     s.bind_handler(s, b)
     return s
 
 
-def n_opcode_do_bind_add_addr_uleb(s: BindingState, b: "MachO", _i: int, blob: bytes) -> BindingState:
+def n_opcode_do_bind_add_addr_uleb(s: BindingState, b: MachO, _i: int, blob: bytes) -> BindingState:
     uleb = read_uleb(blob, s.index)
     log.debug("DO_BIND_ADD_ADDR_ULEB @ %#x: %d", s.index, uleb[0])
     if s.address >= s.seg_end_address:
@@ -450,7 +451,7 @@ def n_opcode_do_bind_add_addr_uleb(s: BindingState, b: "MachO", _i: int, blob: b
     return s
 
 
-def n_opcode_do_bind_add_addr_imm_scaled(s: BindingState, b: "MachO", i: int, _blob: bytes) -> BindingState:
+def n_opcode_do_bind_add_addr_imm_scaled(s: BindingState, b: MachO, i: int, _blob: bytes) -> BindingState:
     log.debug("DO_BIND_ADD_ADDR_IMM_SCALED @ %#x: %d", s.index, i)
     if s.address >= s.seg_end_address:
         log.error(
@@ -466,7 +467,7 @@ def n_opcode_do_bind_add_addr_imm_scaled(s: BindingState, b: "MachO", i: int, _b
     return s
 
 
-def n_opcode_do_bind_uleb_times_skipping_uleb(s: BindingState, b: "MachO", _i: int, blob: bytes) -> BindingState:
+def n_opcode_do_bind_uleb_times_skipping_uleb(s: BindingState, b: MachO, _i: int, blob: bytes) -> BindingState:
     count = read_uleb(blob, s.index)
     s.index += count[1]
     skip = read_uleb(blob, s.index)
@@ -491,7 +492,7 @@ class MachOSymbolRelocation(Relocation):
     Generic Relocation for MachO. It handles relocations that point to symbols
     """
 
-    def __init__(self, owner: "MachO", symbol: AbstractMachOSymbol, relative_addr: int, data):
+    def __init__(self, owner: MachO, symbol: AbstractMachOSymbol, relative_addr: int, data):
         super().__init__(owner, symbol, relative_addr)
         self.data = data
 
@@ -528,7 +529,7 @@ class MachOPointerRelocation(Relocation):
     These are either generated while handling the rebase blob, or while parsing chained fixups
     """
 
-    def __init__(self, owner: "MachO", relative_addr: int, data):
+    def __init__(self, owner: MachO, relative_addr: int, data):
         """
 
         :param owner:
@@ -559,7 +560,7 @@ class MachOPointerRelocation(Relocation):
 
 
 # default binding handler
-def default_binding_handler(state: BindingState, binary: "MachO"):
+def default_binding_handler(state: BindingState, binary: MachO):
     """Binds location to the symbol with the given name and library ordinal"""
 
     # locate the symbol:

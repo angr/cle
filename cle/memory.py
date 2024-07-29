@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import bisect
 import struct
 from mmap import mmap
@@ -79,7 +81,7 @@ class ClemoryBase:
             elif endness == archinfo.Endness.LE:
                 lo_off, hi_off = 0, subsize
             else:
-                raise ValueError("Unsupported endness value %s." % endness)
+                raise ValueError(f"Unsupported endness value {endness}.")
 
             lo = self.unpack_word(addr + lo_off, size=subsize, signed=False, endness=endness)
             hi = self.unpack_word(addr + hi_off, size=subsize, signed=signed, endness=endness)
@@ -225,7 +227,7 @@ class Clemory(ClemoryBase):
                 pass
             else:
                 if existing <= start:
-                    raise ValueError("Address %#x is already backed!" % start)
+                    raise ValueError(f"Address {start:#x} is already backed!")
         if isinstance(data, Clemory) and data._root:
             raise ValueError("Cannot add a root clemory as a backer!")
         if isinstance(data, bytes):
@@ -500,7 +502,7 @@ class Clemory(ClemoryBase):
                 if not backer.consecutive:
                     is_consecutive = False
             else:
-                raise TypeError("Unsupported backer type %s." % type(backer))
+                raise TypeError(f"Unsupported backer type {type(backer)}.")
 
         self.consecutive = is_consecutive
         self.min_addr = min_addr

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import contextlib
 import os
 
@@ -75,7 +77,7 @@ def stream_or_path(obj, perms="rb"):
         yield obj
     else:
         if not os.path.exists(obj):
-            raise CLEFileNotFoundError("%r is not a valid path" % obj)
+            raise CLEFileNotFoundError(f"{obj!r} is not a valid path")
 
         with open(obj, perms) as f:
             yield f

@@ -8,9 +8,15 @@ target-version = ['py310']
 
 [tool.ruff]
 line-length = 120
+
+[tool.ruff.lint]
 select = [
     "E",
     "F",
     "I",
     "TID",
+    "UP",
 ]
+
+[tool.ruff.lint.isort]
+required-imports = ["from __future__ import annotations"]

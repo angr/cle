@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import struct
 
 from cle.backends.relocation import Relocation

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import archinfo
 
 from cle.errors import CLEError
