@@ -85,7 +85,7 @@ class ExceptionHandling:
     def __repr__(self):
         if self.handler_addr is not None:
             return (
-                f"<ExceptionHandling@{self.start_addr:#x}-{self.start_addr + self.size:#x}:"
+                f"<ExceptionHandling@{self.start_addr:#x}-{self.start_addr + self.size:#x}: "
                 f"handler@{self.handler_addr:#x}>"
             )
         else:

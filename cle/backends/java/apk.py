@@ -221,7 +221,7 @@ class Apk(Soot):
             jni_archs = [arch for arch in supported_jni_archs if arch in available_jni_archs]
             if not jni_archs:
                 raise ValueError(
-                    f"Couldn't find a supported JNI arch. Available {available_jni_archs}."
+                    f"Couldn't find a supported JNI arch. Available {available_jni_archs}. "
                     "Supported {supported_jni_archs}."
                 )
             jni_arch = jni_archs[0]
