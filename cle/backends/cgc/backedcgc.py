@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from cle.backends.backend import register_backend
 from cle.backends.region import Segment
 

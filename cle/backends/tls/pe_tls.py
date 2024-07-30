@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from cle.address_translator import AT
 
 from .tls_object import InternalTLSRelocation, ThreadManager, TLSObject

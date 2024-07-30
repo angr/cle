@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .generic import (
     IMAGE_REL_BASED_DIR64,
     IMAGE_REL_BASED_HIGH,

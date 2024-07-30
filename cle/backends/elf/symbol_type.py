@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from cle.backends.symbol import SymbolSubType, SymbolType
 
 

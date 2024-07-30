@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 class Region:
     """
     A region of memory that is mapped in the object's file.

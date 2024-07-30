@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from enum import IntEnum
 
 
@@ -204,7 +206,7 @@ class RebaseOpcode(IntEnum):
     DO_REBASE_ULEB_TIMES_SKIPPING_ULEB = 0x80
 
     @staticmethod
-    def parse_byte(byte: int) -> tuple["RebaseOpcode", int]:
+    def parse_byte(byte: int) -> tuple[RebaseOpcode, int]:
         """
         Split a byte into the RebaseOpcode and the immediate value
         :param byte:

@@ -1,5 +1,7 @@
 # noinspection PyPep8Naming
 # This file takes some liberties to match the naming from the dyld implementation
+from __future__ import annotations
+
 import ctypes
 import enum
 from ctypes import Structure, c_uint16, c_uint32, c_uint64
@@ -375,7 +377,7 @@ class DyldImportStruct(HelperStruct):
     name_offset: FileOffset
 
     @staticmethod
-    def get_struct(pointer: DyldImportFormats) -> type["DyldImportStruct"]:
+    def get_struct(pointer: DyldImportFormats) -> type[DyldImportStruct]:
         return {
             DyldImportFormats.DYLD_CHAINED_IMPORT: dyld_chained_import,
             DyldImportFormats.DYLD_CHAINED_IMPORT_ADDEND64: dyld_chained_import_addend64,

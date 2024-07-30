@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import hashlib
 import logging
 import os
 from io import BufferedReader
-from typing import TYPE_CHECKING, Any, BinaryIO, List, Optional
+from typing import TYPE_CHECKING, Any, BinaryIO
 
 import archinfo
 import sortedcontainers
@@ -82,8 +84,9 @@ class ExceptionHandling:
 
     def __repr__(self):
         if self.handler_addr is not None:
-            return "<ExceptionHandling@{:#x}-{:#x}: handler@{:#x}>".format(
-                self.start_addr, self.start_addr + self.size, self.handler_addr
+            return (
+                f"<ExceptionHandling@{self.start_addr:#x}-{self.start_addr + self.size:#x}: "
+                f"handler@{self.handler_addr:#x}>"
             )
         else:
             return f"<ExceptionHandling@{self.start_addr:#x}-{self.start_addr + self.size:#x}: no handler>"
@@ -182,15 +185,15 @@ class Backend:
 
         self.is_main_bin = is_main_bin
         self.has_memory = has_memory
-        self._loader: "Optional[Loader]" = loader
+        self._loader: Loader | None = loader
         self._entry = 0
-        self._segments: Regions["Segment"] = Regions()  # List of segments
-        self._sections: Regions["Section"] = Regions()  # List of sections
+        self._segments: Regions[Segment] = Regions()  # List of segments
+        self._sections: Regions[Section] = Regions()  # List of sections
         self.sections_map = {}  # Mapping from section name to section
         self.symbols = sortedcontainers.SortedKeyList(key=self._get_symbol_relative_addr)
-        self.imports: dict[str, "Relocation"] = {}
+        self.imports: dict[str, Relocation] = {}
         self.resolved_imports = []
-        self.relocs: "List[Relocation]" = []
+        self.relocs: list[Relocation] = []
         self.irelatives = []  # list of tuples (resolver, destination), dest w/o rebase
         self.jmprel = {}
         self._arch: archinfo.Arch | None = None
@@ -215,7 +218,7 @@ class Backend:
         self.mapped_base = self.linked_base = 0  # not to be set manually - used by CLE
 
         self.deps = []  # Needed shared objects (libraries dependencies)
-        self.child_objects: list["Backend"] = []  # any objects loaded directly out of this
+        self.child_objects: list[Backend] = []  # any objects loaded directly out of this
         self.parent_object = None
         self.linking = None  # Dynamic or static linking
         self.pic = force_rebase
@@ -269,7 +272,7 @@ class Backend:
         elif isinstance(arch, type) and issubclass(arch, archinfo.Arch):
             self.set_arch(arch())  # type: ignore
         else:
-            raise CLEError("Bad parameter: arch=%s" % arch)
+            raise CLEError(f"Bad parameter: arch={arch}")
 
         self._cache_content()
         self._checksum()
@@ -282,7 +285,7 @@ class Backend:
         return result
 
     @property
-    def loader(self) -> "Loader":
+    def loader(self) -> Loader:
         result = self._loader
         if result is None:
             raise ValueError("Backend does not have a loader associated")
@@ -292,11 +295,8 @@ class Backend:
         del self._binary_stream
 
     def __repr__(self):
-        return "<{} Object {}, maps [{:#x}:{:#x}]>".format(
-            self.__class__.__name__,
-            self.binary_basename,
-            self.min_addr,
-            self.max_addr,
+        return (
+            f"<{self.__class__.__name__} Object {self.binary_basename}, maps [{self.min_addr:#x}:{self.max_addr:#x}]>"
         )
 
     def set_arch(self, arch):
@@ -317,30 +317,30 @@ class Backend:
         return AT.from_lva(self._entry, self).to_mva()
 
     @property
-    def segments(self) -> Regions["Segment"]:
+    def segments(self) -> Regions[Segment]:
         return self._segments
 
     @segments.setter
-    def segments(self, v: Regions["Segment"] | list["Segment"]):
+    def segments(self, v: Regions[Segment] | list[Segment]):
         if isinstance(v, list):
             self._segments = Regions(lst=v)
         elif isinstance(v, Regions):
             self._segments = v
         else:
-            raise ValueError("Unsupported type %s set as sections." % type(v))
+            raise ValueError(f"Unsupported type {type(v)} set as sections.")
 
     @property
-    def sections(self) -> Regions["Section"]:
+    def sections(self) -> Regions[Section]:
         return self._sections
 
     @sections.setter
-    def sections(self, v: Regions["Section"] | list["Section"]):
+    def sections(self, v: Regions[Section] | list[Section]):
         if isinstance(v, list):
             self._sections = Regions(lst=v)
         elif isinstance(v, Regions):
             self._sections = v
         else:
-            raise ValueError("Unsupported type %s set as sections." % type(v))
+            raise ValueError(f"Unsupported type {type(v)} set as sections.")
 
     @property
     def symbols_by_addr(self):
@@ -397,7 +397,7 @@ class Backend:
         lookup = self.find_segment_containing if self.segments else self.find_section_containing
         return lookup(addr)
 
-    def find_segment_containing(self, addr: int) -> Optional["Segment"]:
+    def find_segment_containing(self, addr: int) -> Segment | None:
         """
         Returns the segment that contains `addr`, or ``None``.
         """
@@ -409,7 +409,7 @@ class Backend:
             self._last_segment = r
         return r
 
-    def find_section_containing(self, addr: int) -> Optional["Section"]:
+    def find_section_containing(self, addr: int) -> Section | None:
         """
         Returns the section that contains `addr` or ``None``.
         """
@@ -590,7 +590,7 @@ class Backend:
 
         if isinstance(thing, int):
             return self.min_addr <= thing < self.max_addr
-        raise ValueError("Unsupported type %s for containment check" % type(thing))
+        raise ValueError(f"Unsupported type {type(thing)} for containment check")
 
 
 ALL_BACKENDS: dict[str, type[Backend]] = {}

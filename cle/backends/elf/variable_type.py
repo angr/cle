@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from elftools.dwarf.die import DIE
 
 

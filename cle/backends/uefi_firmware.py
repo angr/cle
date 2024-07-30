@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 import io
 import logging
 import mmap
 from dataclasses import dataclass
 from functools import singledispatchmethod
-from typing import Type
 from uuid import UUID
 
 import archinfo
@@ -71,8 +72,8 @@ class UefiFirmware(Backend):
         if self.loader._main_object is None:
             self.loader._main_object = self
 
-        self._drivers: dict[UUID, "UefiModuleMixin"] = {}
-        self._drivers_pending: dict[UUID, "UefiModulePending"] = {}
+        self._drivers: dict[UUID, UefiModuleMixin] = {}
+        self._drivers_pending: dict[UUID, UefiModulePending] = {}
         self._current_file: UUID | None = None
 
         self.set_arch(archinfo.arch_from_id("x86_64"))  # TODO: ???
@@ -154,11 +155,11 @@ class UefiModulePending:
     # version
     # dependencies
 
-    def build(self, parent: UefiFirmware, guid: UUID) -> "UefiModuleMixin":
+    def build(self, parent: UefiFirmware, guid: UUID) -> UefiModuleMixin:
         count = (self.pe_image is not None) + (self.te_image is not None)
         if count > 1:
             raise UefiDriverLoadError("Multiple image sections")
-        cls: "Type[UefiModuleMixin]"
+        cls: type[UefiModuleMixin]
         if self.pe_image is not None:
             cls = UefiPE
             data = self.pe_image

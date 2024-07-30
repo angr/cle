@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .backend import ALL_BACKENDS, Backend, ExceptionHandling, FunctionHint, FunctionHintSource, register_backend
 from .blob import Blob
 from .cartfile import CARTFile

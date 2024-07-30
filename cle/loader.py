@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import itertools
 import logging
 import os
@@ -11,7 +13,6 @@ from typing import (
     Any,
     BinaryIO,
     Literal,
-    Optional,
     TypeVar,
 )
 
@@ -218,7 +219,7 @@ class Loader:
         return result
 
     @property
-    def tls(self) -> "ThreadManager":
+    def tls(self) -> ThreadManager:
         result = self._tls
         if result is None:
             raise ValueError("Cannot access tls before loading is complete")
@@ -313,7 +314,7 @@ class Loader:
         return self._extern_object
 
     @property
-    def kernel_object(self) -> "KernelObject":
+    def kernel_object(self) -> KernelObject:
         """
         Return the object used to provide addresses to syscalls.
 
@@ -368,7 +369,7 @@ class Loader:
             if not sym.name or sym.is_import:
                 idx -= 1
                 continue
-            options.append((sym.relative_addr, "%s+" % sym.name))
+            options.append((sym.relative_addr, f"{sym.name}+"))
             break
 
         if isinstance(o, ELF):
@@ -377,7 +378,7 @@ class Loader:
             except ValueError:
                 pass
             else:
-                options.append((plt_addr, "PLT.%s+" % plt_name))
+                options.append((plt_addr, f"PLT.{plt_name}+"))
 
         options.append((0, "offset "))
 
@@ -443,7 +444,7 @@ class Loader:
                 self._last_object = obj_
                 return obj_
             else:
-                raise CLEError("Unsupported memory type %s" % type(obj_.memory))
+                raise CLEError(f"Unsupported memory type {type(obj_.memory)}")
 
         # check the cache first
         if self._last_object is not None and self._last_object.min_addr <= addr <= self._last_object.max_addr:
@@ -471,7 +472,7 @@ class Loader:
             return obj
         return _check_object_memory(obj)
 
-    def find_segment_containing(self, addr: int, skip_pseudo_objects: bool = True) -> Optional["Segment"]:
+    def find_segment_containing(self, addr: int, skip_pseudo_objects: bool = True) -> Segment | None:
         """
         Find the section object that the address belongs to.
 
@@ -493,7 +494,7 @@ class Loader:
 
         return obj.find_segment_containing(addr)
 
-    def find_section_containing(self, addr: int, skip_pseudo_objects=True) -> Optional["Section"]:
+    def find_section_containing(self, addr: int, skip_pseudo_objects=True) -> Section | None:
         """
         Find the section object that the address belongs to.
 
@@ -515,7 +516,7 @@ class Loader:
 
         return obj.find_section_containing(addr)
 
-    def find_loadable_containing(self, addr: int, skip_pseudo_objects=True) -> Optional["Region"]:
+    def find_loadable_containing(self, addr: int, skip_pseudo_objects=True) -> Region | None:
         """
         Find the section or segment object the address belongs to. Sections will only be used if the corresponding
         object does not have segments.
@@ -536,7 +537,7 @@ class Loader:
 
         return obj.find_loadable_containing(addr)
 
-    def find_section_next_to(self, addr: int, skip_pseudo_objects=True) -> Optional["Section"]:
+    def find_section_next_to(self, addr: int, skip_pseudo_objects=True) -> Section | None:
         """
         Find the next section after the given address.
 
@@ -669,7 +670,7 @@ class Loader:
             return so.reverse_plt.get(addr, None)
         return None
 
-    def find_relevant_relocations(self, name: str) -> Iterator["Relocation"]:
+    def find_relevant_relocations(self, name: str) -> Iterator[Relocation]:
         """
         Iterate through all the relocations referring to the symbol with the given ``name``
         """
@@ -963,7 +964,7 @@ class Loader:
             binary_stream = spec.open("rb")
             close = True
         else:
-            raise CLEError("Bad library specification: %s" % spec)
+            raise CLEError(f"Bad library specification: {spec}")
 
         try:
             # STEP 2: collect options
@@ -988,7 +989,7 @@ class Loader:
                 backend_cls = self._static_backend(binary_stream if binary is None else binary)
             if backend_cls is None:
                 raise CLECompatibilityError(
-                    "Unable to find a loader backend for %s.  Perhaps try the 'blob' loader?" % spec
+                    f"Unable to find a loader backend for {spec}.  Perhaps try the 'blob' loader?"
                 )
 
             # STEP 4: LOAD!
@@ -1001,7 +1002,7 @@ class Loader:
             if close:
                 binary_stream.close()
 
-    def _map_object(self, obj: "Backend"):
+    def _map_object(self, obj: Backend):
         """
         This will integrate the object into the global address space, but will not perform relocations.
         """
@@ -1113,7 +1114,7 @@ class Loader:
 
             return path
 
-        raise CLEFileNotFoundError("Could not find file %s" % spec)
+        raise CLEFileNotFoundError(f"Could not find file {spec}")
 
     def _possible_paths(self, spec):
         """
@@ -1303,7 +1304,7 @@ class Loader:
         elif backend is None:
             return default
         else:
-            raise CLEError("Invalid backend: %s" % backend)
+            raise CLEError(f"Invalid backend: {backend}")
 
     #
     # Memory data loading methods

@@ -1,4 +1,6 @@
-from typing import TYPE_CHECKING, Optional
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from elftools.dwarf.die import DIE
 
@@ -21,7 +23,7 @@ class Variable:
     :ivar lexical_block:    For a local variable, the lexical block where the variable is declared
     """
 
-    def __init__(self, elf_object: "ELF"):
+    def __init__(self, elf_object: ELF):
         self._elf_object = elf_object
         # all other optional params can be set afterwards
         self.relative_addr = None
@@ -34,7 +36,7 @@ class Variable:
         self.declaration_only = False
 
     @staticmethod
-    def from_die(die: DIE, expr_parser, elf_object: "ELF", lexical_block: Optional["LexicalBlock"] = None):
+    def from_die(die: DIE, expr_parser, elf_object: ELF, lexical_block: LexicalBlock | None = None):
         # first the address
         if "DW_AT_location" in die.attributes and die.attributes["DW_AT_location"].form == "DW_FORM_exprloc":
             parsed_exprs = expr_parser.parse_expr(die.attributes["DW_AT_location"].value)
@@ -106,7 +108,7 @@ class MemoryVariable(Variable):
     So all global variables, and also local static variables in C!
     """
 
-    def __init__(self, elf_object: "ELF", relative_addr):
+    def __init__(self, elf_object: ELF, relative_addr):
         super().__init__(elf_object)
         self.relative_addr = relative_addr
 
@@ -124,7 +126,7 @@ class StackVariable(Variable):
     Stack Variable from DWARF.
     """
 
-    def __init__(self, elf_object: "ELF", relative_addr):
+    def __init__(self, elf_object: ELF, relative_addr):
         super().__init__(elf_object)
         self.relative_addr = relative_addr
 
@@ -141,7 +143,7 @@ class RegisterVariable(Variable):
     Register Variable from DWARF.
     """
 
-    def __init__(self, elf_object: "ELF", register_addr):
+    def __init__(self, elf_object: ELF, register_addr):
         super().__init__(elf_object)
         # FIXME should this really go into relative addr?
         self.relative_addr = register_addr

@@ -5,6 +5,8 @@ References:
     - https://www.airs.com/blog/archives/464
 """
 
+from __future__ import annotations
+
 from elftools.common.utils import struct_parse
 from elftools.dwarf.enums import DW_EH_encoding_flags
 from elftools.dwarf.structs import DWARFStructs, Struct
@@ -109,7 +111,7 @@ class LSDAExceptionTable:
             elif modifier == DW_EH_encoding_flags["DW_EH_PE_pcrel"]:
                 lpstart += self.address + (self.stream.tell() - self.base_offset)
             else:
-                raise NotImplementedError("Unsupported modifier %#x." % modifier)
+                raise NotImplementedError(f"Unsupported modifier {modifier:#x}.")
 
         else:
             lpstart = None
@@ -161,6 +163,6 @@ class LSDAExceptionTable:
         if modifier == 0:
             pass
         else:
-            raise NotImplementedError("Unsupported modifier for CallSiteEntry: %#x." % modifier)
+            raise NotImplementedError(f"Unsupported modifier for CallSiteEntry: {modifier:#x}.")
 
         return CallSiteEntry(cs_start, cs_len, cs_lp, cs_action)

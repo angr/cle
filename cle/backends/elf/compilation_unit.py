@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os.path
 
 from cle.address_translator import AT

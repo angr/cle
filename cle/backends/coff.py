@@ -2,6 +2,8 @@
 Basic MS COFF object loader based on https://docs.microsoft.com/en-us/windows/win32/debug/pe-format
 """
 
+from __future__ import annotations
+
 import ctypes
 import logging
 import struct

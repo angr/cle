@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import os
 import tempfile
@@ -219,8 +221,8 @@ class Apk(Soot):
             jni_archs = [arch for arch in supported_jni_archs if arch in available_jni_archs]
             if not jni_archs:
                 raise ValueError(
-                    "Couldn't find a supported JNI arch. Available %s. Supported %s."
-                    "" % (available_jni_archs, supported_jni_archs)
+                    f"Couldn't find a supported JNI arch. Available {available_jni_archs}. "
+                    "Supported {supported_jni_archs}."
                 )
             jni_arch = jni_archs[0]
             log.info("Libs are available with arch(s): %s. Picking %s.", ", ".join(available_jni_archs), jni_arch)

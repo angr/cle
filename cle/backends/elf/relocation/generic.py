@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 
 from cle.address_translator import AT
@@ -206,8 +208,8 @@ class RelocTruncate32Mixin:
             else 0
         ):
             raise CLEOperationError(
-                "relocation truncated to fit: %s; consider making"
-                " relevant addresses fit in the 32-bit address space." % self.__class__.__name__
+                f"relocation truncated to fit: {self.__class__.__name__}; consider making"
+                " relevant addresses fit in the 32-bit address space."
             )
 
         self.owner.memory.pack_word(self.dest_addr, val, size=4, signed=False)
@@ -223,5 +225,5 @@ class RelocGOTMixin:
     def resolve(self, symbol, extern_object=None, **kwargs):
         assert extern_object is not None, "I have no idea how this would happen"
 
-        got_symbol = extern_object.make_extern("got.%s" % symbol.name, sym_type=SymbolType.TYPE_OBJECT, point_to=symbol)
+        got_symbol = extern_object.make_extern(f"got.{symbol.name}", sym_type=SymbolType.TYPE_OBJECT, point_to=symbol)
         super().resolve(got_symbol)

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Iterator
 from typing import Generic, TypeVar
 
@@ -65,7 +67,7 @@ class Regions(Generic[R]):
         return len(self._list)
 
     def __repr__(self):
-        return "<Regions: %s>" % repr(self._list)
+        return f"<Regions: {repr(self._list)}>"
 
     def _rebase(self, delta):
         """

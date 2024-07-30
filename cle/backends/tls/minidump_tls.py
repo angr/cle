@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import archinfo
 
 from cle.backends.tls.tls_object import ThreadManager

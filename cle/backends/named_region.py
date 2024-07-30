@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .backend import Backend, register_backend
 from .region import EmptySegment
 

@@ -1,4 +1,6 @@
 # pylint:disable=no-self-use,missing-class-docstring
+from __future__ import annotations
+
 import os
 from unittest import TestCase, main
 

@@ -1,11 +1,12 @@
 # pylint:disable=bad-builtin
+from __future__ import annotations
+
 import copy
 import logging
 import os
 import pathlib
 import xml.etree.ElementTree
 from collections import OrderedDict, defaultdict
-from typing import Set, Tuple
 
 import archinfo
 import elftools
@@ -156,7 +157,7 @@ class ELF(MetaELF):
         # DWARF data
         self.has_dwarf_info = bool(self._reader.has_dwarf_info())
         self.build_id = None
-        self.addr_to_line: "SortedDict[int, Set[Tuple[int, int]]]" = SortedDict()
+        self.addr_to_line: SortedDict[int, set[tuple[int, int]]] = SortedDict()
         self.variables: list[Variable] | None = None
         self.compilation_units: list[CompilationUnit] | None = None
 
@@ -520,9 +521,7 @@ class ELF(MetaELF):
                 self.binary,
             )
         if ph.p_filesz > ph.p_memsz:
-            raise CLEInvalidBinaryError(
-                "ELF file %s is loading a segment with an inappropriate allocation" % self.binary
-            )
+            raise CLEInvalidBinaryError(f"ELF file {self.binary} is loading a segment with an inappropriate allocation")
 
         mapstart = ALIGN_DOWN(ph.p_vaddr, self.loader.page_size)
         mapend = ALIGN_UP(ph.p_vaddr + ph.p_filesz, self.loader.page_size)
@@ -1323,7 +1322,7 @@ class ELF(MetaELF):
                 obj.elffile = None
                 obj.header.sh_offset = self._offset_to_rva(obj.header.sh_offset)
         else:
-            raise TypeError("Can't convert %r" % type(obj))
+            raise TypeError(f"Can't convert {type(obj)!r}")
 
     def _offset_to_rva(self, offset):
         return AT.from_mva(self.offset_to_addr(offset), self).to_rva()

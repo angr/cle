@@ -1,4 +1,6 @@
 # Contributed September 2019 by Fraunhofer SIT (https://www.sit.fraunhofer.de/en/).
+from __future__ import annotations
+
 import os
 import unittest
 

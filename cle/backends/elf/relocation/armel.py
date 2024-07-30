@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .arm import (
     R_ARM_ABS32,
     R_ARM_ABS32_NOI,

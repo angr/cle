@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .elfreloc import ELFReloc
 
 arch = "sparc:BE:32:default"
