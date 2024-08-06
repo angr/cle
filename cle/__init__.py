@@ -7,7 +7,7 @@ The primary interface to CLE is the Loader class.
 
 from __future__ import annotations
 
-__version__ = "9.2.114.dev0"
+__version__ = "9.2.114"
 
 from .address_translator import AT, AddressTranslator
 from .backends import (
