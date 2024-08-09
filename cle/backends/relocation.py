@@ -86,7 +86,7 @@ class Relocation:
         new_symbol = extern_object.make_extern(self.symbol.name, sym_type=self.symbol._type, thumb=thumb)
         self.resolve(new_symbol, extern_object=extern_object)
 
-    def resolve(self, obj, **kwargs):  # pylint: disable=unused-argument
+    def resolve(self, obj, extern_object=None):  # pylint: disable=unused-argument
         self.resolvedby = obj
         self.resolved = True
         if self.symbol is not None:
