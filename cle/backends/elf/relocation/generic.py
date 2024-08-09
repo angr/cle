@@ -66,7 +66,7 @@ class GenericTLSDescriptorReloc(ELFReloc):
     # is passed a pointer to the descriptor. My guess is the resolver is supposed to basically perform
     # _tls_get_addr, but the intention is probably to make it possible to work with dynamically loaded objects.
 
-    RESOLVER_ADDR = NotImplemented
+    RESOLVER_ADDR: int = NotImplemented
     AUTO_HANDLE_NONE = True
 
     def relocate(self):
@@ -222,7 +222,7 @@ class RelocGOTMixin:
     A mix-in class which will cause the symbol to be resolved to a pointer to the symbol instead of the symbol
     """
 
-    def resolve(self, symbol, extern_object=None, **kwargs):
+    def resolve(self, symbol, extern_object=None):
         assert extern_object is not None, "I have no idea how this would happen"
 
         got_symbol = extern_object.make_extern(f"got.{symbol.name}", sym_type=SymbolType.TYPE_OBJECT, point_to=symbol)
