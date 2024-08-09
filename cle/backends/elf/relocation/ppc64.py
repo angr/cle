@@ -20,8 +20,6 @@ from .generic import (
 
 log = logging.getLogger(name=__name__)
 
-arch = "PPC64"
-
 
 class R_PPC64_JMP_SLOT(ELFReloc):
     def relocate(self):
@@ -288,3 +286,5 @@ relocation_table_ppc64 = {
     # Not in spec
     248: R_PPC64_IRELATIVE,
 }
+
+__all__ = ("relocation_table_ppc64",)

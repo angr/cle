@@ -18,8 +18,6 @@ from .generic import (
     RelocGOTMixin,
 )
 
-arch = "X86"
-
 
 class R_386_32(GenericAbsoluteAddendReloc):
     """
@@ -159,3 +157,5 @@ relocation_table_i386 = {
     42: R_386_IRELATIVE,
     # 43: R_386_GOT32X,
 }
+
+__all__ = ("relocation_table_i386",)

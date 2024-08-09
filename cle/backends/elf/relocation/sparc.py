@@ -7,8 +7,6 @@ from __future__ import annotations
 
 from .elfreloc import ELFReloc
 
-arch = "sparc:BE:32:default"
-
 
 class R_SPARC_HI22(ELFReloc):
     """
@@ -80,3 +78,5 @@ relocation_table_sparc = {
     # 22: R_SPARC_RELATIVE,
     # 23: R_SPARC_UA32,
 }
+
+__all__ = ("relocation_table_sparc",)

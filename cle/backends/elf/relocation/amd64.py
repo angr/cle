@@ -131,3 +131,5 @@ relocation_table_amd64 = {
     # 50: R_X86_64_CODE_6_GOTTPOFF,
     # 51: R_X86_64_CODE_6_GOTPC32_TLSDESC,
 }
+
+__all__ = ("relocation_table_amd64",)

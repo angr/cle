@@ -25,7 +25,7 @@ ALL_RELOCATIONS = {
     "PPC32": relocation_table_ppc,
     "PPC64": relocation_table_ppc64,
     "S390X": relocation_table_s390x,
-    "SPARC": relocation_table_sparc,
+    "sparc:BE:32:default": relocation_table_sparc,
 }
 
 

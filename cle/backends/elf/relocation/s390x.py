@@ -14,8 +14,6 @@ from .generic import (
     GenericTLSOffsetReloc,
 )
 
-arch = "S390X"
-
 
 class R_390_GLOB_DAT(GenericJumpslotReloc):
     pass
@@ -112,3 +110,5 @@ relocation_table_s390x = {
     # 64: R_390_PC24DBL,
     # 65: R_390_PLT24DBL,
 }
+
+__all__ = ("relocation_table_s390x",)

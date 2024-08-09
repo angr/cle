@@ -19,7 +19,6 @@ from .generic import (
 )
 
 log = logging.getLogger(name=__name__)
-arch = "PPC32"
 
 
 # PPC constants/masks to be used in relocations
@@ -477,3 +476,5 @@ relocation_table_ppc = {
     36: R_PPC_SECTOFF_HA,
     37: R_PPC_ADDR30,
 }
+
+__all__ = ("relocation_table_ppc",)

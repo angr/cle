@@ -20,8 +20,6 @@ from .generic import (
     GenericTLSOffsetReloc,
 )
 
-arch = "MIPS32"
-
 
 class R_MIPS_32(GenericAbsoluteAddendReloc):
     pass
@@ -155,3 +153,5 @@ relocation_table_mips = {
     # 253: R_MIPS_GNU_VTINHERIT,
     # 254: R_MIPS_GNU_VTENTRY,
 }
+
+__all__ = ("relocation_table_mips",)

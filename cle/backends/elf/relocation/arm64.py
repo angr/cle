@@ -23,9 +23,6 @@ from .generic import (
 
 log = logging.getLogger(name=__name__)
 
-# https://github.com/ARM-software/abi-aa/blob/main/aaelf64/aaelf64.rst
-arch = "AARCH64"
-
 
 class R_AARCH64_ABS64(GenericAbsoluteAddendReloc):
     pass
@@ -403,3 +400,5 @@ relocation_table_arm64 = {
     # 1040: R_AARCH64_AUTH_ABS64,
     # 1041: R_AARCH64_AUTHELATIVE,
 }
+
+__all__ = ("relocation_table_arm64",)
