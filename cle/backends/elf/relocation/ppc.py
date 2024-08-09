@@ -1,3 +1,8 @@
+"""Relocation types for PowerPC 32-bit architecture.
+
+Reference: http://refspecs.linux-foundation.org/elf/elfspec_ppc.pdf page 4-18
+"""
+
 from __future__ import annotations
 
 import logging
@@ -15,9 +20,6 @@ from .generic import (
 
 log = logging.getLogger(name=__name__)
 arch = "PPC32"
-
-# Reference: System V Application Binary Interface, PowerPC Processor Supplement
-# http://refspecs.linux-foundation.org/elf/elfspec_ppc.pdf
 
 
 # PPC constants/masks to be used in relocations
@@ -434,3 +436,44 @@ class R_PPC_DTPREL32(GenericTLSDoffsetReloc):
 
 class R_PPC_TPREL32(GenericTLSOffsetReloc):
     pass
+
+
+relocation_table_ppc = {
+    1: R_PPC_ADDR32,
+    2: R_PPC_ADDR24,
+    3: R_PPC_ADDR16,
+    4: R_PPC_ADDR16_LO,
+    5: R_PPC_ADDR16_HI,
+    6: R_PPC_ADDR16_HA,
+    7: R_PPC_ADDR14,
+    8: R_PPC_ADDR14_BRTAKEN,
+    9: R_PPC_ADDR14_BRNTAKEN,
+    10: R_PPC_REL24,
+    11: R_PPC_REL14,
+    12: R_PPC_REL14_BRTAKEN,
+    13: R_PPC_REL14_BRNTAKEN,
+    # 14: R_PPC_GOT16,
+    # 15: R_PPC_GOT16_LO,
+    # 16: R_PPC_GOT16_HI,
+    # 17: R_PPC_GOT16_HA,
+    # 18: R_PPC_PLTREL24,
+    19: R_PPC_COPY,
+    20: R_PPC_GLOB_DAT,
+    21: R_PPC_JMP_SLOT,
+    22: R_PPC_RELATIVE,
+    # 23: R_PPC_LOCAL24PC,
+    24: R_PPC_UADDR32,
+    25: R_PPC_UADDR16,
+    26: R_PPC_REL32,
+    # 27: R_PPC_PLT32,
+    # 28: R_PPC_PLTREL32,
+    # 29: R_PPC_PLT16_LO,
+    # 30: R_PPC_PLT16_HI,
+    # 31: R_PPC_PLT16_HA,
+    # 32: R_PPC_SDAREL16,
+    33: R_PPC_SECTOFF,
+    34: R_PPC_SECTOFF_LO,
+    35: R_PPC_SECTOFF_HI,
+    36: R_PPC_SECTOFF_HA,
+    37: R_PPC_ADDR30,
+}
