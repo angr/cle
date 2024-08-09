@@ -20,6 +20,8 @@ from .generic import (
     GenericTLSOffsetReloc,
 )
 
+# pylint: disable=missing-class-docstring
+
 
 class R_MIPS_32(GenericAbsoluteAddendReloc):
     pass

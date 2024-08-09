@@ -20,6 +20,8 @@ from .generic import (
 
 log = logging.getLogger(name=__name__)
 
+# pylint: disable=missing-class-docstring
+
 
 class R_PPC64_JMP_SLOT(ELFReloc):
     def relocate(self):
