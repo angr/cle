@@ -21,4 +21,4 @@ relocation_table_riscv = {
     8: IMAGE_REL_BASED_RISCV_LOW12S,
 }
 
-__all__ = ('relocation_table_riscv',)
+__all__ = ("relocation_table_riscv",)

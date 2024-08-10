@@ -16,4 +16,4 @@ relocation_table_mips = {
     9: IMAGE_REL_BASED_MIPS_JMPADDR16,
 }
 
-__all__ = ('relocation_table_mips',)
+__all__ = ("relocation_table_mips",)

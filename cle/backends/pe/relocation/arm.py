@@ -16,4 +16,4 @@ relocation_table_arm = {
     7: IMAGE_REL_BASED_THUMB_MOV32,
 }
 
-__all__ = ('relocation_table_arm',)
+__all__ = ("relocation_table_arm",)
