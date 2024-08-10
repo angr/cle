@@ -1,44 +1,36 @@
 from __future__ import annotations
 
-import importlib
 import logging
-import os
-from collections import defaultdict
 
-import archinfo
+from .amd64 import relocation_table_amd64
+from .arm import relocation_table_arm
+from .arm64 import relocation_table_arm64
+from .i386 import relocation_table_i386
+from .mips import relocation_table_mips
+from .ppc import relocation_table_ppc
+from .ppc64 import relocation_table_ppc64
+from .s390x import relocation_table_s390x
+from .sparc import relocation_table_sparc
 
-from cle.backends.relocation import Relocation
+ALL_RELOCATIONS = {
+    "AMD64": relocation_table_amd64,
+    "ARMCortexM": relocation_table_arm,
+    "ARM": relocation_table_arm,
+    "AARCH64": relocation_table_arm64,
+    "ARMEL": relocation_table_arm,
+    "ARMHF": relocation_table_arm,
+    "X86": relocation_table_i386,
+    "MIPS32": relocation_table_mips,
+    "MIPS64": relocation_table_mips,
+    "PPC32": relocation_table_ppc,
+    "PPC64": relocation_table_ppc64,
+    "S390X": relocation_table_s390x,
+    "sparc:BE:32:default": relocation_table_sparc,
+}
 
-ALL_RELOCATIONS = defaultdict(dict)
-complaint_log = set()
 
-path = os.path.dirname(os.path.abspath(__file__))
 log = logging.getLogger(name=__name__)
-
-
-def load_relocations():
-    for filename in os.listdir(path):
-        if not filename.endswith(".py"):
-            continue
-        if filename == "__init__.py":
-            continue
-
-        log.debug("Importing ELF relocation module: %s", filename[:-3])
-        module = importlib.import_module(f".{filename[:-3]}", "cle.backends.elf.relocation")
-
-        try:
-            arch_name = module.arch
-        except AttributeError:
-            continue
-
-        for item_name in dir(module):
-            if item_name not in archinfo.defines:
-                continue
-            item = getattr(module, item_name)
-            if not isinstance(item, type) or not issubclass(item, Relocation):
-                continue
-
-            ALL_RELOCATIONS[arch_name][archinfo.defines[item_name]] = item
+complaint_log = set()
 
 
 def get_relocation(arch, r_type):
@@ -51,6 +43,3 @@ def get_relocation(arch, r_type):
             complaint_log.add((arch, r_type))
             log.warning("Unknown reloc %d on %s", r_type, arch)
         return None
-
-
-load_relocations()
