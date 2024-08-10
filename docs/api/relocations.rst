@@ -3,7 +3,7 @@ Relocations
 
 CLE's loader implements program relocations.
 If you would like to add support for more relocations, you can do so by subclassing the ``Relocation`` class and overriding any relevant methods or properties.
-Then, uncomment the appropriate line in the relocations_table dict at the bottom of the file.
+Then, add or uncomment the appropriate line in the relocations_table dict at the bottom of the file.
 Look at the existing versions for details.
 
 .. automodule:: cle.backends.relocation
@@ -21,8 +21,6 @@ Look at the existing versions for details.
 .. automodule:: cle.backends.pe.relocation
 .. automodule:: cle.backends.pe.relocation.pereloc
 .. automodule:: cle.backends.pe.relocation.generic
-.. automodule:: cle.backends.pe.relocation.i386
-.. automodule:: cle.backends.pe.relocation.amd64
 .. automodule:: cle.backends.pe.relocation.mips
 .. automodule:: cle.backends.pe.relocation.arm
 .. automodule:: cle.backends.pe.relocation.riscv

@@ -101,3 +101,12 @@ class IMAGE_REL_BASED_LOW(PEReloc):
         adjusted_value = rebased_value & 0x0000FFFF
         adjusted_bytes = struct.pack("<H", adjusted_value)
         return adjusted_bytes
+
+
+relocation_table_generic = {
+    1: IMAGE_REL_BASED_HIGH,
+    2: IMAGE_REL_BASED_LOW,
+    3: IMAGE_REL_BASED_HIGHLOW,
+    4: IMAGE_REL_BASED_HIGHADJ,
+    10: IMAGE_REL_BASED_DIR64,
+}
