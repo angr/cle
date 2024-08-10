@@ -1,6 +1,9 @@
 """Relocation types for PowerPC 32-bit architecture.
 
 Reference: http://refspecs.linux-foundation.org/elf/elfspec_ppc.pdf page 4-18
+
+Only relocations 1-37 are described in the document. The rest are from the GNU
+binutils source code. See include/elf/ppc.h in the binutils source code.
 """
 
 from __future__ import annotations
@@ -66,7 +69,7 @@ class R_PPC_ADDR16(ELFReloc):
         return result
 
 
-class R_PPC_ADDR16_LO(ELFReloc):  # pylint: disable=undefined-variable
+class R_PPC_ADDR16_LO(ELFReloc):
     """
     Relocation Type: 0x4
     Calculation: #lo(S + A)
@@ -183,7 +186,7 @@ class R_PPC_ADDR14_BRNTAKEN(ELFReloc):
         return result
 
 
-class R_PPC_REL24(ELFReloc):  # pylint: disable=undefined-variable
+class R_PPC_REL24(ELFReloc):
     """
     Relocation Type: 0xa
     Calculation: (S + A - P) >> 2
@@ -475,6 +478,36 @@ relocation_table_ppc = {
     35: R_PPC_SECTOFF_HI,
     36: R_PPC_SECTOFF_HA,
     37: R_PPC_ADDR30,
+    # 67: R_PPC_TLS,
+    68: R_PPC_DTPMOD32,
+    # 69: R_PPC_TPREL16,
+    # 70: R_PPC_TPREL16_LO,
+    # 71: R_PPC_TPREL16_HI,
+    # 72: R_PPC_TPREL16_HA,
+    73: R_PPC_TPREL32,
+    # 74: R_PPC_DTPREL16,
+    # 75: R_PPC_DTPREL16_LO,
+    # 76: R_PPC_DTPREL16_HI,
+    # 77: R_PPC_DTPREL16_HA,
+    78: R_PPC_DTPREL32,
+    # 79: R_PPC_GOT_TLSGD16,
+    # 80: R_PPC_GOT_TLSGD16_LO,
+    # 81: R_PPC_GOT_TLSGD16_HI,
+    # 82: R_PPC_GOT_TLSGD16_HA,
+    # 83: R_PPC_GOT_TLSLD16,
+    # 84: R_PPC_GOT_TLSLD16_LO,
+    # 85: R_PPC_GOT_TLSLD16_HI,
+    # 86: R_PPC_GOT_TLSLD16_HA,
+    # 87: R_PPC_GOT_TPREL16,
+    # 88: R_PPC_GOT_TPREL16_LO,
+    # 89: R_PPC_GOT_TPREL16_HI,
+    # 90: R_PPC_GOT_TPREL16_HA,
+    # 91: R_PPC_GOT_DTPREL16,
+    # 92: R_PPC_GOT_DTPREL16_LO,
+    # 93: R_PPC_GOT_DTPREL16_HI,
+    # 94: R_PPC_GOT_DTPREL16_HA,
+    # 95: R_PPC_TLSGD,
+    # 96: R_PPC_TLSLD,
 }
 
 __all__ = ("relocation_table_ppc",)
