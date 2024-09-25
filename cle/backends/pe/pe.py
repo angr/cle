@@ -358,10 +358,11 @@ class PE(Backend):
         checks = []
 
         # Check PE file for path to PDB
-        for de in self._pe.DIRECTORY_ENTRY_DEBUG:
-            if de.entry and hasattr(de.entry, "PdbFileName"):
-                path = de.entry.PdbFileName.rstrip(b"\x00").decode()
-                break
+        if hasattr(self._pe, "DIRECTORY_ENTRY_DEBUG"):
+            for de in self._pe.DIRECTORY_ENTRY_DEBUG:
+                if de.entry and hasattr(de.entry, "PdbFileName"):
+                    path = de.entry.PdbFileName.rstrip(b"\x00").decode()
+                    break
 
         if path:
             if os.path.exists(path):
