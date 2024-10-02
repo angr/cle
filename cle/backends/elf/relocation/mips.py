@@ -10,6 +10,10 @@ include/elf/mips.h in the binutils source code.
 
 from __future__ import annotations
 
+from ctypes import c_int16
+
+from archinfo import Endness
+
 from .generic import (
     GenericAbsoluteAddendReloc,
     GenericAbsoluteReloc,
@@ -52,11 +56,37 @@ class R_MIPS_TLS_DTPREL32(GenericTLSDoffsetReloc):
 
 
 class R_MIPS_HI16(GenericAbsoluteReloc):
+
+    def find_matching_lo16_relocation(self):
+        current_hi16_index = self.owner.relocs.index(self)
+        return next(
+            reloc
+            for reloc in self.owner.relocs[current_hi16_index:]
+            if (self.symbol == reloc.symbol and type(reloc) is R_MIPS_LO16)
+        )
+
     def relocate(self):
         if not self.resolved:
             return False
 
-        self.owner.memory.pack_word(self.dest_addr, self.value >> 16, size=2)
+        # Relocating R_MIPS_HI16 requires to know the value placed at the following R_MIPS_LO16 relocation
+        matching_lo16_reloc_dest_addr = self.find_matching_lo16_relocation().dest_addr
+
+        dest_addr = self.dest_addr
+        if self.arch.memory_endness == Endness.BE:
+            dest_addr += 2
+            matching_lo16_reloc_dest_addr += 2
+
+        matching_lo16_reloc_target_bytes = c_int16(
+            self.owner.memory.unpack_word(matching_lo16_reloc_dest_addr, size=2)
+        ).value
+
+        target_value = (self.value + matching_lo16_reloc_target_bytes) - (
+            (self.value + matching_lo16_reloc_target_bytes) & 0xFFFF
+        )
+        target_value = (target_value >> 16) + self.owner.memory.unpack_word(dest_addr, size=2)
+
+        self.owner.memory.pack_word(dest_addr, target_value, size=2)
         return True
 
 
@@ -65,7 +95,13 @@ class R_MIPS_LO16(GenericAbsoluteReloc):
         if not self.resolved:
             return False
 
-        self.owner.memory.pack_word(self.dest_addr, self.value & 0xFFFF, size=2)
+        dest_addr = self.dest_addr
+        if self.arch.memory_endness == Endness.BE:
+            dest_addr += 2
+
+        target_value = (self.value + self.owner.memory.unpack_word(dest_addr, size=2)) & 0xFFFF
+
+        self.owner.memory.pack_word(dest_addr, target_value, size=2)
         return True
 
 
