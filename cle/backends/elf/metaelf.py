@@ -149,7 +149,7 @@ class MetaELF(Backend):
         if ".plt.got" in self.sections_map:
             plt_secs = [self.sections_map[".plt.got"]]
         if ".MIPS.stubs" in self.sections_map:
-            plt_secs = [self.sections_map[".MIPS.stubs"]]
+            plt_secs.append(self.sections_map[".MIPS.stubs"])
         if ".plt.sec" in self.sections_map:
             plt_secs.append(self.sections_map[".plt.sec"])
 
