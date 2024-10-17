@@ -1199,29 +1199,52 @@ class ELF(MetaELF):
         # segment.
         segment_relro.flags = overlapping_segments[0].flags & ~2
 
+    def __register_section(self, section_readelf, remap_offset, section_list):
+        section = ELFSection(section_readelf, remap_offset)
+
+        section_list.append((section_readelf, section))
+        # Register sections first, process later - this is required by relocatable objects
+        self.sections.append(section)
+        self.sections_map[section.name] = section
+
+    @staticmethod
+    def __calculate_section_alignment(section_readelf, address) -> int:
+        align = section_readelf.header["sh_addralign"]
+        if align > 0:
+            return (address + (align - 1)) // align * align
+        return address
+
     def __register_sections(self):
         new_addr = 0
+        remap_offset = 0
         sec_list = []
+        alloc_at_end_sections = []
 
         for sec_readelf in self._reader.iter_sections():
-            remap_offset = 0
             if self.is_relocatable and sec_readelf.header["sh_flags"] & 2:  # alloc flag
                 # Relocatable objects' section addresses are meaningless (they are meant to be relocated anyway)
                 # We thus have to map them manually to valid virtual addresses to emulate a linker's behaviour.
                 sh_addr = sec_readelf.header["sh_addr"]
-                align = sec_readelf.header["sh_addralign"]
-                if align > 0:
-                    new_addr = (new_addr + (align - 1)) // align * align
+                new_addr = self.__calculate_section_alignment(sec_readelf, new_addr)
 
                 remap_offset = new_addr - sh_addr
-                new_addr += sec_readelf.header["sh_size"]  # address for next section
+                if sec_readelf.name == ".reginfo" and sh_addr == 0:
+                    alloc_at_end_sections.append(sec_readelf)
+                    continue
+                if sec_readelf.header["sh_type"] == "SHT_NOTE":
+                    pass  # This section is not allocated, so no increment
+                else:
+                    new_addr += sec_readelf.header["sh_size"]  # address for next section
 
-            section = ELFSection(sec_readelf, remap_offset=remap_offset)
-            sec_list.append((sec_readelf, section))
+            self.__register_section(sec_readelf, remap_offset, sec_list)
 
-            # Register sections first, process later - this is required by relocatable objects
-            self.sections.append(section)
-            self.sections_map[section.name] = section
+        for sec_readelf in alloc_at_end_sections:
+            new_addr = self.__calculate_section_alignment(sec_readelf, new_addr)
+
+            remap_offset = new_addr - sh_addr
+            new_addr += sec_readelf.header["sh_size"]  # address for next section
+
+            self.__register_section(sec_readelf, remap_offset, sec_list)
 
         for sec_readelf, section in sec_list:
             if isinstance(sec_readelf, elffile.SymbolTableSection):
