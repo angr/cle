@@ -41,7 +41,7 @@ class R_MIPS_26(GenericAbsoluteReloc):
             return False
 
         original_value = self.owner.memory.unpack_word(self.dest_addr)
-        original_value += (self.value // 4)
+        original_value += self.value // 4
 
         self.owner.memory.pack_word(self.dest_addr, original_value)
         return True
