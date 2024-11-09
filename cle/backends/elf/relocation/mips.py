@@ -35,6 +35,18 @@ class R_MIPS_REL32(GenericRelativeReloc):
     pass
 
 
+class R_MIPS_26(GenericAbsoluteReloc):
+    def relocate(self):
+        if not self.resolved:
+            return False
+
+        original_value = self.owner.memory.unpack_word(self.dest_addr)
+        original_value += (self.value // 4)
+
+        self.owner.memory.pack_word(self.dest_addr, original_value)
+        return True
+
+
 class R_MIPS_JUMP_SLOT(GenericAbsoluteReloc):
     pass
 
@@ -129,7 +141,7 @@ relocation_table_mips = {
     # 1: R_MIPS_16,
     2: R_MIPS_32,
     3: R_MIPS_REL32,
-    # 4: R_MIPS_26,
+    4: R_MIPS_26,
     5: R_MIPS_HI16,
     6: R_MIPS_LO16,
     # 7: R_MIPS_GPREL16,
