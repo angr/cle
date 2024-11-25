@@ -299,7 +299,7 @@ class ELFCore(ELF):
             ]
             nreg = 18
         elif self.arch.name == "AARCH64":
-            rnames = ["x%d" % i for i in range(32)]
+            rnames = [f"x{i}" for i in range(32)]
             rnames.append("pc")
             rnames.append("xxx")
             nreg = 34

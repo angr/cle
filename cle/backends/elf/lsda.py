@@ -54,7 +54,7 @@ class LSDAExceptionTable:
         if bits in (32, 64):
             dwarf_format = bits
         else:
-            raise ValueError("Unsupported bits value %d. Expect either 32 or 64." % bits)
+            raise ValueError(f"Unsupported bits value {bits}. Expect either 32 or 64.")
 
         self.entry_structs = DWARFStructs(
             little_endian=little_endian, dwarf_format=dwarf_format, address_size=bits // 8

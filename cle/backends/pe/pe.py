@@ -217,7 +217,7 @@ class PE(Backend):
             for entry in self._pe.DIRECTORY_ENTRY_IMPORT:
                 for imp in entry.imports:
                     if imp.name is None:  # must be an import by ordinal
-                        imp_name = "ordinal.%d.%s" % (imp.ordinal, entry.dll.lower().decode())
+                        imp_name = f"ordinal.{imp.ordinal}.{entry.dll.lower().decode()}"
                     else:
                         imp_name = imp.name.decode()
 

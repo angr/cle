@@ -314,7 +314,7 @@ class ELF(MetaELF):
                 arch_str = additional_e_machine_mappings[e_machine_header_val]
             else:
                 raise CLECompatibilityError(
-                    "The `e_machine` header value " "of the ELF file is not known: %d" % e_machine_header_val
+                    f"The `e_machine` header value of the ELF file is not known: {e_machine_header_val}"
                 )
         else:
             assert False  # assumption that `reader['e_machine'] returns `str` or `int` is violated
