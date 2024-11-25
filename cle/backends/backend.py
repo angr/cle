@@ -51,7 +51,7 @@ class FunctionHint:
         self.source = source
 
     def __repr__(self):
-        return "<FuncHint@%#x, %d bytes>" % (self.addr, self.size)
+        return f"<FuncHint@{self.addr:#x}, {self.size} bytes>"
 
 
 class ExceptionHandling:
