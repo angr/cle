@@ -70,6 +70,7 @@ class EncryptedDataAccessException(Exception):
     """
     Special exception to be raised when access to encrypted memory is attempted
     """
+
     def __init__(self, message, addr):
         super().__init__(message)
         self.addr = addr
