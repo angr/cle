@@ -20,6 +20,7 @@ from cle.backends.macho.binding import BindingHelper, MachOPointerRelocation, Ma
 from cle.backends.regions import Regions
 from cle.errors import CLECompatibilityError, CLEInvalidBinaryError, CLEOperationError
 
+from .encrypted_sentinel_backer import CryptSentinel
 from .macho_enums import LoadCommands as LC
 from .macho_enums import MachoFiletype, MH_flags
 from .section import MachOSection
@@ -36,8 +37,6 @@ from .structs import (
     dyld_chained_starts_in_segment,
 )
 from .symbol import AbstractMachOSymbol, DyldBoundSymbol, SymbolTableSymbol
-from .encrypted_sentinel_backer import CryptSentinel
-
 
 log = logging.getLogger(name=__name__)
 

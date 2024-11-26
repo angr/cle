@@ -1,4 +1,5 @@
-from cle.errors import CLEMemoryError
+from __future__ import annotations
+
 from cle.memory import Clemory
 
 
@@ -69,4 +70,5 @@ class EncryptedDataAccessException(Exception):
     def __init__(self, message, addr):
         super().__init__(message)
         self.addr = addr
+
     pass
