@@ -333,7 +333,7 @@ class MachO(Backend):
 
     @staticmethod
     def extract_soname(path):
-        return path.split('/')[-1]
+        return path.split("/")[-1]
 
     @classmethod
     def is_compatible(cls, stream):

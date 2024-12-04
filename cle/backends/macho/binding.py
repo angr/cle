@@ -502,7 +502,9 @@ class MachOSymbolRelocation(Relocation):
                 if self.symbol.library_base_name == so.binary_basename:
                     symbols = so.get_symbol(self.symbol.name)
                     if not symbols:
-                        log.warning("Symbol %s should have been resolved by %s but wasn't", self.symbol.name, so.binary_basename)
+                        log.warning(
+                            "Symbol %s should have been resolved by %s but wasn't", self.symbol.name, so.binary_basename
+                        )
                         continue
                     (symbol,) = symbols
                     assert symbol.is_export
