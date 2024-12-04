@@ -331,6 +331,10 @@ class MachO(Backend):
                 f"Assertion triggered: {count} < {self.ncmds} or {offset - lc_offset} < {self.sizeofcmds}"
             )
 
+    @staticmethod
+    def extract_soname(path):
+        return path.split("/")[-1]
+
     @classmethod
     def is_compatible(cls, stream):
         stream.seek(0)

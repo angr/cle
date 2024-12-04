@@ -500,7 +500,13 @@ class MachOSymbolRelocation(Relocation):
         if isinstance(self.symbol, (SymbolTableSymbol, BindingSymbol, DyldBoundSymbol)):
             for so in solist:
                 if self.symbol.library_base_name == so.binary_basename:
-                    [symbol] = so.get_symbol(self.symbol.name)
+                    symbols = so.get_symbol(self.symbol.name)
+                    if not symbols:
+                        log.warning(
+                            "Symbol %s should have been resolved by %s but wasn't", self.symbol.name, so.binary_basename
+                        )
+                        continue
+                    (symbol,) = symbols
                     assert symbol.is_export
                     self.resolve(symbol, extern_object=extern_object)
                     log.info("Resolved %s to %s", self.symbol.name, symbol)
