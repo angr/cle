@@ -20,6 +20,7 @@ from cle.backends.macho.binding import BindingHelper, MachOPointerRelocation, Ma
 from cle.backends.regions import Regions
 from cle.errors import CLECompatibilityError, CLEInvalidBinaryError, CLEOperationError
 
+from .encrypted_sentinel_backer import CryptSentinel
 from .macho_enums import LoadCommands as LC
 from .macho_enums import MachoFiletype, MH_flags
 from .section import MachOSection
@@ -244,6 +245,10 @@ class MachO(Backend):
             log.info("Parsing binding bytecode stream")
             self.do_binding()
 
+    def set_arch(self, arch):
+        super().set_arch(arch)
+        self.memory = CryptSentinel(arch=arch)
+
     @property
     def min_addr(self):
         return self.mapped_base
@@ -296,7 +301,10 @@ class MachO(Backend):
                 self._load_lc_data_in_code(binary_file, offset)
             elif cmd in [LC.LC_ENCRYPTION_INFO, LC.LC_ENCRYPTION_INFO_64]:  # LC_ENCRYPTION_INFO(_64)
                 log.debug("Found LC_ENCRYPTION_INFO @ %#x", offset)
-                # self._assert_unencrypted(binary_file, offset)
+                # Store the offset and size of the encrypted section for later
+                (_, _, cryptoff, cryptsize, cryptid) = self._unpack("5I", binary_file, offset, 20)
+                self.memory.set_crypt_info(cryptid, cryptoff, cryptsize)
+
             elif cmd in [LC.LC_DYLD_CHAINED_FIXUPS]:
                 log.info("Found LC_DYLD_CHAINED_FIXUPS @ %#x", offset)
                 (_, _, dataoff, datasize) = self._unpack("4I", binary_file, offset, 16)
@@ -589,13 +597,6 @@ class MachO(Backend):
             self.lc_data_in_code.append(blob)
 
         log.debug("Done parsing data in code")
-
-    def _assert_unencrypted(self, f, off):
-        log.debug("Asserting unencrypted file")
-        (_, _, _, _, cryptid) = self._unpack("5I", f, off, 20)
-        if cryptid > 0:
-            log.error("Cannot load encrypted files")
-            raise CLEInvalidBinaryError()
 
     def _load_lc_function_starts(self, f, off):
         # note that the logic below is based on Apple's dyldinfo.cpp, no official docs seem to exist
