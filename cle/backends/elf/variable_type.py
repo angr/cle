@@ -38,6 +38,10 @@ class VariableType:
             return TypedefType.read_from_die(die, elf_object)
         elif die.tag == "DW_TAG_union_type":
             return UnionType.read_from_die(die, elf_object)
+        elif die.tag == "DW_TAG_const_type":
+            return ConstType.read_from_die(die, elf_object)
+        elif die.tag == "DW_TAG_volatile_type":
+            return VolatileType.read_from_die(die, elf_object)
         return None
 
     @staticmethod
@@ -49,6 +53,8 @@ class VariableType:
             "DW_TAG_array_type",
             "DW_TAG_typedef",
             "DW_TAG_union_type",
+            "DW_TAG_const_type",
+            "DW_TAG_volatile_type",
         )
 
 
@@ -71,18 +77,15 @@ class PointerType(VariableType):
         read an entry of DW_TAG_pointer_type. return None when there is no
         byte_size or type attribute.
         """
-        byte_size = die.attributes.get("DW_AT_byte_size", None)
-
-        if byte_size is None:
-            return None
-
+        # some binaries may not have a "DW_AT_byte_size" for pointer type
+        byte_size = elf_object.arch.bytes
         dw_at_type = die.attributes.get("DW_AT_type", None)
         if dw_at_type is None:
             referenced_offset = None
         else:
             referenced_offset = dw_at_type.value + die.cu.cu_offset
 
-        return cls(byte_size.value, elf_object, referenced_offset)
+        return cls(byte_size, elf_object, referenced_offset)
 
     @property
     def referenced_type(self):
@@ -161,6 +164,28 @@ class StructType(VariableType):
 class UnionType(StructType):
     """
     Entry class for DW_TAG_union_type. Inherits from StructType to make it trivial.
+    """
+
+
+class ConstType(VariableType):
+
+    def __init__(self, name, byte_size: int, elf_object):
+        super().__init__(name, byte_size, elf_object)
+
+    @classmethod
+    def read_from_die(cls, die: DIE, elf_object):
+        dw_at_type = die.attributes.get("DW_AT_type", None)
+        if dw_at_type is None:
+            return None
+        refer_offset = dw_at_type.value + die.cu.cu_offset
+        _next_level_die = die.cu.dwarfinfo.get_DIE_from_refaddr(refer_offset)
+        # NOTE: we return the type being referred to
+        return VariableType.read_from_die(_next_level_die, elf_object)
+
+
+class VolatileType(ConstType):
+    """
+    Entry class DW_TAG_volatile_type
     """
 
 
