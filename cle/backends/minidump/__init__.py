@@ -151,8 +151,7 @@ class Minidump(Backend):
             }
         else:
             raise CLEError("Deserializing minidump registers is not implemented for this architecture")
-        data = data[: struct.calcsize(fmt)]
-        members = struct.unpack(fmt, data)
+        members = struct.unpack_from(fmt, data)
         thread_registers = {}
         for register, position in fmt_registers.items():
             thread_registers[register] = members[position]
@@ -160,6 +159,12 @@ class Minidump(Backend):
         if self.arch.name == "AMD64" or self.wow64:
             gs_base = self.memory.unpack_word(teb + 0x30)
             thread_registers["gs_const"] = gs_base
+            if self.arch.name == "AMD64":
+                NUM_XMM_REGS = 16
+                xmms = struct.unpack_from("16s" * NUM_XMM_REGS, data, offset=0x1A0)
+                thread_registers |= {
+                    f"xmm{i}": int.from_bytes(xmm, "little", signed=False) for i, xmm in enumerate(xmms)
+                }
         elif self.arch.name == "X86":
             fs_base = self.memory.unpack_word(teb + 0x18)
             thread_registers["fs"] = fs_base
