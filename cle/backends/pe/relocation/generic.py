@@ -47,9 +47,9 @@ class IMAGE_REL_BASED_HIGHADJ(PEReloc):
         case, however, we have to adjust the un-rebased address first.
         """
         org_bytes = self.owner.memory.load(self.relative_addr, 2)
-        org_value = struct.unpack("<I", org_bytes)[0]
+        org_value = struct.unpack("<H", org_bytes)[0]
         adjusted_value = (org_value << 16) + self.next_rva
-        adjusted_value = (AT.from_lva(adjusted_value, self.owner) & 0xFFFF0000) >> 16
+        adjusted_value = (AT.from_lva(adjusted_value, self.owner).to_mva() & 0xFFFF0000) >> 16
         adjusted_bytes = struct.pack("<I", adjusted_value)
         return adjusted_bytes
 
