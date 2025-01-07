@@ -66,7 +66,10 @@ class Region:
         return addr
 
     def __repr__(self):
-        return "<{} {}>".format(self.__class__.__name__, ", ".join([f"{k}=0x{v:x}" for k, v in self.__dict__.items()]))
+        return "<{} {}>".format(
+            self.__class__.__name__,
+            ", ".join([f"{k}={hex(v) if v is not None else 'None'}" for k, v in self.__dict__.items()]),
+        )
 
     @property
     def max_addr(self):
