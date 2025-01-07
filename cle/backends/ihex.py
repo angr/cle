@@ -147,6 +147,11 @@ class Hex(Backend):
                 raise CLEError("This HEX Object type is not implemented: " + hex(rectype))
         if not got_base:
             log.warning("No base address was found in this HEX object file. It is assumed to be 0")
+
+        if self.load_args.get("entry_point") is not None:
+            self._entry = self.load_args["entry_point"]
+            got_entry = True
+
         if not got_entry:
             log.warning(
                 "No entry point was found in this HEX object file, and it is assumed to be 0. "
