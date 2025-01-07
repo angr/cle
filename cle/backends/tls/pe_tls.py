@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import logging
+
 from cle.address_translator import AT
 
 from .tls_object import InternalTLSRelocation, ThreadManager, TLSObject
+
+_l = logging.getLogger(__name__)
 
 
 class PEThreadManager(ThreadManager):
@@ -12,7 +16,19 @@ class PEThreadManager(ThreadManager):
 
         # The PE TLS header says to write its index into a given address
         if hasattr(obj, "tls_index_address"):
-            obj.memory.pack_word(AT.from_lva(obj.tls_index_address, obj).to_rva(), obj.tls_module_id)
+            rva = AT.from_lva(obj.tls_index_address, obj).to_rva()
+            if rva > 0 and rva in obj.memory:
+                try:
+                    obj.memory.pack_word(rva, obj.tls_module_id)
+                except KeyError:
+                    _l.warning(
+                        "TLS index address %#x (RVA %#x) does not exist or is not writable.", obj.tls_index_address, rva
+                    )
+            else:
+                # apparently RVA can be an absolute address pointing to another object. we don't handle it yet.
+                _l.warning(
+                    "TLS index address %#x (RVA %#x) is not mapped in the current object.", obj.tls_index_address, rva
+                )
         return True
 
     @property
