@@ -13,7 +13,7 @@ except ImportError:
     pyxdia = None
 
 from cle.address_translator import AT
-from cle.backends.backend import Backend, register_backend
+from cle.backends.backend import Backend, FunctionHint, FunctionHintSource, register_backend
 from cle.backends.symbol import SymbolType
 
 from .regions import PESection
@@ -89,6 +89,7 @@ class PE(Backend):
         self._symbol_cache = self._exports  # same thing
         self._handle_imports()
         self._handle_exports()
+        self._handle_seh()
         if self.loader._perform_relocations:
             # parse base relocs
             self._pe.parse_data_directories(directories=(pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_BASERELOC"],))
@@ -257,6 +258,17 @@ class PE(Backend):
                     forwardlib = forwarder.split(".", 1)[0].lower() + ".dll"
                     if forwardlib not in self.deps:
                         self.deps.append(forwardlib)
+
+    def _handle_seh(self):
+        if hasattr(self._pe, "DIRECTORY_ENTRY_EXCEPTION"):
+            for entry in self._pe.DIRECTORY_ENTRY_EXCEPTION:
+                self.function_hints.append(
+                    FunctionHint(
+                        entry.struct.BeginAddress + self.linked_base,
+                        entry.struct.EndAddress - entry.struct.BeginAddress,
+                        FunctionHintSource.EH_FRAME,
+                    )
+                )
 
     def __register_relocs(self):
         if not hasattr(self._pe, "DIRECTORY_ENTRY_BASERELOC"):
