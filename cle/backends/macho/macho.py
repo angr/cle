@@ -882,9 +882,12 @@ class MachO(Backend):
         """
         end = -1
         buffer = b""
+        chunk_size = 1024
         while end == -1:
-            buffer += self._read(self._binary_stream, start, 1024)
+            buffer += self._read(self._binary_stream, start, chunk_size)
             end = buffer.find(b"\x00")
+            if end == -1:
+                start += chunk_size
             if max_length is not None and len(buffer) > max_length:
                 raise ValueError(f"Symbol name exceeds {max_length} bytes, giving up")
         return buffer[:end]
