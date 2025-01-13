@@ -720,6 +720,14 @@ class ClemoryReadOnlyView(ClemoryBase):
         Reading will stop at the beginning of the first unallocated region found, or when
         `n` bytes have been read.
         """
+        # check cache first
+        if self._last_backer_pos is not None:
+            start, data = self._flattened_backers[self._last_backer_pos]
+            if 0 <= addr - start < len(data):
+                offset = addr - start
+                if offset + n < len(data):
+                    return bytes(memoryview(data)[offset : offset + n])
+
         start_pos = bisect.bisect_right(self._flattened_backers, addr, key=lambda x: x[0])
         if start_pos > 0:
             start_pos -= 1
@@ -730,6 +738,8 @@ class ClemoryReadOnlyView(ClemoryBase):
                 break
             offset = addr - start
             if not views and offset + n < len(data):
+                # only cache if we do not need to read across backers
+                self._last_backer_pos = i
                 return bytes(memoryview(data)[offset : offset + n])
             size = len(data) - offset
             views.append(memoryview(data)[offset : offset + n])
