@@ -763,7 +763,7 @@ class ClemoryReadOnlyView(ClemoryBase):
     def store(self, addr, data):
         raise NotImplementedError("ClemoryReadOnlyView does not support storing")
 
-    def backers(self, addr: int=0):
+    def backers(self, addr: int = 0):
         start_pos = bisect.bisect_right(self._flattened_backers, addr, key=lambda x: x[0])
         if start_pos > 0:
             start_pos -= 1
