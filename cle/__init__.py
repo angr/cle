@@ -74,7 +74,7 @@ from .errors import (
 )
 from .gdb import GDB_SEARCH_PATH, convert_info_proc_maps, convert_info_sharedlibrary
 from .loader import Loader
-from .memory import Clemory, ClemoryBase, ClemoryTranslator, ClemoryView, ClemoryReadOnlyView
+from .memory import Clemory, ClemoryBase, ClemoryReadOnlyView, ClemoryTranslator, ClemoryView
 from .patched_stream import PatchedStream
 
 __all__ = [
