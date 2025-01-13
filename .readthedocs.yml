@@ -2,6 +2,9 @@
 # See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
 
 version: 2
+sphinx:
+  configuration: docs/conf.py
+  fail_on_warning: true
 build:
   os: ubuntu-22.04
   tools:
@@ -18,5 +21,3 @@ python:
       extra_requirements:
         - docs
 
-sphinx:
-  fail_on_warning: true
