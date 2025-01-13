@@ -674,3 +674,123 @@ class UninitializedClemory(Clemory):
         :return:
         """
         return iter(())
+
+
+class ClemoryReadOnlyView(ClemoryBase):
+    """
+    Represents an outermost read-only view of a Clemory object that does not allow updates. This class offers quick
+    accesses to memory reads.
+    """
+
+    def __init__(self, arch, clemory: Clemory):
+        super().__init__(arch)
+        self._clemory = clemory
+        self._flattened_backers: list[tuple[int, bytearray | list]] = []
+
+        # cache
+        self._last_backer_pos: int | None = None
+
+        self._flatten_backers()
+
+    def __getitem__(self, k):
+        # check cache first
+        if self._last_backer_pos is not None:
+            start, data = self._flattened_backers[self._last_backer_pos]
+            if 0 <= k - start < len(data):
+                return data[k - start]
+
+        idx = bisect.bisect_right(self._flattened_backers, k, key=lambda x: x[0])
+        if idx > 0:
+            idx -= 1
+        if idx >= len(self._flattened_backers):
+            raise KeyError(k)
+        start, data = self._flattened_backers[idx]
+        if 0 <= k - start < len(data):
+            self._last_backer_pos = idx
+            return data[k - start]
+        raise KeyError(k)
+
+    def __setitem__(self, k, v):
+        raise NotImplementedError("ClemoryReadOnlyView does not support item assignment")
+
+    def load(self, addr: int, n: int):
+        """
+        Read up to `n` bytes at address `addr` in memory and return a bytes object.
+
+        Reading will stop at the beginning of the first unallocated region found, or when
+        `n` bytes have been read.
+        """
+        start_pos = bisect.bisect_right(self._flattened_backers, addr, key=lambda x: x[0])
+        if start_pos > 0:
+            start_pos -= 1
+        views = []
+        for i in range(start_pos, len(self._flattened_backers)):
+            start, data = self._flattened_backers[i]
+            if start > addr:
+                break
+            offset = addr - start
+            if not views and offset + n < len(data):
+                return bytes(memoryview(data)[offset : offset + n])
+            size = len(data) - offset
+            views.append(memoryview(data)[offset : offset + n])
+
+            addr += size
+            n -= size
+
+            if n <= 0:
+                break
+
+        if not views:
+            raise KeyError(addr)
+        return b"".join(views)
+
+    def store(self, addr, data):
+        raise NotImplementedError("ClemoryReadOnlyView does not support storing")
+
+    def backers(self, addr=0):
+        start_pos = bisect.bisect_right(self._flattened_backers, addr, key=lambda x: x[0])
+        if start_pos > 0:
+            start_pos -= 1
+        for idx in range(start_pos, len(self._flattened_backers)):
+            start, data = self._flattened_backers[idx]
+            if start > addr:
+                break
+            if 0 <= addr - start < len(data):
+                yield start, data
+
+    def unpack(self, addr, fmt):
+        if self._last_backer_pos is not None:
+            start, data = self._flattened_backers[self._last_backer_pos]
+            if 0 <= addr - start < len(data):
+                try:
+                    return struct.unpack_from(fmt, data, addr - start)
+                except struct.error as ex:
+                    if len(data) - (addr - start) >= struct.calcsize(fmt):
+                        raise ex
+                    raise KeyError(addr)
+
+        idx = bisect.bisect_right(self._flattened_backers, addr, key=lambda x: x[0])
+        if idx > 0:
+            idx -= 1
+        if idx >= len(self._flattened_backers):
+            raise KeyError(addr)
+        start, data = self._flattened_backers[idx]
+        if start > addr:
+            raise KeyError(addr)
+        try:
+            v = struct.unpack_from(fmt, data, addr - start)
+            self._last_backer_pos = idx
+            return v
+        except struct.error as ex:
+            if len(data) - (addr - start) >= struct.calcsize(fmt):
+                raise ex
+            raise KeyError(addr)
+
+    def _flatten_backers(self):
+        for start, backer in self._clemory.backers():
+            if isinstance(backer, (bytearray, list)):
+                self._flattened_backers.append((start, backer))
+            elif isinstance(backer, Clemory):
+                pass
+            else:
+                raise TypeError(f"Unsupported backer type {type(backer)}.")
