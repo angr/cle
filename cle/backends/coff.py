@@ -11,6 +11,8 @@ from enum import IntEnum, IntFlag
 
 import archinfo
 
+from cle.utils import extract_null_terminated_bytestr
+
 from .backend import Backend, register_backend
 from .region import Section, Segment
 from .relocation import Relocation
@@ -223,25 +225,14 @@ class CoffParser:
                 offset += ctypes.sizeof(reloc)
             self.relocations.append(relocs)
 
-    @staticmethod
-    def _decode_cstring(data: bytes, offset: int, encoding: str | None = None) -> str:
-        name = bytearray()
-        while True:
-            x = data[offset]
-            if x == 0:
-                break
-            name.append(x)
-            offset += 1
-        return str(name, encoding=(encoding or "ascii"))
-
     def get_symbol_name(self, symbol_idx: int, true_name: bool = False) -> str:
         if symbol_idx in self.idx_to_symbol_name and not true_name:
             return self.idx_to_symbol_name[symbol_idx]
 
         name_encoded = bytes(self.symbols[symbol_idx].Name)
-        if name_encoded[0:4] == b"\x00\x00\x00\x00":
-            offset = struct.unpack("<II", name_encoded)[1]
-            return self._decode_cstring(self.strings, offset)
+        name_as_dwords = struct.unpack("<II", name_encoded)
+        if name_as_dwords[0] == 0:
+            name_encoded = extract_null_terminated_bytestr(self.strings, offset=name_as_dwords[1])
         return name_encoded.rstrip(b"\x00").decode("ascii")
 
     def get_section_name(self, section_idx: int) -> str:

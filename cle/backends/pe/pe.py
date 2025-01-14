@@ -16,6 +16,7 @@ except ImportError:
 from cle.address_translator import AT
 from cle.backends.backend import Backend, FunctionHint, FunctionHintSource, register_backend
 from cle.backends.symbol import SymbolType
+from cle.utils import extract_null_terminated_bytestr
 
 from .regions import PESection
 from .relocation import get_relocation
@@ -202,19 +203,18 @@ class PE(Backend):
         idx = 0
         while idx < self._pe.FILE_HEADER.NumberOfSymbols:
             offset = self._pe.FILE_HEADER.PointerToSymbolTable + idx * 18
-            (name, value, section, type_, _, num_aux_syms) = struct.unpack(
-                "<8sIhHBB", self._raw_data[offset : offset + 18]
-            )
-            if name[0:4] == b"\x00\x00\x00\x00":
-                offset = int.from_bytes(name[4:], byteorder="little")
-                name = self._read_from_string_table(offset, encoding="utf-8")
+            sym_desc = self._raw_data[offset : offset + 18]
+            (name, value, section, type_, _, num_aux_syms) = struct.unpack("<8sIhHBB", sym_desc)
+            name_as_dwords = struct.unpack("<II", name)
+            if name_as_dwords[0] == 0:
+                name = self._read_from_string_table(name_as_dwords[1])
             else:
-                name = name.rstrip(b"\x00").decode("ascii")
-            if section > 0 and VALID_SYMBOL_NAME_RE.fullmatch(name) and type_ in type_to_symbol_type:
+                name = name.rstrip(b"\x00").decode("utf-8")
+            if section > 0 and type_ in type_to_symbol_type and VALID_SYMBOL_NAME_RE.fullmatch(name):
                 rva = self._pe.sections[section - 1].VirtualAddress + value
-                symb = WinSymbol(self, name, rva, False, False, None, None, type_to_symbol_type[type_])
-                log.debug("Adding symbol %s", str(symb))
-                self.symbols.add(symb)
+                symbol = WinSymbol(self, name, rva, False, False, None, None, type_to_symbol_type[type_])
+                log.debug("Adding symbol %s", symbol)
+                self.symbols.add(symbol)
             idx += 1 + num_aux_syms
 
     #
@@ -388,23 +388,17 @@ class PE(Backend):
 
         return callbacks
 
-    @staticmethod
-    def _decode_cstring(data: bytes, offset: int, encoding: str | None = None) -> str:
-        name = bytearray()
-        while True:
-            x = data[offset]
-            if x == 0:
-                break
-            name.append(x)
-            offset += 1
-        return str(name, encoding=(encoding or "ascii"))
+    def _read_from_string_table(self, offset: int, encoding: str = "utf-8") -> str:
+        """
+        Read a null-terminated string from the string table given a byte offset.
 
-    def _read_from_string_table(self, offset: int, encoding: str | None = None) -> str:
-        return self._decode_cstring(
+        :param offset: Byte offset of the string.
+        :param encoding: String encoding (default utf-8).
+        """
+        return extract_null_terminated_bytestr(
             self._raw_data,
             (self._pe.FILE_HEADER.PointerToSymbolTable + self._pe.FILE_HEADER.NumberOfSymbols * 18 + offset),
-            encoding,
-        )
+        ).decode(encoding)
 
     def _register_sections(self):
         """
@@ -415,10 +409,10 @@ class PE(Backend):
             name = pe_section.Name.decode("utf-8")
             # Match indirect section names given by a forward slash and a
             # decimal byte offset into the string table.
-            sec_name_string_tbl_offset = SECTION_NAME_STRING_TABLE_OFFSET_RE.fullmatch(name)
-            if sec_name_string_tbl_offset:
-                offset = int(sec_name_string_tbl_offset.group(1))
-                name = self._read_from_string_table(offset, encoding="utf-8")
+            str_tbl_offset_match = SECTION_NAME_STRING_TABLE_OFFSET_RE.fullmatch(name)
+            if str_tbl_offset_match:
+                str_tbl_offset = int(str_tbl_offset_match.group(1))
+                name = self._read_from_string_table(str_tbl_offset)
             section = PESection(pe_section, remap_offset=self.linked_base, name=name)
             self.sections.append(section)
             self.sections_map[section.name] = section
