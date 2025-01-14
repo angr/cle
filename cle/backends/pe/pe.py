@@ -24,11 +24,10 @@ from .relocation.generic import IMAGE_REL_BASED_ABSOLUTE, IMAGE_REL_BASED_HIGHAD
 from .symbol import WinSymbol
 
 PDB_SUPPORT_ENABLED = pyxdia is not None
-log = logging.getLogger(name=__name__)
-
 SECTION_NAME_STRING_TABLE_OFFSET_RE = re.compile(r"\/(\d+)")
-
 VALID_SYMBOL_NAME_RE = re.compile(r"[A-Za-z0-9_@$?]+")
+
+log = logging.getLogger(name=__name__)
 
 
 class PE(Backend):
