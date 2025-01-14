@@ -222,6 +222,8 @@ class Loader:
     @property
     def memory_ro_view(self) -> ClemoryReadOnlyView | None:
         if self._memory is None:
+            # it is intentional to check if self._memory is configured when memory_ro_view is accessed.
+            # memory_ro_view is only set up after gen_ro_memview() is called.
             raise ValueError("Cannot access memory_ro_view before loading is complete")
         return self._memory_ro_view
 
