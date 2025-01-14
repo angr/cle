@@ -361,12 +361,12 @@ class PE(Backend):
 
         return callbacks
 
-    def _read_from_string_table(self, offset: int, encoding: str = "utf-8") -> str:
+    def _read_from_string_table(self, offset: int, encoding: str = "latin-1") -> str:
         """
         Read a null-terminated string from the string table given a byte offset.
 
         :param offset: Byte offset of the string.
-        :param encoding: String encoding (default utf-8).
+        :param encoding: String encoding (default latin-1).
         """
         offset += self._pe.FILE_HEADER.PointerToSymbolTable + self._pe.FILE_HEADER.NumberOfSymbols * 18
         return extract_null_terminated_bytestr(self._raw_data, offset).decode(encoding)
@@ -377,7 +377,7 @@ class PE(Backend):
         """
 
         for pe_section in self._pe.sections:
-            name = pe_section.Name.rstrip(b"\x00").decode("utf-8")
+            name = pe_section.Name.rstrip(b"\x00").decode("latin-1")
             # Match indirect section names given by a forward slash and a
             # decimal byte offset into the string table.
             str_tbl_offset_match = SECTION_NAME_STRING_TABLE_OFFSET_RE.fullmatch(name)
@@ -443,7 +443,7 @@ class PE(Backend):
             if name_as_dwords[0] == 0:
                 name = self._read_from_string_table(name_as_dwords[1])
             else:
-                name = name.rstrip(b"\x00").decode("utf-8")
+                name = name.rstrip(b"\x00").decode("latin-1")
             if section > 0 and type_ in type_to_symbol_type and VALID_SYMBOL_NAME_RE.fullmatch(name):
                 rva = self._pe.sections[section - 1].VirtualAddress + value
                 symbol = WinSymbol(self, name, rva, False, False, None, None, type_to_symbol_type[type_])
