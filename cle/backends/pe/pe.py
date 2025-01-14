@@ -191,32 +191,6 @@ class PE(Backend):
             log.debug("Adding symbol %s", str(symb))
             self.symbols.add(symb)
 
-    def _load_symbols_from_coff_header(self):
-        """
-        COFF debug data is deprecated, but some tools (namely mingw) will still provide them.
-        """
-        type_to_symbol_type = {
-            0: SymbolType.TYPE_OBJECT,  # "Not a function"
-            0x20: SymbolType.TYPE_FUNCTION,
-        }
-
-        idx = 0
-        while idx < self._pe.FILE_HEADER.NumberOfSymbols:
-            offset = self._pe.FILE_HEADER.PointerToSymbolTable + idx * 18
-            sym_desc = self._raw_data[offset : offset + 18]
-            (name, value, section, type_, _, num_aux_syms) = struct.unpack("<8sIhHBB", sym_desc)
-            name_as_dwords = struct.unpack("<II", name)
-            if name_as_dwords[0] == 0:
-                name = self._read_from_string_table(name_as_dwords[1])
-            else:
-                name = name.rstrip(b"\x00").decode("utf-8")
-            if section > 0 and type_ in type_to_symbol_type and VALID_SYMBOL_NAME_RE.fullmatch(name):
-                rva = self._pe.sections[section - 1].VirtualAddress + value
-                symbol = WinSymbol(self, name, rva, False, False, None, None, type_to_symbol_type[type_])
-                log.debug("Adding symbol %s", symbol)
-                self.symbols.add(symbol)
-            idx += 1 + num_aux_syms
-
     #
     # Private methods
     #
@@ -453,6 +427,32 @@ class PE(Backend):
 
         log.warning("Unable to find PDB file for this PE. Tried: %s", str(checks))
         return None
+
+    def _load_symbols_from_coff_header(self):
+        """
+        COFF debug data is deprecated, but some tools (namely mingw) will still provide them.
+        """
+        type_to_symbol_type = {
+            0: SymbolType.TYPE_OBJECT,  # "Not a function"
+            0x20: SymbolType.TYPE_FUNCTION,
+        }
+
+        idx = 0
+        while idx < self._pe.FILE_HEADER.NumberOfSymbols:
+            offset = self._pe.FILE_HEADER.PointerToSymbolTable + idx * 18
+            sym_desc = self._raw_data[offset : offset + 18]
+            (name, value, section, type_, _, num_aux_syms) = struct.unpack("<8sIhHBB", sym_desc)
+            name_as_dwords = struct.unpack("<II", name)
+            if name_as_dwords[0] == 0:
+                name = self._read_from_string_table(name_as_dwords[1])
+            else:
+                name = name.rstrip(b"\x00").decode("utf-8")
+            if section > 0 and type_ in type_to_symbol_type and VALID_SYMBOL_NAME_RE.fullmatch(name):
+                rva = self._pe.sections[section - 1].VirtualAddress + value
+                symbol = WinSymbol(self, name, rva, False, False, None, None, type_to_symbol_type[type_])
+                log.debug("Adding symbol %s", symbol)
+                self.symbols.add(symbol)
+            idx += 1 + num_aux_syms
 
 
 register_backend("pe", PE)
