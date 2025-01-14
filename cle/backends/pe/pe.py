@@ -27,6 +27,8 @@ log = logging.getLogger(name=__name__)
 
 SECTION_NAME_STRING_TABLE_OFFSET_RE = re.compile(r"\/(\d+)")
 
+VALID_SYMBOL_NAME_RE = re.compile(r"[A-Za-z0-9_@$?]+")
+
 
 class PE(Backend):
     """
@@ -112,6 +114,8 @@ class PE(Backend):
             if pdb_path:
                 self.load_symbols_from_pdb(pdb_path)
 
+        self._load_symbols_from_coff_header()
+
     _pefile_cache = {}
 
     @staticmethod
@@ -185,6 +189,33 @@ class PE(Backend):
             symb = WinSymbol(self, name, rva, False, False, None, None, symbol_type)
             log.debug("Adding symbol %s", str(symb))
             self.symbols.add(symb)
+
+    def _load_symbols_from_coff_header(self):
+        """
+        COFF debug data is deprecated, but some tools (namely mingw) will still provide them.
+        """
+        type_to_symbol_type = {
+            0: SymbolType.TYPE_OBJECT,  # "Not a function"
+            0x20: SymbolType.TYPE_FUNCTION,
+        }
+
+        idx = 0
+        while idx < self._pe.FILE_HEADER.NumberOfSymbols:
+            offset = self._pe.FILE_HEADER.PointerToSymbolTable + idx * 18
+            (name, value, section, type_, _, num_aux_syms) = struct.unpack(
+                "<8sIhHBB", self._raw_data[offset : offset + 18]
+            )
+            if name[0:4] == b"\x00\x00\x00\x00":
+                offset = int.from_bytes(name[4:], byteorder="little")
+                name = self._read_from_string_table(offset, encoding="utf-8")
+            else:
+                name = name.rstrip(b"\x00").decode("ascii")
+            if section > 0 and VALID_SYMBOL_NAME_RE.fullmatch(name) and type_ in type_to_symbol_type:
+                rva = self._pe.sections[section - 1].VirtualAddress + value
+                symb = WinSymbol(self, name, rva, False, False, None, None, type_to_symbol_type[type_])
+                log.debug("Adding symbol %s", str(symb))
+                self.symbols.add(symb)
+            idx += 1 + num_aux_syms
 
     #
     # Private methods
