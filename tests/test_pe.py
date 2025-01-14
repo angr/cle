@@ -23,14 +23,14 @@ class TestPEBackend(unittest.TestCase):
         assert sorted([sec.name for sec in ld.main_object.sections]) == sorted(
             [
                 ".textbss",
-                ".text\x00\x00\x00",
-                ".rdata\x00\x00",
-                ".data\x00\x00\x00",
-                ".idata\x00\x00",
-                ".tls\x00\x00\x00\x00",
-                ".gfids\x00\x00",
-                ".00cfg\x00\x00",
-                ".rsrc\x00\x00\x00",
+                ".text",
+                ".rdata",
+                ".data",
+                ".idata",
+                ".tls",
+                ".gfids",
+                ".00cfg",
+                ".rsrc",
             ]
         )
         assert ld.main_object.segments is ld.main_object.sections
