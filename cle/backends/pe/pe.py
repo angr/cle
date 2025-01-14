@@ -379,7 +379,7 @@ class PE(Backend):
         """
 
         for pe_section in self._pe.sections:
-            name = pe_section.Name.decode("utf-8")
+            name = pe_section.Name.rstrip(b"\x00").decode("utf-8")
             # Match indirect section names given by a forward slash and a
             # decimal byte offset into the string table.
             str_tbl_offset_match = SECTION_NAME_STRING_TABLE_OFFSET_RE.fullmatch(name)
@@ -429,10 +429,10 @@ class PE(Backend):
 
     def _load_symbols_from_coff_header(self):
         """
-        COFF debug data is deprecated, but some tools (namely mingw) will still provide them.
+        COFF debug info is deprecated, but may still be provided (e.g. by mingw).
         """
         type_to_symbol_type = {
-            0: SymbolType.TYPE_OBJECT,  # "Not a function"
+            0: SymbolType.TYPE_OBJECT,
             0x20: SymbolType.TYPE_FUNCTION,
         }
 
