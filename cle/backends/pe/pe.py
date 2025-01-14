@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import struct
 
 import archinfo
@@ -24,6 +25,8 @@ from .symbol import WinSymbol
 PDB_SUPPORT_ENABLED = pyxdia is not None
 log = logging.getLogger(name=__name__)
 
+SECTION_NAME_STRING_TABLE_OFFSET_RE = re.compile(r"\/(\d+)")
+
 
 class PE(Backend):
     """
@@ -41,8 +44,9 @@ class PE(Backend):
         self.set_load_args(debug_symbols=debug_symbols)
         self.segments = self.sections  # in a PE, sections and segments have the same meaning
         self.os = "windows"
+        self._raw_data = self._binary_stream.read()
         if self.binary is None:
-            self._pe = pefile.PE(data=self._binary_stream.read(), fast_load=True)
+            self._pe = pefile.PE(data=self._raw_data, fast_load=True)
             self._parse_pe_non_reloc_data_directories()
         elif self.binary in self._pefile_cache:  # these objects are not mutated, so they are reusable within a process
             self._pe = self._pefile_cache[self.binary]
@@ -144,6 +148,7 @@ class PE(Backend):
     def close(self):
         super().close()
         del self._pe
+        del self._raw_data
 
     def get_symbol(self, name):
         """
@@ -352,13 +357,38 @@ class PE(Backend):
 
         return callbacks
 
+    @staticmethod
+    def _decode_cstring(data: bytes, offset: int, encoding: str | None = None) -> str:
+        name = bytearray()
+        while True:
+            x = data[offset]
+            if x == 0:
+                break
+            name.append(x)
+            offset += 1
+        return str(name, encoding=(encoding or "ascii"))
+
+    def _read_from_string_table(self, offset: int, encoding: str | None = None) -> str:
+        return self._decode_cstring(
+            self._raw_data,
+            (self._pe.FILE_HEADER.PointerToSymbolTable + self._pe.FILE_HEADER.NumberOfSymbols * 18 + offset),
+            encoding,
+        )
+
     def _register_sections(self):
         """
         Wrap self._pe.sections in PESection objects, and add them to self.sections.
         """
 
         for pe_section in self._pe.sections:
-            section = PESection(pe_section, remap_offset=self.linked_base)
+            name = pe_section.Name.decode("utf-8")
+            # Match indirect section names given by a forward slash and a
+            # decimal byte offset into the string table.
+            sec_name_string_tbl_offset = SECTION_NAME_STRING_TABLE_OFFSET_RE.fullmatch(name)
+            if sec_name_string_tbl_offset:
+                offset = int(sec_name_string_tbl_offset.group(1))
+                name = self._read_from_string_table(offset, encoding="utf-8")
+            section = PESection(pe_section, remap_offset=self.linked_base, name=name)
             self.sections.append(section)
             self.sections_map[section.name] = section
 
