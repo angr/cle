@@ -282,12 +282,15 @@ class CoffRelocation(Relocation):
     Relocation for a COFF object.
     """
 
+    PACK_FORMAT = "<i"
+
     def relocate(self):
         value = self.value
         if value is None:
             log.debug("Unresolved relocation with no symbol.")
-            return
-        self.owner.memory.store(self.relative_addr, value)
+            return False
+        self.owner.memory.store(self.relative_addr, struct.pack(self.PACK_FORMAT, value))
+        return True
 
 
 class CoffRelocationREL32(CoffRelocation):
@@ -297,9 +300,10 @@ class CoffRelocationREL32(CoffRelocation):
 
     @property
     def value(self):
+        assert self.resolvedby is not None
         org_bytes = self.owner.memory.load(self.relative_addr, 4)
         org_value = struct.unpack("<I", org_bytes)[0]
-        return struct.pack("<i", org_value + self.resolvedby.rebased_addr - (self.rebased_addr + 4))
+        return org_value + self.resolvedby.rebased_addr - (self.rebased_addr + 4)
 
 
 class CoffRelocationDIR32(CoffRelocation):
@@ -309,9 +313,10 @@ class CoffRelocationDIR32(CoffRelocation):
 
     @property
     def value(self):
+        assert self.resolvedby is not None
         org_bytes = self.owner.memory.load(self.relative_addr, 4)
         org_value = struct.unpack("<I", org_bytes)[0]
-        return struct.pack("<i", org_value + self.resolvedby.rebased_addr)
+        return org_value + self.resolvedby.rebased_addr
 
 
 class CoffRelocationDIR32NB(CoffRelocation):
@@ -321,9 +326,10 @@ class CoffRelocationDIR32NB(CoffRelocation):
 
     @property
     def value(self):
+        assert self.resolvedby is not None
         org_bytes = self.owner.memory.load(self.relative_addr, 4)
         org_value = struct.unpack("<I", org_bytes)[0]
-        return struct.pack("<i", org_value + self.resolvedby.relative_addr)
+        return org_value + self.resolvedby.relative_addr
 
 
 class CoffRelocationADDR32NB(CoffRelocation):
@@ -331,9 +337,12 @@ class CoffRelocationADDR32NB(CoffRelocation):
     Relocation for IMAGE_REL_AMD64_ADDR32NB
     """
 
+    PACK_FORMAT = "<I"
+
     @property
-    def value(self):
-        return struct.pack("<I", self.resolvedby.relative_addr)
+    def value(self) -> int:
+        assert self.resolvedby is not None
+        return self.resolvedby.relative_addr
 
 
 class CoffRelocationADDR64(CoffRelocation):
@@ -341,9 +350,12 @@ class CoffRelocationADDR64(CoffRelocation):
     Relocation for IMAGE_REL_AMD64_ADDR64
     """
 
+    PACK_FORMAT = "<Q"
+
     @property
     def value(self):
-        return struct.pack("<Q", self.resolvedby.rebased_addr)
+        assert self.resolvedby is not None
+        return self.resolvedby.rebased_addr
 
 
 class CoffRelocationSECTION(CoffRelocation):
@@ -351,11 +363,13 @@ class CoffRelocationSECTION(CoffRelocation):
     Relocation for IMAGE_REL_*_SECTION
     """
 
+    PACK_FORMAT = "<H"
+
     @property
     def value(self):
         assert isinstance(self.owner, Coff)
         section_idx = 0  # FIXME
-        return struct.pack("<H", section_idx)
+        return section_idx
 
 
 class CoffRelocationSECREL(CoffRelocation):
@@ -363,11 +377,13 @@ class CoffRelocationSECREL(CoffRelocation):
     Relocation for IMAGE_REL_*_SECREL
     """
 
+    PACK_FORMAT = "<I"
+
     @property
     def value(self):
         assert isinstance(self.owner, Coff)
         offset_to_symbol = 0  # FIXME
-        return struct.pack("<I", offset_to_symbol)
+        return offset_to_symbol
 
 
 RELOC_CLASSES: dict[IntEnum, dict[IntEnum, type[Relocation]]] = {
@@ -476,8 +492,8 @@ class Coff(Backend):
 
                 log.warning("Skipped relocation type %#x at %#x for symbol %s", reloc.Type, patch_offset, sym_name)
 
-    @staticmethod
-    def is_compatible(stream):
+    @classmethod
+    def is_compatible(cls, stream):
         stream.seek(0)
         identstring = stream.read(2)
         stream.seek(0)
