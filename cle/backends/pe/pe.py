@@ -368,10 +368,8 @@ class PE(Backend):
         :param offset: Byte offset of the string.
         :param encoding: String encoding (default utf-8).
         """
-        return extract_null_terminated_bytestr(
-            self._raw_data,
-            (self._pe.FILE_HEADER.PointerToSymbolTable + self._pe.FILE_HEADER.NumberOfSymbols * 18 + offset),
-        ).decode(encoding)
+        offset += self._pe.FILE_HEADER.PointerToSymbolTable + self._pe.FILE_HEADER.NumberOfSymbols * 18
+        return extract_null_terminated_bytestr(self._raw_data, offset).decode(encoding)
 
     def _register_sections(self):
         """
