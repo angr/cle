@@ -22,7 +22,7 @@ from archinfo.arch_soot import ArchSoot
 from cle import Symbol
 from cle.address_translator import AT
 from cle.errors import CLECompatibilityError, CLEError, CLEFileNotFoundError, CLEOperationError
-from cle.memory import Clemory
+from cle.memory import Clemory, ClemoryReadOnlyView
 from cle.utils import ALIGN_UP, key_bisect_floor_key, key_bisect_insort_right, stream_or_path
 
 from .backends import ALL_BACKENDS, ELF, PE, Backend, Blob, ELFCore, MetaELF, Minidump
@@ -188,6 +188,7 @@ class Loader:
 
         # cache
         self._last_object = None
+        self._memory_ro_view = None
 
         if self._extern_object and self._extern_object._warned_data_import:
             log.warning(
@@ -217,6 +218,14 @@ class Loader:
         if result is None:
             raise ValueError("Cannot access memory before loading is complete")
         return result
+
+    @property
+    def memory_ro_view(self) -> ClemoryReadOnlyView | None:
+        if self._memory is None:
+            # it is intentional to check if self._memory is configured when memory_ro_view is accessed.
+            # memory_ro_view is only set up after gen_ro_memview() is called.
+            raise ValueError("Cannot access memory_ro_view before loading is complete")
+        return self._memory_ro_view
 
     @property
     def tls(self) -> ThreadManager:
@@ -1310,6 +1319,21 @@ class Loader:
     # Memory data loading methods
     #
 
+    def gen_ro_memview(self) -> None:
+        """
+        Generate a read-only view of the memory, and update self._memory_ro_view for faster data loading. Please call
+        this method again for updating the read-only view, or discard_ro_memview() to discard any previously generated
+        read-only views.
+        """
+        if self.memory is not None:
+            self._memory_ro_view = ClemoryReadOnlyView(self.memory._arch, self.memory)
+
+    def discard_ro_memview(self) -> None:
+        """
+        Discard any previously generated read-only views of the memory.
+        """
+        self._memory_ro_view = None
+
     def fast_memory_load_pointer(self, addr: int, size: int | None = None) -> int | None:
         """
         Perform a fast memory loading of a pointer.
@@ -1320,6 +1344,7 @@ class Loader:
         """
 
         try:
-            return self.memory.unpack_word(addr, size=size)
+            mem = self.memory_ro_view if self.memory_ro_view is not None else self.memory
+            return mem.unpack_word(addr, size=size)
         except KeyError:
             return None
