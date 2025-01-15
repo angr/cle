@@ -8,9 +8,9 @@ class PESection(Section):
     Represents a section for the PE format.
     """
 
-    def __init__(self, pe_section, remap_offset=0):
+    def __init__(self, pe_section, remap_offset=0, name: str | None = None):
         super().__init__(
-            pe_section.Name.decode("latin-1"),  # ensure all bytes can be decoded
+            name or pe_section.Name.decode("latin-1"),  # ensure all bytes can be decoded
             pe_section.PointerToRawData,
             pe_section.VirtualAddress + remap_offset,
             pe_section.Misc_VirtualSize,

@@ -23,14 +23,14 @@ class TestPEBackend(unittest.TestCase):
         assert sorted([sec.name for sec in ld.main_object.sections]) == sorted(
             [
                 ".textbss",
-                ".text\x00\x00\x00",
-                ".rdata\x00\x00",
-                ".data\x00\x00\x00",
-                ".idata\x00\x00",
-                ".tls\x00\x00\x00\x00",
-                ".gfids\x00\x00",
-                ".00cfg\x00\x00",
-                ".rsrc\x00\x00\x00",
+                ".text",
+                ".rdata",
+                ".data",
+                ".idata",
+                ".tls",
+                ".gfids",
+                ".00cfg",
+                ".rsrc",
             ]
         )
         assert ld.main_object.segments is ld.main_object.sections
@@ -138,6 +138,31 @@ class TestPEBackend(unittest.TestCase):
         # Manually specify fauxware.pdb
         ld = cle.Loader(exe, auto_load_libs=False, main_opts={"debug_symbols": pdb})
         assert ld.find_symbol("authenticate")
+
+    def test_long_section_names(self):
+        exe = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "simple_crackme_x64.exe")
+        ld = cle.Loader(exe, auto_load_libs=False)
+        section_names = [section.name for section in ld.main_object.sections]
+
+        # Assert no string table references remain
+        assert not any(name.startswith("/") for name in section_names)
+
+        debug_section_names = [
+            ".debug_aranges",
+            ".debug_info",
+            ".debug_abbrev",
+            ".debug_line",
+            ".debug_frame",
+            ".debug_str",
+            ".debug_loc",
+            ".debug_ranges",
+        ]
+        assert section_names[-len(debug_section_names) :] == debug_section_names
+
+    def test_coff_symbol_loaded(self):
+        exe = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "simple_crackme_x64.exe")
+        ld = cle.Loader(exe, auto_load_libs=False)
+        assert ld.find_symbol("main")
 
 
 if __name__ == "__main__":

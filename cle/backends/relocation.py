@@ -21,7 +21,7 @@ class Relocation:
     A representation of a relocation in a binary file. Smart enough to
     relocate itself.
 
-    :ivar owner:            The binary this relocation was originaly found in, as a cle object
+    :ivar owner:            The binary this relocation was originally found in, as a cle object
     :ivar symbol:           The Symbol object this relocation refers to
     :ivar relative_addr:    The address in owner this relocation would like to write to
     :ivar resolvedby:       If the symbol this relocation refers to is an import symbol and that import has been
@@ -120,7 +120,7 @@ class Relocation:
         return self.relative_addr
 
     @property
-    def value(self):  # pylint: disable=no-self-use
+    def value(self) -> int:  # pylint: disable=no-self-use
         log.error("Value property of Relocation must be overridden by subclass!")
         return 0
 

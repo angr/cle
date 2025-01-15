@@ -148,3 +148,10 @@ def get_text_offset(path):
     with stream_or_path(path) as f:
         e = elftools.elf.elffile.ELFFile(f)
         return e.get_section_by_name(".text").header.sh_offset
+
+
+def extract_null_terminated_bytestr(data: bytes | bytearray, offset: int = 0, sentinel_value: bytes = b"\x00") -> bytes:
+    """
+    Return an exclusive null-terminated sequence of bytes at `offset` in `data`.
+    """
+    return bytes(data[offset : data.find(sentinel_value, offset)])

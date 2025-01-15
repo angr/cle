@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import struct
 
 import archinfo
@@ -15,6 +16,7 @@ except ImportError:
 from cle.address_translator import AT
 from cle.backends.backend import Backend, FunctionHint, FunctionHintSource, register_backend
 from cle.backends.symbol import SymbolType
+from cle.utils import extract_null_terminated_bytestr
 
 from .regions import PESection
 from .relocation import get_relocation
@@ -22,6 +24,9 @@ from .relocation.generic import IMAGE_REL_BASED_ABSOLUTE, IMAGE_REL_BASED_HIGHAD
 from .symbol import WinSymbol
 
 PDB_SUPPORT_ENABLED = pyxdia is not None
+SECTION_NAME_STRING_TABLE_OFFSET_RE = re.compile(r"\/(\d+)")
+VALID_SYMBOL_NAME_RE = re.compile(r"[A-Za-z0-9_@$?]+")
+
 log = logging.getLogger(name=__name__)
 
 
@@ -41,8 +46,9 @@ class PE(Backend):
         self.set_load_args(debug_symbols=debug_symbols)
         self.segments = self.sections  # in a PE, sections and segments have the same meaning
         self.os = "windows"
+        self._raw_data = self._binary_stream.read()
         if self.binary is None:
-            self._pe = pefile.PE(data=self._binary_stream.read(), fast_load=True)
+            self._pe = pefile.PE(data=self._raw_data, fast_load=True)
             self._parse_pe_non_reloc_data_directories()
         elif self.binary in self._pefile_cache:  # these objects are not mutated, so they are reusable within a process
             self._pe = self._pefile_cache[self.binary]
@@ -52,6 +58,9 @@ class PE(Backend):
             if not self.is_main_bin:
                 # only cache shared libraries, the main binary will not be reused
                 self._pefile_cache[self.binary] = self._pe
+
+        assert self._pe.FILE_HEADER is not None
+        assert self._pe.OPTIONAL_HEADER is not None
 
         if self._arch is None:
             self.set_arch(archinfo.arch_from_id(pefile.MACHINE_TYPE[self._pe.FILE_HEADER.Machine]))
@@ -108,10 +117,12 @@ class PE(Backend):
             if pdb_path:
                 self.load_symbols_from_pdb(pdb_path)
 
+        self._load_symbols_from_coff_header()
+
     _pefile_cache = {}
 
-    @staticmethod
-    def is_compatible(stream):
+    @classmethod
+    def is_compatible(cls, stream):
         identstring = stream.read(0x1000)
         stream.seek(0)
         if identstring.startswith(b"MZ") and len(identstring) > 0x40:
@@ -134,6 +145,8 @@ class PE(Backend):
         else:
             pe = pefile.PE(spec, fast_load=True)
 
+        assert pe.FILE_HEADER is not None
+
         arch = archinfo.arch_from_id(pefile.MACHINE_TYPE[pe.FILE_HEADER.Machine])
         return arch == obj.arch
 
@@ -144,6 +157,7 @@ class PE(Backend):
     def close(self):
         super().close()
         del self._pe
+        del self._raw_data
 
     def get_symbol(self, name):
         """
@@ -173,10 +187,11 @@ class PE(Backend):
             if rva is None:
                 continue
             name = global_["name"]
+            tag = str(global_["symTag"])
             symbol_type = {
                 "Data": SymbolType.TYPE_OBJECT,
                 "Function": SymbolType.TYPE_FUNCTION,
-            }.get(global_["symTag"], SymbolType.TYPE_OTHER)
+            }.get(tag, SymbolType.TYPE_OTHER)
             symb = WinSymbol(self, name, rva, False, False, None, None, symbol_type)
             log.debug("Adding symbol %s", str(symb))
             self.symbols.add(symb)
@@ -321,7 +336,11 @@ class PE(Backend):
 
         cls = RelocClass(owner=self, symbol=symbol, addr=addr)
         if cls is None:
-            log.warning("Failed to retrieve relocation for %s of type %s", symbol.name, reloc_type)
+            log.warning(
+                "Failed to retrieve relocation for %s of type %s",
+                symbol.name if symbol else "<unknown symbol>",
+                reloc_type,
+            )
 
         return cls
 
@@ -352,13 +371,31 @@ class PE(Backend):
 
         return callbacks
 
+    def _read_from_string_table(self, offset: int, encoding: str = "latin-1") -> str:
+        """
+        Read a null-terminated string from the string table given a byte offset.
+
+        :param offset: Byte offset of the string.
+        :param encoding: String encoding (default latin-1).
+        """
+        assert self._pe.FILE_HEADER is not None
+        offset += self._pe.FILE_HEADER.PointerToSymbolTable + self._pe.FILE_HEADER.NumberOfSymbols * 18
+        return extract_null_terminated_bytestr(self._raw_data, offset).decode(encoding)
+
     def _register_sections(self):
         """
         Wrap self._pe.sections in PESection objects, and add them to self.sections.
         """
 
         for pe_section in self._pe.sections:
-            section = PESection(pe_section, remap_offset=self.linked_base)
+            name = pe_section.Name.rstrip(b"\x00").decode("latin-1")
+            # Match indirect section names given by a forward slash and a
+            # decimal byte offset into the string table.
+            str_tbl_offset_match = SECTION_NAME_STRING_TABLE_OFFSET_RE.fullmatch(name)
+            if str_tbl_offset_match:
+                str_tbl_offset = int(str_tbl_offset_match.group(1))
+                name = self._read_from_string_table(str_tbl_offset)
+            section = PESection(pe_section, remap_offset=self.linked_base, name=name)
             self.sections.append(section)
             self.sections_map[section.name] = section
 
@@ -398,6 +435,34 @@ class PE(Backend):
 
         log.warning("Unable to find PDB file for this PE. Tried: %s", str(checks))
         return None
+
+    def _load_symbols_from_coff_header(self):
+        """
+        COFF debug info is deprecated, but may still be provided (e.g. by mingw).
+        """
+        type_to_symbol_type = {
+            0: SymbolType.TYPE_OBJECT,
+            0x20: SymbolType.TYPE_FUNCTION,
+        }
+
+        assert self._pe.FILE_HEADER is not None
+
+        idx = 0
+        while idx < self._pe.FILE_HEADER.NumberOfSymbols:
+            offset = self._pe.FILE_HEADER.PointerToSymbolTable + idx * 18
+            sym_desc = self._raw_data[offset : offset + 18]
+            (name, value, section, type_, _, num_aux_syms) = struct.unpack("<8sIhHBB", sym_desc)
+            name_as_dwords = struct.unpack("<II", name)
+            if name_as_dwords[0] == 0:
+                name = self._read_from_string_table(name_as_dwords[1])
+            else:
+                name = name.rstrip(b"\x00").decode("latin-1")
+            if section > 0 and type_ in type_to_symbol_type and VALID_SYMBOL_NAME_RE.fullmatch(name):
+                rva = self._pe.sections[section - 1].VirtualAddress + value
+                symbol = WinSymbol(self, name, rva, False, False, None, None, type_to_symbol_type[type_])
+                log.debug("Adding symbol %s", symbol)
+                self.symbols.add(symbol)
+            idx += 1 + num_aux_syms
 
 
 register_backend("pe", PE)
