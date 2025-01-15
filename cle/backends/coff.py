@@ -456,6 +456,7 @@ class Coff(Backend):
         self.pic = True
         # assume windows, this can be wrong, but is more often right.
         self.os = "windows"
+        self.supports_nx = False
 
         self._add_defined_symbols()
         self._add_relocs()
