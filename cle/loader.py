@@ -25,7 +25,7 @@ from cle.errors import CLECompatibilityError, CLEError, CLEFileNotFoundError, CL
 from cle.memory import Clemory, ClemoryReadOnlyView
 from cle.utils import ALIGN_UP, key_bisect_floor_key, key_bisect_insort_right, stream_or_path
 
-from .backends import ALL_BACKENDS, ELF, PE, Backend, Blob, ELFCore, MetaELF, Minidump
+from .backends import ALL_BACKENDS, ELF, PE, Backend, Blob, Coff, ELFCore, MetaELF, Minidump
 from .backends.externs import ExternObject, KernelObject
 from .backends.tls import (
     ELFCoreThreadManager,
@@ -820,7 +820,7 @@ class Loader:
                     self._tls = MinidumpThreadManager(self, self._main_object.arch)
                 elif isinstance(chk_obj, MetaELF):
                     self._tls = ELFThreadManager(self, self._main_object.arch)
-                elif isinstance(chk_obj, PE):
+                elif isinstance(chk_obj, (PE, Coff)):
                     self._tls = PEThreadManager(self, self._main_object.arch)
                 else:
                     self._tls = ThreadManager(self, self._main_object.arch)
