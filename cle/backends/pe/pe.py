@@ -59,6 +59,9 @@ class PE(Backend):
                 # only cache shared libraries, the main binary will not be reused
                 self._pefile_cache[self.binary] = self._pe
 
+        assert self._pe.FILE_HEADER is not None
+        assert self._pe.OPTIONAL_HEADER is not None
+
         if self._arch is None:
             self.set_arch(archinfo.arch_from_id(pefile.MACHINE_TYPE[self._pe.FILE_HEADER.Machine]))
 
@@ -118,8 +121,8 @@ class PE(Backend):
 
     _pefile_cache = {}
 
-    @staticmethod
-    def is_compatible(stream):
+    @classmethod
+    def is_compatible(cls, stream):
         identstring = stream.read(0x1000)
         stream.seek(0)
         if identstring.startswith(b"MZ") and len(identstring) > 0x40:
@@ -141,6 +144,8 @@ class PE(Backend):
             pe = pefile.PE(data=spec.read(), fast_load=True)
         else:
             pe = pefile.PE(spec, fast_load=True)
+
+        assert pe.FILE_HEADER is not None
 
         arch = archinfo.arch_from_id(pefile.MACHINE_TYPE[pe.FILE_HEADER.Machine])
         return arch == obj.arch
@@ -182,10 +187,11 @@ class PE(Backend):
             if rva is None:
                 continue
             name = global_["name"]
+            tag = str(global_["symTag"])
             symbol_type = {
                 "Data": SymbolType.TYPE_OBJECT,
                 "Function": SymbolType.TYPE_FUNCTION,
-            }.get(global_["symTag"], SymbolType.TYPE_OTHER)
+            }.get(tag, SymbolType.TYPE_OTHER)
             symb = WinSymbol(self, name, rva, False, False, None, None, symbol_type)
             log.debug("Adding symbol %s", str(symb))
             self.symbols.add(symb)
@@ -330,7 +336,11 @@ class PE(Backend):
 
         cls = RelocClass(owner=self, symbol=symbol, addr=addr)
         if cls is None:
-            log.warning("Failed to retrieve relocation for %s of type %s", symbol.name, reloc_type)
+            log.warning(
+                "Failed to retrieve relocation for %s of type %s",
+                symbol.name if symbol else "<unknown symbol>",
+                reloc_type,
+            )
 
         return cls
 
@@ -368,6 +378,7 @@ class PE(Backend):
         :param offset: Byte offset of the string.
         :param encoding: String encoding (default latin-1).
         """
+        assert self._pe.FILE_HEADER is not None
         offset += self._pe.FILE_HEADER.PointerToSymbolTable + self._pe.FILE_HEADER.NumberOfSymbols * 18
         return extract_null_terminated_bytestr(self._raw_data, offset).decode(encoding)
 
@@ -433,6 +444,8 @@ class PE(Backend):
             0: SymbolType.TYPE_OBJECT,
             0x20: SymbolType.TYPE_FUNCTION,
         }
+
+        assert self._pe.FILE_HEADER is not None
 
         idx = 0
         while idx < self._pe.FILE_HEADER.NumberOfSymbols:
