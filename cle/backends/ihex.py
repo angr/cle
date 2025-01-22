@@ -10,6 +10,7 @@ import archinfo
 from cle.errors import CLEError
 
 from .backend import Backend, register_backend
+from .region import Section, Segment
 
 log = logging.getLogger(name=__name__)
 
@@ -26,6 +27,36 @@ HEX_TYPE_EXTSEGADDR = 0x02
 HEX_TYPE_STARTSEGADDR = 0x03
 HEX_TYPE_EXTLINEARADDR = 0x04
 HEX_TYPE_STARTLINEARADDR = 0x05
+
+
+class HexSection(Section):
+    """
+    Describes a section in memory after loading a HEX file into memory. This section may come from the HEX file or
+    added separately (e.g., the MMIO region).
+    """
+
+    def __init__(self, name, vaddr, size, initialized=False, readable=True, writable=False, executable=True):
+        super().__init__(name, 0, vaddr, size)
+        self.initialized = initialized
+        self.readable = readable
+        self.writable = writable
+        self.executable = executable
+
+    @property
+    def is_readable(self):
+        return self.readable
+
+    @property
+    def is_writable(self):
+        return self.writable
+
+    @property
+    def is_executable(self):
+        return self.executable
+
+    @property
+    def only_contains_uninitialized_data(self) -> bool:
+        return not self.initialized
 
 
 class Hex(Backend):
@@ -157,12 +188,18 @@ class Hex(Backend):
                 "No entry point was found in this HEX object file, and it is assumed to be 0. "
                 "Specify one with `entry_point` to override."
             )
+
         # HEX specifies a ton of tiny little memory regions.  We now smash them together to make things faster.
         new_regions = Hex.coalesce_regions(regions)
         self.regions: list[tuple[int, int]] = []  # A list of (addr, size)
         for addr, data in new_regions:
             self.memory.add_backer(addr, data)
             self.regions.append((addr, len(data)))
+            self.segments.append(Segment(0, addr, len(data), len(data)))
+            self.sections.append(HexSection(f"sec_{addr:x}", addr, len(data)))
+
+        self._create_extra_regions()
+
         self._max_addr = max_addr
         self._min_addr = min_addr
 
@@ -172,6 +209,24 @@ class Hex(Backend):
         s = stream.read(0x10)
         stream.seek(0)
         return s.startswith(b":")
+
+    def _create_extra_regions(self) -> None:
+        # in case special regions are specified
+        if "extra_regions" not in self.load_args:
+            return
+        for region in self.load_args["extra_regions"]:
+            self.segments.append(Segment(0, region["addr"], 0, region["size"]))
+            self.sections.append(
+                HexSection(
+                    region["name"],
+                    region["addr"],
+                    region["size"],
+                    initialized=region.get("initialized", True),
+                    readable=region.get("readable", True),
+                    writable=region.get("writable", False),
+                    executable=region.get("executable", True),
+                )
+            )
 
 
 register_backend("hex", Hex)
