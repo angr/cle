@@ -447,10 +447,20 @@ class PE(Backend):
 
         assert self._pe.FILE_HEADER is not None
 
+        sizeof_symbol_desc = 18
+
+        # Verify symbol table is within file bounds
+        end_of_table_offset = (
+            self._pe.FILE_HEADER.PointerToSymbolTable + self._pe.FILE_HEADER.NumberOfSymbols * sizeof_symbol_desc
+        )
+        if end_of_table_offset >= len(self._raw_data):
+            log.warning("PE symbol table out of bounds")
+            return
+
         idx = 0
         while idx < self._pe.FILE_HEADER.NumberOfSymbols:
-            offset = self._pe.FILE_HEADER.PointerToSymbolTable + idx * 18
-            sym_desc = self._raw_data[offset : offset + 18]
+            offset = self._pe.FILE_HEADER.PointerToSymbolTable + idx * sizeof_symbol_desc
+            sym_desc = self._raw_data[offset : offset + sizeof_symbol_desc]
             (name, value, section, type_, _, num_aux_syms) = struct.unpack("<8sIhHBB", sym_desc)
             name_as_dwords = struct.unpack("<II", name)
             if name_as_dwords[0] == 0:
