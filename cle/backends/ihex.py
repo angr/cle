@@ -111,9 +111,13 @@ class Hex(Backend):
 
         return result
 
-    def __init__(self, *args, ignore_missing_arch: bool = False, **kwargs):
+    def __init__(
+        self, *args, ignore_missing_arch: bool = False, extra_regions: list[dict[str, int | bool]] = None, **kwargs
+    ):
         super().__init__(*args, **kwargs)
         self.set_load_args(ignore_missing_arch=ignore_missing_arch)
+        if extra_regions:
+            self.set_load_args(extra_regions=extra_regions)
 
         if self._arch is None:
             if ignore_missing_arch:
@@ -211,8 +215,28 @@ class Hex(Backend):
         return s.startswith(b":")
 
     def _create_extra_regions(self) -> None:
+        """
+        Parse load_args["extra_regions"] and create segments/sections accordingly. This method should be called at the
+        end of the loading process (if the backend supports loading extra regions).
+
+        "extra_regions": [
+        {
+            "name": "ram",
+            "addr": 0x20000000,
+            "size": 0x1000,
+            "readable": True,
+            "writable": True,
+            "executable": False,
+        },
+        {
+            "name": "mmio",
+            ...
+        },
+        ]
+        """
+
         # in case special regions are specified
-        if "extra_regions" not in self.load_args:
+        if "extra_regions" not in self.load_args or not self.load_args["extra_regions"]:
             return
         for region in self.load_args["extra_regions"]:
             self.segments.append(Segment(0, region["addr"], 0, region["size"]))

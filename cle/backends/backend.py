@@ -180,6 +180,9 @@ class Backend:
                 continue
             log.critical("Deprecation warning: the %s parameter has been renamed to %s", k, k[7:])
 
+        if kwargs != {}:
+            log.warning("Unused kwargs for loading binary %s: %s", self.binary, ", ".join(kwargs.keys()))
+
         self.is_main_bin = is_main_bin
         self.has_memory = has_memory
         self._loader: Loader | None = loader
@@ -563,27 +566,6 @@ class Backend:
             self._binary_stream.seek(0)
             self.md5 = hashlib.md5(data).digest()
             self.sha256 = hashlib.sha256(data).digest()
-
-    def _create_extra_regions(self) -> None:
-        """
-        Parse load_args["extra_regions"] and create segments/sections accordingly. This method should be called at the
-        end of the loading process (if the backend supports loading extra regions).
-
-        "extra_regions": [
-        {
-            "name": "ram",
-            "addr": 0x20000000,
-            "size": 0x1000,
-            "readable": True,
-            "writable": True,
-            "executable": False,
-        },
-        {
-            "name": "mmio",
-            ...
-        },
-        ]
-        """
 
     def __getstate__(self):
         state = self.__dict__.copy()
