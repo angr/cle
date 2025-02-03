@@ -134,14 +134,14 @@ class TestBindingState(unittest.TestCase):
 class TestLEB(unittest.TestCase):
     def test_read_uleb(self):
         # Test vector from wikipedia https://en.wikipedia.org/wiki/LEB128
-        buffer = b"\xE5\x8E\x26"
+        buffer = b"\xe5\x8e\x26"
         expected = (624485, 3)
         result = read_uleb(buffer, 0)
         self.assertEqual(expected, result)
 
     def test_read_sleb(self):
         # Test vector from wikipedia https://en.wikipedia.org/wiki/LEB128
-        buffer = b"\xE5\x8E\x26"
+        buffer = b"\xe5\x8e\x26"
         expected = (624485, 3)
         result = read_sleb(buffer, 0)
         self.assertEqual(expected, result)
@@ -211,7 +211,7 @@ class TestBindingHelper(unittest.TestCase):
         self.assertEqual(s.lib_ord, expected)
 
     def test_n_opcode_set_dylib_ordinal_uleb(self):
-        self.n_opcode_set_dylib_ordinal_uleb_helper(b"\xE5\x8E\x26", 624485)
+        self.n_opcode_set_dylib_ordinal_uleb_helper(b"\xe5\x8e\x26", 624485)
         self.n_opcode_set_dylib_ordinal_uleb_helper(b"\x00\x00", 0)
         self.n_opcode_set_dylib_ordinal_uleb_helper(b"\x11\x00", 17)
 
@@ -276,7 +276,7 @@ class TestBindingHelper(unittest.TestCase):
     def test_n_opcode_set_addend_sleb(self):
         self.n_opcode_set_addend_sleb_helper(b"\x00\x00\x00", 0)
         self.n_opcode_set_addend_sleb_helper(b"\x15\x15\x15", 21)
-        self.n_opcode_set_addend_sleb_helper(b"\xFF\x1F\xEE", 4095)
+        self.n_opcode_set_addend_sleb_helper(b"\xff\x1f\xee", 4095)
 
     def test_n_opcode_set_segment_and_offset_uleb(self):
         BindingState(is_64=True)
