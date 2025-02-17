@@ -63,7 +63,8 @@ class PE(Backend):
         assert self._pe.OPTIONAL_HEADER is not None
 
         if self._arch is None:
-            self.set_arch(archinfo.arch_from_id(pefile.MACHINE_TYPE[self._pe.FILE_HEADER.Machine]))
+            machine_type = self._pe.FILE_HEADER.Machine
+            self.set_arch(archinfo.arch_from_id(pefile.MACHINE_TYPE.get(machine_type, hex(machine_type))))
 
         self.mapped_base = self.linked_base = self._pe.OPTIONAL_HEADER.ImageBase
 
