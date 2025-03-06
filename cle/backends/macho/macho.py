@@ -485,7 +485,7 @@ class MachO(Backend):
         """
         log.debug("Parsing exports")
         blob = self.export_blob
-        if blob is None:
+        if blob is None or len(blob) == 0:
             log.debug("Parsing exports done: No exports found")
             return
 
