@@ -8,7 +8,7 @@ import struct
 import archinfo
 
 from cle.errors import CLEError
-
+from cle.address_translator import AT
 from .backend import Backend, register_backend
 from .region import Section, Segment
 
@@ -35,7 +35,7 @@ class HexSection(Section):
     added separately (e.g., the MMIO region).
     """
 
-    def __init__(self, name, vaddr, size, initialized=False, readable=True, writable=False, executable=True):
+    def __init__(self, name, vaddr, size, initialized=True, readable=True, writable=False, executable=True):
         super().__init__(name, 0, vaddr, size)
         self.initialized = initialized
         self.readable = readable
@@ -183,8 +183,12 @@ class Hex(Backend):
         if not got_base:
             log.warning("No base address was found in this HEX object file. It is assumed to be 0")
 
+        self.mapped_base = 0
+        self._min_addr = min_addr
+        self._max_addr = max_addr - self.mapped_base
+
         if self.load_args.get("entry_point") is not None:
-            self._entry = self.load_args["entry_point"]
+            self._entry = self._custom_entry_point = self.load_args["entry_point"] - min_addr
             got_entry = True
 
         if not got_entry:
@@ -203,9 +207,6 @@ class Hex(Backend):
             self.sections.append(HexSection(f"sec_{addr:x}", addr, len(data)))
 
         self._create_extra_regions()
-
-        self._max_addr = max_addr
-        self._min_addr = min_addr
 
     @staticmethod
     def is_compatible(stream):
