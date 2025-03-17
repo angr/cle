@@ -8,7 +8,7 @@ import struct
 import archinfo
 
 from cle.errors import CLEError
-from cle.address_translator import AT
+
 from .backend import Backend, register_backend
 from .region import Section, Segment
 
