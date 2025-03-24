@@ -120,6 +120,13 @@ class PE(Backend):
 
         self._load_symbols_from_coff_header()
 
+        self.is_dotnet = (
+            self._pe.OPTIONAL_HEADER.DATA_DIRECTORY[
+                pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR"]
+            ].VirtualAddress
+            != 0
+        )
+
     _pefile_cache = {}
 
     @classmethod
