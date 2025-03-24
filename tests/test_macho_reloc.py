@@ -112,7 +112,7 @@ def test_basic_reloc_functionality():
 
 def test_chained_fixups_relocs():
     machofile = os.path.join(TEST_BASE, "tests", "aarch64", "dyld_ios15.macho")
-    ld = cle.Loader(machofile)
+    ld = cle.Loader(machofile, auto_load_libs=True)
     for reloc in ld.main_object.relocs:
         if not isinstance(reloc, MachOPointerRelocation):
             continue
@@ -624,6 +624,7 @@ def test_all_relocs():
     ld = cle.Loader(
         ONESIGNAL_BASE / "Frameworks" / "OneSignalLocation.framework" / "OneSignalLocation",
         main_opts={"base_addr": 0x1_0000_0000},
+        auto_load_libs=True,
     )
     lib = ld.main_object
     assert isinstance(lib, MachO)

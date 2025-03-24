@@ -23,7 +23,7 @@ class TestGOT(unittest.TestCase):
     def test_mipsel(self):
         ping = os.path.join(self.test_location, "mipsel", "darpa_ping")
         skip = ["libgcc_s.so.1", "libresolv.so.0"]
-        ld = cle.Loader(ping, skip_libs=skip)
+        ld = cle.Loader(ping, skip_libs=skip, auto_load_libs=True)
         dep = set(ld._satisfied_deps)
         loadedlibs = set(ld.shared_objects)
 

@@ -16,7 +16,7 @@ class TestCoff(unittest.TestCase):
 
     def test_x86(self):
         exe = os.path.join(TEST_BASE, "tests", "x86", "fauxware.obj")
-        ld = cle.Loader(exe)
+        ld = cle.Loader(exe, auto_load_libs=True)
         symbol_names = {sym.name for sym in ld.main_object.symbols}
         assert "_main" in symbol_names
         assert "_accepted" in symbol_names
@@ -25,7 +25,7 @@ class TestCoff(unittest.TestCase):
 
     def test_x86_64(self):
         exe = os.path.join(TEST_BASE, "tests", "x86_64", "fauxware.obj")
-        ld = cle.Loader(exe)
+        ld = cle.Loader(exe, auto_load_libs=True)
         symbol_names = {sym.name for sym in ld.main_object.symbols}
         assert "main" in symbol_names
         assert "accepted" in symbol_names

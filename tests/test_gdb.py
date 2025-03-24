@@ -18,13 +18,13 @@ def check_addrs(ld):
 
 def test_info_proc_maps():
     mappath = os.path.join(test_location, "../tests_data/test_gdb_plugin/procmap")
-    ld = cle.Loader(binpath, **cle.convert_info_proc_maps(mappath))
+    ld = cle.Loader(binpath, **cle.convert_info_proc_maps(mappath), auto_load_libs=True)
     check_addrs(ld)
 
 
 def test_info_sharedlibrary():
     mappath = os.path.join(test_location, "../tests_data/test_gdb_plugin/info_sharedlibs")
-    ld = cle.Loader(binpath, **cle.convert_info_sharedlibrary(mappath))
+    ld = cle.Loader(binpath, **cle.convert_info_sharedlibrary(mappath), auto_load_libs=True)
     check_addrs(ld)
 
 

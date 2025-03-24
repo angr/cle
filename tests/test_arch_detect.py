@@ -24,7 +24,7 @@ class TestArchPcodeDetect(unittest.TestCase):
 
     def test_elf_m68k(self):
         binpath = os.path.join(test_location, "m68k/mul_add_sub_xor_m68k_be")
-        ld = cle.Loader(binpath)
+        ld = cle.Loader(binpath, auto_load_libs=True)
         arch = ld.main_object.arch
         assert isinstance(arch, archinfo.ArchPcode)
         assert arch.name == "68000:BE:32:default"

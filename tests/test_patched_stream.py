@@ -29,6 +29,6 @@ def test_patched_stream():
 
 
 def test_malformed_sections():
-    ld = cle.Loader(os.path.join(tests_path, "i386", "oxfoo1m3"))
+    ld = cle.Loader(os.path.join(tests_path, "i386", "oxfoo1m3"), auto_load_libs=True)
     assert len(ld.main_object.segments) == 1
     assert len(ld.main_object.sections) == 0

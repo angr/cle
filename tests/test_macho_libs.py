@@ -16,7 +16,7 @@ def test_library_15():
     :return:
     """
 
-    ld = cle.Loader(TEST_BASE / "FrameWorkApp.app_15" / "Frameworks" / "dynamicLibrary.framework" / "dynamicLibrary")
+    ld = cle.Loader(TEST_BASE / "FrameWorkApp.app_15" / "Frameworks" / "dynamicLibrary.framework" / "dynamicLibrary", auto_load_libs=True)
     lib = ld.main_object
     assert isinstance(lib, MachO)
     # The base address should be 0 until full rebasing support is implemented
@@ -30,7 +30,7 @@ def test_library_14():
     Test some basics about loading any kind of library
     :return:
     """
-    ld = cle.Loader(TEST_BASE / "FrameWorkApp.app_14" / "Frameworks" / "dynamicLibrary.framework" / "dynamicLibrary")
+    ld = cle.Loader(TEST_BASE / "FrameWorkApp.app_14" / "Frameworks" / "dynamicLibrary.framework" / "dynamicLibrary", auto_load_libs=True)
     lib = ld.main_object
     assert isinstance(lib, MachO)
     # The base address should be 0 until full rebasing support is implemented
@@ -51,6 +51,7 @@ def test_framework_ios15():
         force_load_libs=(
             TEST_BASE / "FrameWorkApp.app_15" / "Frameworks" / "dynamicLibrary.framework" / "dynamicLibrary",
         ),
+        auto_load_libs=True,
     )
 
     assert isinstance(ld.main_object, MachO)
