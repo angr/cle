@@ -102,7 +102,7 @@ class PE(Backend):
         self._handle_seh()
         if self.loader._perform_relocations:
             # parse base relocs
-            self._pe.parse_data_directories(directories=(pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_BASERELOC"],))
+            self._pe.parse_data_directories(directories=[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_BASERELOC"]])
             self.__register_relocs()
         # parse TLS
         self._register_tls()
@@ -119,6 +119,13 @@ class PE(Backend):
                 self.load_symbols_from_pdb(pdb_path)
 
         self._load_symbols_from_coff_header()
+
+        self.is_dotnet = (
+            self._pe.OPTIONAL_HEADER.DATA_DIRECTORY[
+                pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR"]
+            ].VirtualAddress
+            != 0
+        )
 
     _pefile_cache = {}
 
@@ -223,7 +230,7 @@ class PE(Backend):
             "IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR",
             "IMAGE_DIRECTORY_ENTRY_RESERVED",
         )
-        directories = tuple(pefile.DIRECTORY_ENTRY[n] for n in directory_names)
+        directories = [pefile.DIRECTORY_ENTRY[n] for n in directory_names]
         self._pe.parse_data_directories(directories=directories)
 
     def _get_jmprel(self):
