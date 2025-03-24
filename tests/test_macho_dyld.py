@@ -15,7 +15,9 @@ def test_fixups():
     Tests the pointer format DYLD_CHAINED_PTR_64_OFFSET
     :return:
     """
-    binary: MachO = cast(MachO, cle.Loader(str(TEST_BASE / "tests" / "aarch64" / "dyld_ios15.macho"), auto_load_libs=True).main_object)
+    binary: MachO = cast(
+        MachO, cle.Loader(str(TEST_BASE / "tests" / "aarch64" / "dyld_ios15.macho"), auto_load_libs=True).main_object
+    )
     expected = {
         0x100008100: 0x100007A40,
         0x1000081E0: 0x1000072B0,
