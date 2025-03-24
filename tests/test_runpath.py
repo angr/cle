@@ -25,7 +25,7 @@ def test_runpath():
 
         shutil.copy(runpath_file, relocated_file)
 
-        loader = cle.Loader(relocated_file, except_missing_libs=True)
+        loader = cle.Loader(relocated_file, except_missing_libs=True, auto_load_libs=True)
         assert loader.all_objects[1].binary in expected_libs
         assert loader.all_objects[2].binary in expected_libs
     finally:
