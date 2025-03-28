@@ -194,6 +194,7 @@ def test_plt_full_relro():
     ld = cle.Loader(
         os.path.join(TESTS_BASE, "tests/i386/full-relro.bin"),
         main_opts={"base_addr": 0x400000},
+        auto_load_libs=True,
     )
     assert ld.main_object.plt == {"__libc_start_main": 0x400390}
 
