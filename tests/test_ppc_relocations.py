@@ -19,7 +19,7 @@ def setup():
     """
     test_location = str(os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "binaries", "tests"))
     path = os.path.join(test_location, "ppc", "partial.o")
-    loader = cle.Loader(path)
+    loader = cle.Loader(path, auto_load_libs=True)
     relocations = loader.main_object.relocs
     ppc_backend = cle.backends.elf.relocation.ppc
 
