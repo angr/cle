@@ -22,6 +22,7 @@ def test_blob_0():
             "entry_point": ENTRYPOINT,
             "arch": "ARM",
         },
+        auto_load_libs=True,
     )
 
     assert ld.main_object.linked_base == BASE_ADDR
@@ -55,6 +56,7 @@ def test_blob_1():
             "arch": "ARM",
             "offset": offset,
         },
+        auto_load_libs=True,
     )
 
     assert ld.main_object.linked_base == BASE_ADDR
