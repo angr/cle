@@ -111,7 +111,7 @@ class PE(Backend):
 
         self.linking = "dynamic" if self.deps else "static"
         self.jmprel = self._get_jmprel()
-        self.memory.add_backer(0, self._pe.get_memory_mapped_image())
+        self.memory.add_backer(0, self._pe.get_memory_mapped_image(max_virtual_address=0x100000000))
 
         if debug_symbols or self.loader._load_debug_info:
             pdb_path = debug_symbols or self._find_pdb_path()
