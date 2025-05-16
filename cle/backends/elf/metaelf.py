@@ -386,7 +386,12 @@ class MetaELF(Backend):
                     addr = AT.from_rva(self._plt[name], self).to_lva()
 
             if addr is not None:
-                b0 = self._block(addr, skip_stmts=True)
+                try:
+                    b0 = self._block(addr, skip_stmts=True)
+                except KeyError:
+                    # the address does not exist; maybe it's not in the current binary?
+                    log.warning("Failed to create a block at address %#x; the address does not exist.", addr)
+                    continue
                 stub_size = b0.size
                 if isinstance(b0.next, pyvex.expr.Const) and b0.next.con.value == addr + b0.size:
                     b1 = self._block(addr + b0.size, skip_stmts=True)
