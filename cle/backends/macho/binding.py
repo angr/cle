@@ -497,7 +497,7 @@ class MachOSymbolRelocation(Relocation):
         self.data = data
 
     def resolve_symbol(self, solist, thumb=False, extern_object=None, **kwargs):
-        if isinstance(self.symbol, (SymbolTableSymbol, BindingSymbol, DyldBoundSymbol)):
+        if isinstance(self.symbol, SymbolTableSymbol | BindingSymbol | DyldBoundSymbol):
             for so in solist:
                 if self.symbol.library_base_name == so.binary_basename:
                     symbols = so.get_symbol(self.symbol.name)

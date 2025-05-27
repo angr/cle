@@ -135,7 +135,7 @@ class Soot(Backend):
                 "params": thing.params,
             }
 
-        elif isinstance(thing, (str, bytes)):
+        elif isinstance(thing, str | bytes):
             method_name = thing
 
             # if class_name is not set, parse it from the method name

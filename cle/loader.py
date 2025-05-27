@@ -497,7 +497,7 @@ class Loader:
         if obj is None:
             return None
 
-        if skip_pseudo_objects and isinstance(obj, (ExternObject, KernelObject, TLSObject)):
+        if skip_pseudo_objects and isinstance(obj, ExternObject | KernelObject | TLSObject):
             # the address is from a section allocated by angr.
             return None
 
@@ -519,7 +519,7 @@ class Loader:
         if obj is None:
             return None
 
-        if skip_pseudo_objects and isinstance(obj, (ExternObject, KernelObject, TLSObject)):
+        if skip_pseudo_objects and isinstance(obj, ExternObject | KernelObject | TLSObject):
             # the address is from a special CLE section
             return None
 
@@ -540,7 +540,7 @@ class Loader:
         if obj is None:
             return None
 
-        if skip_pseudo_objects and isinstance(obj, (ExternObject, KernelObject, TLSObject)):
+        if skip_pseudo_objects and isinstance(obj, ExternObject | KernelObject | TLSObject):
             # the address is from a special CLE section
             return None
 
@@ -562,7 +562,7 @@ class Loader:
         if obj is None:
             return None
 
-        if skip_pseudo_objects and isinstance(obj, (ExternObject, KernelObject, TLSObject)):
+        if skip_pseudo_objects and isinstance(obj, ExternObject | KernelObject | TLSObject):
             # the address is from a special CLE section
             return None
 
@@ -820,7 +820,7 @@ class Loader:
                     self._tls = MinidumpThreadManager(self, self._main_object.arch)
                 elif isinstance(chk_obj, MetaELF):
                     self._tls = ELFThreadManager(self, self._main_object.arch)
-                elif isinstance(chk_obj, (PE, Coff)):
+                elif isinstance(chk_obj, PE | Coff):
                     self._tls = PEThreadManager(self, self._main_object.arch)
                 else:
                     self._tls = ThreadManager(self, self._main_object.arch)
@@ -963,7 +963,7 @@ class Loader:
             binary_stream = spec
             binary = None
             close = False
-        elif isinstance(spec, (bytes, str)):
+        elif isinstance(spec, bytes | str):
             binary = self._search_load_path(spec)  # this is allowed to cheat and do partial static loading
             log.debug("... using full path %s", binary)
             binary_stream = open(binary, "rb")
@@ -1263,7 +1263,7 @@ class Loader:
                     yield soname
                     if self._ignore_import_version_numbers:
                         yield soname.rstrip(".0123456789")
-        elif isinstance(spec, (bytes, str)):
+        elif isinstance(spec, bytes | str):
             yield spec
             yield os.path.basename(spec)
             yield os.path.basename(spec).split(".")[0]

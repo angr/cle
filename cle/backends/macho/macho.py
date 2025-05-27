@@ -10,7 +10,6 @@ import typing
 from collections import defaultdict
 from io import BufferedReader, BytesIO
 from os import SEEK_CUR, SEEK_SET
-from typing import Union
 
 import archinfo
 from sortedcontainers import SortedKeyList
@@ -866,7 +865,7 @@ class MachO(Backend):
         # Store segment
         self.segments.append(seg)
 
-    S = typing.TypeVar("S", bound=Union[ctypes.Structure, ctypes.Union])
+    S = typing.TypeVar("S", bound=ctypes.Structure | ctypes.Union)
 
     def _get_struct(self, struct_type: type[S], offset: int) -> S:
         data = self._read(self._binary_stream, offset, ctypes.sizeof(struct_type))
