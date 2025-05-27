@@ -2,6 +2,82 @@
 requires = ["setuptools>=46.4.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "cle"
+description = "CLE Loads Everything (at least, many binary formats!) and provides a pythonic interface to analyze what they are and what they would look like in memory."
+license = { text = "BSD-2-Clause" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dynamic = ["version"]
+requires-python = ">=3.10"
+dependencies = [
+    "archinfo==9.2.159.dev0",
+    "cart",
+    "pefile",
+    "pyelftools>=0.27",
+    "pyvex==9.2.159.dev0",
+    "sortedcontainers>=2.0",
+]
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[project.urls]
+Homepage = "https://api.angr.io/projects/cle/en/latest/"
+Repository = "https://github.com/angr/cle"
+
+[project.optional-dependencies]
+ar = [
+    "arpy==1.1.1"
+]
+docs = [
+    "furo",
+    "myst-parser",
+    "sphinx",
+    "sphinx-autodoc-typehints",
+]
+minidump = [
+    "minidump>=0.0.10"
+]
+pcode = [
+    "pypcode>=1.1"
+]
+pdb = [
+    "pyxdia~=0.0"
+]
+testing = [
+    "cffi",
+    "minidump>=0.0.10",
+    "pypcode>=1.1",
+    "pytest",
+    "pytest-xdist",
+    "pyxbe~=1.0.3",
+    "types-pefile",
+]
+uefi = [
+    "uefi-firmware>=1.10"
+]
+xbe = [
+    "pyxbe~=1.0.3"
+]
+
+[tool.setuptools]
+include-package-data = true
+license-files = ["LICENSE"]
+
+[tool.setuptools.dynamic]
+version = { attr = "cle.__version__" }
+
+[tool.setuptools.package-data]
+cle = ["py.typed"]
+
 [tool.black]
 line-length = 120
 target-version = ['py310']
