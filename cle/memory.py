@@ -206,7 +206,7 @@ class Clemory(ClemoryBase):
         if not data:
             raise ValueError("Backer is empty!")
 
-        if not isinstance(data, (bytes, bytearray, list, Clemory, mmap)):
+        if not isinstance(data, bytes | bytearray | list | Clemory | mmap):
             raise TypeError("Data must be a bytes, list, or Clemory object.")
         if overwrite:
             if isinstance(data, Clemory):
@@ -262,7 +262,7 @@ class Clemory(ClemoryBase):
         return f"<{self.__class__.__name__} [{hex(self.min_addr)}:{hex(self.max_addr)}]>"
 
     def update_backer(self, start, data):
-        if not isinstance(data, (bytes, list, Clemory)):
+        if not isinstance(data, bytes | list | Clemory):
             raise TypeError("Data must be a bytes, list, or Clemory object.")
         if isinstance(data, bytes):
             data = bytearray(data)
@@ -287,7 +287,7 @@ class Clemory(ClemoryBase):
 
     def __iter__(self):
         for start, string in self._backers:
-            if isinstance(string, (bytes, list)):
+            if isinstance(string, bytes | list):
                 for x in range(len(string)):
                     yield start + x
             else:
@@ -296,7 +296,7 @@ class Clemory(ClemoryBase):
 
     def __getitem__(self, k):
         for start, data in self._backers:
-            if isinstance(data, (bytearray, list)):
+            if isinstance(data, bytearray | list):
                 if 0 <= k - start < len(data):
                     return data[k - start]
             elif isinstance(data, Clemory):
@@ -309,7 +309,7 @@ class Clemory(ClemoryBase):
 
     def __setitem__(self, k, v):
         for start, data in self._backers:
-            if isinstance(data, (bytearray, list)):
+            if isinstance(data, bytearray | list):
                 if 0 <= k - start < len(data):
                     data[k - start] = v
                     return
@@ -485,7 +485,7 @@ class Clemory(ClemoryBase):
                 if next_start != start:
                     is_consecutive = False
 
-            if isinstance(backer, (bytearray, list, mmap)):
+            if isinstance(backer, bytearray | list | mmap):
                 backer_length = len(backer)
                 # Update max_addr
                 if max_addr is None or start + backer_length > max_addr:

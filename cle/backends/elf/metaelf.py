@@ -209,7 +209,7 @@ class MetaELF(Backend):
         tick.bailout_timer = 5
 
         def scan_forward(addr, name, push=False):
-            names = [name] if not isinstance(name, (list, tuple)) else name
+            names = [name] if not isinstance(name, list | tuple) else name
 
             def block_is_good(blk):
                 all_constants = {c.value for c in blk.all_constants}
