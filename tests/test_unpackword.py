@@ -26,6 +26,7 @@ def test_unpackword():
             "arch": "x86",
             "offset": 0,
         },
+        auto_load_libs=True,
     )
 
     # little endian
