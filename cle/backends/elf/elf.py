@@ -10,8 +10,6 @@ from collections import OrderedDict, defaultdict
 from typing import cast
 
 import archinfo
-import elftools.elf.dynamic
-import elftools.elf.sections
 from elftools.common.exceptions import DWARFError, ELFError, ELFParseError
 from elftools.dwarf import callframe
 from elftools.dwarf.compileunit import CompileUnit
@@ -274,7 +272,7 @@ class ELF(MetaELF):
         identstring = stream.read(0x1000)
         stream.seek(0)
         if identstring.startswith(b"\x7fELF"):
-            if elftools.elf.elffile.ELFFile(stream).header["e_type"] == "ET_CORE":
+            if elffile.ELFFile(stream).header["e_type"] == "ET_CORE":
                 return False
             return True
         return False
@@ -292,14 +290,14 @@ class ELF(MetaELF):
             return None  # No attrs here!
         attrs_sub_sec = None
         for subsec in attrs_sec.subsections:
-            if isinstance(subsec, elftools.elf.sections.ARMAttributesSubsection):
+            if isinstance(subsec, sections.ARMAttributesSubsection):
                 attrs_sub_sec = subsec
                 break
         if not attrs_sub_sec:
             return None  # None here either
         attrs_sub_sub_sec = None
         for subsubsec in attrs_sub_sec.subsubsections:
-            if isinstance(subsubsec, elftools.elf.sections.ARMAttributesSubsubsection):
+            if isinstance(subsubsec, sections.ARMAttributesSubsubsection):
                 attrs_sub_sub_sec = subsubsec
                 break
         if not attrs_sub_sub_sec:
@@ -772,6 +770,7 @@ class ELF(MetaELF):
             if die_low_pc is None and die_ranges is not None:
                 die_low_pc = min(x for x, _ in die_ranges)
 
+            # pylint: disable=too-many-boolean-expressions
             if (
                 die_name is None
                 or die_comp_dir is None
@@ -883,7 +882,8 @@ class ELF(MetaELF):
 
         return block
 
-    def _dwarf_get_name_with_namespace(self, origin_die: DIE) -> str | None:
+    @staticmethod
+    def _dwarf_get_name_with_namespace(origin_die: DIE) -> str | None:
         name_pieces = []
         while True:
             name_piece = origin_die.attributes.get("DW_AT_name", None)
@@ -1096,7 +1096,7 @@ class ELF(MetaELF):
                     "sh_flags": 0,
                     "sh_addralign": 0,
                 }
-                readelf_relocsec = elffile.RelocationSection(fakerelheader, "reloc_cle", self._reader)
+                readelf_relocsec = RelocationSection(fakerelheader, "reloc_cle", self._reader)
                 # support multiple versions of pyelftools
                 readelf_relocsec.stream = self.memory
                 readelf_relocsec._stream = self.memory
@@ -1117,7 +1117,7 @@ class ELF(MetaELF):
                     "sh_flags": 0,
                     "sh_addralign": 0,
                 }
-                readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, "jmprel_cle", self._reader)
+                readelf_jmprelsec = RelocationSection(fakejmprelheader, "jmprel_cle", self._reader)
                 # support multiple versions of pyelftools
                 readelf_jmprelsec.stream = self.memory
                 readelf_jmprelsec._stream = self.memory
@@ -1176,7 +1176,7 @@ class ELF(MetaELF):
                     return
 
         symtab = self._reader.get_section(section.header["sh_link"]) if "sh_link" in section.header else dynsym
-        if isinstance(symtab, elftools.elf.sections.NullSection):
+        if isinstance(symtab, sections.NullSection):
             # Oh my god Atmel please stop
             symtab = self._reader.get_section_by_name(".symtab")
         relocs = []
@@ -1316,7 +1316,7 @@ class ELF(MetaELF):
             self.sections_map[section.name] = section
 
         for sec_readelf, section in sec_list:
-            if isinstance(sec_readelf, elftools.elf.sections.SymbolTableSection):
+            if isinstance(sec_readelf, sections.SymbolTableSection):
                 self.__register_section_symbols(sec_readelf)
             if isinstance(sec_readelf, RelocationSection) and not (
                 "DT_REL" in self._dynamic or "DT_RELA" in self._dynamic or "DT_JMPREL" in self._dynamic
@@ -1401,10 +1401,10 @@ class ELF(MetaELF):
         return True
 
     def __neuter_streams(self, obj):
-        if isinstance(obj, elftools.elf.dynamic._DynamicStringTable):
+        if isinstance(obj, dynamic._DynamicStringTable):
             obj._stream = self.memory
             obj._table_offset = self._offset_to_rva(obj._table_offset)
-        elif isinstance(obj, elftools.elf.sections.Section):
+        elif isinstance(obj, sections.Section):
             if obj.header.sh_type == "SHT_NOBITS":
                 obj.stream = None
                 obj.elffile = None
@@ -1428,7 +1428,7 @@ class ELF(MetaELF):
                 return
 
             for sec_readelf in elf.iter_sections():
-                if isinstance(sec_readelf, elftools.elf.sections.SymbolTableSection):
+                if isinstance(sec_readelf, sections.SymbolTableSection):
                     self.__register_section_symbols(sec_readelf)
                 elif sec_readelf.header.sh_type == "SHT_NOTE":
                     self.__register_notes(sec_readelf)

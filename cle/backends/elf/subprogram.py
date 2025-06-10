@@ -25,9 +25,12 @@ class LexicalBlock:
     def __init__(self, low_pc: int | None, high_pc: int | None, ranges: list[tuple[int, int]] | None = None) -> None:
         self.ranges = ranges
 
-        if low_pc is None and high_pc is None and ranges is not None:
-            low_pc = min(x for x, _ in ranges)
-            high_pc = max(x for _, x in ranges)
+        if low_pc is None and high_pc is None:
+            if ranges is not None:
+                low_pc = min(x for x, _ in ranges)
+                high_pc = max(x for _, x in ranges)
+        if low_pc is None or high_pc is None:
+            raise ValueError("Must provide low_pc/high_pc or ranges")
         self.low_pc = low_pc
         self.high_pc = high_pc
         self.child_blocks: list[LexicalBlock] = []
