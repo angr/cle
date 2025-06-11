@@ -7,20 +7,24 @@ import os
 import pathlib
 import xml.etree.ElementTree
 from collections import OrderedDict, defaultdict
+from typing import cast
 
 import archinfo
-import elftools
 from elftools.common.exceptions import DWARFError, ELFError, ELFParseError
 from elftools.dwarf import callframe
+from elftools.dwarf.compileunit import CompileUnit
 from elftools.dwarf.descriptions import describe_attr_value, describe_form_class
 from elftools.dwarf.die import DIE
 from elftools.dwarf.dwarf_expr import DWARFExprParser
 from elftools.dwarf.dwarfinfo import DWARFInfo
+from elftools.dwarf.ranges import BaseAddressEntry, RangeEntry
 from elftools.elf import dynamic, elffile, enums, sections
+from elftools.elf.relocation import RelocationSection
 from sortedcontainers import SortedDict
 
 from cle.address_translator import AT
 from cle.backends.backend import ExceptionHandling, FunctionHint, FunctionHintSource, register_backend
+from cle.backends.inlined_function import InlinedFunction
 from cle.errors import CLECompatibilityError, CLEError, CLEInvalidBinaryError
 from cle.patched_stream import PatchedStream
 from cle.utils import ALIGN_DOWN, ALIGN_UP, get_mmaped_data, stream_or_path
@@ -160,6 +164,7 @@ class ELF(MetaELF):
         self.addr_to_line: SortedDict[int, set[tuple[int, int]]] = SortedDict()
         self.variables: list[Variable] | None = None
         self.compilation_units: list[CompilationUnit] | None = None
+        self.functions_debug_info: dict[int, Subprogram] = {}
 
         # misc
         self._entry = self._reader.header.e_entry
@@ -267,7 +272,7 @@ class ELF(MetaELF):
         identstring = stream.read(0x1000)
         stream.seek(0)
         if identstring.startswith(b"\x7fELF"):
-            if elftools.elf.elffile.ELFFile(stream).header["e_type"] == "ET_CORE":
+            if elffile.ELFFile(stream).header["e_type"] == "ET_CORE":
                 return False
             return True
         return False
@@ -285,14 +290,14 @@ class ELF(MetaELF):
             return None  # No attrs here!
         attrs_sub_sec = None
         for subsec in attrs_sec.subsections:
-            if isinstance(subsec, elftools.elf.sections.ARMAttributesSubsection):
+            if isinstance(subsec, sections.ARMAttributesSubsection):
                 attrs_sub_sec = subsec
                 break
         if not attrs_sub_sec:
             return None  # None here either
         attrs_sub_sub_sec = None
         for subsubsec in attrs_sub_sec.subsubsections:
-            if isinstance(subsubsec, elftools.elf.sections.ARMAttributesSubsubsection):
+            if isinstance(subsubsec, sections.ARMAttributesSubsubsection):
                 attrs_sub_sub_sec = subsubsec
                 break
         if not attrs_sub_sub_sec:
@@ -682,7 +687,20 @@ class ELF(MetaELF):
                 self.addr_to_line[relocated_addr].add((str(filename), line.state.line))
 
     @staticmethod
-    def _load_low_high_pc_form_die(die: DIE):
+    def _load_ranges_form_die(die: DIE, aranges) -> list[tuple[int, int]] | None:
+        if aranges is not None and "DW_AT_ranges" in die.attributes:
+            base_addr = 0
+            result = []
+            for entry in aranges.get_range_list_at_offset(die.attributes["DW_AT_ranges"].value, die.cu):
+                if isinstance(entry, BaseAddressEntry):
+                    base_addr = entry.base_address
+                elif isinstance(entry, RangeEntry):
+                    result.append((base_addr + entry.begin_offset, base_addr + entry.end_offset))
+            return result
+        return None
+
+    @staticmethod
+    def _load_low_high_pc_form_die(die: DIE) -> tuple[int | None, int | None]:
         """
         Load low and high pc from a DIE.
 
@@ -721,6 +739,7 @@ class ELF(MetaELF):
         """
         compilation_units: list[CompilationUnit] = []
         type_list: dict[int, VariableType] = {}
+        aranges = dwarf.range_lists()
 
         for cu in dwarf.iter_CUs():
             expr_parser = DWARFExprParser(cu.structs)
@@ -746,12 +765,17 @@ class ELF(MetaELF):
             die_comp_dir = top_die.attributes.get("DW_AT_comp_dir", None)
             die_low_pc, die_high_pc = self._load_low_high_pc_form_die(top_die)
             die_lang = top_die.attributes.get("DW_AT_language", None)
+            die_ranges = self._load_ranges_form_die(top_die, aranges)
 
+            if die_low_pc is None and die_ranges is not None:
+                die_low_pc = min(x for x, _ in die_ranges)
+
+            # pylint: disable=too-many-boolean-expressions
             if (
                 die_name is None
                 or die_comp_dir is None
                 or die_low_pc is None
-                or die_high_pc is None
+                or (die_high_pc is None and die_ranges is None)
                 or die_lang is None
             ):
                 continue
@@ -760,38 +784,74 @@ class ELF(MetaELF):
             die_comp_dir = die_comp_dir.value.decode("utf-8")
             die_lang = describe_attr_value(die_lang, top_die, top_die.offset)
 
-            cu_ = CompilationUnit(die_name, die_comp_dir, die_low_pc, die_high_pc, die_lang, self)
+            cu_ = CompilationUnit(die_name, die_comp_dir, die_low_pc, die_high_pc, die_lang, self, die_ranges)
             compilation_units.append(cu_)
-
-            for die_child in cu.iter_DIE_children(top_die):
-                if die_child.tag == "DW_TAG_variable":
-                    # load global variable
-                    var = Variable.from_die(die_child, expr_parser, self)
-                    var.decl_file = cu_.file_path
-                    cu_.global_variables.append(var)
-                elif die_child.tag == "DW_TAG_subprogram":
-                    # load subprogram
-                    sub_prog = self._load_die_lex_block(die_child, expr_parser, type_list, cu, cu_.file_path, None)
-                    if sub_prog is not None:
-                        cu_.functions[sub_prog.low_pc] = sub_prog
+            self._load_die_namespace(top_die, dwarf, aranges, cu_, expr_parser, type_list, cu, [])
 
         self.type_list = type_list
         self.compilation_units = compilation_units
 
-    def _load_die_lex_block(self, die: DIE, expr_parser, type_list, cu, file_path, subprogram) -> LexicalBlock:
+    def _load_die_namespace(
+        self,
+        die: DIE,
+        dwarf: DWARFInfo,
+        aranges,
+        cu_: CompilationUnit,
+        expr_parser,
+        type_list,
+        cu,
+        namespace: list[str],
+    ) -> None:
+        for die_child in die.iter_children():
+            if die_child.tag == "DW_TAG_variable":
+                # load global variable
+                var = Variable.from_die(die_child, expr_parser, self, namespace=namespace)
+                var.decl_file = cu_.file_path
+                cu_.global_variables.append(var)
+            elif die_child.tag == "DW_TAG_subprogram":
+                # load subprogram
+                sub_prog = self._load_die_lex_block(
+                    die_child, dwarf, aranges, expr_parser, type_list, cu, cu_.file_path, None, namespace=namespace
+                )
+                if sub_prog is not None:
+                    assert isinstance(sub_prog, Subprogram)
+                    cu_.functions[sub_prog.low_pc] = sub_prog
+                    self.functions_debug_info[sub_prog.low_pc] = sub_prog
+            elif die_child.tag == "DW_TAG_namespace":
+                new_namespace = namespace + [die_child.attributes["DW_AT_name"].value.decode("utf-8")]
+                self._load_die_namespace(die_child, dwarf, aranges, cu_, expr_parser, type_list, cu, new_namespace)
+
+    def _load_die_lex_block(
+        self,
+        die: DIE,
+        dwarf: DWARFInfo,
+        aranges,
+        expr_parser,
+        type_list,
+        cu: CompileUnit,
+        file_path,
+        subprogram,
+        namespace: list[str] | None = None,
+    ) -> LexicalBlock | None:
         if "DW_AT_name" in die.attributes:
-            name = die.attributes["DW_AT_name"].value.decode("utf-8")
+            name = "::".join((namespace or []) + [die.attributes["DW_AT_name"].value.decode("utf-8")])
+        elif "DW_AT_abstract_origin" in die.attributes:
+            origin = cu.get_DIE_from_refaddr(cu.cu_offset + die.attributes["DW_AT_abstract_origin"].value)
+            name = self._dwarf_get_name_with_namespace(origin)
         else:
             name = None
 
         low_pc, high_pc = self._load_low_high_pc_form_die(die)
+        ranges = None
         if low_pc is None or high_pc is None:
-            return None
+            ranges = self._load_ranges_form_die(die, aranges)
+            if ranges is None:
+                return None
 
         if subprogram is None:
-            subprogram = block = Subprogram(name, low_pc, high_pc)
+            subprogram = block = Subprogram(name, low_pc, high_pc, ranges)
         else:
-            block = LexicalBlock(low_pc, high_pc)
+            block = LexicalBlock(low_pc, high_pc, ranges)
 
         for sub_die in cu.iter_DIE_children(die):
             if sub_die.tag in ["DW_TAG_variable", "DW_TAG_formal_parameter"]:
@@ -800,11 +860,43 @@ class ELF(MetaELF):
                 var.decl_file = file_path
                 subprogram.local_variables.append(var)
             elif sub_die.tag == "DW_TAG_lexical_block":
-                sub_block = self._load_die_lex_block(sub_die, expr_parser, type_list, cu, file_path, subprogram)
+                sub_block = self._load_die_lex_block(
+                    sub_die, dwarf, aranges, expr_parser, type_list, cu, file_path, subprogram, namespace
+                )
                 if sub_block is not None:
                     block.child_blocks.append(sub_block)
+            elif sub_die.tag == "DW_TAG_inlined_subroutine":
+                subr = InlinedFunction()
+                low_pc, high_pc = self._load_low_high_pc_form_die(sub_die)
+                if low_pc is not None and high_pc is not None:
+                    subr.ranges.append((low_pc, high_pc))
+                elif "DW_AT_ranges" in sub_die.attributes:
+                    aranges = dwarf.range_lists()
+                    ranges = self._load_ranges_form_die(sub_die, aranges)
+                    if ranges is not None:
+                        subr.ranges = ranges
+                if "DW_AT_abstract_origin" in sub_die.attributes:
+                    origin = cu.get_DIE_from_refaddr(cu.cu_offset + sub_die.attributes["DW_AT_abstract_origin"].value)
+                    subr.name = self._dwarf_get_name_with_namespace(origin)
+                subprogram.inlined_functions.append(subr)
 
         return block
+
+    @staticmethod
+    def _dwarf_get_name_with_namespace(origin_die: DIE) -> str | None:
+        name_pieces = []
+        while True:
+            name_piece = origin_die.attributes.get("DW_AT_name", None)
+            if name_piece is None:
+                break
+
+            name_pieces.append(name_piece.value.decode("utf-8"))
+            origin_die = cast(DIE, origin_die.get_parent())
+            if origin_die is None or origin_die.tag != "DW_TAG_namespace":
+                break
+        if name_pieces:
+            return "::".join(reversed(name_pieces))
+        return None
 
     #
     # Private Methods... really. Calling these out of context
@@ -1004,7 +1096,7 @@ class ELF(MetaELF):
                     "sh_flags": 0,
                     "sh_addralign": 0,
                 }
-                readelf_relocsec = elffile.RelocationSection(fakerelheader, "reloc_cle", self._reader)
+                readelf_relocsec = RelocationSection(fakerelheader, "reloc_cle", self._reader)
                 # support multiple versions of pyelftools
                 readelf_relocsec.stream = self.memory
                 readelf_relocsec._stream = self.memory
@@ -1025,7 +1117,7 @@ class ELF(MetaELF):
                     "sh_flags": 0,
                     "sh_addralign": 0,
                 }
-                readelf_jmprelsec = elffile.RelocationSection(fakejmprelheader, "jmprel_cle", self._reader)
+                readelf_jmprelsec = RelocationSection(fakejmprelheader, "jmprel_cle", self._reader)
                 # support multiple versions of pyelftools
                 readelf_jmprelsec.stream = self.memory
                 readelf_jmprelsec._stream = self.memory
@@ -1084,7 +1176,7 @@ class ELF(MetaELF):
                     return
 
         symtab = self._reader.get_section(section.header["sh_link"]) if "sh_link" in section.header else dynsym
-        if isinstance(symtab, elftools.elf.sections.NullSection):
+        if isinstance(symtab, sections.NullSection):
             # Oh my god Atmel please stop
             symtab = self._reader.get_section_by_name(".symtab")
         relocs = []
@@ -1224,9 +1316,9 @@ class ELF(MetaELF):
             self.sections_map[section.name] = section
 
         for sec_readelf, section in sec_list:
-            if isinstance(sec_readelf, elffile.SymbolTableSection):
+            if isinstance(sec_readelf, sections.SymbolTableSection):
                 self.__register_section_symbols(sec_readelf)
-            if isinstance(sec_readelf, elffile.RelocationSection) and not (
+            if isinstance(sec_readelf, RelocationSection) and not (
                 "DT_REL" in self._dynamic or "DT_RELA" in self._dynamic or "DT_JMPREL" in self._dynamic
             ):
                 self.__register_relocs(sec_readelf, dynsym=None)
@@ -1309,10 +1401,10 @@ class ELF(MetaELF):
         return True
 
     def __neuter_streams(self, obj):
-        if isinstance(obj, elftools.elf.dynamic._DynamicStringTable):
+        if isinstance(obj, dynamic._DynamicStringTable):
             obj._stream = self.memory
             obj._table_offset = self._offset_to_rva(obj._table_offset)
-        elif isinstance(obj, elftools.elf.sections.Section):
+        elif isinstance(obj, sections.Section):
             if obj.header.sh_type == "SHT_NOBITS":
                 obj.stream = None
                 obj.elffile = None
@@ -1336,7 +1428,7 @@ class ELF(MetaELF):
                 return
 
             for sec_readelf in elf.iter_sections():
-                if isinstance(sec_readelf, elffile.SymbolTableSection):
+                if isinstance(sec_readelf, sections.SymbolTableSection):
                     self.__register_section_symbols(sec_readelf)
                 elif sec_readelf.header.sh_type == "SHT_NOTE":
                     self.__register_notes(sec_readelf)

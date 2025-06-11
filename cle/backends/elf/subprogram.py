@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from cle.backends.inlined_function import InlinedFunction
+
 from .variable import Variable
 
 
@@ -20,7 +22,15 @@ class LexicalBlock:
     :type child_blocks: List[LexicalBlock]
     """
 
-    def __init__(self, low_pc, high_pc) -> None:
+    def __init__(self, low_pc: int | None, high_pc: int | None, ranges: list[tuple[int, int]] | None = None) -> None:
+        self.ranges = ranges
+
+        if low_pc is None and high_pc is None:
+            if ranges is not None:
+                low_pc = min(x for x, _ in ranges)
+                high_pc = max(x for _, x in ranges)
+        if low_pc is None or high_pc is None:
+            raise ValueError("Must provide low_pc/high_pc or ranges")
         self.low_pc = low_pc
         self.high_pc = high_pc
         self.child_blocks: list[LexicalBlock] = []
@@ -41,9 +51,12 @@ class Subprogram(LexicalBlock):
     :type local_variables: List[Variables]
     """
 
-    def __init__(self, name, low_pc, high_pc) -> None:
+    def __init__(
+        self, name: str | None, low_pc: int | None, high_pc: int | None, ranges: list[tuple[int, int]] | None = None
+    ) -> None:
         # pass self as the super_block of this subprogram
         self.subprogram = self
-        super().__init__(low_pc, high_pc)
+        super().__init__(low_pc, high_pc, ranges)
         self.name = name
         self.local_variables: list[Variable] = []
+        self.inlined_functions: list[InlinedFunction] = []

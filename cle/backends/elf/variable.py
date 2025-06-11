@@ -26,17 +26,25 @@ class Variable:
     def __init__(self, elf_object: ELF):
         self._elf_object = elf_object
         # all other optional params can be set afterwards
-        self.relative_addr = None
-        self.name = None
+        self.relative_addr: int | None = None
+        self.name: str | None = None
         self._type_offset = None
-        self.decl_line = None
-        self.decl_file = None
-        self.lexical_block = None
+        self.decl_line: int | None = None
+        self.decl_file: str | None = None
+        self.lexical_block: LexicalBlock | None = None
         self.external = False
         self.declaration_only = False
 
     @staticmethod
-    def from_die(die: DIE, expr_parser, elf_object: ELF, lexical_block: LexicalBlock | None = None):
+    def from_die(
+        die: DIE,
+        expr_parser,
+        elf_object: ELF,
+        lexical_block: LexicalBlock | None = None,
+        namespace: list[str] | None = None,
+    ):
+        if namespace is None:
+            namespace = []
         # first the address
         if "DW_AT_location" in die.attributes and die.attributes["DW_AT_location"].form == "DW_FORM_exprloc":
             parsed_exprs = expr_parser.parse_expr(die.attributes["DW_AT_location"].value)
@@ -55,7 +63,7 @@ class Variable:
             var = Variable(elf_object)
 
         if "DW_AT_name" in die.attributes:
-            var.name = die.attributes["DW_AT_name"].value.decode("utf-8")
+            var.name = "::".join(namespace + [die.attributes["DW_AT_name"].value.decode("utf-8")])
         if "DW_AT_type" in die.attributes:
             var._type_offset = die.attributes["DW_AT_type"].value + die.cu.cu_offset
         if "DW_AT_decl_line" in die.attributes:
