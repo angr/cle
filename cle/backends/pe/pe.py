@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import logging
 import os
 import re
@@ -190,12 +191,15 @@ class PE(Backend):
             log.exception("Failed to load PDB at %s", pdb_path)
             return
 
-        for global_ in pdb.globals:
-            rva = global_["relativeVirtualAddress"]
+        for item in itertools.chain(pdb.globals, pdb.publics):
+            rva = item["relativeVirtualAddress"]
             if rva is None:
                 continue
-            name = global_["name"]
-            tag = str(global_["symTag"])
+            name = item["name"]
+            tag = str(item["symTag"])
+            if tag == "PublicSymbol":
+                # Marshall publics to data or function
+                tag = "Function" if item.get("is_function", False) else "Data"
             symbol_type = {
                 "Data": SymbolType.TYPE_OBJECT,
                 "Function": SymbolType.TYPE_FUNCTION,

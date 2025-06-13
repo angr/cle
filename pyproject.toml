@@ -50,7 +50,7 @@ pcode = [
     "pypcode>=1.1"
 ]
 pdb = [
-    "pyxdia~=0.0"
+    "pyxdia~=0.1"
 ]
 testing = [
     "cffi",
