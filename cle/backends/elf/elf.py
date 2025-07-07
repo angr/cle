@@ -833,10 +833,19 @@ class ELF(MetaELF):
         subprogram,
         namespace: list[str] | None = None,
     ) -> LexicalBlock | None:
+        def resolve_abstract_origin(die):
+            abstract_origin_attribute = die.attributes["DW_AT_abstract_origin"]
+            if abstract_origin_attribute.form == "DW_FORM_ref_addr":
+                abstract_origin = abstract_origin_attribute.value
+                origin_cu = dwarf.get_CU_containing(abstract_origin)
+                return origin_cu.get_DIE_from_refaddr(abstract_origin)
+            else:
+                return cu.get_DIE_from_refaddr(cu.cu_offset + die.attributes["DW_AT_abstract_origin"].value)
+
         if "DW_AT_name" in die.attributes:
             name = "::".join((namespace or []) + [die.attributes["DW_AT_name"].value.decode("utf-8")])
         elif "DW_AT_abstract_origin" in die.attributes:
-            origin = cu.get_DIE_from_refaddr(cu.cu_offset + die.attributes["DW_AT_abstract_origin"].value)
+            origin = resolve_abstract_origin(die)
             name = self._dwarf_get_name_with_namespace(origin)
         else:
             name = None
@@ -876,7 +885,7 @@ class ELF(MetaELF):
                     if ranges is not None:
                         subr.ranges = ranges
                 if "DW_AT_abstract_origin" in sub_die.attributes:
-                    origin = cu.get_DIE_from_refaddr(cu.cu_offset + sub_die.attributes["DW_AT_abstract_origin"].value)
+                    origin = resolve_abstract_origin(sub_die)
                     subr.name = self._dwarf_get_name_with_namespace(origin)
                 subprogram.inlined_functions.append(subr)
 
