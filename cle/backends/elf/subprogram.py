@@ -1,9 +1,17 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+from elftools.dwarf.die import DIE
+
 from cle.backends.inlined_function import InlinedFunction
 
 from .variable import Variable
 
+from .variable_type import VariableType
+
+if TYPE_CHECKING:
+    from .elf import ELF
 
 class LexicalBlock:
     """
@@ -41,6 +49,7 @@ class Subprogram(LexicalBlock):
     DW_TAG_subprogram for DWARF. The behavior is mostly inherited from
     LexicalBlock to avoid redundancy.
 
+    :param elf_object: The ELF object containing the subprogram
     :param name:     The name of the function/program
     :param low_pc:   The relative start address of the subprogram
     :param high_pc:  The relative end address of the subprogram
@@ -52,11 +61,30 @@ class Subprogram(LexicalBlock):
     """
 
     def __init__(
-        self, name: str | None, low_pc: int | None, high_pc: int | None, ranges: list[tuple[int, int]] | None = None
+        self, elf_object: ELF, name: str | None, low_pc: int | None, high_pc: int | None, ranges: list[tuple[int, int]] | None = None,
     ) -> None:
+        self._elf_object = elf_object
         # pass self as the super_block of this subprogram
         self.subprogram = self
         super().__init__(low_pc, high_pc, ranges)
         self.name = name
+        self.parameters: list[Variable] = []
         self.local_variables: list[Variable] = []
         self.inlined_functions: list[InlinedFunction] = []
+        self._return_type_offset = None
+
+    @staticmethod
+    def from_die(die: DIE, elf_object: ELF, name: str | None, low_pc: int | None, high_pc: int | None, ranges: list[tuple[int, int]] | None = None):
+        sub_prg = Subprogram(elf_object, name, low_pc, high_pc, ranges=ranges)
+        if "DW_AT_type" in die.attributes:
+            sub_prg._return_type_offset = die.attributes["DW_AT_type"].value + die.cu.cu_offset
+        return sub_prg
+
+    @property
+    def return_type(self) -> VariableType | None:
+        # Note that in DWARF an omitted return type typically means a void return type
+        try:
+            return self._elf_object.type_list[self._return_type_offset]
+        except KeyError:
+            return None
+

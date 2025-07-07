@@ -858,16 +858,20 @@ class ELF(MetaELF):
                 return None
 
         if subprogram is None:
-            subprogram = block = Subprogram(name, low_pc, high_pc, ranges)
+            subprogram = block = Subprogram.from_die(die, self, name, low_pc, high_pc, ranges)
         else:
             block = LexicalBlock(low_pc, high_pc, ranges)
 
         for sub_die in cu.iter_DIE_children(die):
-            if sub_die.tag in ["DW_TAG_variable", "DW_TAG_formal_parameter"]:
+            is_variable = sub_die.tag == "DW_TAG_variable"
+            is_formal_parameter = sub_die.tag == "DW_TAG_formal_parameter"
+            if is_variable or is_formal_parameter:
                 # load local variable
                 var = Variable.from_die(sub_die, expr_parser, self, block)
                 var.decl_file = file_path
                 subprogram.local_variables.append(var)
+                if is_formal_parameter:
+                    subprogram.parameters.append(var)
             elif sub_die.tag == "DW_TAG_lexical_block":
                 sub_block = self._load_die_lex_block(
                     sub_die, dwarf, aranges, expr_parser, type_list, cu, file_path, subprogram, namespace
