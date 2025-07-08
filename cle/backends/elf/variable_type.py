@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from enum import Enum
+
 from elftools.dwarf.die import DIE
 
 
@@ -71,10 +73,14 @@ class PointerType(VariableType):
         read an entry of DW_TAG_pointer_type. return None when there is no
         byte_size or type attribute.
         """
-        byte_size = die.attributes.get("DW_AT_byte_size", None)
+        byte_size_attr = die.attributes.get("DW_AT_byte_size", None)
 
-        if byte_size is None:
-            return None
+        if byte_size_attr is not None:
+            byte_size = byte_size_attr.value
+        else:
+            # In testing it looks like the Rust compiler does not emit a byte_size attribute
+            # Instead let's just say that the size of a pointer is given by the ELF's architecture
+            byte_size = elf_object.arch.bytes
 
         dw_at_type = die.attributes.get("DW_AT_type", None)
         if dw_at_type is None:
@@ -82,7 +88,7 @@ class PointerType(VariableType):
         else:
             referenced_offset = dw_at_type.value + die.cu.cu_offset
 
-        return cls(byte_size.value, elf_object, referenced_offset)
+        return cls(byte_size, elf_object, referenced_offset)
 
     @property
     def referenced_type(self):
@@ -94,11 +100,36 @@ class PointerType(VariableType):
             return type_list[self._referenced_offset]
         return None
 
+class BaseTypeEncoding(Enum):
+    ADDRESS = 0x1
+    BOOLEAN = 0x2
+    COMPLEX_FLOAT = 0x3
+    FLOAT = 0x4
+    SIGNED = 0x5
+    SIGNED_CHAR = 0x6
+    UNSIGNED = 0x7
+    UNSIGNED_CHAR = 0x8
+    IMAGINARY_FLOAT = 0x9
+    PACKED_DECIMAL = 0xa
+    NUMERIC_STRING = 0xb
+    EDITED = 0xc
+    SIGNED_FIXED = 0xd
+    UNSIGNED_FIXED = 0xe
+    DECIMAL_FLOAT = 0xf
+    UTF = 0x10
+    UCS = 0x11
+    ASCII = 0x12
+    LO_USER = 0x80
+    HI_USER = 0xff
 
 class BaseType(VariableType):
     """
     Entry class for DW_TAG_base_type. It is inherited from VariableType
     """
+
+    def __init__(self, name: str, byte_size: int, elf_object, encoding):
+        super().__init__(name, byte_size, elf_object)
+        self.encoding = encoding
 
     # for __init__ see VariableType
 
@@ -111,9 +142,14 @@ class BaseType(VariableType):
 
         dw_at_name = die.attributes.get("DW_AT_name", None)
         byte_size = die.attributes.get("DW_AT_byte_size", None)
+        encoding_attr = die.attributes.get("DW_AT_encoding", None)
+        if encoding_attr is not None:
+            encoding = BaseTypeEncoding(encoding_attr.value)
+        else:
+            encoding = None
         if byte_size is None:
             return None
-        return cls(dw_at_name.value.decode() if dw_at_name is not None else "unknown", byte_size.value, elf_object)
+        return cls(dw_at_name.value.decode() if dw_at_name is not None else "unknown", byte_size.value, elf_object, encoding)
 
 
 class StructType(VariableType):
@@ -227,9 +263,12 @@ class ArrayType(VariableType):
     :param element_offset:     type of the array elements as offset in the compilation_unit
     """
 
-    def __init__(self, byte_size, elf_object, element_offset):
+    def __init__(self, byte_size, elf_object, element_offset, count: int | None, lower_bound: int | None, upper_bound: int | None):
         super().__init__("array", byte_size, elf_object)
         self._element_offset = element_offset
+        self.count = count
+        self.lower_bound = lower_bound
+        self.upper_bound = upper_bound
 
     @classmethod
     def read_from_die(cls, die: DIE, elf_object):
@@ -243,8 +282,27 @@ class ArrayType(VariableType):
         dw_at_type = die.attributes.get("DW_AT_type", None)
         if dw_at_type is None:
             return None
+
+        count = None
+        lower_bound = None
+        upper_bound = None
+        for child in die.iter_children():
+            match child.tag:
+                case "DW_TAG_subrange_type":
+                    count_attr = child.attributes.get("DW_AT_count", None)
+                    if count_attr is not None:
+                        count = count_attr.value
+                    lower_bound_attr = child.attributes.get("DW_AT_lower_bound", None)
+                    if lower_bound_attr is not None:
+                        lower_bound = lower_bound_attr.value
+                    upper_bound_attr = child.attributes.get("DW_AT_upper_bound", None)
+                    if upper_bound_attr is not None:
+                        upper_bound = upper_bound_attr.value
+                    break
+
         return cls(
-            dw_byte_size.value if dw_byte_size is not None else None, elf_object, dw_at_type.value + die.cu.cu_offset
+            dw_byte_size.value if dw_byte_size is not None else None, elf_object, dw_at_type.value + die.cu.cu_offset,
+            count, lower_bound, upper_bound
         )
 
     @property
