@@ -379,15 +379,23 @@ class EnumeratorValue:
         return cls(name, const_value)
 
 class EnumerationType(VariableType):
-    def __init__(self, name: str, byte_size: int, elf_object, enumerator_values: list[EnumeratorValue]):
+    def __init__(self, name: str, byte_size: int, elf_object, type_offset, enumerator_values: list[EnumeratorValue]):
         super().__init__(name, byte_size, elf_object)
         self.enumerator_values = enumerator_values
+        self._type_offset = type_offset
 
     def __len__(self):
         return len(self.enumerator_values)
 
     def __iter__(self):
         return iter(self.enumerator_values)
+
+    @property
+    def type(self):
+        """
+        The underlying type of the enumeration
+        """
+        return self._elf_object.type_list[self._type_offset]
 
     @classmethod
     def read_from_die(cls, die: DIE, elf_object):
@@ -401,13 +409,16 @@ class EnumerationType(VariableType):
         name_attr = die.attributes.get("DW_AT_name", None)
         name = None if name_attr is None else name_attr.value.decode()
 
+        dw_at_type = die.attributes.get("DW_AT_type", None)
+        type_offset = None if dw_at_type is None else dw_at_type.value + die.cu.cu_offset
+
         enumerators = []
         for child in die.iter_children():
             match child.tag:
                 case "DW_TAG_enumerator":
                     enumerators.append(EnumeratorValue.read_from_die(child, elf_object))
 
-        return cls(name, byte_size, elf_object, enumerators)
+        return cls(name, byte_size, elf_object, type_offset, enumerators)
 
 class SubroutineType(VariableType):
     def __init__(self, name: str, byte_size: int, elf_object, type_offset: int | None, parameter_offsets):
