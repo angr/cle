@@ -182,6 +182,10 @@ class StructType(VariableType):
         byte_size attribute.
         """
 
+        for die_child in die.iter_children():
+            if die_child.tag == "DW_TAG_variant_part":
+                return VariantType.read_from_die(die, elf_object)
+
         dw_at_name = die.attributes.get("DW_AT_name", None)
         byte_size = die.attributes.get("DW_AT_byte_size", None)
 
@@ -209,6 +213,67 @@ class UnionType(StructType):
     Entry class for DW_TAG_union_type. Inherits from StructType to make it trivial.
     """
 
+class VariantValue:
+    """
+    This class represents one possible value for a variant.
+
+    :param value: The discriminator/tag value used for indicating this variant
+    :param member: The member representing the layout of this particular variant
+    """
+    def __init__(self, value: int | None, member: StructMember | None):
+        self.value = value
+        self.member = member
+
+    @classmethod
+    def read_from_die(cls, die: DIE, elf_object):
+        value_attr = die.attributes.get("DW_AT_discr_value", None)
+        if value_attr is not None:
+            value = value_attr.value
+        else:
+            value = None
+
+        member = None
+        for die_child in die.iter_children():
+            if die_child.tag == "DW_TAG_member":
+                member = StructMember.read_from_die(die_child, elf_object)
+                break
+
+        return cls(value, member)
+
+class VariantType(VariableType):
+    def __init__(self, name, byte_size, elf_object, discr: StructMember | None, discr_values: list[VariantValue]):
+        super().__init__(name, byte_size, elf_object)
+        self.discr = discr
+        self.discr_values = discr_values
+
+    @classmethod
+    def read_from_die(cls, die: DIE, elf_object):
+        dw_at_name = die.attributes.get("DW_AT_name", None)
+        byte_size = die.attributes.get("DW_AT_byte_size", None)
+
+        name = dw_at_name.value.decode() if dw_at_name is not None else "unknown"
+
+        variant_part = None
+        for die_child in die.iter_children():
+            if die_child.tag == "DW_TAG_variant_part":
+                variant_part = die_child
+                break
+
+        discr_attr = variant_part.attributes.get("DW_AT_discr", None)
+        if discr_attr is not None:
+            discr_offset = discr_attr.value + die.cu.cu_offset
+            discr_die = die.cu.get_DIE_from_refaddr(discr_offset)
+            discr = StructMember.read_from_die(discr_die, elf_object)
+        else:
+            discr = None
+
+        values = []
+        if variant_part is not None:
+            for die_child in variant_part.iter_children():
+                if die_child.tag == "DW_TAG_variant":
+                    values.append(VariantValue.read_from_die(die_child, elf_object))
+
+        return cls(name, byte_size.value, elf_object, discr, values)
 
 class StructMember:
     """
