@@ -818,7 +818,10 @@ class ELF(MetaELF):
                     cu_.functions[sub_prog.low_pc] = sub_prog
                     self.functions_debug_info[sub_prog.low_pc] = sub_prog
             elif die_child.tag == "DW_TAG_namespace":
-                new_namespace = namespace + [die_child.attributes["DW_AT_name"].value.decode("utf-8")]
+                if "DW_AT_name" in die_child.attributes:
+                    new_namespace = namespace + [die_child.attributes["DW_AT_name"].value.decode("utf-8")]
+                else:
+                    new_namespace = namespace
                 self._load_die_namespace(die_child, dwarf, aranges, cu_, expr_parser, type_list, cu, new_namespace)
 
     def _load_die_lex_block(
@@ -887,10 +890,9 @@ class ELF(MetaELF):
         name_pieces = []
         while True:
             name_piece = origin_die.attributes.get("DW_AT_name", None)
-            if name_piece is None:
-                break
+            if name_piece is not None:
+                name_pieces.append(name_piece.value.decode("utf-8"))
 
-            name_pieces.append(name_piece.value.decode("utf-8"))
             origin_die = cast(DIE, origin_die.get_parent())
             if origin_die is None or origin_die.tag != "DW_TAG_namespace":
                 break
