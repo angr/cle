@@ -39,7 +39,7 @@ from .relocation.generic import MipsGlobalReloc, MipsLocalReloc
 from .subprogram import LexicalBlock, Subprogram
 from .symbol import ELFSymbol, Symbol, SymbolType
 from .variable import Variable
-from .variable_type import VariableType, resolve_reference
+from .variable_type import VariableType
 
 try:
     import pypcode
@@ -836,7 +836,7 @@ class ELF(MetaELF):
         if "DW_AT_name" in die.attributes:
             name = "::".join((namespace or []) + [die.attributes["DW_AT_name"].value.decode("utf-8")])
         elif "DW_AT_abstract_origin" in die.attributes:
-            origin = resolve_reference(dwarf, cu, die.attributes["DW_AT_abstract_origin"])
+            origin = die.get_DIE_from_attribute("DW_AT_abstract_origin")
             name = self._dwarf_get_name_with_namespace(origin)
         else:
             name = None
@@ -880,7 +880,7 @@ class ELF(MetaELF):
                     if ranges is not None:
                         subr.ranges = ranges
                 if "DW_AT_abstract_origin" in sub_die.attributes:
-                    origin = resolve_reference(dwarf, cu, sub_die.attributes["DW_AT_abstract_origin"])
+                    origin = sub_die.get_DIE_from_attribute("DW_AT_abstract_origin")
                     subr.name = self._dwarf_get_name_with_namespace(origin)
                 subprogram.inlined_functions.append(subr)
 
