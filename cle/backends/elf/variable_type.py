@@ -1,34 +1,16 @@
 from __future__ import annotations
 
-from elftools.dwarf.compileunit import CompileUnit
-from elftools.dwarf.die import DIE, AttributeValue
-from elftools.dwarf.dwarfinfo import DWARFInfo
+from elftools.dwarf.die import DIE
 
-def resolve_reference_addr(cu: CompileUnit, attr: AttributeValue) -> int:
+def resolve_reference_addr(die: DIE, attr_name: str) -> int:
     """
-    Resolves a reference attribute to the address of the underlying DWARF DIE
-    :param cu: The compilation unit that the attribute is located in
-    :param attr: The attribute to resolve
-    :return: The resolved absolute address, or throws ValueError if the reference is of a form that we cannot resolve
+    Resolves a reference attribute to the underlying DIE location
+    :param die: The DIE containing the reference attribute
+    :param attr_name: The name of the attribute as a string
+    :return: The address of the DIE referred to by the reference
     """
-    if attr.form == "DW_FORM_ref_addr":
-        return attr.value
-    elif attr.form in ["DW_FORM_ref1", "DW_FORM_ref2", "DW_FORM_ref4", "DW_FORM_ref8"]:
-        return cu.cu_offset + attr.value
-    else:
-        raise ValueError(f"Unable to resolve DWARF reference with form {attr.form}. Support for this form is not currently implemented.")
-
-def resolve_reference(dwarf: DWARFInfo, cu: CompileUnit, attr: AttributeValue) -> DIE:
-    """
-    Resolves a reference attribute to the underlying DWARF DIE
-    :param dwarf: The DWARF info
-    :param cu: The compilation unit that the attribute is located in
-    :param attr: The attribute to resolve
-    :return: The resolved DIE, or throws ValueError if the reference is of a form that we cannot resolve
-    """
-    addr = resolve_reference_addr(cu, attr)
-    origin_cu = dwarf.get_CU_containing(addr)
-    return origin_cu.get_DIE_from_refaddr(addr)
+    resolved_die = die.get_DIE_from_attribute(attr_name)
+    return resolved_die.offset + resolved_die.cu.cu_offset
 
 class VariableType:
     """
@@ -107,7 +89,7 @@ class PointerType(VariableType):
         if dw_at_type is None:
             referenced_offset = None
         else:
-            referenced_offset = resolve_reference_addr(die.cu, dw_at_type)
+            referenced_offset = resolve_reference_addr(die, "DW_AT_type")
 
         return cls(byte_size.value, elf_object, referenced_offset)
 
@@ -221,7 +203,7 @@ class StructMember:
         dw_at_type = die.attributes.get("DW_AT_type", None)
         dw_at_memloc = die.attributes.get("DW_AT_data_member_location", None)
         name = None if dw_at_name is None else dw_at_name.value.decode()
-        ty = None if dw_at_type is None else resolve_reference_addr(die.cu, dw_at_type)
+        ty = None if dw_at_type is None else resolve_reference_addr(die, "DW_AT_type")
 
         # From the DWARF5 manual, page 118:
         #    The member entry corresponding to a data member that is defined in a structure,
@@ -271,7 +253,8 @@ class ArrayType(VariableType):
         if dw_at_type is None:
             return None
         return cls(
-            dw_byte_size.value if dw_byte_size is not None else None, elf_object, resolve_reference_addr(die.cu, dw_at_type)
+            dw_byte_size.value if dw_byte_size is not None else None, elf_object,
+            resolve_reference_addr(die, "DW_AT_type")
         )
 
     @property
@@ -306,7 +289,7 @@ class TypedefType(VariableType):
         dw_at_type = die.attributes.get("DW_AT_type", None)
         dw_at_byte_size = die.attributes.get("DW_AT_byte_size", None)
         name = None if dw_at_name is None else dw_at_name.value.decode()
-        type_offset = None if dw_at_type is None else resolve_reference_addr(die.cu, dw_at_type)
+        type_offset = None if dw_at_type is None else resolve_reference_addr(die, "DW_AT_type")
         byte_size = None if dw_at_byte_size is None else dw_at_byte_size.value
 
         return cls(name, byte_size, elf_object, type_offset)
