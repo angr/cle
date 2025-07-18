@@ -223,24 +223,24 @@ class UnionType(StructType):
     Entry class for DW_TAG_union_type. Inherits from StructType to make it trivial.
     """
 
-class VariantValue:
+class VariantCaseType:
     """
     This class represents one possible value for a variant.
 
-    :param value: The discriminator/tag value used for indicating this variant
-    :param member: The member representing the layout of this particular variant
+    :param tag: The discriminator/tag value used for indicating this variant case
+    :param member: The member representing the layout of this particular variant case
     """
-    def __init__(self, value: int | None, member: StructMember | None):
-        self.value = value
+    def __init__(self, tag: int | None, member: StructMember | None):
+        self.tag = tag
         self.member = member
 
     @classmethod
     def read_from_die(cls, die: DIE, elf_object):
-        value_attr = die.attributes.get("DW_AT_discr_value", None)
-        if value_attr is not None:
-            value = value_attr.value
+        tag_attr = die.attributes.get("DW_AT_discr_value", None)
+        if tag_attr is not None:
+            tag = tag_attr.value
         else:
-            value = None
+            tag = None
 
         member = None
         for die_child in die.iter_children():
@@ -248,13 +248,36 @@ class VariantValue:
                 member = StructMember.read_from_die(die_child, elf_object)
                 break
 
-        return cls(value, member)
+        return cls(tag, member)
+
+    @property
+    def name(self):
+        return self.member.name
+
+    @property
+    def type(self):
+        return self.member.type
 
 class VariantType(VariableType):
-    def __init__(self, name, byte_size, elf_object, discr: StructMember | None, discr_values: list[VariantValue]):
+    def __init__(self, name, byte_size, elf_object, tag: StructMember | None, variant_cases: list[VariantCaseType]):
         super().__init__(name, byte_size, elf_object)
-        self.discr = discr
-        self.discr_values = discr_values
+        self.tag = tag
+        self.variant_cases = variant_cases
+
+    def __getitem__(self, item: int | str) -> VariantCaseType:
+        if isinstance(item, int):
+            for v in self.variant_cases:
+                if v.tag == item:
+                    return v
+            return self.variant_cases[item]
+        elif isinstance(item, str):
+            for v in self.variant_cases:
+                if v.name == item:
+                    return v
+        raise KeyError(f"Unknown variant case {item}")
+
+    def __getattr__(self, item: str) -> VariantCaseType:
+        return self[item]
 
     @classmethod
     def read_from_die(cls, die: DIE, elf_object):
@@ -269,21 +292,20 @@ class VariantType(VariableType):
                 variant_part = die_child
                 break
 
-        discr_attr = variant_part.attributes.get("DW_AT_discr", None)
-        if discr_attr is not None:
-            discr_offset = discr_attr.value + die.cu.cu_offset
-            discr_die = die.cu.get_DIE_from_refaddr(discr_offset)
-            discr = StructMember.read_from_die(discr_die, elf_object)
+        tag_attr = variant_part.attributes.get("DW_AT_discr", None)
+        if tag_attr is not None:
+            tag_die = variant_part.get_DIE_from_attribute("DW_AT_discr")
+            tag = StructMember.read_from_die(tag_die, elf_object)
         else:
-            discr = None
+            tag = None
 
         values = []
         if variant_part is not None:
             for die_child in variant_part.iter_children():
                 if die_child.tag == "DW_TAG_variant":
-                    values.append(VariantValue.read_from_die(die_child, elf_object))
+                    values.append(VariantCaseType.read_from_die(die_child, elf_object))
 
-        return cls(name, byte_size.value, elf_object, discr, values)
+        return cls(name, byte_size.value, elf_object, tag, values)
 
 class StructMember:
     """
