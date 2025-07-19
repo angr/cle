@@ -262,20 +262,6 @@ class Clemory(ClemoryBase):
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} [{hex(self.min_addr)}:{hex(self.max_addr)}]>"
 
-    def update_backer(self, start, data):
-        if not isinstance(data, bytes | list | Clemory):
-            raise TypeError("Data must be a bytes, list, or Clemory object.")
-        if isinstance(data, bytes):
-            data = bytearray(data)
-        for i, (oldstart, _) in enumerate(self._backers):
-            if oldstart == start:
-                self._backers[i] = (start, data)
-                break
-        else:
-            raise ValueError("Can't find backer to update")
-
-        self._update_min_max()
-
     def remove_backer(self, start):
         backer_idx = bisect.bisect(self._backers, start, key=lambda x: x[0])
 
@@ -654,9 +640,6 @@ class UninitializedClemory(Clemory):
 
     def split_backer(self, addr):
         raise ValueError("This is an uninitialized clemory, it cannot be split")
-
-    def update_backer(self, start, data):
-        raise ValueError("This is an uninitialized clemory, it cannot be updated")
 
     def remove_backer(self, start):
         raise ValueError("This is an uninitialized clemory, backers cannot be removed")
