@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import bisect
+import itertools
 import struct
 from mmap import mmap
 
@@ -191,7 +192,7 @@ class Clemory(ClemoryBase):
         self._root = root
         self.consecutive = True
         self.min_addr = 0
-        self.max_addr = 0
+        self.max_addr: int = 0
 
     def add_backer(self, start, data, overwrite=False):
         """
@@ -261,28 +262,13 @@ class Clemory(ClemoryBase):
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} [{hex(self.min_addr)}:{hex(self.max_addr)}]>"
 
-    def update_backer(self, start, data):
-        if not isinstance(data, bytes | list | Clemory):
-            raise TypeError("Data must be a bytes, list, or Clemory object.")
-        if isinstance(data, bytes):
-            data = bytearray(data)
-        for i, (oldstart, _) in enumerate(self._backers):
-            if oldstart == start:
-                self._backers[i] = (start, data)
-                break
-        else:
-            raise ValueError("Can't find backer to update")
-
-        self._update_min_max()
-
     def remove_backer(self, start):
-        for i, (oldstart, _) in enumerate(self._backers):
-            if oldstart == start:
-                self._backers.pop(i)
-                break
-        else:
+        backer_idx = bisect.bisect(self._backers, start, key=lambda x: x[0])
+
+        if len(self._backers) <= backer_idx or self._backers[backer_idx][0] != start:
             raise ValueError("Can't find backer to remove")
 
+        self._backers.pop(backer_idx)
         self._update_min_max()
 
     def __iter__(self):
@@ -371,13 +357,21 @@ class Clemory(ClemoryBase):
         :param addr:    An optional starting address - all backers before and not including this
                         address will be skipped.
         """
-        started = False
-        for start, backer in self._backers:
-            if not started:
-                end = start + backer.max_addr if isinstance(backer, Clemory) else start + len(backer)
-                if addr >= end:
-                    continue
-                started = True
+
+        def calculate_end(backer: tuple[int, bytearray | Clemory]):
+            start, data = backer
+
+            if isinstance(data, Clemory):
+                return start + data.max_addr
+
+            return start + len(data)
+
+        if self.max_addr < addr:  # All the backers are smaller than addr
+            return
+
+        start_index = bisect.bisect(self._backers, addr, key=calculate_end)
+
+        for start, backer in itertools.islice(self._backers, start_index, None):
             if isinstance(backer, Clemory):
                 for s, b in backer.backers(addr - start):
                     yield s + start, b
@@ -646,9 +640,6 @@ class UninitializedClemory(Clemory):
 
     def split_backer(self, addr):
         raise ValueError("This is an uninitialized clemory, it cannot be split")
-
-    def update_backer(self, start, data):
-        raise ValueError("This is an uninitialized clemory, it cannot be updated")
 
     def remove_backer(self, start):
         raise ValueError("This is an uninitialized clemory, backers cannot be removed")
