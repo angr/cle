@@ -227,11 +227,11 @@ class VariantCaseType:
     """
     This class represents one possible value for a variant.
 
-    :param tag: The discriminator/tag value used for indicating this variant case
+    :param tag_value: The discriminator/tag value used for indicating this variant case
     :param member: The member representing the layout of this particular variant case
     """
-    def __init__(self, tag: int | None, member: StructMember | None):
-        self.tag = tag
+    def __init__(self, tag_value: int | None, member: StructMember | None):
+        self.tag_value = tag_value
         self.member = member
 
     @classmethod
@@ -259,19 +259,27 @@ class VariantCaseType:
         return self.member.type
 
 class VariantType(VariableType):
-    def __init__(self, name, byte_size, elf_object, tag: StructMember | None, variant_cases: list[VariantCaseType]):
+    """
+    :param tag: The type of the variant tag. This value may be None if the tag is not present in the variant. This\
+    can occur in situations where one or more of a variant case is unconstructable. For example in Rust the variant\
+    Result<Infallible, AllocError> has two cases: a non-error result and an error result. However, the Infallible type\
+    is impossible to construct, so the compiler knows only one case of the variant is possible to construct. This\
+    removes the need for the tag.
+    :param cases: The various arms of the variant. Note that the order of these cases is not relevant; if you\
+    want to know the corresponding tag value for a VariantCaseType, access the specific tag_value in the VariantCaseType
+    """
+    def __init__(self, name, byte_size, elf_object, tag: StructMember | None, cases: list[VariantCaseType]):
         super().__init__(name, byte_size, elf_object)
         self.tag = tag
-        self.variant_cases = variant_cases
+        self.cases = cases
 
     def __getitem__(self, item: int | str) -> VariantCaseType:
         if isinstance(item, int):
-            for v in self.variant_cases:
-                if v.tag == item:
+            for v in self.cases:
+                if v.tag_value == item:
                     return v
-            return self.variant_cases[item]
         elif isinstance(item, str):
-            for v in self.variant_cases:
+            for v in self.cases:
                 if v.name == item:
                     return v
         raise KeyError(f"Unknown variant case {item}")
