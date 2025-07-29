@@ -181,8 +181,9 @@ class StructType(VariableType):
     :param elf_object:      elf object to reference to (useful for pointer,...)
     """
 
-    def __init__(self, name: str, byte_size: int, elf_object, members):
+    def __init__(self, name: str, byte_size: int, elf_object, members, align: int | None=None):
         super().__init__(name, byte_size, elf_object)
+        self.align = align
         self.members = members
 
     @classmethod
@@ -202,13 +203,20 @@ class StructType(VariableType):
         if byte_size is None:
             return None
 
+        align_attr = die.attributes.get("DW_AT_alignment", None)
+        if align_attr is not None:
+            align_val = align_attr.value
+        else:
+            align_val = None
+
         members = []
         for die_child in die.iter_children():
             if die_child.tag == "DW_TAG_member":
                 members.append(StructMember.read_from_die(die_child, elf_object))
 
         return cls(
-            dw_at_name.value.decode() if dw_at_name is not None else "unknown", byte_size.value, elf_object, members
+            dw_at_name.value.decode() if dw_at_name is not None else "unknown", byte_size.value,
+            elf_object, members, align=align_val
         )
 
     def __getitem__(self, member_name):
@@ -268,10 +276,12 @@ class VariantType(VariableType):
     :param cases: The various arms of the variant. Note that the order of these cases is not relevant; if you\
     want to know the corresponding tag value for a VariantCaseType, access the specific tag_value in the VariantCaseType
     """
-    def __init__(self, name, byte_size, elf_object, tag: StructMember | None, cases: list[VariantCaseType]):
+    def __init__(self, name, byte_size, elf_object, tag: StructMember | None,
+                 cases: list[VariantCaseType], align: int | None=None):
         super().__init__(name, byte_size, elf_object)
         self.tag = tag
         self.cases = cases
+        self.align = align
 
     def __getitem__(self, item: int | str) -> VariantCaseType:
         if isinstance(item, int):
@@ -307,13 +317,19 @@ class VariantType(VariableType):
         else:
             tag = None
 
+        align_attr = die.attributes.get("DW_AT_alignment", None)
+        if align_attr is not None:
+            align = align_attr.value
+        else:
+            align = None
+
         values = []
         if variant_part is not None:
             for die_child in variant_part.iter_children():
                 if die_child.tag == "DW_TAG_variant":
                     values.append(VariantCaseType.read_from_die(die_child, elf_object))
 
-        return cls(name, byte_size.value, elf_object, tag, values)
+        return cls(name, byte_size.value, elf_object, tag, values, align=align)
 
 class StructMember:
     """
@@ -328,11 +344,12 @@ class StructMember:
     :ivar name:             name of the member
     """
 
-    def __init__(self, name: str, addr_offset: int, type_offset, elf_object):
+    def __init__(self, name: str, addr_offset: int, type_offset, elf_object, align: int | None=None):
         self.name = name
         self.addr_offset = addr_offset
         self._elf_object = elf_object
         self._type_offset = type_offset
+        self.align = align
 
     @classmethod
     def read_from_die(cls, die: DIE, elf_object):
@@ -347,6 +364,12 @@ class StructMember:
         name = None if dw_at_name is None else dw_at_name.value.decode()
         ty = None if dw_at_type is None else resolve_reference_addr(die, "DW_AT_type")
 
+        align_attr = die.attributes.get("DW_AT_alignment", None)
+        if align_attr is not None:
+            align = align_attr.value
+        else:
+            align = None
+
         # From the DWARF5 manual, page 118:
         #    The member entry corresponding to a data member that is defined in a structure,
         #    union or class may have either a DW_AT_data_member_location attribute or a
@@ -355,7 +378,7 @@ class StructMember:
         # TODO bit_offset
         addr_offset = 0 if dw_at_memloc is None else dw_at_memloc.value
 
-        return cls(name, addr_offset, ty, elf_object)
+        return cls(name, addr_offset, ty, elf_object, align=align)
 
     @property
     def type(self):
