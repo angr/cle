@@ -17,11 +17,11 @@ classifiers = [
 dynamic = ["version"]
 requires-python = ">=3.10"
 dependencies = [
-    "archinfo==9.2.169.dev0",
+    "archinfo==9.2.170.dev0",
     "cart",
     "pefile",
     "pyelftools>=0.27",
-    "pyvex==9.2.169.dev0",
+    "pyvex==9.2.170.dev0",
     "sortedcontainers>=2.0",
 ]
 
