@@ -1355,7 +1355,7 @@ class ELF(MetaELF):
         for sec_readelf, section in sec_list:
             if isinstance(sec_readelf, sections.SymbolTableSection):
                 self.__register_section_symbols(sec_readelf)
-            if isinstance(sec_readelf, (RelocationSection, RelrRelocationSection)) and not (
+            if isinstance(sec_readelf, RelocationSection | RelrRelocationSection) and not (
                 "DT_REL" in self._dynamic
                 or "DT_RELA" in self._dynamic
                 or "DT_JMPREL" in self._dynamic
