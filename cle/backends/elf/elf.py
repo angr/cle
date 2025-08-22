@@ -899,8 +899,8 @@ class ELF(MetaELF):
                 if "DW_AT_abstract_origin" in sub_die.attributes:
                     origin = sub_die.get_DIE_from_attribute("DW_AT_abstract_origin")
                     subr.name = self._dwarf_get_name_with_namespace(origin)
-                    if 'DW_AT_external' in origin.attributes:
-                        subr.extern = origin.attributes['DW_AT_external'].value
+                    if "DW_AT_external" in origin.attributes:
+                        subr.extern = origin.attributes["DW_AT_external"].value
                 subprogram.inlined_functions.append(subr)
 
         return block
