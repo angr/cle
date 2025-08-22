@@ -31,6 +31,8 @@ class LexicalBlock:
         source_line: int | None = None,
     ) -> None:
         self.ranges = ranges
+        self.source_file = source_file
+        self.source_line = source_line
 
         if low_pc is None and high_pc is None:
             if ranges is not None:
