@@ -854,13 +854,31 @@ class ELF(MetaELF):
         subprogram,
         namespace: list[str] | None = None,
     ) -> LexicalBlock | None:
+        if "DW_AT_abstract_origin" in die.attributes:
+            origin = cu.get_DIE_from_refaddr(cu.cu_offset + die.attributes["DW_AT_abstract_origin"].value)
+        else:
+            origin = None
+
         if "DW_AT_name" in die.attributes:
             name = "::".join((namespace or []) + [die.attributes["DW_AT_name"].value.decode("utf-8")])
-        elif "DW_AT_abstract_origin" in die.attributes:
-            origin = die.get_DIE_from_attribute("DW_AT_abstract_origin")
+        elif origin is not None:
             name = self._dwarf_get_name_with_namespace(origin)
         else:
             name = None
+
+        if "DW_AT_decl_file" in die.attributes:
+            filename = die.attributes["DW_AT_decl_file"].value
+        elif origin is not None:
+            filename = origin.attributes["DW_AT_decl_file"].value
+        else:
+            filename = None
+
+        if "DW_AT_decl_line" in die.attributes:
+            line = die.attributes["DW_AT_decl_line"].value
+        elif origin is not None:
+            line = origin.attributes["DW_AT_decl_line"].value
+        else:
+            line = None
 
         low_pc, high_pc = self._load_low_high_pc_form_die(die)
         ranges = None
@@ -870,9 +888,9 @@ class ELF(MetaELF):
                 return None
 
         if subprogram is None:
-            subprogram = block = Subprogram(name, low_pc, high_pc, ranges)
+            subprogram = block = Subprogram(name, low_pc, high_pc, ranges, filename, line)
         else:
-            block = LexicalBlock(low_pc, high_pc, ranges)
+            block = LexicalBlock(low_pc, high_pc, ranges, filename, line)
 
         for sub_die in cu.iter_DIE_children(die):
             if sub_die.tag in ["DW_TAG_variable", "DW_TAG_formal_parameter"]:
