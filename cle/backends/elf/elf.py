@@ -35,7 +35,7 @@ from .lsda import LSDAExceptionTable
 from .metaelf import MetaELF, maybedecode
 from .regions import ELFSection, ELFSegment
 from .relocation import get_relocation
-from .relocation.generic import MipsGlobalReloc, MipsLocalReloc, GenericRelativeReloc
+from .relocation.generic import GenericRelativeReloc, MipsGlobalReloc, MipsLocalReloc
 from .subprogram import LexicalBlock, Subprogram
 from .symbol import ELFSymbol, Symbol, SymbolType
 from .variable import Variable
@@ -567,7 +567,9 @@ class ELF(MetaELF):
         # If is_relr is True, the readelf_reloc.entry object does not have r_info_type,
         # so we cannot dispatch through get_relocation. Instead, handle it as a special
         # case by always using GenericRelativeReloc.
-        RelocClass = GenericRelativeReloc if is_relr else get_relocation(self.arch.name, readelf_reloc.entry.r_info_type)
+        RelocClass = (
+            GenericRelativeReloc if is_relr else get_relocation(self.arch.name, readelf_reloc.entry.r_info_type)
+        )
         if RelocClass is None:
             return None
 
@@ -1354,7 +1356,10 @@ class ELF(MetaELF):
             if isinstance(sec_readelf, sections.SymbolTableSection):
                 self.__register_section_symbols(sec_readelf)
             if isinstance(sec_readelf, (RelocationSection, RelrRelocationSection)) and not (
-                "DT_REL" in self._dynamic or "DT_RELA" in self._dynamic or "DT_JMPREL" in self._dynamic or "DT_RELR" in self._dynamic
+                "DT_REL" in self._dynamic
+                or "DT_RELA" in self._dynamic
+                or "DT_JMPREL" in self._dynamic
+                or "DT_RELR" in self._dynamic
             ):
                 self.__register_relocs(sec_readelf, dynsym=None)
 
