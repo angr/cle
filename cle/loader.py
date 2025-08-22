@@ -192,8 +192,9 @@ class Loader:
 
         if self._extern_object and self._extern_object._warned_data_import:
             log.warning(
-                'For more information about "Symbol was allocated without a known size",'
-                "see https://docs.angr.io/extending-angr/environment#simdata"
+                "Symbol imported without a known size; emulation may fail if it is used non-opaqely: "
+                f"{', '.join(sorted(self._extern_object._warned_data_import))}"
+                ". See https://docs.angr.io/extending-angr/environment#simdata"
             )
 
     # Basic functions and properties

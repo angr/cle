@@ -65,7 +65,7 @@ class ExternObject(Backend):
         self.provides = "extern-address space"
         self.pic = True
         self._import_symbols = {}
-        self._warned_data_import = False
+        self._warned_data_import = set()
 
         self.tls_data_size = tls_size
         self.tls_next_addr = 0
@@ -135,10 +135,7 @@ class ExternObject(Backend):
             name += "#func"
 
         if size == 0 and sym_type in (SymbolType.TYPE_NONE, SymbolType.TYPE_OBJECT, SymbolType.TYPE_TLS_OBJECT):
-            log.warning(
-                "Symbol was allocated without a known size; emulation may fail if it is used non-opaquely: %s", name
-            )
-            self._warned_data_import = True
+            self._warned_data_import.add(name)
             real_size = 8
 
         local_addr = self._allocate(real_size, alignment=alignment, thumb=thumb, tls=tls)
