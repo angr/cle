@@ -449,6 +449,9 @@ class ELF(MetaELF):
         super().rebase(new_base)
 
         self.addr_to_line = SortedDict((addr + delta, value) for addr, value in self.addr_to_line.items())
+        self.functions_debug_info = {addr + delta: value for addr, value in self.functions_debug_info.items()}
+        for f in self.functions_debug_info.values():
+            f.rebase(delta)
 
     #
     # Private Methods
@@ -687,9 +690,8 @@ class ELF(MetaELF):
                 self.addr_to_line[relocated_addr].add((str(filename), line.state.line))
 
     @staticmethod
-    def _load_ranges_form_die(die: DIE, aranges) -> list[tuple[int, int]] | None:
+    def _load_ranges_form_die(die: DIE, aranges, base_addr: int = 0) -> list[tuple[int, int]] | None:
         if aranges is not None and "DW_AT_ranges" in die.attributes:
-            base_addr = 0
             result = []
             for entry in aranges.get_range_list_at_offset(die.attributes["DW_AT_ranges"].value, die.cu):
                 if isinstance(entry, BaseAddressEntry):
@@ -700,7 +702,7 @@ class ELF(MetaELF):
         return None
 
     @staticmethod
-    def _load_low_high_pc_form_die(die: DIE) -> tuple[int | None, int | None]:
+    def _load_low_high_pc_form_die(die: DIE, base_addr: int = 0) -> tuple[int | None, int | None]:
         """
         Load low and high pc from a DIE.
 
@@ -712,7 +714,7 @@ class ELF(MetaELF):
         lowpc = die.attributes["DW_AT_low_pc"].value
 
         if "DW_AT_high_pc" not in die.attributes:
-            return lowpc, None
+            return lowpc + base_addr, None
 
         # DWARF v4 in section 2.17 describes how to interpret the
         # DW_AT_high_pc attribute based on the class of its form.
@@ -728,7 +730,7 @@ class ELF(MetaELF):
         else:
             log.warning("Error: invalid DW_AT_high_pc class:%s", highpc_attr_class)
             return lowpc, None
-        return lowpc, highpc
+        return lowpc + base_addr, highpc + base_addr
 
     def _load_dies(self, dwarf: DWARFInfo):
         """
@@ -875,12 +877,14 @@ class ELF(MetaELF):
                     subr.ranges.append((low_pc, high_pc))
                 elif "DW_AT_ranges" in sub_die.attributes:
                     aranges = dwarf.range_lists()
-                    ranges = self._load_ranges_form_die(sub_die, aranges)
+                    ranges = self._load_ranges_form_die(sub_die, aranges, subprogram.low_pc)
                     if ranges is not None:
                         subr.ranges = ranges
                 if "DW_AT_abstract_origin" in sub_die.attributes:
                     origin = cu.get_DIE_from_refaddr(cu.cu_offset + sub_die.attributes["DW_AT_abstract_origin"].value)
                     subr.name = self._dwarf_get_name_with_namespace(origin)
+                    if 'DW_AT_external' in origin.attributes:
+                        subr.extern = origin.attributes['DW_AT_external'].value
                 subprogram.inlined_functions.append(subr)
 
         return block
