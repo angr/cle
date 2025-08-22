@@ -35,6 +35,12 @@ class LexicalBlock:
         self.high_pc = high_pc
         self.child_blocks: list[LexicalBlock] = []
 
+    def rebase(self, delta: int):
+        self.low_pc += delta
+        self.high_pc += delta
+        for blk in self.child_blocks:
+            blk.rebase(delta)
+
 
 class Subprogram(LexicalBlock):
     """
@@ -60,3 +66,8 @@ class Subprogram(LexicalBlock):
         self.name = name
         self.local_variables: list[Variable] = []
         self.inlined_functions: list[InlinedFunction] = []
+
+    def rebase(self, delta: int):
+        super().rebase(delta)
+        for inl in self.inlined_functions:
+            inl.rebase(delta)

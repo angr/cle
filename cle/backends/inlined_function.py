@@ -11,6 +11,7 @@ class InlinedFunction:
 
     name: str | None = None
     ranges: list[tuple[int, int]] = field(default_factory=list)
+    extern: bool = False
 
     @property
     def low_pc(self):
@@ -19,3 +20,6 @@ class InlinedFunction:
     @property
     def high_pc(self):
         return max(x for _, x in self.ranges)
+
+    def rebase(self, delta: int):
+        self.ranges = [(lo + delta, hi + delta) for lo, hi in self.ranges]
