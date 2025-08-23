@@ -33,7 +33,7 @@ from .compilation_unit import CompilationUnit
 from .hashtable import ELFHashTable, GNUHashTable
 from .lsda import LSDAExceptionTable
 from .metaelf import MetaELF, maybedecode
-from .regions import ELFSection, ELFSegment
+from .regions import ELFSection, ELFSegment, Section
 from .relocation import get_relocation
 from .relocation.generic import GenericRelativeReloc, MipsGlobalReloc, MipsLocalReloc
 from .subprogram import LexicalBlock, Subprogram
@@ -561,7 +561,7 @@ class ELF(MetaELF):
 
         self.memory.add_backer(AT.from_lva(mapstart, self).to_rva(), data, overwrite=True)
 
-    def _make_reloc(self, readelf_reloc, symbol, dest_section: ELFSection | None = None, is_relr: bool = False):
+    def _make_reloc(self, readelf_reloc, symbol, dest_section: Section | None = None, is_relr: bool = False):
         addend = readelf_reloc.entry.r_addend if readelf_reloc.is_RELA() else None
         # RELR relocations are compressed forms of R_*_RELATIVE relocations.
         # If is_relr is True, the readelf_reloc.entry object does not have r_info_type,
@@ -1149,7 +1149,6 @@ class ELF(MetaELF):
                 readelf_relrsec = RelrRelocationSection(fakerelheader, "relr_cle", self._reader)
                 # support multiple versions of pyelftools
                 readelf_relrsec.stream = self.memory
-                readelf_relrsec._stream = self.memory
                 readelf_relrsec.elffile = None
                 self.__register_relocs(readelf_relrsec, dynsym)
 
