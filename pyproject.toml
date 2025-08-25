@@ -20,7 +20,7 @@ dependencies = [
     "archinfo==9.2.172.dev0",
     "cart",
     "pefile",
-    "pyelftools>=0.27",
+    "pyelftools>=0.29",
     "pyvex==9.2.172.dev0",
     "sortedcontainers>=2.0",
 ]
