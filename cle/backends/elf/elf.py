@@ -845,7 +845,7 @@ class ELF(MetaELF):
         if "DW_AT_name" in die.attributes:
             name = "::".join((namespace or []) + [die.attributes["DW_AT_name"].value.decode("utf-8")])
         elif "DW_AT_abstract_origin" in die.attributes:
-            origin = cu.get_DIE_from_refaddr(cu.cu_offset + die.attributes["DW_AT_abstract_origin"].value)
+            origin = die.get_DIE_from_attribute("DW_AT_abstract_origin")
             name = self._dwarf_get_name_with_namespace(origin)
         else:
             name = None
@@ -885,7 +885,7 @@ class ELF(MetaELF):
                     if ranges is not None:
                         subr.ranges = ranges
                 if "DW_AT_abstract_origin" in sub_die.attributes:
-                    origin = cu.get_DIE_from_refaddr(cu.cu_offset + sub_die.attributes["DW_AT_abstract_origin"].value)
+                    origin = sub_die.get_DIE_from_attribute("DW_AT_abstract_origin")
                     subr.name = self._dwarf_get_name_with_namespace(origin)
                 subprogram.inlined_functions.append(subr)
 
