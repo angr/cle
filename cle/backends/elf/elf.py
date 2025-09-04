@@ -867,9 +867,21 @@ class ELF(MetaELF):
             name = None
 
         if "DW_AT_decl_file" in die.attributes:
-            filename = die.attributes["DW_AT_decl_file"].value
+            filename_idx = die.attributes["DW_AT_decl_file"].value
         elif origin is not None and "DW_AT_decl_file" in origin.attributes:
-            filename = origin.attributes["DW_AT_decl_file"].value
+            filename_idx = origin.attributes["DW_AT_decl_file"].value
+        else:
+            filename_idx = None
+
+        if filename_idx is not None:
+            debug_line = dwarf.line_program_for_CU(cu)
+            assert debug_line is not None
+            basename = debug_line.header.file_names[filename_idx]
+            basename_str = basename.DW_LNCT_path.decode(errors="replace")
+            dirname_idx = basename.DW_LNCT_directory_index
+            dirname = debug_line.header.directories[dirname_idx]
+            dirname_str = dirname.DW_LNCT_path.decode(errors="replace")
+            filename = f"{dirname_str}/{basename_str}"
         else:
             filename = None
 
