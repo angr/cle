@@ -22,8 +22,17 @@ class LexicalBlock:
     :type child_blocks: List[LexicalBlock]
     """
 
-    def __init__(self, low_pc: int | None, high_pc: int | None, ranges: list[tuple[int, int]] | None = None) -> None:
+    def __init__(
+        self,
+        low_pc: int | None,
+        high_pc: int | None,
+        ranges: list[tuple[int, int]] | None = None,
+        source_file: str | None = None,
+        source_line: int | None = None,
+    ) -> None:
         self.ranges = ranges
+        self.source_file = source_file
+        self.source_line = source_line
 
         if low_pc is None and high_pc is None:
             if ranges is not None:
@@ -34,6 +43,12 @@ class LexicalBlock:
         self.low_pc = low_pc
         self.high_pc = high_pc
         self.child_blocks: list[LexicalBlock] = []
+
+    def rebase(self, delta: int):
+        self.low_pc += delta
+        self.high_pc += delta
+        for blk in self.child_blocks:
+            blk.rebase(delta)
 
 
 class Subprogram(LexicalBlock):
@@ -52,11 +67,22 @@ class Subprogram(LexicalBlock):
     """
 
     def __init__(
-        self, name: str | None, low_pc: int | None, high_pc: int | None, ranges: list[tuple[int, int]] | None = None
+        self,
+        name: str | None,
+        low_pc: int | None,
+        high_pc: int | None,
+        ranges: list[tuple[int, int]] | None = None,
+        source_file: str | None = None,
+        source_line: int | None = None,
     ) -> None:
         # pass self as the super_block of this subprogram
         self.subprogram = self
-        super().__init__(low_pc, high_pc, ranges)
+        super().__init__(low_pc, high_pc, ranges, source_file, source_line)
         self.name = name
         self.local_variables: list[Variable] = []
         self.inlined_functions: list[InlinedFunction] = []
+
+    def rebase(self, delta: int):
+        super().rebase(delta)
+        for inl in self.inlined_functions:
+            inl.rebase(delta)
