@@ -868,14 +868,14 @@ class ELF(MetaELF):
 
         if "DW_AT_decl_file" in die.attributes:
             filename = die.attributes["DW_AT_decl_file"].value
-        elif origin is not None:
+        elif origin is not None and "DW_AT_decl_file" in origin.attributes:
             filename = origin.attributes["DW_AT_decl_file"].value
         else:
             filename = None
 
         if "DW_AT_decl_line" in die.attributes:
             line = die.attributes["DW_AT_decl_line"].value
-        elif origin is not None:
+        elif origin is not None and "DW_AT_decl_line" in origin.attributes:
             line = origin.attributes["DW_AT_decl_line"].value
         else:
             line = None
@@ -907,6 +907,8 @@ class ELF(MetaELF):
             elif sub_die.tag == "DW_TAG_inlined_subroutine":
                 subr = InlinedFunction()
                 low_pc, high_pc = self._load_low_high_pc_form_die(sub_die)
+                if "DW_AT_entry_pc" in sub_die.attributes:
+                    subr.entry = sub_die.attributes["DW_AT_entry_pc"].value
                 if low_pc is not None and high_pc is not None:
                     subr.ranges.append((low_pc, high_pc))
                 elif "DW_AT_ranges" in sub_die.attributes:
