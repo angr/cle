@@ -12,6 +12,7 @@ class InlinedFunction:
     name: str | None = None
     ranges: list[tuple[int, int]] = field(default_factory=list)
     extern: bool = False
+    entry: int | None = None
 
     @property
     def low_pc(self):
