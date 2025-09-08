@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from elftools.dwarf.die import DIE
 
+
 def resolve_reference_addr(die: DIE, attr_name: str) -> int:
     """
     Resolves a reference attribute to the underlying DIE location
@@ -11,6 +12,7 @@ def resolve_reference_addr(die: DIE, attr_name: str) -> int:
     """
     resolved_die = die.get_DIE_from_attribute(attr_name)
     return resolved_die.offset + resolved_die.cu.cu_offset
+
 
 class VariableType:
     """
@@ -253,8 +255,9 @@ class ArrayType(VariableType):
         if dw_at_type is None:
             return None
         return cls(
-            dw_byte_size.value if dw_byte_size is not None else None, elf_object,
-            resolve_reference_addr(die, "DW_AT_type")
+            dw_byte_size.value if dw_byte_size is not None else None,
+            elf_object,
+            resolve_reference_addr(die, "DW_AT_type"),
         )
 
     @property
