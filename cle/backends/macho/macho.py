@@ -325,8 +325,7 @@ class MachO(Backend):
                 pass
             else:
                 try:
-                    command_name = LC(cmd)
-                    log.warning("%s is not handled yet", str(command_name))
+                    log.warning("%s is not handled yet", LC(cmd).name)
                 except ValueError:
                     log.error("Command %s is not recognized!", hex(cmd))
             # update bookkeeping
