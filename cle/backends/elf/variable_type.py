@@ -3,6 +3,17 @@ from __future__ import annotations
 from elftools.dwarf.die import DIE
 
 
+def resolve_reference_addr(die: DIE, attr_name: str) -> int:
+    """
+    Resolves a reference attribute to the underlying DIE location
+    :param die: The DIE containing the reference attribute
+    :param attr_name: The name of the attribute as a string
+    :return: The address of the DIE referred to by the reference
+    """
+    resolved_die = die.get_DIE_from_attribute(attr_name)
+    return resolved_die.offset + resolved_die.cu.cu_offset
+
+
 class VariableType:
     """
     Entry class for DW_TAG_xxx_type
@@ -80,7 +91,7 @@ class PointerType(VariableType):
         if dw_at_type is None:
             referenced_offset = None
         else:
-            referenced_offset = dw_at_type.value + die.cu.cu_offset
+            referenced_offset = resolve_reference_addr(die, "DW_AT_type")
 
         return cls(byte_size.value, elf_object, referenced_offset)
 
@@ -194,7 +205,7 @@ class StructMember:
         dw_at_type = die.attributes.get("DW_AT_type", None)
         dw_at_memloc = die.attributes.get("DW_AT_data_member_location", None)
         name = None if dw_at_name is None else dw_at_name.value.decode()
-        ty = None if dw_at_type is None else dw_at_type.value + die.cu.cu_offset
+        ty = None if dw_at_type is None else resolve_reference_addr(die, "DW_AT_type")
 
         # From the DWARF5 manual, page 118:
         #    The member entry corresponding to a data member that is defined in a structure,
@@ -244,7 +255,9 @@ class ArrayType(VariableType):
         if dw_at_type is None:
             return None
         return cls(
-            dw_byte_size.value if dw_byte_size is not None else None, elf_object, dw_at_type.value + die.cu.cu_offset
+            dw_byte_size.value if dw_byte_size is not None else None,
+            elf_object,
+            resolve_reference_addr(die, "DW_AT_type"),
         )
 
     @property
@@ -279,7 +292,7 @@ class TypedefType(VariableType):
         dw_at_type = die.attributes.get("DW_AT_type", None)
         dw_at_byte_size = die.attributes.get("DW_AT_byte_size", None)
         name = None if dw_at_name is None else dw_at_name.value.decode()
-        type_offset = None if dw_at_type is None else dw_at_type.value + die.cu.cu_offset
+        type_offset = None if dw_at_type is None else resolve_reference_addr(die, "DW_AT_type")
         byte_size = None if dw_at_byte_size is None else dw_at_byte_size.value
 
         return cls(name, byte_size, elf_object, type_offset)
