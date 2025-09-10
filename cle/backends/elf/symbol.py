@@ -44,6 +44,12 @@ class ELFSymbol(Symbol):
         if owner.is_relocatable and isinstance(sec_ndx, int):
             value += owner.sections[sec_ndx].remap_offset
 
+        # A symbol of type STT_SECTION is relative to its section
+        if self.subtype == ELFSymbolType.STT_SECTION:
+            section_address = owner.sections[sec_ndx].vaddr
+            section_offset_from_base = AT.from_lva(section_address, owner).to_rva()
+            value -= section_offset_from_base
+
         super().__init__(
             owner, maybedecode(symb.name), AT.from_lva(value, owner).to_rva(), symb.entry.st_size, self.type
         )

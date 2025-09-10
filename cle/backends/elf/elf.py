@@ -188,10 +188,10 @@ class ELF(MetaELF):
         except ValueError:
             log.info("no PT_LOAD segments identified")
 
-        if not discard_program_headers:
-            self.__register_segments()
         if not discard_section_headers:
             self.__register_sections()
+        if not discard_program_headers:
+            self.__register_segments()
 
         if not self.symbols:
             self._desperate_for_symbols = True
