@@ -53,6 +53,7 @@ __all__ = ("ELFSymbol", "ELF")
 
 _NON_ALLOCATED_SECTION_NAMES = {  # Sections that do not occupy memory at runtime
     "SHT_NOTE",
+    "SHT_MIPS_REGINFO",
 }
 
 
