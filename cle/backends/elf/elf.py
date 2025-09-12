@@ -51,6 +51,10 @@ log = logging.getLogger(name=__name__)
 
 __all__ = ("ELFSymbol", "ELF")
 
+_NON_ALLOCATED_SECTION_NAMES = {  # Sections that do not occupy memory at runtime
+    "SHT_NOTE",
+}
+
 
 # map 'e_machine' ELF header values (represented as `short int`s) to human-readable format (string)
 # There are mappings missing currently in `elftools`, so we provide them ourselves
@@ -1340,9 +1344,10 @@ class ELF(MetaELF):
                 align = sec_readelf.header["sh_addralign"]
                 if align > 0:
                     new_addr = (new_addr + (align - 1)) // align * align
-
                 remap_offset = new_addr - sh_addr
-                new_addr += sec_readelf.header["sh_size"]  # address for next section
+
+                if sec_readelf.header["sh_type"] not in _NON_ALLOCATED_SECTION_NAMES:
+                    new_addr += sec_readelf.header["sh_size"]
 
             section = ELFSection(sec_readelf, remap_offset=remap_offset)
             sec_list.append((sec_readelf, section))
@@ -1372,7 +1377,7 @@ class ELF(MetaELF):
                             b"\0" * sec_readelf.header["sh_size"],
                             overwrite=True,
                         )
-                    elif section.type == "SHT_NOTE":
+                    elif section.type in _NON_ALLOCATED_SECTION_NAMES:
                         pass  # observed this case in angr/angr#3829
                     else:  # elif section.type == 'SHT_PROGBITS':
                         self.memory.add_backer(
