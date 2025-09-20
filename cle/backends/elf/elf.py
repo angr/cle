@@ -10,6 +10,7 @@ from collections import OrderedDict, defaultdict
 from typing import cast
 
 import archinfo
+from elf_tools.elf.constans.E_FLAGS import EF_ARM_BE8
 from elftools.common.exceptions import DWARFError, ELFError, ELFParseError
 from elftools.dwarf import callframe
 from elftools.dwarf.compileunit import CompileUnit
@@ -20,7 +21,6 @@ from elftools.dwarf.dwarfinfo import DWARFInfo
 from elftools.dwarf.ranges import BaseAddressEntry, RangeEntry
 from elftools.elf import dynamic, elffile, enums, sections
 from elftools.elf.relocation import RelocationSection, RelrRelocationSection
-from elf_tools.elf.constans.E_FLAGS import EF_ARM_BE8
 from sortedcontainers import SortedDict
 
 from cle.address_translator import AT
