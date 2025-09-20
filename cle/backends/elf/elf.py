@@ -20,6 +20,7 @@ from elftools.dwarf.dwarfinfo import DWARFInfo
 from elftools.dwarf.ranges import BaseAddressEntry, RangeEntry
 from elftools.elf import dynamic, elffile, enums, sections
 from elftools.elf.relocation import RelocationSection, RelrRelocationSection
+from elf_tools.elf.constans.E_FLAGS import EF_ARM_BE8
 from sortedcontainers import SortedDict
 
 from cle.address_translator import AT
@@ -339,6 +340,8 @@ class ELF(MetaELF):
                 return archinfo.ArchARMEL("Iend_LE" if reader.little_endian else "Iend_BE")
             elif reader.header.e_flags & 0x400:
                 return archinfo.ArchARMHF("Iend_LE" if reader.little_endian else "Iend_BE")
+            elif reader.header.e_flags & EF_ARM_BE8:  # ARM-BE8 has big endian data and little endian instructions
+                return archinfo.ArchARMEL("Iend_LE")
 
         try:
             return archinfo.arch_from_id(arch_str, "le" if reader.little_endian else "be", reader.elfclass)
