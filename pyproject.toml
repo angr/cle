@@ -78,6 +78,10 @@ version = { attr = "cle.__version__" }
 [tool.setuptools.package-data]
 cle = ["py.typed"]
 
+[tool.uv.sources]
+archinfo = { git = "https://github.com/angr/archinfo.git", branch = "master" }
+pyvex = { git = "https://github.com/angr/pyvex.git", branch = "master" }
+
 [tool.black]
 line-length = 120
 target-version = ['py310']
