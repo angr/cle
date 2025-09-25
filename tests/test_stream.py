@@ -17,7 +17,7 @@ def test_stream():
     lib1path = os.path.join(dirpath, "libc.so.6")
     lib2path = os.path.join(dirpath, "ld-linux.so.2")
 
-    path_ld = cle.Loader(filepath)
+    path_ld = cle.Loader(filepath, auto_load_libs=True)
     stream_ld = cle.Loader(
         open(filepath, "rb"),
         auto_load_libs=False,
