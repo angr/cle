@@ -30,7 +30,6 @@ class LexicalBlock:
         source_file: str | None = None,
         source_line: int | None = None,
     ) -> None:
-        self.ranges = ranges
         self.source_file = source_file
         self.source_line = source_line
 
@@ -40,6 +39,9 @@ class LexicalBlock:
                 high_pc = max(x for _, x in ranges)
         if low_pc is None or high_pc is None:
             raise ValueError("Must provide low_pc/high_pc or ranges")
+        if ranges is None:
+            ranges = [(low_pc, high_pc)]
+        self.ranges = ranges
         self.low_pc = low_pc
         self.high_pc = high_pc
         self.child_blocks: list[LexicalBlock] = []
@@ -47,6 +49,7 @@ class LexicalBlock:
     def rebase(self, delta: int):
         self.low_pc += delta
         self.high_pc += delta
+        self.ranges = [(lo + delta, hi + delta) for lo, hi in self.ranges]
         for blk in self.child_blocks:
             blk.rebase(delta)
 
