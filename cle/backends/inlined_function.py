@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 
-@dataclass
+@dataclass(eq=False)
 class InlinedFunction:
     """
     A representation of a piece of a function which is inlined from another function.
@@ -13,6 +13,7 @@ class InlinedFunction:
     ranges: list[tuple[int, int]] = field(default_factory=list)
     extern: bool = False
     entry: int | None = None
+    nargs: int | None = None
 
     @property
     def low_pc(self):

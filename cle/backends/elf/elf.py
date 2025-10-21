@@ -834,7 +834,7 @@ class ELF(MetaELF):
                 if sub_prog is not None:
                     assert isinstance(sub_prog, Subprogram)
                     cu_.functions[sub_prog.low_pc] = sub_prog
-                    self.functions_debug_info[sub_prog.low_pc] = sub_prog
+                    self.functions_debug_info[sub_prog.ranges[0][0]] = sub_prog
             elif die_child.tag == "DW_TAG_namespace":
                 if "DW_AT_name" in die_child.attributes:
                     new_namespace = namespace + [die_child.attributes["DW_AT_name"].value.decode("utf-8")]
@@ -933,6 +933,12 @@ class ELF(MetaELF):
                     subr.name = self._dwarf_get_name_with_namespace(origin)
                     if "DW_AT_external" in origin.attributes:
                         subr.extern = origin.attributes["DW_AT_external"].value
+                    nargs = 0
+                    for arg_die in origin.iter_children():
+                        if arg_die.tag == "DW_TAG_formal_parameter":
+                            nargs += 1
+                    subr.nargs = nargs
+
                 subprogram.inlined_functions.append(subr)
 
         return block
