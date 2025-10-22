@@ -713,7 +713,10 @@ class ELF(MetaELF):
                 if isinstance(entry, BaseAddressEntry):
                     base_addr = entry.base_address
                 elif isinstance(entry, RangeEntry):
-                    result.append((base_addr + entry.begin_offset, base_addr + entry.end_offset))
+                    if entry.is_absolute:
+                        result.append((entry.begin_offset, entry.end_offset))
+                    else:
+                        result.append((base_addr + entry.begin_offset, base_addr + entry.end_offset))
             return result
         return None
 
