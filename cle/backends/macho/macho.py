@@ -255,7 +255,7 @@ class MachO(Backend):
         Maps names to addresses.
         """
         if self._cached_stubs is None:
-            self._cached_stubs = {k: AT.from_rva(self._stubs[k], self).to_mva() for k in self._stubs}
+            self._cached_stubs = {k: AT.from_rva(v, self).to_mva() for k, v in self._stubs.items()}
         return self._cached_stubs
 
     plt = stubs
@@ -266,7 +266,7 @@ class MachO(Backend):
         Maps addresses to names.
         """
         if self._cached_reverse_stubs is None:
-            self._cached_reverse_stubs = {AT.from_rva(self._stubs[k], self).to_mva(): k for k in self._stubs}
+            self._cached_reverse_stubs = {AT.from_rva(v, self).to_mva(): k for k, v in self._stubs.items()}
         return self._cached_reverse_stubs
 
     reverse_plt = reverse_stubs
