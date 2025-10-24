@@ -135,6 +135,9 @@ class SymbolTableSymbol(AbstractMachOSymbol):
         )
         self.is_export = self.name in self.owner.exports_by_name
 
+        if self.is_export or self.is_stab or self.is_local:
+            self._type = SymbolType.TYPE_FUNCTION_OR_OBJECT
+
     @property
     def library_name(self) -> bytes | None:
         if self.is_import:
@@ -187,16 +190,16 @@ class SymbolTableSymbol(AbstractMachOSymbol):
 
     # real symbols have properties, mach-o symbols have plenty of them:
     @property
-    def is_stab(self):
-        return self.n_type & 0xE0
+    def is_stab(self) -> bool:
+        return (self.n_type & 0xE0) == 0xE0
 
     @property
-    def is_private_external(self):
-        return self.n_type & 0x10
+    def is_private_external(self) -> bool:
+        return (self.n_type & 0x10) == 0x10
 
     @property
-    def is_external(self):
-        return self.n_type & 0x01
+    def is_external(self) -> bool:
+        return (self.n_type & 0x01) == 0x01
 
     @property
     def sym_type(self):  # cannot be called "type" as that shadows a builtin variable from Symbol
