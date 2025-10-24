@@ -20,6 +20,8 @@ SYMBOL_TYPE_ABS = 0x2
 SYMBOL_TYPE_SECT = 0xE
 SYMBOL_TYPE_PBUD = 0xC
 SYMBOL_TYPE_INDIR = 0xA
+N_STAB = 0xE0  # actually a mask
+N_EXT = 0x01  # external symbol bit
 
 LIBRARY_ORDINAL_SELF = 0x0
 LIBRARY_ORDINAL_OLD_MAX = 0xFE
@@ -191,7 +193,7 @@ class SymbolTableSymbol(AbstractMachOSymbol):
     # real symbols have properties, mach-o symbols have plenty of them:
     @property
     def is_stab(self) -> bool:
-        return (self.n_type & 0xE0) == 0xE0
+        return (self.n_type & N_STAB) != 0
 
     @property
     def is_private_external(self) -> bool:
@@ -199,7 +201,7 @@ class SymbolTableSymbol(AbstractMachOSymbol):
 
     @property
     def is_external(self) -> bool:
-        return (self.n_type & 0x01) == 0x01
+        return (self.n_type & N_EXT) == 0x01
 
     @property
     def sym_type(self):  # cannot be called "type" as that shadows a builtin variable from Symbol
