@@ -773,7 +773,7 @@ class MachO(Backend):
 
     def _load_dylib_info(self, f, offset):
         (_, _, name_offset, _, _, _) = self._unpack("6I", f, offset, 24)
-        lib_path = self.parse_lc_str(f, offset + name_offset).decode("utf-8")
+        lib_path = self.parse_lc_str(f, offset + name_offset).decode("utf-8", errors="replace")
         log.debug("Adding library %r", lib_path)
         lib_base_name = lib_path.rsplit("/", 1)[-1]
         self.deps.append(lib_base_name)
