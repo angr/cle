@@ -533,6 +533,8 @@ class MachO(Backend):
             for addr in range(stubs_section.vaddr, stubs_section.vaddr + stubs_section.memsize, 4 * 3):
                 rel_addr = AT.from_lva(addr, self).to_rva()
                 instr_bytes = self.memory.load(rel_addr, 4 * 3)
+                if len(instr_bytes) != 4 * 3:
+                    break
                 adrp_instr = instr_bytes[0:4]
                 ldr_instr = instr_bytes[4:8]
                 br_instr = instr_bytes[8:12]
@@ -569,6 +571,8 @@ class MachO(Backend):
             for addr in range(stubs_section.vaddr, stubs_section.vaddr + stubs_section.memsize, 6):
                 rel_addr = AT.from_lva(addr, self).to_rva()
                 instr_bytes = self.memory.load(rel_addr, 6)
+                if len(instr_bytes) != 6:
+                    break
                 if instr_bytes[0] != 0xFF or instr_bytes[1] != 0x25:
                     continue
                 # parse JMP
