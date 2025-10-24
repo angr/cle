@@ -652,6 +652,41 @@ def test_all_relocs():
             assert ptr_reloc.data == target_addr
 
 
+def test_amd64_macho_stubs():
+    machofile = os.path.join(TEST_BASE, "tests", "x86_64", "decompiler", "bf")
+    ld = cle.Loader(machofile)
+
+    assert hasattr(ld.main_object, "stubs")
+    assert hasattr(ld.main_object, "reverse_stubs")
+    assert hasattr(ld.main_object, "plt")
+    assert hasattr(ld.main_object, "reverse_plt")
+    assert isinstance(ld.main_object, MachO)
+    assert ld.main_object.plt == ld.main_object.stubs
+    assert ld.main_object.reverse_plt == ld.main_object.reverse_stubs
+
+    assert ld.main_object.plt == {
+        "____chkstk_darwin": 4294983430,
+        "___stack_chk_fail": 4294983436,
+        "_fclose": 4294983442,
+        "_fopen": 4294983448,
+        "_fprintf": 4294983454,
+        "_getc": 4294983460,
+        "_getchar": 4294983466,
+        "_putchar": 4294983472,
+    }
+    assert ld.main_object.reverse_plt == {
+        4294983430: "____chkstk_darwin",
+        4294983436: "___stack_chk_fail",
+        4294983442: "_fclose",
+        4294983448: "_fopen",
+        4294983454: "_fprintf",
+        4294983460: "_getc",
+        4294983466: "_getchar",
+        4294983472: "_putchar",
+    }
+
+
 if __name__ == "__main__":
     test_basic_reloc_functionality()
     test_chained_fixups_relocs()
+    test_amd64_macho_stubs()

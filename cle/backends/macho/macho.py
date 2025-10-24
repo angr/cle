@@ -514,20 +514,22 @@ class MachO(Backend):
             log.debug("__TEXT,__stubs is not a MachOSection, skipping stub loading")
             return
 
+        reloc_by_destaddr: dict[int, MachOSymbolRelocation] = {}
+
+        for reloc in self.relocs:
+            if isinstance(reloc, MachOSymbolRelocation):
+                reloc_by_destaddr[reloc.dest_addr] = reloc
+
+        if not reloc_by_destaddr:
+            return
+
+        stub_addr_by_got_addr: dict[int, int] = {}
+
         # attempt 1: AARCH64 stubs look like the following:
         # __stubs:000000010000061C                 ADRP            X16, #_puts_ptr@PAGE
         # __stubs:0000000100000620                 LDR             X16, [X16,#_puts_ptr@PAGEOFF]
         # __stubs:0000000100000624                 BR              X16 ; __imp__puts
         if self.arch.name == "AARCH64":
-            reloc_by_destaddr: dict[int, MachOSymbolRelocation] = {}
-
-            for reloc in self.relocs:
-                if isinstance(reloc, MachOSymbolRelocation):
-                    reloc_by_destaddr[reloc.dest_addr] = reloc
-
-            if not reloc_by_destaddr:
-                return
-
             for addr in range(stubs_section.vaddr, stubs_section.vaddr + stubs_section.memsize, 4 * 3):
                 rel_addr = AT.from_lva(addr, self).to_rva()
                 instr_bytes = self.memory.load(rel_addr, 4 * 3)
@@ -559,11 +561,27 @@ class MachO(Backend):
                 if ldr_regt == br_reg:
                     # likely a stub
                     got_addr = (addr & 0xFFFFFFFFFFFFF000) + adrp_imm + ldr_imm
-                    got_rva = AT.from_lva(got_addr, self).to_rva()
-                    if got_rva in reloc_by_destaddr:
-                        reloc = reloc_by_destaddr[got_rva]
-                        # found it!
-                        self._stubs[reloc.symbol.name] = AT.from_lva(addr, self).to_rva()
+                    stub_addr_by_got_addr[got_addr] = addr
+
+        # attempt 2: x86_64 stubs look like the following:
+        # __stubs:0000000100003F12                 jmp     cs:_fclose_ptr
+        elif self.arch.name == "AMD64":
+            for addr in range(stubs_section.vaddr, stubs_section.vaddr + stubs_section.memsize, 6):
+                rel_addr = AT.from_lva(addr, self).to_rva()
+                instr_bytes = self.memory.load(rel_addr, 6)
+                if instr_bytes[0] != 0xFF or instr_bytes[1] != 0x25:
+                    continue
+                # parse JMP
+                disp = struct.unpack("<I", instr_bytes[2:6])[0]
+                got_addr = addr + 6 + disp
+                stub_addr_by_got_addr[got_addr] = addr
+
+        for got_addr, addr in stub_addr_by_got_addr.items():
+            got_rva = AT.from_lva(got_addr, self).to_rva()
+            if got_rva in reloc_by_destaddr:
+                reloc = reloc_by_destaddr[got_rva]
+                # found it!
+                self._stubs[reloc.symbol.name] = AT.from_lva(addr, self).to_rva()
 
     def _parse_exports(self):
         """
