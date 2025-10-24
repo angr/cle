@@ -108,7 +108,7 @@ class MachO(Backend):
         self.cpusubtype = None
         self.filetype: int = None
         self.flags = None  # binary flags
-        self.imported_libraries = ["Self"]  # ordinal 0 = SELF_LIBRARY_ORDINAL
+        self.imported_libraries: list[str] = ["Self"]  # ordinal 0 = SELF_LIBRARY_ORDINAL
         self.sections_by_ordinal = [None]  # ordinal 0 = None == Self
         self.exports_by_name = {}  # note exports is currently a raw and unprocessed datastructure.
         # If we intend to use it we must first upgrade it to a class or somesuch
@@ -769,9 +769,9 @@ class MachO(Backend):
 
     def _load_dylib_info(self, f, offset):
         (_, _, name_offset, _, _, _) = self._unpack("6I", f, offset, 24)
-        lib_path = self.parse_lc_str(f, offset + name_offset)
+        lib_path = self.parse_lc_str(f, offset + name_offset).decode("utf-8")
         log.debug("Adding library %r", lib_path)
-        lib_base_name = lib_path.decode("utf-8").rsplit("/", 1)[-1]
+        lib_base_name = lib_path.rsplit("/", 1)[-1]
         self.deps.append(lib_base_name)
         self.imported_libraries.append(lib_path)
 

@@ -39,7 +39,7 @@ class AbstractMachOSymbol(Symbol):
     Defines the minimum common properties all types of mach-o symbols must have
     """
 
-    owner: MachO
+    owner: MachO  # type: ignore[override]
 
     def __init__(self, owner: Backend, name: str, relative_addr: int, size: int, sym_type: SymbolType):
         super().__init__(owner, name, relative_addr, size, sym_type)
@@ -55,11 +55,11 @@ class AbstractMachOSymbol(Symbol):
         return None
 
     @property
-    def is_stab(self):
+    def is_stab(self) -> bool:
         return False
 
     @property
-    def library_name(self) -> bytes | None:
+    def library_name(self) -> str | None:
         return None
 
     @property
@@ -68,7 +68,7 @@ class AbstractMachOSymbol(Symbol):
         if full_name is None:
             return None
 
-        return full_name.decode().rsplit("/", 1)[-1]
+        return full_name.rsplit("/", 1)[-1]
 
 
 class SymbolTableSymbol(AbstractMachOSymbol):
@@ -141,7 +141,7 @@ class SymbolTableSymbol(AbstractMachOSymbol):
             self._type = SymbolType.TYPE_FUNCTION_OR_OBJECT
 
     @property
-    def library_name(self) -> bytes | None:
+    def library_name(self) -> str | None:
         if self.is_import:
             if LIBRARY_ORDINAL_DYN_LOOKUP == self.library_ordinal:
                 log.warning("LIBRARY_ORDINAL_DYN_LOOKUP found, cannot handle")
@@ -281,7 +281,7 @@ class DyldBoundSymbol(AbstractMachOSymbol):
         self.is_export = False
 
     @property
-    def library_name(self):
+    def library_name(self) -> str | None:
         if BIND_SPECIAL_DYLIB_FLAT_LOOKUP == self.lib_ordinal:
             log.warning("BIND_SPECIAL_DYLIB_FLAT_LOOKUP found, cannot handle")
             return None
@@ -347,7 +347,7 @@ class BindingSymbol(AbstractMachOSymbol):
         self.is_export = self.name in self.owner.exports_by_name
 
     @property
-    def library_name(self):
+    def library_name(self) -> str | None:
         if LIBRARY_ORDINAL_DYN_LOOKUP == self.lib_ordinal:
             log.warning("LIBRARY_ORDINAL_DYN_LOOKUP found, cannot handle")
             return None
