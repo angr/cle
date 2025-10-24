@@ -519,6 +519,15 @@ class MachO(Backend):
         # __stubs:0000000100000620                 LDR             X16, [X16,#_puts_ptr@PAGEOFF]
         # __stubs:0000000100000624                 BR              X16 ; __imp__puts
         if self.arch.name == "AARCH64":
+            reloc_by_destaddr: dict[int, MachOSymbolRelocation] = {}
+
+            for reloc in self.relocs:
+                if isinstance(reloc, MachOSymbolRelocation):
+                    reloc_by_destaddr[reloc.dest_addr] = reloc
+
+            if not reloc_by_destaddr:
+                return
+
             for addr in range(stubs_section.vaddr, stubs_section.vaddr + stubs_section.memsize, 4 * 3):
                 rel_addr = AT.from_lva(addr, self).to_rva()
                 instr_bytes = self.memory.load(rel_addr, 4 * 3)
@@ -551,10 +560,10 @@ class MachO(Backend):
                     # likely a stub
                     got_addr = (addr & 0xFFFFFFFFFFFFF000) + adrp_imm + ldr_imm
                     got_rva = AT.from_lva(got_addr, self).to_rva()
-                    for reloc in self.relocs:
-                        if isinstance(reloc, MachOSymbolRelocation) and reloc.dest_addr == got_rva:
-                            # found it!
-                            self._stubs[reloc.symbol.name] = AT.from_lva(addr, self).to_rva()
+                    if got_rva in reloc_by_destaddr:
+                        reloc = reloc_by_destaddr[got_rva]
+                        # found it!
+                        self._stubs[reloc.symbol.name] = AT.from_lva(addr, self).to_rva()
 
     def _parse_exports(self):
         """
