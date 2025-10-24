@@ -25,7 +25,7 @@ from cle.errors import CLECompatibilityError, CLEError, CLEFileNotFoundError, CL
 from cle.memory import Clemory, ClemoryReadOnlyView
 from cle.utils import ALIGN_UP, key_bisect_floor_key, key_bisect_insort_right, stream_or_path
 
-from .backends import ALL_BACKENDS, ELF, PE, Backend, Blob, Coff, ELFCore, MetaELF, Minidump
+from .backends import ALL_BACKENDS, ELF, PE, Backend, Blob, Coff, ELFCore, MachO, MetaELF, Minidump
 from .backends.externs import ExternObject, KernelObject
 from .backends.tls import (
     ELFCoreThreadManager,
@@ -676,7 +676,7 @@ class Loader:
         Return the name of the PLT stub starting at ``addr``.
         """
         so = self.find_object_containing(addr)
-        if so is not None and isinstance(so, MetaELF):
+        if so is not None and isinstance(so, (MetaELF, MachO)):
             return so.reverse_plt.get(addr, None)
         return None
 

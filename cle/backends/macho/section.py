@@ -57,6 +57,10 @@ class MachOSection(Section):
         self.parent_segment = parent_segment
 
     @property
+    def full_name(self) -> str:
+        return f"{self.segname},{self.sectname}"
+
+    @property
     def type(self):
         return self.flags & TYPE_MASK
 

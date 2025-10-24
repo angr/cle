@@ -492,6 +492,8 @@ class MachOSymbolRelocation(Relocation):
     Generic Relocation for MachO. It handles relocations that point to symbols
     """
 
+    symbol: AbstractMachOSymbol
+
     def __init__(self, owner: MachO, symbol: AbstractMachOSymbol, relative_addr: int, data):
         super().__init__(owner, symbol, relative_addr)
         self.data = data
