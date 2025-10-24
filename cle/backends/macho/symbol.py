@@ -366,3 +366,12 @@ class BindingSymbol(AbstractMachOSymbol):
     @property
     def library_ordinal(self):
         return self.lib_ordinal
+
+
+__all__ = [
+    "SymbolType",
+    "AbstractMachOSymbol",
+    "SymbolTableSymbol",
+    "BindingSymbol",
+    "DyldBoundSymbol",
+]
