@@ -24,7 +24,7 @@ def test_progname():
 
 def test_got_relocation():
     filename = os.path.join(test_location, "x86_64", "multiarch_main_main.o")
-    ld = cle.Loader(filename)
+    ld = cle.Loader(filename, auto_load_libs=True)
 
     reloc = ld.main_object.relocs[1]
     assert reloc.symbol.name == "vex_failure_exit"
