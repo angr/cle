@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "cle"
 description = "CLE Loads Everything (at least, many binary formats!) and provides a pythonic interface to analyze what they are and what they would look like in memory."
-license = { text = "BSD-2-Clause" }
+license = "BSD-2-Clause"
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
