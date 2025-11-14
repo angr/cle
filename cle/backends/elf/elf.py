@@ -706,7 +706,7 @@ class ELF(MetaELF):
                 self.addr_to_line[relocated_addr].add((str(filename), line.state.line))
 
     @staticmethod
-    def _load_ranges_form_die(die: DIE, aranges, base_addr: int = 0) -> list[tuple[int, int]] | None:
+    def _load_ranges_form_die(die: DIE, aranges, base_addr: int | None = None) -> list[tuple[int, int]] | None:
         if aranges is not None and "DW_AT_ranges" in die.attributes:
             result = []
             for entry in aranges.get_range_list_at_offset(die.attributes["DW_AT_ranges"].value, die.cu):
@@ -716,6 +716,8 @@ class ELF(MetaELF):
                     if entry.is_absolute:
                         result.append((entry.begin_offset, entry.end_offset))
                     else:
+                        if base_addr is None:
+                            base_addr = die.cu.get_top_DIE().attributes["DW_AT_low_pc"].value
                         result.append((base_addr + entry.begin_offset, base_addr + entry.end_offset))
             return result
         return None
@@ -928,7 +930,7 @@ class ELF(MetaELF):
                     subr.ranges.append((low_pc, high_pc))
                 elif "DW_AT_ranges" in sub_die.attributes:
                     aranges = dwarf.range_lists()
-                    ranges = self._load_ranges_form_die(sub_die, aranges, subprogram.low_pc)
+                    ranges = self._load_ranges_form_die(sub_die, aranges)
                     if ranges is not None:
                         subr.ranges = ranges
                 if "DW_AT_abstract_origin" in sub_die.attributes:
