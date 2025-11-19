@@ -39,7 +39,7 @@ from .relocation.generic import MipsGlobalReloc, MipsLocalReloc
 from .subprogram import LexicalBlock, Subprogram
 from .symbol import ELFSymbol, Symbol, SymbolType
 from .variable import Variable
-from .variable_type import VariableType
+from .variable_type import VariableType, SubprogramType
 
 try:
     import pypcode
@@ -750,7 +750,7 @@ class ELF(MetaELF):
                     if VariableType.supported_die(die):
                         var_type = VariableType.read_from_die(die, self)
                         if var_type is not None:
-                            type_list[die.offset] = var_type
+                            type_list[cu.cu_offset + die.offset] = var_type
             except KeyError:
                 # pyelftools is not very resilient - we need to catch KeyErrors here
                 continue

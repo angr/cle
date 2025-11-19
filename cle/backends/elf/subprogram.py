@@ -61,13 +61,15 @@ class Subprogram(LexicalBlock):
     """
 
     def __init__(
-        self, elf_object: ELF, name: str | None, low_pc: int | None, high_pc: int | None, ranges: list[tuple[int, int]] | None = None,
+        self, elf_object: ELF, name: str | None, linkage_name: str | None, low_pc: int | None, high_pc: int | None,
+        ranges: list[tuple[int, int]] | None = None,
     ) -> None:
         self._elf_object = elf_object
         # pass self as the super_block of this subprogram
         self.subprogram = self
         super().__init__(low_pc, high_pc, ranges)
         self.name = name
+        self.linkage_name = linkage_name
         self.parameters: list[Variable] = []
         self.local_variables: list[Variable] = []
         self.inlined_functions: list[InlinedFunction] = []
@@ -75,7 +77,10 @@ class Subprogram(LexicalBlock):
 
     @staticmethod
     def from_die(die: DIE, elf_object: ELF, name: str | None, low_pc: int | None, high_pc: int | None, ranges: list[tuple[int, int]] | None = None):
-        sub_prg = Subprogram(elf_object, name, low_pc, high_pc, ranges=ranges)
+        linkage_name_attr = die.attributes.get("DW_AT_linkage_name", None)
+        linkage_name = None if linkage_name_attr is None else linkage_name_attr.value.decode()
+
+        sub_prg = Subprogram(elf_object, name, linkage_name, low_pc, high_pc, ranges=ranges)
         if "DW_AT_type" in die.attributes:
             sub_prg._return_type_offset = die.attributes["DW_AT_type"].value + die.cu.cu_offset
         return sub_prg
