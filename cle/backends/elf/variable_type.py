@@ -37,13 +37,13 @@ class VariableType:
         reverse_namespace = []
         current_die: DIE | None = die.get_parent()
         while current_die is not None:
-            if "DW_AT_name" in current_die.attributes:
+            if "DW_AT_name" in current_die.attributes and current_die.tag not in ("DW_TAG_compile_unit",):
                 name = current_die.attributes["DW_AT_name"].value.decode()
                 reverse_namespace.append(name)
             else:
                 break
             current_die = current_die.get_parent()
-        return reversed(reverse_namespace)
+        return list(reversed(reverse_namespace))
 
     @staticmethod
     def read_from_die(die: DIE, elf_object):
