@@ -93,9 +93,9 @@ class R_MIPS_HI16(GenericAbsoluteReloc):
             self.owner.memory.unpack_word(matching_lo16_reloc_dest_addr, size=2)
         ).value
 
-        target_value = (self.value + matching_lo16_reloc_target_bytes) - (
-            (self.value + matching_lo16_reloc_target_bytes) & 0xFFFF
-        )
+        target_value = (self.value + matching_lo16_reloc_target_bytes) - c_int16(
+            self.value + matching_lo16_reloc_target_bytes
+        ).value
         target_value = (target_value >> 16) + self.owner.memory.unpack_word(dest_addr, size=2)
 
         self.owner.memory.pack_word(dest_addr, target_value, size=2)
