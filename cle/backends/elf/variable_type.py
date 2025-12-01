@@ -68,6 +68,8 @@ class VariableType:
             return SubroutineType.read_from_die(die, elf_object)
         elif die.tag == "DW_TAG_subprogram":
             return SubprogramType.read_from_die(die, elf_object)
+        elif die.tag == "DW_TAG_const_type":
+            return ConstType.read_from_die(die, elf_object)
         return None
 
     @staticmethod
@@ -81,7 +83,8 @@ class VariableType:
             "DW_TAG_union_type",
             "DW_TAG_enumeration_type",
             "DW_TAG_subroutine_type",
-            "DW_TAG_subprogram"
+            "DW_TAG_subprogram",
+            "DW_TAG_const_type"
         )
 
 
@@ -197,7 +200,7 @@ class StructType(VariableType):
     :param elf_object:      elf object to reference to (useful for pointer,...)
     """
 
-    def __init__(self, name: str, byte_size: int, elf_object, namespace, members, align: int | None=None):
+    def __init__(self, name: str, byte_size: int | None, elf_object, namespace, members, align: int | None=None):
         super().__init__(name, byte_size, elf_object)
         self.namespace = namespace
         self.align = align
@@ -216,9 +219,7 @@ class StructType(VariableType):
 
         dw_at_name = die.attributes.get("DW_AT_name", None)
         byte_size = die.attributes.get("DW_AT_byte_size", None)
-
-        if byte_size is None:
-            return None
+        byte_size_val = byte_size.value if byte_size is not None else None
 
         align_attr = die.attributes.get("DW_AT_alignment", None)
         if align_attr is not None:
@@ -234,7 +235,7 @@ class StructType(VariableType):
                 members.append(StructMember.read_from_die(die_child, elf_object))
 
         return cls(
-            dw_at_name.value.decode() if dw_at_name is not None else "unknown", byte_size.value,
+            dw_at_name.value.decode() if dw_at_name is not None else "unknown", byte_size_val,
             elf_object, namespace, members, align=align_val
         )
 
@@ -488,9 +489,10 @@ class TypedefType(VariableType):
     :param type_offset: type as offset in the compilation_unit
     """
 
-    def __init__(self, name: str, byte_size, elf_object, type_offset):
+    def __init__(self, name: str, byte_size, elf_object, namespace, type_offset):
         super().__init__(name, byte_size, elf_object)
         self._type_offset = type_offset
+        self.namespace = namespace
 
     @classmethod
     def read_from_die(cls, die: DIE, elf_object):
@@ -506,7 +508,9 @@ class TypedefType(VariableType):
         type_offset = None if dw_at_type is None else resolve_reference_addr(die, "DW_AT_type")
         byte_size = None if dw_at_byte_size is None else dw_at_byte_size.value
 
-        return cls(name, byte_size, elf_object, type_offset)
+        namespace = VariableType.find_namespace(die)
+
+        return cls(name, byte_size, elf_object, namespace, type_offset)
 
     @property
     def type(self):
@@ -684,6 +688,10 @@ class SubprogramType:
         read an entry of DW_TAG_subroutine_type
         """
 
+        if "DW_AT_abstract_origin" in die.attributes:
+            # abstract_origin seems to be used for inline functions. Let's just ignore these for now...
+            return None
+
         name_attr = die.attributes.get("DW_AT_name", None)
         name = None if name_attr is None else name_attr.value.decode()
 
@@ -708,3 +716,26 @@ class SubprogramType:
                     parameters.append(SubprogramParameter.read_from_die(child, elf_object))
 
         return cls(name, linkage_name, low_pc, high_pc, elf_object, type_offset, parameters)
+
+class ConstType(VariableType):
+    def __init__(self, elf_object, type_offset):
+        super().__init__("const", None, elf_object)
+        self._type_offset = type_offset
+
+    @property
+    def type(self):
+        """
+        The underlying type of the const
+        """
+        return self._elf_object.type_list[self._type_offset]
+
+    @classmethod
+    def read_from_die(cls, die: DIE, elf_object):
+        """
+        read an entry of DW_TAG_const_type.
+        """
+
+        dw_at_type = die.attributes.get("DW_AT_type", None)
+        type_offset = None if dw_at_type is None else resolve_reference_addr(die, "DW_AT_type")
+
+        return cls(elf_object, type_offset)
