@@ -13,7 +13,7 @@ from .java.soot import Soot
 from .macho import MachO
 from .minidump import Minidump
 from .named_region import NamedRegion
-from .pe import PE
+from .pe import PE, PEStubs
 from .region import Region, Section, Segment
 from .regions import Regions
 from .srec import SRec
@@ -37,6 +37,7 @@ __all__ = [
     "ELFCore",
     "MetaELF",
     "PE",
+    "PEStubs",
     "Coff",
     "Blob",
     "CGC",
