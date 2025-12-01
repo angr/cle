@@ -3,7 +3,9 @@ from __future__ import annotations
 import bisect
 import itertools
 import struct
+from collections.abc import Iterator
 from mmap import mmap
+from typing import Any, cast
 
 import archinfo
 
@@ -39,10 +41,10 @@ class ClemoryBase:
     def backers(self, addr=0):
         raise NotImplementedError
 
-    def find(self, data, search_min=None, search_max=None):
+    def find(self, data, search_min=None, search_max=None) -> Iterator[int]:
         raise NotImplementedError
 
-    def unpack(self, addr, fmt):
+    def unpack(self, addr: int, fmt: str) -> tuple[Any, ...]:
         """
         Use the ``struct`` module to unpack the data at address `addr` with the format `fmt`.
         """
@@ -62,7 +64,9 @@ class ClemoryBase:
                 raise e
             raise KeyError(addr)  # pylint: disable=raise-missing-from
 
-    def unpack_word(self, addr, size=None, signed=False, endness=None):
+    def unpack_word(
+        self, addr: int, size: int | None = None, signed: bool = False, endness: archinfo.Endness | None = None
+    ) -> int:
         """
         Use the ``struct`` module to unpack a single integer from the address `addr`.
 
@@ -94,7 +98,7 @@ class ClemoryBase:
 
         return self.unpack(addr, self._arch.struct_fmt(size=size, signed=signed, endness=endness))[0]
 
-    def load_null_terminated_bytes(self, addr, max_size=4096) -> bytes:
+    def load_null_terminated_bytes(self, addr: int, max_size: int = 4096) -> bytes:
         """
         Load a null-terminated string from memory at address `addr` with a maximum size of `max_size`.
         Useful
@@ -110,7 +114,7 @@ class ClemoryBase:
             data.append(byte)
         return bytes(data)
 
-    def pack(self, addr, fmt, *data):
+    def pack(self, addr: int, fmt: str, *data):
         """
         Use the ``struct`` module to pack `data` into memory at address `addr` with the format `fmt`.
         """
@@ -130,7 +134,14 @@ class ClemoryBase:
                 raise e
             raise KeyError(addr)  # pylint: disable=raise-missing-from
 
-    def pack_word(self, addr, data, size=None, signed=False, endness=None):
+    def pack_word(
+        self,
+        addr: int,
+        data: int,
+        size: int | None = None,
+        signed: bool = False,
+        endness: archinfo.Endness | None = None,
+    ):
         """
         Use the ``struct`` module to pack a single integer `data` into memory at the address `addr`.
 
@@ -145,7 +156,7 @@ class ClemoryBase:
             data &= (1 << (size * 8 if size is not None else self._arch.bits)) - 1
         return self.pack(addr, self._arch.struct_fmt(size=size, signed=signed, endness=endness), data)
 
-    def read(self, nbytes):
+    def read(self, nbytes: int):
         """
         The stream-like function that reads up to a number of bytes starting from the current
         position and updates the current position. Use with :func:`seek`.
@@ -162,7 +173,7 @@ class ClemoryBase:
             self._pointer += len(out)
             return out
 
-    def seek(self, value):
+    def seek(self, value: int):
         """
         The stream-like function that sets the "file's" current position. Use with :func:`read()`.
 
@@ -170,7 +181,7 @@ class ClemoryBase:
         """
         self._pointer = value
 
-    def tell(self):
+    def tell(self) -> int:
         return self._pointer
 
     def close(self):  # pylint: disable=no-self-use
@@ -186,15 +197,17 @@ class Clemory(ClemoryBase):
 
     __slots__ = ("_backers", "_root", "consecutive", "min_addr", "max_addr")
 
-    def __init__(self, arch, root=False):
+    def __init__(self, arch: archinfo.Arch, root: bool = False):
         super().__init__(arch)
-        self._backers: list[tuple[int, bytearray | Clemory | list[int]]] = []
+        self._backers: list[tuple[int, bytearray | Clemory | list[int] | mmap]] = []
         self._root = root
-        self.consecutive = True
-        self.min_addr = 0
+        self.consecutive: bool = True
+        self.min_addr: int = 0
         self.max_addr: int = 0
 
-    def add_backer(self, start, data, overwrite=False):
+    def add_backer(
+        self, start: int, data: bytes | bytearray | memoryview | list[int] | Clemory | mmap, overwrite: bool = False
+    ):
         """
         Adds a backer to the memory.
 
@@ -240,7 +253,7 @@ class Clemory(ClemoryBase):
         bisect.insort(self._backers, (start, data), key=lambda x: x[0])
         self._update_min_max()
 
-    def split_backer(self, addr):
+    def split_backer(self, addr: int):
         """
         Ensures that ``addr`` is the start of a backer, if it is backed.
         """
@@ -256,8 +269,9 @@ class Clemory(ClemoryBase):
             return
 
         self.remove_backer(start_addr)
-        self.add_backer(start_addr, backer[: addr - start_addr])
-        self.add_backer(addr, backer[addr - start_addr :])
+        b0, b1 = backer[: addr - start_addr], backer[addr - start_addr :]
+        self.add_backer(start_addr, b0)
+        self.add_backer(addr, b1)
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} [{hex(self.min_addr)}:{hex(self.max_addr)}]>"
@@ -349,7 +363,7 @@ class Clemory(ClemoryBase):
         self.min_addr = s["min_addr"]
         self.max_addr = s["max_addr"]
 
-    def backers(self, addr=0):
+    def backers(self, addr=0) -> Iterator[tuple[int, bytearray | memoryview | mmap | list[int]]]:
         """
         Iterate through each backer for this clemory and all its children, yielding tuples of
         ``(start_addr, backer)`` where each backer is a bytearray.
@@ -358,7 +372,7 @@ class Clemory(ClemoryBase):
                         address will be skipped.
         """
 
-        def calculate_end(backer: tuple[int, bytearray | Clemory]):
+        def calculate_end(backer: tuple[int, bytes | bytearray | memoryview | mmap | Clemory | list[int]]):
             start, data = backer
 
             if isinstance(data, Clemory):
@@ -390,6 +404,8 @@ class Clemory(ClemoryBase):
         for start, backer in self.backers(addr):
             if start > addr:
                 break
+            if isinstance(backer, list):
+                raise TypeError("Can't load bytes from Clemory backed by list[int]")
             offset = addr - start
             if not views and offset + n < len(backer):
                 return bytes(memoryview(backer)[offset : offset + n])
@@ -429,7 +445,7 @@ class Clemory(ClemoryBase):
         if data:
             raise KeyError(addr)
 
-    def find(self, data, search_min=None, search_max=None):
+    def find(self, data, search_min=None, search_max=None) -> Iterator[int]:
         """
         Find all occurances of a bytestring in memory.
 
@@ -502,6 +518,8 @@ class Clemory(ClemoryBase):
             else:
                 raise TypeError(f"Unsupported backer type {type(backer)}.")
 
+        assert min_addr is not None
+        assert max_addr is not None
         self.consecutive = is_consecutive
         self.min_addr = min_addr
         self.max_addr = max_addr
@@ -582,7 +600,7 @@ class ClemoryView(ClemoryBase):
             raise KeyError(addr + len(data) - 1)
         self._backer.store(addr + self._rebase, data)
 
-    def find(self, data, search_min=None, search_max=None):
+    def find(self, data, search_min=None, search_max=None) -> Iterator[int]:
         if search_min is None or search_min < self._start:
             search_min = self._start
         if search_max is None or search_max > self._end:
@@ -619,7 +637,7 @@ class ClemoryTranslator(ClemoryBase):
     def backers(self, addr=0):
         raise TypeError("Cannot access backers through address translation")
 
-    def find(self, data, search_min=None, search_max=None):
+    def find(self, data, search_min=None, search_max=None) -> Iterator[int]:
         raise TypeError("Cannot perform finds through address translation")
 
 
@@ -654,7 +672,7 @@ class UninitializedClemory(Clemory):
         :param addr:
         :return:
         """
-        return [(0, b"")]
+        yield (0, bytearray())
 
     def load(self, addr, n):
         return b"\x00" * n
@@ -662,15 +680,11 @@ class UninitializedClemory(Clemory):
     def store(self, addr, data):
         raise ValueError()
 
-    def find(self, data, search_min=None, search_max=None):
+    def find(self, data, search_min=None, search_max=None) -> Iterator[int]:
         """
         The memory has no value, so matter what is searched for, it won't be found.
-        :param data:
-        :param search_min:
-        :param search_max:
-        :return:
         """
-        return iter(())
+        return iter(cast(tuple[int], ()))
 
 
 class ClemoryReadOnlyView(ClemoryBase):
