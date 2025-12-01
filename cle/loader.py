@@ -25,7 +25,7 @@ from cle.errors import CLECompatibilityError, CLEError, CLEFileNotFoundError, CL
 from cle.memory import Clemory, ClemoryReadOnlyView
 from cle.utils import ALIGN_UP, key_bisect_floor_key, key_bisect_insort_right, stream_or_path
 
-from .backends import ALL_BACKENDS, ELF, PE, Backend, Blob, Coff, ELFCore, MetaELF, Minidump
+from .backends import ALL_BACKENDS, ELF, PE, Backend, Blob, Coff, ELFCore, MachO, MetaELF, Minidump
 from .backends.externs import ExternObject, KernelObject
 from .backends.tls import (
     ELFCoreThreadManager,
@@ -192,8 +192,9 @@ class Loader:
 
         if self._extern_object and self._extern_object._warned_data_import:
             log.warning(
-                'For more information about "Symbol was allocated without a known size",'
-                "see https://docs.angr.io/extending-angr/environment#simdata"
+                "Symbol imported without a known size; emulation may fail if it is used non-opaqely: "
+                f"{', '.join(sorted(self._extern_object._warned_data_import))}"
+                ". See https://docs.angr.io/extending-angr/environment#simdata"
             )
 
     # Basic functions and properties
@@ -675,7 +676,7 @@ class Loader:
         Return the name of the PLT stub starting at ``addr``.
         """
         so = self.find_object_containing(addr)
-        if so is not None and isinstance(so, MetaELF):
+        if so is not None and isinstance(so, (MetaELF, MachO)):
             return so.reverse_plt.get(addr, None)
         return None
 

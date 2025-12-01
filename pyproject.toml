@@ -5,7 +5,8 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "cle"
 description = "CLE Loads Everything (at least, many binary formats!) and provides a pythonic interface to analyze what they are and what they would look like in memory."
-license = { text = "BSD-2-Clause" }
+license = "BSD-2-Clause"
+license-files = ["LICENSE"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
@@ -17,11 +18,11 @@ classifiers = [
 dynamic = ["version"]
 requires-python = ">=3.10"
 dependencies = [
-    "archinfo==9.2.164.dev0",
+    "archinfo==9.2.186.dev0",
     "cart",
     "pefile",
-    "pyelftools>=0.27",
-    "pyvex==9.2.164.dev0",
+    "pyelftools>=0.29",
+    "pyvex==9.2.186.dev0",
     "sortedcontainers>=2.0",
 ]
 
@@ -70,13 +71,16 @@ xbe = [
 
 [tool.setuptools]
 include-package-data = true
-license-files = ["LICENSE"]
 
 [tool.setuptools.dynamic]
 version = { attr = "cle.__version__" }
 
 [tool.setuptools.package-data]
 cle = ["py.typed"]
+
+[tool.uv.sources]
+archinfo = { git = "https://github.com/angr/archinfo.git", branch = "master" }
+pyvex = { git = "https://github.com/angr/pyvex.git", branch = "master" }
 
 [tool.black]
 line-length = 120

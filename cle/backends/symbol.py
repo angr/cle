@@ -29,6 +29,7 @@ class SymbolType(Enum):
     TYPE_OBJECT = 3
     TYPE_SECTION = 4
     TYPE_TLS_OBJECT = 5
+    TYPE_FUNCTION_OR_OBJECT = 6
 
 
 class SymbolSubType(Enum):
@@ -115,7 +116,7 @@ class Symbol:
         """
         Whether this symbol is a function
         """
-        return self.type is SymbolType.TYPE_FUNCTION
+        return self.type in {SymbolType.TYPE_FUNCTION, SymbolType.TYPE_FUNCTION_OR_OBJECT}
 
     # These may be overridden in subclasses
     is_static = False

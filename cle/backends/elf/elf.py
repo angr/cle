@@ -19,7 +19,7 @@ from elftools.dwarf.dwarf_expr import DWARFExprParser
 from elftools.dwarf.dwarfinfo import DWARFInfo
 from elftools.dwarf.ranges import BaseAddressEntry, RangeEntry
 from elftools.elf import dynamic, elffile, enums, sections
-from elftools.elf.relocation import RelocationSection
+from elftools.elf.relocation import RelocationSection, RelrRelocationSection
 from sortedcontainers import SortedDict
 
 from cle.address_translator import AT
@@ -33,9 +33,9 @@ from .compilation_unit import CompilationUnit
 from .hashtable import ELFHashTable, GNUHashTable
 from .lsda import LSDAExceptionTable
 from .metaelf import MetaELF, maybedecode
-from .regions import ELFSection, ELFSegment
+from .regions import ELFSection, ELFSegment, Section
 from .relocation import get_relocation
-from .relocation.generic import MipsGlobalReloc, MipsLocalReloc
+from .relocation.generic import GenericRelativeReloc, MipsGlobalReloc, MipsLocalReloc
 from .subprogram import LexicalBlock, Subprogram
 from .symbol import ELFSymbol, Symbol, SymbolType
 from .variable import Variable
@@ -50,6 +50,11 @@ except ImportError:
 log = logging.getLogger(name=__name__)
 
 __all__ = ("ELFSymbol", "ELF")
+
+_NON_ALLOCATED_SECTION_NAMES = {  # Sections that do not occupy memory at runtime
+    "SHT_NOTE",
+    "SHT_MIPS_REGINFO",
+}
 
 
 # map 'e_machine' ELF header values (represented as `short int`s) to human-readable format (string)
@@ -561,9 +566,15 @@ class ELF(MetaELF):
 
         self.memory.add_backer(AT.from_lva(mapstart, self).to_rva(), data, overwrite=True)
 
-    def _make_reloc(self, readelf_reloc, symbol, dest_section: ELFSection | None = None):
+    def _make_reloc(self, readelf_reloc, symbol, dest_section: Section | None = None, is_relr: bool = False):
         addend = readelf_reloc.entry.r_addend if readelf_reloc.is_RELA() else None
-        RelocClass = get_relocation(self.arch.name, readelf_reloc.entry.r_info_type)
+        # RELR relocations are compressed forms of R_*_RELATIVE relocations.
+        # If is_relr is True, the readelf_reloc.entry object does not have r_info_type,
+        # so we cannot dispatch through get_relocation. Instead, handle it as a special
+        # case by always using GenericRelativeReloc.
+        RelocClass = (
+            GenericRelativeReloc if is_relr else get_relocation(self.arch.name, readelf_reloc.entry.r_info_type)
+        )
         if RelocClass is None:
             return None
 
@@ -818,7 +829,10 @@ class ELF(MetaELF):
                     cu_.functions[sub_prog.low_pc] = sub_prog
                     self.functions_debug_info[sub_prog.low_pc] = sub_prog
             elif die_child.tag == "DW_TAG_namespace":
-                new_namespace = namespace + [die_child.attributes["DW_AT_name"].value.decode("utf-8")]
+                if "DW_AT_name" in die_child.attributes:
+                    new_namespace = namespace + [die_child.attributes["DW_AT_name"].value.decode("utf-8")]
+                else:
+                    new_namespace = namespace
                 self._load_die_namespace(die_child, dwarf, aranges, cu_, expr_parser, type_list, cu, new_namespace)
 
     def _load_die_lex_block(
@@ -891,10 +905,9 @@ class ELF(MetaELF):
         name_pieces = []
         while True:
             name_piece = origin_die.attributes.get("DW_AT_name", None)
-            if name_piece is None:
-                break
+            if name_piece is not None:
+                name_pieces.append(name_piece.value.decode("utf-8"))
 
-            name_pieces.append(name_piece.value.decode("utf-8"))
             origin_die = cast(DIE, origin_die.get_parent())
             if origin_die is None or origin_die.tag != "DW_TAG_namespace":
                 break
@@ -1128,6 +1141,26 @@ class ELF(MetaELF):
                 readelf_jmprelsec.elffile = None
                 self.__register_relocs(readelf_jmprelsec, dynsym, force_jmprel=True)
 
+            # try to parse relocations out of a table of type DT_RELR
+            if "DT_RELR" in self._dynamic:
+                reloffset = AT.from_lva(self._dynamic["DT_RELR"], self).to_rva()
+                if "DT_RELRSZ" not in self._dynamic:
+                    raise CLEInvalidBinaryError("Dynamic section contains DT_RELR but not DT_RELRSZ")
+                relsz = self._dynamic["DT_RELRSZ"]
+                fakerelheader = {
+                    "sh_offset": reloffset,
+                    "sh_type": "SHT_" + "RELR",
+                    "sh_entsize": self._reader.structs.Elf_Relr.sizeof(),
+                    "sh_size": relsz,
+                    "sh_flags": 0,
+                    "sh_addralign": 0,
+                }
+                readelf_relrsec = RelrRelocationSection(fakerelheader, "relr_cle", self._reader)
+                # support multiple versions of pyelftools
+                readelf_relrsec.stream = self.memory
+                readelf_relrsec.elffile = None
+                self.__register_relocs(readelf_relrsec, dynsym)
+
             self.__register_section_symbols(dynsym)
 
     def __parse_rpath(self, runpath, rpath):
@@ -1185,9 +1218,17 @@ class ELF(MetaELF):
             symtab = self._reader.get_section_by_name(".symtab")
         relocs = []
         for readelf_reloc in section.iter_relocations():
+            # Handle packed RELR relocations specially
+            # These entries lack r_info_sym/r_info_type, so this branch must be
+            # exclusive — do NOT fall through into later cases.
+            if section.header.get("sh_type") == "SHT_RELR":
+                reloc = self._make_reloc(readelf_reloc, self._nullsymbol, dest_sec, True)
+                if reloc is not None:
+                    relocs.append(reloc)
+                    self.relocs.append(reloc)
             # MIPS64 is just plain old fucked up
             # https://www.sourceware.org/ml/libc-alpha/2003-03/msg00153.html
-            if self.arch.name == "MIPS64":
+            elif self.arch.name == "MIPS64":
                 if not hasattr(readelf_reloc.entry, "r_info_type2") and hasattr(readelf_reloc.entry, "r_info_type3"):
                     raise CLECompatibilityError(
                         "This code relies on `pyelftools` features that are not available on versions 0.26 and below."
@@ -1308,9 +1349,10 @@ class ELF(MetaELF):
                 align = sec_readelf.header["sh_addralign"]
                 if align > 0:
                     new_addr = (new_addr + (align - 1)) // align * align
-
                 remap_offset = new_addr - sh_addr
-                new_addr += sec_readelf.header["sh_size"]  # address for next section
+
+                if sec_readelf.header["sh_type"] not in _NON_ALLOCATED_SECTION_NAMES:
+                    new_addr += sec_readelf.header["sh_size"]
 
             section = ELFSection(sec_readelf, remap_offset=remap_offset)
             sec_list.append((sec_readelf, section))
@@ -1322,8 +1364,11 @@ class ELF(MetaELF):
         for sec_readelf, section in sec_list:
             if isinstance(sec_readelf, sections.SymbolTableSection):
                 self.__register_section_symbols(sec_readelf)
-            if isinstance(sec_readelf, RelocationSection) and not (
-                "DT_REL" in self._dynamic or "DT_RELA" in self._dynamic or "DT_JMPREL" in self._dynamic
+            if isinstance(sec_readelf, RelocationSection | RelrRelocationSection) and not (
+                "DT_REL" in self._dynamic
+                or "DT_RELA" in self._dynamic
+                or "DT_JMPREL" in self._dynamic
+                or "DT_RELR" in self._dynamic
             ):
                 self.__register_relocs(sec_readelf, dynsym=None)
 
@@ -1337,7 +1382,7 @@ class ELF(MetaELF):
                             b"\0" * sec_readelf.header["sh_size"],
                             overwrite=True,
                         )
-                    elif section.type == "SHT_NOTE":
+                    elif section.type in _NON_ALLOCATED_SECTION_NAMES:
                         pass  # observed this case in angr/angr#3829
                     else:  # elif section.type == 'SHT_PROGBITS':
                         self.memory.add_backer(

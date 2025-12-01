@@ -20,6 +20,8 @@ SYMBOL_TYPE_ABS = 0x2
 SYMBOL_TYPE_SECT = 0xE
 SYMBOL_TYPE_PBUD = 0xC
 SYMBOL_TYPE_INDIR = 0xA
+N_STAB = 0xE0  # actually a mask
+N_EXT = 0x01  # external symbol bit
 
 LIBRARY_ORDINAL_SELF = 0x0
 LIBRARY_ORDINAL_OLD_MAX = 0xFE
@@ -37,7 +39,7 @@ class AbstractMachOSymbol(Symbol):
     Defines the minimum common properties all types of mach-o symbols must have
     """
 
-    owner: MachO
+    owner: MachO  # type: ignore[override]
 
     def __init__(self, owner: Backend, name: str, relative_addr: int, size: int, sym_type: SymbolType):
         super().__init__(owner, name, relative_addr, size, sym_type)
@@ -53,11 +55,11 @@ class AbstractMachOSymbol(Symbol):
         return None
 
     @property
-    def is_stab(self):
+    def is_stab(self) -> bool:
         return False
 
     @property
-    def library_name(self) -> bytes | None:
+    def library_name(self) -> str | None:
         return None
 
     @property
@@ -66,7 +68,7 @@ class AbstractMachOSymbol(Symbol):
         if full_name is None:
             return None
 
-        return full_name.decode().rsplit("/", 1)[-1]
+        return full_name.rsplit("/", 1)[-1]
 
 
 class SymbolTableSymbol(AbstractMachOSymbol):
@@ -135,8 +137,11 @@ class SymbolTableSymbol(AbstractMachOSymbol):
         )
         self.is_export = self.name in self.owner.exports_by_name
 
+        if self.is_export or self.is_stab or self.is_local:
+            self._type = SymbolType.TYPE_FUNCTION_OR_OBJECT
+
     @property
-    def library_name(self) -> bytes | None:
+    def library_name(self) -> str | None:
         if self.is_import:
             if LIBRARY_ORDINAL_DYN_LOOKUP == self.library_ordinal:
                 log.warning("LIBRARY_ORDINAL_DYN_LOOKUP found, cannot handle")
@@ -187,16 +192,16 @@ class SymbolTableSymbol(AbstractMachOSymbol):
 
     # real symbols have properties, mach-o symbols have plenty of them:
     @property
-    def is_stab(self):
-        return self.n_type & 0xE0
+    def is_stab(self) -> bool:
+        return (self.n_type & N_STAB) != 0
 
     @property
-    def is_private_external(self):
-        return self.n_type & 0x10
+    def is_private_external(self) -> bool:
+        return (self.n_type & 0x10) == 0x10
 
     @property
-    def is_external(self):
-        return self.n_type & 0x01
+    def is_external(self) -> bool:
+        return (self.n_type & N_EXT) == 0x01
 
     @property
     def sym_type(self):  # cannot be called "type" as that shadows a builtin variable from Symbol
@@ -276,7 +281,7 @@ class DyldBoundSymbol(AbstractMachOSymbol):
         self.is_export = False
 
     @property
-    def library_name(self):
+    def library_name(self) -> str | None:
         if BIND_SPECIAL_DYLIB_FLAT_LOOKUP == self.lib_ordinal:
             log.warning("BIND_SPECIAL_DYLIB_FLAT_LOOKUP found, cannot handle")
             return None
@@ -342,7 +347,7 @@ class BindingSymbol(AbstractMachOSymbol):
         self.is_export = self.name in self.owner.exports_by_name
 
     @property
-    def library_name(self):
+    def library_name(self) -> str | None:
         if LIBRARY_ORDINAL_DYN_LOOKUP == self.lib_ordinal:
             log.warning("LIBRARY_ORDINAL_DYN_LOOKUP found, cannot handle")
             return None
@@ -361,3 +366,12 @@ class BindingSymbol(AbstractMachOSymbol):
     @property
     def library_ordinal(self):
         return self.lib_ordinal
+
+
+__all__ = [
+    "SymbolType",
+    "AbstractMachOSymbol",
+    "SymbolTableSymbol",
+    "BindingSymbol",
+    "DyldBoundSymbol",
+]

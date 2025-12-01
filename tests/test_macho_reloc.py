@@ -122,6 +122,75 @@ def test_chained_fixups_relocs():
         # Check that the reloc was actually applied
         assert ld.memory.unpack_word(reloc.rebased_addr) == reloc.value
 
+    assert hasattr(ld.main_object, "stubs")
+    assert hasattr(ld.main_object, "reverse_stubs")
+    assert hasattr(ld.main_object, "plt")
+    assert hasattr(ld.main_object, "reverse_plt")
+    assert isinstance(ld.main_object, MachO)
+    assert ld.main_object.plt == ld.main_object.stubs
+    assert ld.main_object.reverse_plt == ld.main_object.reverse_stubs
+
+    assert ld.main_object.plt == {
+        "_$s10Foundation5NSLogyySS_s7CVarArg_pdtF": 4294998100,
+        "_$s2os0A4_log_3dso0B04type_ys12StaticStringV_SVSgSo03OS_a1_B0CSo0a1_b1_D2_tas7CVarArg_pdtF": 4294998112,
+        "_$s7SwiftUI11WindowGroupV7contentACyxGxyXE_tcfC": 4294998124,
+        "_$s7SwiftUI12SceneBuilderV10buildBlockyxxAA0C0RzlFZ": 4294998136,
+        "_$s7SwiftUI18LocalizedStringKeyV13stringLiteralACSS_tcfC": 4294998148,
+        "_$s7SwiftUI19HorizontalAlignmentV6centerACvgZ": 4294998160,
+        "_$s7SwiftUI3AppPAAE4mainyyFZ": 4294998172,
+        "_$s7SwiftUI4EdgeO3SetV3allAEvgZ": 4294998184,
+        "_$s7SwiftUI4ViewPAAE05_makeC04view6inputsAA01_C7OutputsVAA11_GraphValueVyxG_AA01_C6InputsVtFZ": 4294998196,
+        "_$s7SwiftUI4ViewPAAE05_makeC4List4view6inputsAA01"
+        "_cE7OutputsVAA11_GraphValueVyxG_AA01_cE6InputsVtFZ": 4294998208,
+        "_$s7SwiftUI4ViewPAAE14_viewListCount6inputsSiSgAA01_ceF6InputsV_tFZ": 4294998220,
+        "_$s7SwiftUI5StateV12wrappedValueACyxGx_tcfC": 4294998232,
+        "_$s7SwiftUI6ButtonVA2A4TextVRszrlE_6actionACyAEGAA18LocalizedStringKeyV_yyctcfC": 4294998244,
+        "_$sSo13os_log_type_ta0A0E7defaultABvgZ": 4294998256,
+        "_$sSo8NSStringC10FoundationE13stringLiteralABs12StaticStringV_tcfC": 4294998268,
+        "_$sSo9OS_os_logC0B0E7defaultABvgZ": 4294998280,
+        "_objc_opt_self": 4294998292,
+        "_objc_release": 4294998304,
+        "_swift_allocObject": 4294998316,
+        "_swift_deallocClassInstance": 4294998328,
+        "_swift_getObjCClassMetadata": 4294998340,
+        "_swift_getOpaqueTypeConformance": 4294998352,
+        "_swift_getTypeByMangledNameInContext": 4294998364,
+        "_swift_getTypeByMangledNameInContextInMetadataState": 4294998376,
+        "_swift_getWitnessTable": 4294998388,
+        "_swift_release": 4294998400,
+        "_swift_retain": 4294998412,
+    }
+    assert ld.main_object.reverse_plt == {
+        4294998100: "_$s10Foundation5NSLogyySS_s7CVarArg_pdtF",
+        4294998112: "_$s2os0A4_log_3dso0B04type_ys12StaticStringV_SVSgSo03OS_a1_B0CSo0a1_b1_D2_tas7CVarArg_pdtF",
+        4294998124: "_$s7SwiftUI11WindowGroupV7contentACyxGxyXE_tcfC",
+        4294998136: "_$s7SwiftUI12SceneBuilderV10buildBlockyxxAA0C0RzlFZ",
+        4294998148: "_$s7SwiftUI18LocalizedStringKeyV13stringLiteralACSS_tcfC",
+        4294998160: "_$s7SwiftUI19HorizontalAlignmentV6centerACvgZ",
+        4294998172: "_$s7SwiftUI3AppPAAE4mainyyFZ",
+        4294998184: "_$s7SwiftUI4EdgeO3SetV3allAEvgZ",
+        4294998196: "_$s7SwiftUI4ViewPAAE05_makeC04view6inputsAA01_C7OutputsVAA11_GraphValueVyxG_AA01_C6InputsVtFZ",
+        4294998208: "_$s7SwiftUI4ViewPAAE05_makeC4List4view6inputsAA01"
+        "_cE7OutputsVAA11_GraphValueVyxG_AA01_cE6InputsVtFZ",
+        4294998220: "_$s7SwiftUI4ViewPAAE14_viewListCount6inputsSiSgAA01_ceF6InputsV_tFZ",
+        4294998232: "_$s7SwiftUI5StateV12wrappedValueACyxGx_tcfC",
+        4294998244: "_$s7SwiftUI6ButtonVA2A4TextVRszrlE_6actionACyAEGAA18LocalizedStringKeyV_yyctcfC",
+        4294998256: "_$sSo13os_log_type_ta0A0E7defaultABvgZ",
+        4294998268: "_$sSo8NSStringC10FoundationE13stringLiteralABs12StaticStringV_tcfC",
+        4294998280: "_$sSo9OS_os_logC0B0E7defaultABvgZ",
+        4294998292: "_objc_opt_self",
+        4294998304: "_objc_release",
+        4294998316: "_swift_allocObject",
+        4294998328: "_swift_deallocClassInstance",
+        4294998340: "_swift_getObjCClassMetadata",
+        4294998352: "_swift_getOpaqueTypeConformance",
+        4294998364: "_swift_getTypeByMangledNameInContext",
+        4294998376: "_swift_getTypeByMangledNameInContextInMetadataState",
+        4294998388: "_swift_getWitnessTable",
+        4294998400: "_swift_release",
+        4294998412: "_swift_retain",
+    }
+
 
 ONESIGNAL_BASE = (
     Path(__file__).resolve().parent.parent.parent / "binaries" / "tests" / "aarch64" / "ReverseOneSignal.app"
@@ -583,6 +652,41 @@ def test_all_relocs():
             assert ptr_reloc.data == target_addr
 
 
+def test_amd64_macho_stubs():
+    machofile = os.path.join(TEST_BASE, "tests", "x86_64", "decompiler", "bf")
+    ld = cle.Loader(machofile)
+
+    assert hasattr(ld.main_object, "stubs")
+    assert hasattr(ld.main_object, "reverse_stubs")
+    assert hasattr(ld.main_object, "plt")
+    assert hasattr(ld.main_object, "reverse_plt")
+    assert isinstance(ld.main_object, MachO)
+    assert ld.main_object.plt == ld.main_object.stubs
+    assert ld.main_object.reverse_plt == ld.main_object.reverse_stubs
+
+    assert ld.main_object.plt == {
+        "____chkstk_darwin": 4294983430,
+        "___stack_chk_fail": 4294983436,
+        "_fclose": 4294983442,
+        "_fopen": 4294983448,
+        "_fprintf": 4294983454,
+        "_getc": 4294983460,
+        "_getchar": 4294983466,
+        "_putchar": 4294983472,
+    }
+    assert ld.main_object.reverse_plt == {
+        4294983430: "____chkstk_darwin",
+        4294983436: "___stack_chk_fail",
+        4294983442: "_fclose",
+        4294983448: "_fopen",
+        4294983454: "_fprintf",
+        4294983460: "_getc",
+        4294983466: "_getchar",
+        4294983472: "_putchar",
+    }
+
+
 if __name__ == "__main__":
     test_basic_reloc_functionality()
     test_chained_fixups_relocs()
+    test_amd64_macho_stubs()
