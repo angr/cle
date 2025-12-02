@@ -68,8 +68,24 @@ class VariableType:
             return SubroutineType.read_from_die(die, elf_object)
         elif die.tag == "DW_TAG_subprogram":
             return SubprogramType.read_from_die(die, elf_object)
+        elif die.tag == "DW_TAG_atomic_type":
+            return AtomicType.read_from_die(die, elf_object)
         elif die.tag == "DW_TAG_const_type":
             return ConstType.read_from_die(die, elf_object)
+        elif die.tag == "DW_TAG_immutable_type":
+            return ImmutableType.read_from_die(die, elf_object)
+        elif die.tag == "DW_TAG_packed_type":
+            return PackedType.read_from_die(die, elf_object)
+        elif die.tag == "DW_TAG_reference_type":
+            return ReferenceType.read_from_die(die, elf_object)
+        elif die.tag == "DW_TAG_restrict_type":
+            return RestrictType.read_from_die(die, elf_object)
+        elif die.tag == "DW_TAG_rvalue_reference_type":
+            return RValueReferenceType.read_from_die(die, elf_object)
+        elif die.tag == "DW_TAG_shared_type":
+            return SharedType.read_from_die(die, elf_object)
+        elif die.tag == "DW_TAG_volatile_type":
+            return VolatileType.read_from_die(die, elf_object)
         return None
 
     @staticmethod
@@ -84,7 +100,14 @@ class VariableType:
             "DW_TAG_enumeration_type",
             "DW_TAG_subroutine_type",
             "DW_TAG_subprogram",
-            "DW_TAG_const_type"
+            "DW_TAG_const_type",
+            "DW_TAG_immutable_type",
+            "DW_TAG_packed_type",
+            "DW_TAG_reference_type",
+            "DW_TAG_restrict_type",
+            "DW_TAG_rvalue_reference_type",
+            "DW_TAG_shared_type",
+            "DW_TAG_volatile_type"
         )
 
 
@@ -717,9 +740,9 @@ class SubprogramType:
 
         return cls(name, linkage_name, low_pc, high_pc, elf_object, type_offset, parameters)
 
-class ConstType(VariableType):
+class TypeModifier(VariableType):
     def __init__(self, elf_object, type_offset):
-        super().__init__("const", None, elf_object)
+        super().__init__(self.name, None, elf_object)
         self._type_offset = type_offset
 
     @property
@@ -727,7 +750,7 @@ class ConstType(VariableType):
         """
         The underlying type of the const
         """
-        return self._elf_object.type_list[self._type_offset]
+        return self._elf_object.type_list.get(self._type_offset, None)
 
     @classmethod
     def read_from_die(cls, die: DIE, elf_object):
@@ -739,3 +762,30 @@ class ConstType(VariableType):
         type_offset = None if dw_at_type is None else resolve_reference_addr(die, "DW_AT_type")
 
         return cls(elf_object, type_offset)
+
+class AtomicType(TypeModifier):
+    name = "atomic"
+
+class ConstType(TypeModifier):
+    name = "const"
+
+class ImmutableType(TypeModifier):
+    name = "immutable"
+
+class PackedType(TypeModifier):
+    name = "packed"
+
+class ReferenceType(TypeModifier):
+    name = "reference"
+
+class RestrictType(TypeModifier):
+    name = "restrict"
+
+class RValueReferenceType(TypeModifier):
+    name = "r_value_reference"
+
+class SharedType(TypeModifier):
+    name = "shared"
+
+class VolatileType(TypeModifier):
+    name = "volatile"
