@@ -4,17 +4,12 @@ import ntpath
 import struct
 
 import archinfo
+from minidump import minidumpfile
+from minidump.streams import SystemInfoStream
 
 from cle.backends.backend import Backend, register_backend
 from cle.backends.region import Section, Segment
 from cle.errors import CLEError, CLEInvalidBinaryError
-
-try:
-    from minidump import minidumpfile
-    from minidump.streams import SystemInfoStream
-except ImportError:
-    minidumpfile = None
-    SystemInfoStream = None
 
 
 class MinidumpMissingStreamError(Exception):
@@ -28,8 +23,6 @@ class Minidump(Backend):
     is_default = True
 
     def __init__(self, *args, **kwargs):
-        if minidumpfile is None:
-            raise CLEError("Run `pip install minidump==0.0.10` to support loading minidump files")
         super().__init__(*args, **kwargs)
         self.os = "windows"
         self.supports_nx = True
