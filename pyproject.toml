@@ -23,6 +23,7 @@ dependencies = [
     "pefile",
     "pyelftools>=0.29",
     "pyvex==9.2.187.dev0",
+    "pyxdia~=0.1",
     "sortedcontainers>=2.0",
 ]
 
@@ -49,9 +50,6 @@ minidump = [
 ]
 pcode = [
     "pypcode>=1.1"
-]
-pdb = [
-    "pyxdia~=0.1"
 ]
 testing = [
     "cffi",
