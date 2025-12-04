@@ -23,6 +23,7 @@ dependencies = [
     "pefile",
     "pyelftools>=0.29",
     "pyvex==9.2.187.dev0",
+    "pyxbe~=1.0.3",
     "pyxdia~=0.1",
     "sortedcontainers>=2.0",
 ]
@@ -57,14 +58,10 @@ testing = [
     "pypcode>=1.1",
     "pytest",
     "pytest-xdist",
-    "pyxbe~=1.0.3",
     "types-pefile",
 ]
 uefi = [
     "uefi-firmware>=1.10"
-]
-xbe = [
-    "pyxbe~=1.0.3"
 ]
 
 [tool.setuptools]
