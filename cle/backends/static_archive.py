@@ -2,14 +2,9 @@ from __future__ import annotations
 
 import logging
 
-from cle.errors import CLEError
+import arpy
 
 from .backend import Backend, register_backend
-
-try:
-    import arpy
-except ImportError:
-    arpy = None
 
 log = logging.getLogger(__name__)
 
@@ -24,8 +19,6 @@ class StaticArchive(Backend):
     is_outer = True
 
     def __init__(self, *args, **kwargs):
-        if arpy is None:
-            raise CLEError("run `pip install arpy==1.1.1` to load archive files")
         super().__init__(*args, **kwargs)
 
         # hack: we are using a loader internal method in a non-kosher way which will cause our children to be
