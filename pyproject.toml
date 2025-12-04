@@ -19,6 +19,7 @@ dynamic = ["version"]
 requires-python = ">=3.10"
 dependencies = [
     "archinfo==9.2.187.dev0",
+    "arpy==1.1.1",
     "cart",
     "pefile",
     "pyelftools>=0.29",
@@ -37,9 +38,6 @@ Homepage = "https://api.angr.io/projects/cle/en/latest/"
 Repository = "https://github.com/angr/cle"
 
 [project.optional-dependencies]
-ar = [
-    "arpy==1.1.1"
-]
 docs = [
     "furo",
     "myst-parser",
