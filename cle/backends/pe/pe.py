@@ -8,11 +8,7 @@ import struct
 
 import archinfo
 import pefile
-
-try:
-    import pyxdia
-except ImportError:
-    pyxdia = None
+import pyxdia
 
 from cle.address_translator import AT
 from cle.backends.backend import Backend, FunctionHint, FunctionHintSource, register_backend
@@ -24,7 +20,6 @@ from .relocation import get_relocation
 from .relocation.generic import IMAGE_REL_BASED_ABSOLUTE, IMAGE_REL_BASED_HIGHADJ, DllImport
 from .symbol import WinSymbol
 
-PDB_SUPPORT_ENABLED = pyxdia is not None
 SECTION_NAME_STRING_TABLE_OFFSET_RE = re.compile(r"\/(\d+)")
 VALID_SYMBOL_NAME_RE = re.compile(r"[A-Za-z0-9_@$?]+")
 
@@ -180,10 +175,6 @@ class PE(Backend):
         """
         Load available symbols from PDB at `pdb_path`
         """
-        if pyxdia is None:
-            log.warning("Install pyxdia to load symbols from %s", pdb_path)
-            return
-
         log.debug("Loading symbols from %s", pdb_path)
         try:
             pdb = pyxdia.PDB(pdb_path)
