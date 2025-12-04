@@ -1,16 +1,10 @@
 from __future__ import annotations
 
 import archinfo
-
-from cle.errors import CLEError
+from xbe import Xbe
 
 from .backend import Backend, register_backend
 from .region import Section, Segment
-
-try:
-    from xbe import Xbe
-except ImportError:
-    Xbe = None
 
 
 class XBESection(Section):
@@ -56,8 +50,6 @@ class XBE(Backend):
     is_default = True
 
     def __init__(self, *args, **kwargs):
-        if Xbe is None:
-            raise CLEError("Run `pip install pyxbe==1.0.3` to support loading XBE files")
         super().__init__(*args, **kwargs)
         self.set_arch(archinfo.arch_from_id("x86"))
 
