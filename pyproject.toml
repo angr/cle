@@ -28,6 +28,7 @@ dependencies = [
     "pyxbe~=1.0.3",
     "pyxdia~=0.1",
     "sortedcontainers>=2.0",
+    "uefi-firmware>=1.10",
 ]
 
 [project.readme]
@@ -54,9 +55,6 @@ testing = [
     "pytest",
     "pytest-xdist",
     "types-pefile",
-]
-uefi = [
-    "uefi-firmware>=1.10"
 ]
 
 [tool.setuptools]
