@@ -123,7 +123,6 @@ class TestPEBackend(unittest.TestCase):
         assert len(ld.tls.modules) == 1
         assert tls.get_tls_data_addr(0) == tls.memory.unpack_word(0)
 
-    @unittest.skipUnless(cle.backends.pe.pe.PDB_SUPPORT_ENABLED, "PDB")
     def test_pdb(self):
         exe = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "fauxware.exe")
         pdb = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "fauxware.pdb")
