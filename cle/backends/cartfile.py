@@ -5,14 +5,11 @@ import os
 import struct
 from io import BytesIO
 
-from cle.errors import CLEError, CLEInvalidEncryptionError, CLEInvalidFileFormatError
+import cart
+
+from cle.errors import CLEInvalidEncryptionError, CLEInvalidFileFormatError
 
 from .backend import Backend, register_backend
-
-try:
-    import cart
-except ImportError:
-    cart = None
 
 log = logging.getLogger(__name__)
 
@@ -32,10 +29,6 @@ class CARTFile(Backend):
     is_outer = True
 
     def __init__(self, binary, binary_stream, *args, arc4_key=None, **kwargs):
-        if cart is None:
-            raise CLEError(
-                "Please install the cart Python package before loading a CART file. You may run `pip install cart`."
-            )
         super().__init__(binary, binary_stream, *args, **kwargs)
         self.set_load_args(arc4_key=arc4_key)
 
