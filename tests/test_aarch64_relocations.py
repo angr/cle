@@ -13,7 +13,7 @@ def test_aarch64_relocs():
     """
     test_location = str(os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "binaries", "tests"))
     path = os.path.join(test_location, "aarch64", "aarch64-relocs.o")
-    loader = cle.Loader(path, main_opts={"base_addr": 0x210120})
+    loader = cle.Loader(path, main_opts={"base_addr": 0x210120}, auto_load_libs=True)
     relocations = loader.main_object.relocs
     aarch64_backend = cle.backends.elf.relocation.arm64
 
