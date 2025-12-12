@@ -74,6 +74,7 @@ class Loader:
         page_size: int = 0x1,
         preload_libs: Iterable[str | BinaryIO | Path] = (),
         arch: archinfo.Arch | str | None = None,
+        force_tls: str | None = None,
     ):
         """
         :param main_binary:         The path to the main binary you're loading, or a file-like object with the binary
@@ -156,6 +157,7 @@ class Loader:
         self._except_missing_libs = except_missing_libs
         self._relocated_objects = set()
         self._perform_relocations = perform_relocations
+        self._force_tls = force_tls
 
         # case insensitivity setup
         if sys.platform == "win32":  # TODO: a real check for case insensitive filesystems
@@ -819,9 +821,9 @@ class Loader:
                     self._tls = ELFCoreThreadManager(self, self._main_object.arch)
                 elif isinstance(self._main_object, Minidump):
                     self._tls = MinidumpThreadManager(self, self._main_object.arch)
-                elif isinstance(chk_obj, MetaELF):
+                elif isinstance(chk_obj, MetaELF) or self._force_tls == "linux":
                     self._tls = ELFThreadManager(self, self._main_object.arch)
-                elif isinstance(chk_obj, PE | Coff):
+                elif isinstance(chk_obj, PE | Coff) or self._force_tls == "windows":
                     self._tls = PEThreadManager(self, self._main_object.arch)
                 else:
                     self._tls = ThreadManager(self, self._main_object.arch)
