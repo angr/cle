@@ -51,8 +51,9 @@ class ThreadManager:
         return thread
 
     @property
-    def _thread_cls(self):
-        raise NotImplementedError("This platform doesn't have an implementation of thread-local storage")
+    def _thread_cls(self) -> type[TLSObject]:
+        log.warning("This platform doesn't have a proper implementation of thread-local storage")
+        return TLSObject
 
 
 class InternalTLSRelocation(Relocation):
@@ -68,5 +69,8 @@ class InternalTLSRelocation(Relocation):
 
 
 class TLSObject(Backend):
-    def __init__(self, loader, arch):
+    def __init__(self, loader, arch=None):
+        if arch is None:
+            arch = loader.arch
         super().__init__("cle##tls", None, loader=loader, arch=arch)
+        self.pic = True
