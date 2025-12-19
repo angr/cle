@@ -881,12 +881,16 @@ class ELF(MetaELF):
         if filename_idx is not None:
             debug_line = dwarf.line_program_for_CU(cu)
             assert debug_line is not None
-            basename = debug_line.header.file_names[filename_idx]
-            basename_str = basename.DW_LNCT_path.decode(errors="replace")
-            dirname_idx = basename.DW_LNCT_directory_index
-            dirname = debug_line.header.directories[dirname_idx]
-            dirname_str = dirname.DW_LNCT_path.decode(errors="replace")
-            filename = f"{dirname_str}/{basename_str}"
+            if debug_line.header.file_names is None:
+                assert filename_idx == 1
+                filename = file_path
+            else:
+                basename = debug_line.header.file_names[filename_idx]
+                basename_str = basename.DW_LNCT_path.decode(errors="replace")
+                dirname_idx = basename.DW_LNCT_directory_index
+                dirname = debug_line.header.directories[dirname_idx]
+                dirname_str = dirname.DW_LNCT_path.decode(errors="replace")
+                filename = f"{dirname_str}/{basename_str}"
         else:
             filename = None
 
@@ -922,7 +926,7 @@ class ELF(MetaELF):
                 if sub_block is not None:
                     block.child_blocks.append(sub_block)
             elif sub_die.tag == "DW_TAG_inlined_subroutine":
-                subr = InlinedFunction()
+                subr = InlinedFunction(sub_die.offset)
                 low_pc, high_pc = self._load_low_high_pc_form_die(sub_die)
                 if "DW_AT_entry_pc" in sub_die.attributes:
                     subr.entry = sub_die.attributes["DW_AT_entry_pc"].value
@@ -945,6 +949,12 @@ class ELF(MetaELF):
                     subr.nargs = nargs
 
                 subprogram.inlined_functions.append(subr)
+
+                sub_block = self._load_die_lex_block(
+                    sub_die, dwarf, aranges, expr_parser, type_list, cu, file_path, subprogram, namespace
+                )
+                if sub_block is not None:
+                    block.child_blocks.append(sub_block)
 
         return block
 
