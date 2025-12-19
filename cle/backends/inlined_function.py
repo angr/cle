@@ -9,6 +9,7 @@ class InlinedFunction:
     A representation of a piece of a function which is inlined from another function.
     """
 
+    dwoffset: int
     name: str | None = None
     ranges: list[tuple[int, int]] = field(default_factory=list)
     extern: bool = False
