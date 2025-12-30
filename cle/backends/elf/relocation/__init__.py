@@ -5,6 +5,7 @@ import logging
 from .amd64 import relocation_table_amd64
 from .arm import relocation_table_arm
 from .arm64 import relocation_table_arm64
+from .riscv64 import relocation_table_riscv64
 from .i386 import relocation_table_i386
 from .mips import relocation_table_mips
 from .ppc import relocation_table_ppc
@@ -19,6 +20,7 @@ ALL_RELOCATIONS = {
     "AARCH64": relocation_table_arm64,
     "ARMEL": relocation_table_arm,
     "ARMHF": relocation_table_arm,
+    "RISCV64": relocation_table_riscv64,
     "X86": relocation_table_i386,
     "MIPS32": relocation_table_mips,
     "MIPS64": relocation_table_mips,
