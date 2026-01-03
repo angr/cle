@@ -8,6 +8,7 @@ import unittest
 import cle
 from cle.backends.elf.relocation import riscv64 as riscv
 
+
 def get_real_instr(r):
     try:
         if r.relative_addr % 2 != 0:
@@ -19,67 +20,77 @@ def get_real_instr(r):
     except (KeyError, struct.error):
         return None
 
+
 def sign_extend(x, bits):
     m = 1 << (bits - 1)
     return (x ^ m) - m
 
+
 def decode_u_imm20(insn32):
     return insn32 & 0xFFFFF000
 
+
 def decode_i_imm12_raw(insn32):
     return (insn32 >> 20) & 0xFFF
+
 
 def decode_s_imm12_raw(insn32: int) -> int:
     imm = ((insn32 >> 25) & 0x7F) << 5 | ((insn32 >> 7) & 0x1F)
     return imm & 0xFFF
 
+
 def decode_b_off(insn32):
     imm = (
-        ((insn32 >> 31) & 0x1) << 12 |
-        ((insn32 >> 7)  & 0x1) << 11 |
-        ((insn32 >> 25) & 0x3F) << 5 |
-        ((insn32 >> 8)  & 0xF) << 1
+        ((insn32 >> 31) & 0x1) << 12
+        | ((insn32 >> 7) & 0x1) << 11
+        | ((insn32 >> 25) & 0x3F) << 5
+        | ((insn32 >> 8) & 0xF) << 1
     )
     return sign_extend(imm, 13)
 
+
 def decode_j_off(insn32):
     imm = (
-        ((insn32 >> 31) & 0x1) << 20 |
-        ((insn32 >> 21) & 0x3FF) << 1 |
-        ((insn32 >> 20) & 0x1) << 11 |
-        ((insn32 >> 12) & 0xFF) << 12
+        ((insn32 >> 31) & 0x1) << 20
+        | ((insn32 >> 21) & 0x3FF) << 1
+        | ((insn32 >> 20) & 0x1) << 11
+        | ((insn32 >> 12) & 0xFF) << 12
     )
     return sign_extend(imm, 21)
 
+
 def decode_cb_off(insn16):
     off = (
-        ((insn16 >> 12) & 1) << 8 | # off[8]
-        ((insn16 >> 6)  & 1) << 7 | # off[7]
-        ((insn16 >> 5)  & 1) << 6 | # off[6]
-        ((insn16 >> 2)  & 1) << 5 | # off[5]
-        ((insn16 >> 11) & 1) << 4 | # off[4]
-        ((insn16 >> 10) & 1) << 3 | # off[3]
-        ((insn16 >> 4)  & 1) << 2 | # off[2]
-        ((insn16 >> 3)  & 1) << 1   # off[1]
+        ((insn16 >> 12) & 1) << 8  # off[8]
+        | ((insn16 >> 6) & 1) << 7  # off[7]
+        | ((insn16 >> 5) & 1) << 6  # off[6]
+        | ((insn16 >> 2) & 1) << 5  # off[5]
+        | ((insn16 >> 11) & 1) << 4  # off[4]
+        | ((insn16 >> 10) & 1) << 3  # off[3]
+        | ((insn16 >> 4) & 1) << 2  # off[2]
+        | ((insn16 >> 3) & 1) << 1  # off[1]
     )
     return sign_extend(off, 9)
 
+
 def decode_cj_off(insn16):
     off = (
-        ((insn16 >> 12) & 1) << 11  | # off[11]
-        ((insn16 >> 11) & 1) << 4   | # off[4]
-        ((insn16 >> 9)  & 0x3) << 8 | # off[9:8]
-        ((insn16 >> 8)  & 1) << 10  | # off[10]
-        ((insn16 >> 7)  & 1) << 6   | # off[6]
-        ((insn16 >> 6)  & 1) << 7   | # off[7]
-        ((insn16 >> 3)  & 0x7) << 1 | # off[3:1]
-        ((insn16 >> 2)  & 1) << 5     # off[5]
+        ((insn16 >> 12) & 1) << 11  # off[11]
+        | ((insn16 >> 11) & 1) << 4  # off[4]
+        | ((insn16 >> 9) & 0x3) << 8  # off[9:8]
+        | ((insn16 >> 8) & 1) << 10  # off[10]
+        | ((insn16 >> 7) & 1) << 6  # off[6]
+        | ((insn16 >> 6) & 1) << 7  # off[7]
+        | ((insn16 >> 3) & 0x7) << 1  # off[3:1]
+        | ((insn16 >> 2) & 1) << 5  # off[5]
     )
     return sign_extend(off, 12)
+
 
 def expect_abs(r):
     assert r.resolvedby is not None
     return r.resolvedby.rebased_addr + r.addend
+
 
 def expect_pcrel(r, P: int | None = None):
     assert r.resolvedby is not None
@@ -88,6 +99,7 @@ def expect_pcrel(r, P: int | None = None):
     if P is None:
         P = r.rebased_addr
     return S + A - P
+
 
 def find_paired_hi20(obj, label_addr: int):
     """
@@ -104,6 +116,7 @@ def find_paired_hi20(obj, label_addr: int):
         if rr.rebased_addr == label_addr and any(isinstance(rr, t) for t in hi_types):
             return rr
     return None
+
 
 def run_reloc_test_on_file(file_path, base_addr=0x210000):
     try:
@@ -270,11 +283,7 @@ def test_riscv64_all_relocations() -> None:
     if not os.path.isdir(riscv_test_dir):
         raise unittest.SkipTest(f"Directory not found: {riscv_test_dir}")
 
-    test_files = [
-        os.path.join(riscv_test_dir, f)
-        for f in os.listdir(riscv_test_dir)
-        if f.endswith((".o", ".so"))
-    ]
+    test_files = [os.path.join(riscv_test_dir, f) for f in os.listdir(riscv_test_dir) if f.endswith((".o", ".so"))]
 
     if not test_files:
         raise unittest.SkipTest(f"No .o or .so files found in {riscv_test_dir}")

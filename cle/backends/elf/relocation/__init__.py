@@ -5,11 +5,11 @@ import logging
 from .amd64 import relocation_table_amd64
 from .arm import relocation_table_arm
 from .arm64 import relocation_table_arm64
-from .riscv64 import relocation_table_riscv64
 from .i386 import relocation_table_i386
 from .mips import relocation_table_mips
 from .ppc import relocation_table_ppc
 from .ppc64 import relocation_table_ppc64
+from .riscv64 import relocation_table_riscv64
 from .s390x import relocation_table_s390x
 from .sparc import relocation_table_sparc
 
