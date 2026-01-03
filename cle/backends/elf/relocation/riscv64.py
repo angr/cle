@@ -51,7 +51,7 @@ class R_RISCV_RELATIVE(ELFReloc):
     AUTO_HANDLE_NONE = True
 
     @property
-    def value(self):
+    def value(self) -> int:
         return self.owner.mapped_base + self.addend
 
 class R_RISCV_COPY(GenericCopyReloc):
@@ -72,7 +72,7 @@ class R_RISCV_BRANCH(ELFReloc):
     Calculation: S + A - P
     """
     @property
-    def value(self):
+    def value(self) -> int:
         if self.resolvedby is None:
             return 0
 
@@ -122,7 +122,7 @@ class R_RISCV_JAL(ELFReloc):
     AUTO_HANDLE_NONE = False
 
     @property
-    def value(self):
+    def value(self) -> int:
         if self.resolvedby is None:
             return 0
 
@@ -160,7 +160,7 @@ class R_RISCV_CALL_PLT(ELFReloc):
     Calculation: S + A - P
     """
     @property
-    def value(self):
+    def value(self) -> int:
         if self.resolvedby is None:
             return 0
 
@@ -205,7 +205,7 @@ class R_RISCV_GOT_HI20(RelocGOTMixin, ELFReloc):
     Calculation: G + GOT + A - P
     """
     @property
-    def value(self):
+    def value(self) -> int:
         if self.resolvedby is None:
             return 0
 
@@ -237,7 +237,7 @@ class R_RISCV_PCREL_HI20(ELFReloc):
     Calculation: S + A - P
     """
     @property
-    def value(self):
+    def value(self) -> int:
         if self.resolvedby is None:
             return 0
 
@@ -340,7 +340,7 @@ class R_RISCV_LO12_I(ELFReloc):
     Calculation: S + A
     """
     @property
-    def value(self):
+    def value(self) -> int:
         if self.resolvedby is None:
             return 0
 
@@ -368,7 +368,7 @@ class R_RISCV_LO12_S(ELFReloc):
     Calculation: S + A
     """
     @property
-    def value(self):
+    def value(self) -> int:
         if self.resolvedby is None:
             return 0
 
@@ -397,7 +397,7 @@ class R_RISCV_ADD8(ELFReloc):
     Calculation: V + S + A
     """
     @property
-    def value(self):
+    def value(self) -> int:
         if self.resolvedby is None:
             return 0
 
@@ -420,7 +420,7 @@ class R_RISCV_ADD16(ELFReloc):
     Calculation: V + S + A
     """
     @property
-    def value(self):
+    def value(self) -> int:
         if self.resolvedby is None:
             return 0
 
@@ -442,7 +442,7 @@ class R_RISCV_ADD32(ELFReloc):
     Calculation: V + S + A
     """
     @property
-    def value(self):
+    def value(self) -> int:
         if self.resolvedby is None:
             return 0
 
@@ -465,7 +465,7 @@ class R_RISCV_ADD64(ELFReloc):
     Calculation: V + S + A
     """
     @property
-    def value(self):
+    def value(self) -> int:
         if self.resolvedby is None:
             return 0
 
@@ -488,7 +488,7 @@ class R_RISCV_SUB8(ELFReloc):
     Calculation: V - S - A
     """
     @property
-    def value(self):
+    def value(self) -> int:
         if self.resolvedby is None:
             return 0
         
@@ -511,7 +511,7 @@ class R_RISCV_SUB16(ELFReloc):
     Calculation: V - S - A
     """
     @property
-    def value(self):
+    def value(self) -> int:
         if self.resolvedby is None:
             return 0
 
@@ -534,7 +534,7 @@ class R_RISCV_SUB32(ELFReloc):
     Calculation: V - S - A
     """
     @property
-    def value(self):
+    def value(self) -> int:
         if self.resolvedby is None:
             return 0
 
@@ -557,7 +557,7 @@ class R_RISCV_SUB64(ELFReloc):
     Calculation: V - S - A
     """
     @property
-    def value(self):
+    def value(self) -> int:
         if self.resolvedby is None:
             return 0
         S = self.resolvedby.rebased_addr
@@ -588,7 +588,7 @@ class R_RISCV_RVC_BRANCH(ELFReloc):
     Calculation: S + A - P
     """
     @property
-    def value(self):
+    def value(self) -> int:
         if self.resolvedby is None:
             return 0
 
@@ -631,7 +631,7 @@ class R_RISCV_RVC_JUMP(ELFReloc):
     Calculation: S + A - P
     """
     @property
-    def value(self):
+    def value(self) -> int:
         if self.resolvedby is None:
             return 0
 
@@ -679,7 +679,7 @@ class R_RISCV_SUB6(ELFReloc):
     Calculation: V - S - A
     """
     @property
-    def value(self):
+    def value(self) -> int:
         if self.resolvedby is None:
             return 0
         
@@ -704,7 +704,7 @@ class R_RISCV_SET6(ELFReloc):
     Calculation: S + A
     """
     @property
-    def value(self):
+    def value(self) -> int:
         if self.resolvedby is None:
             return 0
 
@@ -757,7 +757,7 @@ class R_RISCV_32_PCREL(ELFReloc):
     Calculation: S + A - P
     """
     @property
-    def value(self):
+    def value(self) -> int:
         if self.resolvedby is None:
             return 0
 
