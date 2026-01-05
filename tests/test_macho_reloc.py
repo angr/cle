@@ -686,7 +686,45 @@ def test_amd64_macho_stubs():
     }
 
 
+def test_aarch64_macho_nop_stubs():
+    """Test AARCH64 MachO binaries with NOP,LDR,BR stub format"""
+    machofile = os.path.join(TEST_BASE, "tests", "aarch64", "macho_nop_stub")
+    ld = cle.Loader(machofile)
+
+    assert hasattr(ld.main_object, "stubs")
+    assert hasattr(ld.main_object, "reverse_stubs")
+    assert hasattr(ld.main_object, "plt")
+    assert hasattr(ld.main_object, "reverse_plt")
+    assert isinstance(ld.main_object, MachO)
+    assert ld.main_object.plt == ld.main_object.stubs
+    assert ld.main_object.reverse_plt == ld.main_object.reverse_stubs
+
+    assert ld.main_object.plt == {
+        "___stack_chk_fail": 4294983088,
+        "___strcpy_chk": 4294983100,
+        "_fgets": 4294983112,
+        "_printf": 4294983124,
+        "_rand": 4294983136,
+        "_srand": 4294983148,
+        "_strcspn": 4294983160,
+        "_strlen": 4294983172,
+        "_time": 4294983184,
+    }
+    assert ld.main_object.reverse_plt == {
+        4294983088: "___stack_chk_fail",
+        4294983100: "___strcpy_chk",
+        4294983112: "_fgets",
+        4294983124: "_printf",
+        4294983136: "_rand",
+        4294983148: "_srand",
+        4294983160: "_strcspn",
+        4294983172: "_strlen",
+        4294983184: "_time",
+    }
+
+
 if __name__ == "__main__":
     test_basic_reloc_functionality()
     test_chained_fixups_relocs()
     test_amd64_macho_stubs()
+    test_aarch64_macho_nop_stubs()
