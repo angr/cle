@@ -526,44 +526,84 @@ class MachO(Backend):
         stub_addr_by_got_addr: dict[int, int] = {}
 
         # attempt 1: AARCH64 stubs look like the following:
+        # Pattern 1:
         # __stubs:000000010000061C                 ADRP            X16, #_puts_ptr@PAGE
         # __stubs:0000000100000620                 LDR             X16, [X16,#_puts_ptr@PAGEOFF]
         # __stubs:0000000100000624                 BR              X16 ; __imp__puts
+        # OR
+        # Pattern 2:
+        # __stubs:0000000100003DB0                 NOP
+        # __stubs:0000000100003DB4                 LDR             X16, [PC,#offset]
+        # __stubs:0000000100003DB8                 BR              X16
         if self.arch.name == "AARCH64":
             for addr in range(stubs_section.vaddr, stubs_section.vaddr + stubs_section.memsize, 4 * 3):
                 rel_addr = AT.from_lva(addr, self).to_rva()
                 instr_bytes = self.memory.load(rel_addr, 4 * 3)
                 if len(instr_bytes) != 4 * 3:
                     break
-                adrp_instr = instr_bytes[0:4]
-                ldr_instr = instr_bytes[4:8]
-                br_instr = instr_bytes[8:12]
-                # parse ADRP
-                if adrp_instr[3] & 0x9F != 0x90:
-                    continue
-                adrp_imm = (
-                    ((adrp_instr[3] >> 5) & 0x3)
-                    | (adrp_instr[2] << 13)
-                    | (adrp_instr[1] << 5)
-                    | ((adrp_instr[0] >> 5) << 2)
-                ) << 12
-                adrp_reg = adrp_instr[0] & 0x1F
-                # parse LDR
-                if ldr_instr[3] & 0xBF != 0xB9 or ldr_instr[2] & 0xC0 != 0x40:
-                    continue
-                ldr_imm = (((ldr_instr[2] & 0x3F) << 6) | ((ldr_instr[1] >> 2) & 0x3F)) * 8
-                ldr_regn = ((ldr_instr[1] & 3) << 3) | (ldr_instr[0] >> 5)
-                ldr_regt = ldr_instr[0] & 0x1F
-                if ldr_regn != adrp_reg:
-                    continue
-                # parse BR
-                if br_instr[3] != 0xD6 or br_instr[2] != 0x1F or br_instr[1] & 0xFC != 0x00 or br_instr[0] & 0x1F != 0:
-                    continue
-                br_reg = (br_instr[0] >> 5) | ((br_instr[1] & 7) << 3)
-                if ldr_regt == br_reg:
-                    # likely a stub
-                    got_addr = (addr & 0xFFFFFFFFFFFFF000) + adrp_imm + ldr_imm
-                    stub_addr_by_got_addr[got_addr] = addr
+                first_instr = instr_bytes[0:4]
+
+                if first_instr[3] & 0x9F == 0x90:
+                    # First instruction is ADRP, Try Pattern 1
+                    adrp_instr = instr_bytes[0:4]
+                    ldr_instr = instr_bytes[4:8]
+                    br_instr = instr_bytes[8:12]
+                    # parse ADRP
+                    adrp_imm = (
+                        ((adrp_instr[3] >> 5) & 0x3)
+                        | (adrp_instr[2] << 13)
+                        | (adrp_instr[1] << 5)
+                        | ((adrp_instr[0] >> 5) << 2)
+                    ) << 12
+                    adrp_reg = adrp_instr[0] & 0x1F
+                    # parse LDR
+                    if ldr_instr[3] & 0xBF != 0xB9 or ldr_instr[2] & 0xC0 != 0x40:
+                        continue
+                    ldr_imm = (((ldr_instr[2] & 0x3F) << 6) | ((ldr_instr[1] >> 2) & 0x3F)) * 8
+                    ldr_regn = ((ldr_instr[1] & 3) << 3) | (ldr_instr[0] >> 5)
+                    ldr_regt = ldr_instr[0] & 0x1F
+                    if ldr_regn != adrp_reg:
+                        continue
+                    # parse BR
+                    if (
+                        br_instr[3] != 0xD6
+                        or br_instr[2] != 0x1F
+                        or br_instr[1] & 0xFC != 0x00
+                        or br_instr[0] & 0x1F != 0
+                    ):
+                        continue
+                    br_reg = (br_instr[0] >> 5) | ((br_instr[1] & 7) << 3)
+                    if ldr_regt == br_reg:
+                        # likely a stub
+                        got_addr = (addr & 0xFFFFFFFFFFFFF000) + adrp_imm + ldr_imm
+                        stub_addr_by_got_addr[got_addr] = addr
+
+                elif first_instr == b"\x1f\x20\x03\xd5":
+                    # First instruction is NOP, Try Pattern 2
+                    ldr_instr = instr_bytes[4:8]
+                    br_instr = instr_bytes[8:12]
+                    # parse LDR
+                    if ldr_instr[3] & 0x3F != 0x18:
+                        continue
+                    imm19 = (ldr_instr[0] >> 5) | (ldr_instr[1] << 3) | (ldr_instr[2] << 11)
+                    # Sign extend if bit 18 is set
+                    if imm19 & 0x40000:
+                        imm19 = imm19 - 0x80000
+                    ldr_imm = imm19 * 4
+                    ldr_regt = ldr_instr[0] & 0x1F
+                    # parse BR
+                    if (
+                        br_instr[3] != 0xD6
+                        or br_instr[2] != 0x1F
+                        or br_instr[1] & 0xFC != 0x00
+                        or br_instr[0] & 0x1F != 0
+                    ):
+                        continue
+                    br_reg = (br_instr[0] >> 5) | ((br_instr[1] & 7) << 3)
+                    if ldr_regt == br_reg:
+                        # likely a stub
+                        got_addr = (addr + 4) + ldr_imm
+                        stub_addr_by_got_addr[got_addr] = addr
 
         # attempt 2: x86_64 stubs look like the following:
         # __stubs:0000000100003F12                 jmp     cs:_fclose_ptr
