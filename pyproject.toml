@@ -18,13 +18,13 @@ classifiers = [
 dynamic = ["version"]
 requires-python = ">=3.10"
 dependencies = [
-    "archinfo==9.2.192.dev0",
+    "archinfo==9.2.192",
     "arpy==1.1.1",
     "cart",
     "minidump>=0.0.10",
     "pefile",
     "pyelftools>=0.29",
-    "pyvex==9.2.192.dev0",
+    "pyvex==9.2.192",
     "pyxbe~=1.0.3",
     "pyxdia~=0.1",
     "sortedcontainers>=2.0",
