@@ -222,6 +222,23 @@ def test_describe_addr():
     assert ld.describe_addr(ld.main_object.entry) == "_main+0x0 in fauxware.macho (0x100000de0)"
 
 
+def test_find_symbol():
+    machofile = os.path.join(TEST_BASE, "tests", "x86_64", "fauxware.macho")
+    ld = cle.Loader(machofile, auto_load_libs=False)
+
+    # Test finding a user defined symbol
+    sym = ld.find_symbol("_main")
+    assert sym is not None
+    assert sym.name == "_main"
+    assert sym.rebased_addr == 0x100000DE0
+
+    # Test finding an imported symbol
+    sym = ld.find_symbol("_printf")
+    assert sym is not None
+    assert sym.name == "_printf"
+    assert sym.rebased_addr == 0x100100028
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     test_dummy()
@@ -230,3 +247,4 @@ if __name__ == "__main__":
     test_find_section_containing()
     test_find_region_containing()
     test_describe_addr()
+    test_find_symbol()

@@ -607,6 +607,8 @@ class Loader:
                 if so is self._extern_object:
                     continue
                 sym = so.get_symbol(thing)
+                if isinstance(sym, list):
+                    sym = sym[0]
                 if sym is None:
                     continue
 
