@@ -56,7 +56,7 @@ class Loader:
     def __init__(
         self,
         main_binary: str | BinaryIO | Path | Backend,
-        auto_load_libs: bool = True,
+        auto_load_libs: bool = False,
         concrete_target=None,
         force_load_libs: Iterable[str | BinaryIO | Path] = (),
         skip_libs: Iterable[str] = (),
