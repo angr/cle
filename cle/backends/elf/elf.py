@@ -333,7 +333,11 @@ class ELF(MetaELF):
             # Check the ARM attributes, if they exist
             arm_attrs = ELF._extract_arm_attrs(reader)
             if arm_attrs and "TAG_CPU_NAME" in arm_attrs:
-                if arm_attrs["TAG_CPU_NAME"].endswith("-M") or "Cortex-M" in arm_attrs["TAG_CPU_NAME"]:
+                # Match Cortex-M variants:
+                # - Explicit: "Cortex-M3", "Cortex-M4", "Cortex-M33", etc.
+                # - ARMv*-M: "6-M", "7-M", "8-M.MAIN", "8-M.BASE", "8.1-M.MAIN", etc.
+                cpu_name = arm_attrs["TAG_CPU_NAME"]
+                if "Cortex-M" in cpu_name or "-M" in cpu_name:
                     return archinfo.ArchARMCortexM("Iend_LE")
             if reader.header.e_flags & 0x200:
                 return archinfo.ArchARMEL("Iend_LE" if reader.little_endian else "Iend_BE")
