@@ -19,6 +19,7 @@ from .regions import PESection
 from .relocation import get_relocation
 from .relocation.generic import IMAGE_REL_BASED_ABSOLUTE, IMAGE_REL_BASED_HIGHADJ, DllImport
 from .symbol import WinSymbol
+from .symbolserver import PDBInfo, SymbolResolver
 
 SECTION_NAME_STRING_TABLE_OFFSET_RE = re.compile(r"\/(\d+)")
 VALID_SYMBOL_NAME_RE = re.compile(r"[A-Za-z0-9_@$?]+")
@@ -405,9 +406,20 @@ class PE(Backend):
     def _find_pdb_path(self):
         """
         Find path to the PDB file containing debug information for this binary.
+
+        Search order:
+        1. Embedded path in PE (if exists on disk)
+        2. Next to binary with embedded filename
+        3. Same name as binary with .pdb extension
+        4. Symbol path (_NT_SYMBOL_PATH / SYMBOL_PATH environment variable)
+           - Local symbol stores
+           - Symbol servers (with download and caching)
         """
         path = None
         checks = []
+
+        # Extract PDB info from debug directory for symbol server lookups
+        pdb_info = PDBInfo.from_pe(self._pe)
 
         # Check PE file for path to PDB
         if hasattr(self._pe, "DIRECTORY_ENTRY_DEBUG"):
@@ -435,6 +447,16 @@ class PE(Backend):
             if os.path.exists(path):
                 return path
             checks.append(path)
+
+        # Search symbol path (local stores and symbol servers)
+        if pdb_info:
+            binary_dir = os.path.dirname(self.binary) if self.binary else None
+            resolver = SymbolResolver()
+            symbol_path_result = resolver.find_pdb(pdb_info, binary_dir)
+            if symbol_path_result:
+                return symbol_path_result
+            if resolver.symbol_path:
+                checks.append(f"symbol path ({resolver.symbol_path})")
 
         log.warning("Unable to find PDB file for this PE. Tried: %s", str(checks))
         return None
