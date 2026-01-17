@@ -19,7 +19,7 @@ from .regions import PESection
 from .relocation import get_relocation
 from .relocation.generic import IMAGE_REL_BASED_ABSOLUTE, IMAGE_REL_BASED_HIGHADJ, DllImport
 from .symbol import WinSymbol
-from .symbolserver import PDBInfo, SymbolResolver
+from .symbolserver import DownloadCancelledError, PDBInfo, SymbolResolver
 
 SECTION_NAME_STRING_TABLE_OFFSET_RE = re.compile(r"\/(\d+)")
 VALID_SYMBOL_NAME_RE = re.compile(r"[A-Za-z0-9_@$?]+")
@@ -34,13 +34,15 @@ class PE(Backend):
     Useful backend options:
 
     - ``debug_symbols``: Provides the path to a PDB file which contains the binary's debug symbols
+    - ``debug_symbol_paths``: List of paths to search for PDB files (searched before symbol servers)
     """
 
     is_default = True  # Tell CLE to automatically consider using the PE backend
 
-    def __init__(self, *args, debug_symbols=None, **kwargs):
+    def __init__(self, *args, debug_symbols=None, debug_symbol_paths=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.set_load_args(debug_symbols=debug_symbols)
+        self.set_load_args(debug_symbols=debug_symbols, debug_symbol_paths=debug_symbol_paths)
+        self._debug_symbol_paths = debug_symbol_paths or []
         self.segments = self.sections  # in a PE, sections and segments have the same meaning
         self.os = "windows"
         self._raw_data = self._binary_stream.read()
@@ -411,7 +413,8 @@ class PE(Backend):
         1. Embedded path in PE (if exists on disk)
         2. Next to binary with embedded filename
         3. Same name as binary with .pdb extension
-        4. Symbol path (_NT_SYMBOL_PATH / SYMBOL_PATH environment variable)
+        4. debug_symbol_paths (if provided)
+        5. Symbol path (_NT_SYMBOL_PATH / SYMBOL_PATH environment variable)
            - Local symbol stores
            - Symbol servers (with download and caching)
         """
@@ -447,6 +450,24 @@ class PE(Backend):
             if os.path.exists(path):
                 return path
             checks.append(path)
+
+        # Search debug_symbol_paths (user-provided paths)
+        if pdb_info and self._debug_symbol_paths:
+            for search_path in self._debug_symbol_paths:
+                if not os.path.exists(search_path):
+                    continue
+
+                # Check symbol store layout: path/pdbname/signature/pdbname
+                store_path = os.path.join(search_path, pdb_info.pdb_name, pdb_info.signature_id, pdb_info.pdb_name)
+                if os.path.exists(store_path):
+                    return store_path
+
+                # Check flat layout: path/pdbname
+                flat_path = os.path.join(search_path, pdb_info.pdb_name)
+                if os.path.exists(flat_path):
+                    return flat_path
+
+            checks.append(f"debug_symbol_paths ({self._debug_symbol_paths})")
 
         # Search symbol path (local stores and symbol servers)
         if pdb_info:

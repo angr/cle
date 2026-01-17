@@ -7,12 +7,18 @@ import tempfile
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
     import pefile
 
 log = logging.getLogger(name=__name__)
+
+
+class DownloadCancelledError(Exception):
+    """Raised when a download is cancelled by the client."""
+
+    pass
 
 
 @dataclass
@@ -224,14 +230,35 @@ class SymbolServerClient:
     def __init__(self, timeout: int = DEFAULT_TIMEOUT):
         self.timeout = timeout
 
-    def download_pdb(self, server_url: str, pdb_info: PDBInfo, cache_path: str | None = None) -> str | None:
+    def download_pdb(
+        self,
+        server_url: str,
+        pdb_info: PDBInfo,
+        cache_path: str | None = None,
+        confirm_callback: Callable[[str], bool] | None = None,
+        progress_callback: Callable[[int, int | None], bool] | None = None,
+    ) -> str | None:
         """
         Download PDB from symbol server.
 
         URL format: <server>/<pdb_name>/<signature_id>/<pdb_name>
         Also tries: <server>/<pdb_name>/<signature_id>/<pdb_name[:-1]_> (compressed)
 
-        Returns path to downloaded file, or None if not found.
+        Args:
+            server_url: Base URL of the symbol server
+            pdb_info: PDB information for the file to download
+            cache_path: Optional path to cache downloaded files
+            confirm_callback: Optional callback called with each URL before attempting download.
+                             Should return True to proceed with download, False to skip this URL.
+            progress_callback: Optional callback called during download with (bytes_downloaded, total_bytes).
+                              total_bytes may be None if content-length is not available.
+                              Should return True to continue, False to cancel the download.
+
+        Returns:
+            Path to downloaded file, or None if not found.
+
+        Raises:
+            DownloadCancelledError: If the download was cancelled via progress_callback.
         """
         # Build URLs to try
         base_url = self._build_symbol_url(server_url, pdb_info)
@@ -250,6 +277,12 @@ class SymbolServerClient:
         for url, filename in urls_to_try:
             log.debug("Trying to download from: %s", url)
 
+            # Check with confirm_callback if provided
+            if confirm_callback is not None:
+                if not confirm_callback(url):
+                    log.debug("Download skipped by confirm_callback: %s", url)
+                    continue
+
             # Determine destination
             if cache_path:
                 dest_dir = os.path.join(cache_path, pdb_info.pdb_name, pdb_info.signature_id)
@@ -259,7 +292,7 @@ class SymbolServerClient:
                 # Use temp directory if no cache
                 dest_path = os.path.join(tempfile.gettempdir(), f"pdb_{pdb_info.signature_id}_{filename}")
 
-            if self._try_download(url, dest_path):
+            if self._try_download(url, dest_path, progress_callback):
                 # Handle compressed files
                 if filename.endswith("_"):
                     final_name = pdb_info.pdb_name
@@ -282,8 +315,28 @@ class SymbolServerClient:
         # URL format: server/pdbname/signature/pdbname
         return f"{server_url}/{pdb_info.pdb_name}/{pdb_info.signature_id}/{pdb_info.pdb_name}"
 
-    def _try_download(self, url: str, dest_path: str) -> bool:
-        """Attempt to download file from URL using urllib."""
+    def _try_download(
+        self,
+        url: str,
+        dest_path: str,
+        progress_callback: Callable[[int, int | None], bool] | None = None,
+    ) -> bool:
+        """
+        Attempt to download file from URL using urllib.
+
+        Args:
+            url: URL to download from
+            dest_path: Local path to save the downloaded file
+            progress_callback: Optional callback called during download with (bytes_downloaded, total_bytes).
+                              total_bytes may be None if content-length is not available.
+                              Should return True to continue, False to cancel the download.
+
+        Returns:
+            True if download was successful, False otherwise.
+
+        Raises:
+            DownloadCancelledError: If the download was cancelled via progress_callback.
+        """
         try:
             request = urllib.request.Request(
                 url,
@@ -294,6 +347,12 @@ class SymbolServerClient:
             )
 
             with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                # Get total size if available
+                total_size = response.headers.get("Content-Length")
+                total_size = int(total_size) if total_size else None
+
+                bytes_downloaded = 0
+
                 # Read in chunks to handle large files
                 with open(dest_path, "wb") as f:
                     while True:
@@ -301,6 +360,19 @@ class SymbolServerClient:
                         if not chunk:
                             break
                         f.write(chunk)
+                        bytes_downloaded += len(chunk)
+
+                        # Call progress callback if provided
+                        if progress_callback is not None:
+                            if not progress_callback(bytes_downloaded, total_size):
+                                # Callback returned False, cancel download
+                                log.debug("Download cancelled by progress_callback: %s", url)
+                                # Clean up partial file
+                                try:
+                                    os.unlink(dest_path)
+                                except OSError:
+                                    pass
+                                raise DownloadCancelledError(f"Download cancelled: {url}")
 
             log.debug("Successfully downloaded to: %s", dest_path)
             return True
@@ -373,16 +445,30 @@ class SymbolResolver:
         """Read symbol path from environment variables."""
         return os.environ.get("_NT_SYMBOL_PATH") or os.environ.get("SYMBOL_PATH")
 
-    def find_pdb(self, pdb_info: PDBInfo, binary_dir: str | None = None) -> str | None:
+    def find_pdb(
+        self,
+        pdb_info: PDBInfo,
+        binary_dir: str | None = None,
+        confirm_callback: Callable[[str], bool] | None = None,
+        progress_callback: Callable[[int, int | None], bool] | None = None,
+    ) -> str | None:
         """
         Find PDB file using symbol path.
 
         Args:
             pdb_info: PDB information from PE file
             binary_dir: Directory of the PE binary (for relative searches)
+            confirm_callback: Optional callback called with each URL before attempting download.
+                             Should return True to proceed with download, False to skip this URL.
+            progress_callback: Optional callback called during download with (bytes_downloaded, total_bytes).
+                              total_bytes may be None if content-length is not available.
+                              Should return True to continue, False to cancel the download.
 
         Returns:
             Path to PDB file, or None if not found
+
+        Raises:
+            DownloadCancelledError: If the download was cancelled via progress_callback.
         """
         log.debug("Searching for PDB: %s (signature: %s)", pdb_info.pdb_name, pdb_info.signature_id)
 
@@ -399,7 +485,9 @@ class SymbolResolver:
 
                 # Download from server if not in cache
                 if result is None and entry.server_url:
-                    result = self._search_symbol_server(entry, pdb_info)
+                    result = self._search_symbol_server(
+                        entry, pdb_info, confirm_callback=confirm_callback, progress_callback=progress_callback
+                    )
 
             if result:
                 log.info("Found PDB at: %s", result)
@@ -441,6 +529,35 @@ class SymbolResolver:
 
         return None
 
-    def _search_symbol_server(self, entry: SymbolPathEntry, pdb_info: PDBInfo) -> str | None:
-        """Search symbol server and optionally cache result."""
-        return self.client.download_pdb(entry.server_url, pdb_info, entry.cache_path)
+    def _search_symbol_server(
+        self,
+        entry: SymbolPathEntry,
+        pdb_info: PDBInfo,
+        confirm_callback: Callable[[str], bool] | None = None,
+        progress_callback: Callable[[int, int | None], bool] | None = None,
+    ) -> str | None:
+        """
+        Search symbol server and optionally cache result.
+
+        Args:
+            entry: Symbol path entry containing server URL and cache path
+            pdb_info: PDB information for the file to download
+            confirm_callback: Optional callback called with each URL before attempting download.
+                             Should return True to proceed with download, False to skip this URL.
+            progress_callback: Optional callback called during download with (bytes_downloaded, total_bytes).
+                              total_bytes may be None if content-length is not available.
+                              Should return True to continue, False to cancel the download.
+
+        Returns:
+            Path to downloaded PDB file, or None if not found.
+
+        Raises:
+            DownloadCancelledError: If the download was cancelled via progress_callback.
+        """
+        return self.client.download_pdb(
+            entry.server_url,
+            pdb_info,
+            entry.cache_path,
+            confirm_callback=confirm_callback,
+            progress_callback=progress_callback,
+        )

@@ -7,6 +7,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from cle.backends.pe.symbolserver import (
+    DownloadCancelledError,
     PDBInfo,
     SymbolPathEntry,
     SymbolPathParser,
@@ -246,6 +247,143 @@ class TestSymbolServerClient(unittest.TestCase):
         result = client._try_download("https://example.com/test.pdb", "/tmp/test.pdb")
         assert result is False
 
+    @patch("urllib.request.urlopen")
+    def test_try_download_with_progress_callback(self, mock_urlopen):
+        """Test that progress callback receives download progress."""
+        mock_response = MagicMock()
+        mock_response.headers.get.return_value = "1000"  # Content-Length
+        mock_response.read.side_effect = [b"a" * 500, b"b" * 500, b""]
+        mock_response.__enter__ = MagicMock(return_value=mock_response)
+        mock_response.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_response
+
+        client = SymbolServerClient()
+        progress_calls = []
+
+        def progress_callback(downloaded, total):
+            progress_calls.append((downloaded, total))
+            return True  # Continue downloading
+
+        with tempfile.NamedTemporaryFile(delete=False) as f:
+            dest_path = f.name
+
+        try:
+            result = client._try_download(
+                "https://example.com/test.pdb", dest_path, progress_callback=progress_callback
+            )
+            assert result is True
+            assert len(progress_calls) == 2
+            assert progress_calls[0] == (500, 1000)
+            assert progress_calls[1] == (1000, 1000)
+        finally:
+            if os.path.exists(dest_path):
+                os.unlink(dest_path)
+
+    @patch("urllib.request.urlopen")
+    def test_try_download_cancelled_by_callback(self, mock_urlopen):
+        """Test that download can be cancelled via progress_callback."""
+        mock_response = MagicMock()
+        mock_response.headers.get.return_value = "2000"  # Content-Length
+        mock_response.read.side_effect = [b"a" * 500, b"b" * 500, b"c" * 500, b"d" * 500, b""]
+        mock_response.__enter__ = MagicMock(return_value=mock_response)
+        mock_response.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_response
+
+        client = SymbolServerClient()
+        progress_calls = []
+
+        def progress_callback(downloaded, total):
+            progress_calls.append((downloaded, total))
+            # Cancel after 1000 bytes
+            return downloaded < 1000
+
+        with tempfile.NamedTemporaryFile(delete=False) as f:
+            dest_path = f.name
+
+        try:
+            with self.assertRaises(DownloadCancelledError):
+                client._try_download("https://example.com/test.pdb", dest_path, progress_callback=progress_callback)
+            # Should have been called twice (500, 1000) before cancellation
+            assert len(progress_calls) == 2
+            # Partial file should be cleaned up
+            assert not os.path.exists(dest_path)
+        finally:
+            if os.path.exists(dest_path):
+                os.unlink(dest_path)
+
+    @patch("urllib.request.urlopen")
+    def test_download_pdb_with_confirm_callback_allows(self, mock_urlopen):
+        """Test confirm_callback allowing download."""
+        mock_response = MagicMock()
+        mock_response.headers.get.return_value = None
+        mock_response.read.side_effect = [b"PDB content", b""]
+        mock_response.__enter__ = MagicMock(return_value=mock_response)
+        mock_response.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_response
+
+        client = SymbolServerClient()
+        info = PDBInfo(pdb_name="test.pdb", guid="ABC", age=1, signature_id="ABC1")
+        confirmed_urls = []
+
+        def confirm_callback(url):
+            confirmed_urls.append(url)
+            return True  # Allow download
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = client.download_pdb(
+                "https://server.com", info, cache_path=tmpdir, confirm_callback=confirm_callback
+            )
+
+            assert result is not None
+            assert len(confirmed_urls) == 1
+            assert "test.pdb" in confirmed_urls[0]
+
+    @patch("urllib.request.urlopen")
+    def test_download_pdb_with_confirm_callback_denies(self, mock_urlopen):
+        """Test confirm_callback denying download."""
+        client = SymbolServerClient()
+        info = PDBInfo(pdb_name="test.pdb", guid="ABC", age=1, signature_id="ABC1")
+        confirmed_urls = []
+
+        def confirm_callback(url):
+            confirmed_urls.append(url)
+            return False  # Deny all downloads
+
+        result = client.download_pdb("https://server.com", info, confirm_callback=confirm_callback)
+
+        # Should have tried both URLs (.pdb and .pd_)
+        assert len(confirmed_urls) == 2
+        assert result is None
+        # urlopen should never have been called
+        mock_urlopen.assert_not_called()
+
+    @patch("urllib.request.urlopen")
+    def test_download_pdb_with_progress_callback(self, mock_urlopen):
+        """Test progress_callback during download_pdb."""
+        mock_response = MagicMock()
+        mock_response.headers.get.return_value = "100"
+        mock_response.read.side_effect = [b"x" * 100, b""]
+        mock_response.__enter__ = MagicMock(return_value=mock_response)
+        mock_response.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_response
+
+        client = SymbolServerClient()
+        info = PDBInfo(pdb_name="test.pdb", guid="ABC", age=1, signature_id="ABC1")
+        progress_calls = []
+
+        def progress_callback(downloaded, total):
+            progress_calls.append((downloaded, total))
+            return True
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = client.download_pdb(
+                "https://server.com", info, cache_path=tmpdir, progress_callback=progress_callback
+            )
+
+            assert result is not None
+            assert len(progress_calls) == 1
+            assert progress_calls[0] == (100, 100)
+
 
 class TestSymbolResolver(unittest.TestCase):
     """Test SymbolResolver functionality."""
@@ -359,6 +497,55 @@ class TestSymbolResolver(unittest.TestCase):
 
             assert result == cached_pdb
             mock_download.assert_not_called()
+
+    @patch.object(SymbolServerClient, "download_pdb")
+    def test_find_pdb_passes_confirm_callback(self, mock_download):
+        """Test that find_pdb passes confirm_callback to download_pdb."""
+        mock_download.return_value = "/tmp/downloaded.pdb"
+
+        resolver = SymbolResolver("srv*https://server.com")
+        info = PDBInfo(pdb_name="test.pdb", guid="ABC", age=1, signature_id="ABC1")
+
+        def confirm_callback(url):
+            return True
+
+        result = resolver.find_pdb(info, confirm_callback=confirm_callback)
+
+        assert result == "/tmp/downloaded.pdb"
+        mock_download.assert_called_once()
+        # Check that confirm_callback was passed
+        call_kwargs = mock_download.call_args.kwargs
+        assert call_kwargs["confirm_callback"] is confirm_callback
+
+    @patch.object(SymbolServerClient, "download_pdb")
+    def test_find_pdb_passes_progress_callback(self, mock_download):
+        """Test that find_pdb passes progress_callback to download_pdb."""
+        mock_download.return_value = "/tmp/downloaded.pdb"
+
+        resolver = SymbolResolver("srv*https://server.com")
+        info = PDBInfo(pdb_name="test.pdb", guid="ABC", age=1, signature_id="ABC1")
+
+        def progress_callback(downloaded, total):
+            return True
+
+        result = resolver.find_pdb(info, progress_callback=progress_callback)
+
+        assert result == "/tmp/downloaded.pdb"
+        mock_download.assert_called_once()
+        # Check that progress_callback was passed
+        call_kwargs = mock_download.call_args.kwargs
+        assert call_kwargs["progress_callback"] is progress_callback
+
+    @patch.object(SymbolServerClient, "download_pdb")
+    def test_find_pdb_propagates_cancellation_error(self, mock_download):
+        """Test that DownloadCancelledError propagates from find_pdb."""
+        mock_download.side_effect = DownloadCancelledError("Download cancelled")
+
+        resolver = SymbolResolver("srv*https://server.com")
+        info = PDBInfo(pdb_name="test.pdb", guid="ABC", age=1, signature_id="ABC1")
+
+        with self.assertRaises(DownloadCancelledError):
+            resolver.find_pdb(info)
 
 
 class TestSymbolPathEntry(unittest.TestCase):
