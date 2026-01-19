@@ -133,7 +133,7 @@ def test_dummy():
 
     assert len(expected_segments) == len(macho.segments)
     for segment_tuple in expected_segments:
-        (segname, vaddr, vsize, foff, fsize, nsect, flags) = segment_tuple
+        segname, vaddr, vsize, foff, fsize, nsect, flags = segment_tuple
         seg = macho[segname]
         assert seg is not None
         assert segname == seg.segname

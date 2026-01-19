@@ -16,16 +16,12 @@ def test_cclemory():  # pylint: disable=no-member
     clemory.add_backer(3000, b"ABCDEFGH")
 
     ffi = cffi.FFI()
-    ffi.cdef(
-        """
+    ffi.cdef("""
         int memcmp(const void* s1, const void* s2, size_t n);
-    """
-    )
-    c = ffi.verify(
-        """
+    """)
+    c = ffi.verify("""
         #include <string.h>
-    """
-    )
+    """)
     bytes_c = [ffi.from_buffer(backer) for _, backer in clemory.backers()]
     assert len(bytes_c) == 3
     out = c.memcmp(ffi.new("unsigned char []", b"\x90" * 10), bytes_c[0], 10)

@@ -464,7 +464,7 @@ class PE(Backend):
         while idx < self._pe.FILE_HEADER.NumberOfSymbols:
             offset = self._pe.FILE_HEADER.PointerToSymbolTable + idx * sizeof_symbol_desc
             sym_desc = self._raw_data[offset : offset + sizeof_symbol_desc]
-            (name, value, section, type_, _, num_aux_syms) = struct.unpack("<8sIhHBB", sym_desc)
+            name, value, section, type_, _, num_aux_syms = struct.unpack("<8sIhHBB", sym_desc)
             name_as_dwords = struct.unpack("<II", name)
             if name_as_dwords[0] == 0:
                 name = self._read_from_string_table(name_as_dwords[1])

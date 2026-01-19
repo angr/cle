@@ -152,7 +152,7 @@ class MachO(Backend):
 
             # parse the mach header:
             # (ignore all irrelevant fields)
-            (_, self.cputype, self.cpusubtype, self.filetype, self.ncmds, self.sizeofcmds, self.flags) = self._unpack(
+            _, self.cputype, self.cpusubtype, self.filetype, self.ncmds, self.sizeofcmds, self.flags = self._unpack(
                 "7I", binary_file, 0, 28
             )
 
@@ -296,7 +296,7 @@ class MachO(Backend):
         offset = lc_offset
         while count < self.ncmds and (offset - lc_offset) < self.sizeofcmds:
             count += 1
-            (cmd, size) = self._unpack("II", binary_file, offset, 8)
+            cmd, size = self._unpack("II", binary_file, offset, 8)
 
             # check for segments that interest us
             if cmd in [LC.LC_SEGMENT, LC.LC_SEGMENT_64]:  # LC_SEGMENT,LC_SEGMENT_64
@@ -328,16 +328,16 @@ class MachO(Backend):
             elif cmd in [LC.LC_ENCRYPTION_INFO, LC.LC_ENCRYPTION_INFO_64]:  # LC_ENCRYPTION_INFO(_64)
                 log.debug("Found LC_ENCRYPTION_INFO @ %#x", offset)
                 # Store the offset and size of the encrypted section for later
-                (_, _, cryptoff, cryptsize, cryptid) = self._unpack("5I", binary_file, offset, 20)
+                _, _, cryptoff, cryptsize, cryptid = self._unpack("5I", binary_file, offset, 20)
                 self.memory.set_crypt_info(cryptid, cryptoff, cryptsize)
 
             elif cmd in [LC.LC_DYLD_CHAINED_FIXUPS]:
                 log.info("Found LC_DYLD_CHAINED_FIXUPS @ %#x", offset)
-                (_, _, dataoff, datasize) = self._unpack("4I", binary_file, offset, 16)
+                _, _, dataoff, datasize = self._unpack("4I", binary_file, offset, 16)
                 self._dyld_chained_fixups_offset: int = dataoff
             elif cmd in [LC.LC_BUILD_VERSION]:
                 log.info("Found LC_BUILD_VERSION @ %#x", offset)
-                (_, _, _platform, minos, _sdk, _ntools) = self._unpack("6I", binary_file, offset, 6 * 4)
+                _, _, _platform, minos, _sdk, _ntools = self._unpack("6I", binary_file, offset, 6 * 4)
                 patch = (minos >> (8 * 0)) & 0xFF
                 minor = (minos >> (8 * 1)) & 0xFF
                 major = (minos >> (8 * 2)) & 0xFFFF
@@ -345,7 +345,7 @@ class MachO(Backend):
                 log.info("Found minimum version %s", ".".join([str(i) for i in self._minimum_version]))
             elif cmd in [LC.LC_DYLD_EXPORTS_TRIE]:
                 log.info("Found LC_DYLD_EXPORTS_TRIE @ %#x", offset)
-                (_, _, dataoff, datasize) = self._unpack("4I", binary_file, offset, 16)
+                _, _, dataoff, datasize = self._unpack("4I", binary_file, offset, 16)
                 self.export_blob = self._read(binary_file, dataoff, datasize)
             elif cmd in [LC.LC_DYSYMTAB]:
                 log.info("Found LC_DYSYMTAB @ %#x", offset)
@@ -739,7 +739,7 @@ class MachO(Backend):
     def _load_lc_data_in_code(self, f, off):
         log.debug("Parsing data in code")
 
-        (_, _, dataoff, datasize) = self._unpack("4I", f, off, 16)
+        _, _, dataoff, datasize = self._unpack("4I", f, off, 16)
         for i in range(dataoff, datasize, 8):
             blob = self._unpack("IHH", f, i, 8)
             self.lc_data_in_code.append(blob)
@@ -749,7 +749,7 @@ class MachO(Backend):
     def _load_lc_function_starts(self, f, off):
         # note that the logic below is based on Apple's dyldinfo.cpp, no official docs seem to exist
         log.debug("Parsing function starts")
-        (_, _, dataoff, datasize) = self._unpack("4I", f, off, 16)
+        _, _, dataoff, datasize = self._unpack("4I", f, off, 16)
 
         i = 0
         end = datasize
@@ -785,7 +785,7 @@ class MachO(Backend):
             log.error("More than one entry point for main detected, abort.")
             raise CLEInvalidBinaryError()
 
-        (_, _, self.entryoff, _) = self._unpack("2I2Q", f, offset, 24)
+        _, _, self.entryoff, _ = self._unpack("2I2Q", f, offset, 24)
         log.debug("LC_MAIN: entryoff=%#x", self.entryoff)
 
     def _load_lc_unixthread(self, f, offset):
@@ -812,7 +812,7 @@ class MachO(Backend):
         log.debug("LC_UNIXTHREAD: __pc=%#x", self.unixthread_pc)
 
     def _load_dylib_info(self, f, offset):
-        (_, _, name_offset, _, _, _) = self._unpack("6I", f, offset, 24)
+        _, _, name_offset, _, _, _ = self._unpack("6I", f, offset, 24)
         lib_path = self.parse_lc_str(f, offset + name_offset).decode("utf-8", errors="replace")
         log.debug("Adding library %r", lib_path)
         lib_base_name = lib_path.rsplit("/", 1)[-1]
@@ -823,7 +823,7 @@ class MachO(Backend):
         """
         Extracts information blobs for rebasing, binding and export
         """
-        (_, _, roff, rsize, boff, bsize, wboff, wbsize, lboff, lbsize, eoff, esize) = self._unpack("12I", f, offset, 48)
+        _, _, roff, rsize, boff, bsize, wboff, wbsize, lboff, lbsize, eoff, esize = self._unpack("12I", f, offset, 48)
 
         def blob_or_None(f: BufferedReader, off: int, size: int) -> bytes | None:  # helper
             return self._read(f, off, size) if off != 0 and size != 0 else None
@@ -843,7 +843,7 @@ class MachO(Backend):
         :return:
         """
 
-        (_, _, symoff, nsyms, stroff, strsize) = self._unpack("6I", f, offset, 24)
+        _, _, symoff, nsyms, stroff, strsize = self._unpack("6I", f, offset, 24)
 
         # load string table
         self.strtab = self._read(f, stroff, strsize)
@@ -910,7 +910,7 @@ class MachO(Backend):
             # The relevant struct is nlist_64 which is defined and documented in mach-o/nlist.h
             offset_in_symtab = i * structsize
             offset = offset_in_symtab + self.symtab_offset
-            (n_strx, n_type, n_sect, n_desc, n_value) = self._unpack(packstr, f, offset, structsize)
+            n_strx, n_type, n_sect, n_desc, n_value = self._unpack(packstr, f, offset, structsize)
             log.debug("Adding symbol # %d @ %#x: %s,%s,%s,%s,%s", i, offset, n_strx, n_type, n_sect, n_desc, n_value)
             sym = SymbolTableSymbol(self, offset_in_symtab, n_strx, n_type, n_sect, n_desc, n_value)
             self.symbols.add(sym)
@@ -957,12 +957,12 @@ class MachO(Backend):
         is64 = self.arch.bits == 64
         if not is64:
             segment_s_size = 56
-            (_, _, segname, vmaddr, vmsize, fileoff, filesize, maxprot, initprot, nsects, flags) = self._unpack(
+            _, _, segname, vmaddr, vmsize, fileoff, filesize, maxprot, initprot, nsects, flags = self._unpack(
                 "2I16s8I", f, offset, segment_s_size
             )
         else:
             segment_s_size = 72
-            (_, _, segname, vmaddr, vmsize, fileoff, filesize, maxprot, initprot, nsects, flags) = self._unpack(
+            _, _, segname, vmaddr, vmsize, fileoff, filesize, maxprot, initprot, nsects, flags = self._unpack(
                 "2I16s4Q4I", f, offset, segment_s_size
             )
 
