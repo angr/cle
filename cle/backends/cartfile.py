@@ -68,7 +68,7 @@ class CARTFile(Backend):
         stream.seek(0)
         if len(header) != 6:
             return False
-        (magic, version) = struct.unpack("4sh", header)
+        magic, version = struct.unpack("4sh", header)
         return magic == b"CART" and version == 1
 
     @staticmethod
