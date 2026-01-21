@@ -176,9 +176,7 @@ class TestPEBackend(unittest.TestCase):
             shutil.copy(pdb, pdb_dest)
 
             # Load with debug_symbol_paths pointing to the temp directory
-            ld = cle.Loader(
-                exe, auto_load_libs=False, load_debug_info=True, main_opts={"debug_symbol_paths": [tmpdir]}
-            )
+            ld = cle.Loader(exe, auto_load_libs=False, load_debug_info=True, main_opts={"debug_symbol_paths": [tmpdir]})
             assert ld.find_symbol("authenticate")
 
     def test_debug_symbol_paths_symbol_store_layout(self):
@@ -223,7 +221,10 @@ class TestPEBackend(unittest.TestCase):
 
                 # Load with both paths, PDB should be found in second path
                 ld = cle.Loader(
-                    exe, auto_load_libs=False, load_debug_info=True, main_opts={"debug_symbol_paths": [tmpdir1, tmpdir2]}
+                    exe,
+                    auto_load_libs=False,
+                    load_debug_info=True,
+                    main_opts={"debug_symbol_paths": [tmpdir1, tmpdir2]},
                 )
                 assert ld.find_symbol("authenticate")
 

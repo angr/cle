@@ -19,7 +19,7 @@ from .regions import PESection
 from .relocation import get_relocation
 from .relocation.generic import IMAGE_REL_BASED_ABSOLUTE, IMAGE_REL_BASED_HIGHADJ, DllImport
 from .symbol import WinSymbol
-from .symbolserver import DownloadCancelledError, PDBInfo, SymbolResolver
+from .symbolserver import PDBInfo, SymbolResolver
 
 SECTION_NAME_STRING_TABLE_OFFSET_RE = re.compile(r"\/(\d+)")
 VALID_SYMBOL_NAME_RE = re.compile(r"[A-Za-z0-9_@$?]+")

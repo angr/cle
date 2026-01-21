@@ -6,8 +6,9 @@ import subprocess
 import tempfile
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import pefile
@@ -400,9 +401,7 @@ class SymbolServerClient:
 
         # Try using cabextract (common on Linux)
         try:
-            result = subprocess.run(
-                ["cabextract", "-q", "-d", dest_dir, cab_path], capture_output=True, timeout=30
-            )
+            result = subprocess.run(["cabextract", "-q", "-d", dest_dir, cab_path], capture_output=True, timeout=30)
             if result.returncode == 0 and os.path.exists(dest_path):
                 log.debug("Decompressed CAB with cabextract: %s", dest_path)
                 return dest_path

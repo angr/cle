@@ -180,7 +180,10 @@ class TestSymbolServerClient(unittest.TestCase):
 
         url = client._build_symbol_url("https://msdl.microsoft.com/download/symbols", info)
 
-        assert url == "https://msdl.microsoft.com/download/symbols/kernel32.pdb/AABBCCDD11223344AABBCCDD112233441/kernel32.pdb"
+        assert (
+            url
+            == "https://msdl.microsoft.com/download/symbols/kernel32.pdb/AABBCCDD11223344AABBCCDD112233441/kernel32.pdb"
+        )
 
     def test_build_symbol_url_strips_trailing_slash(self):
         """Test that trailing slash is removed from server URL."""
@@ -559,9 +562,7 @@ class TestSymbolPathEntry(unittest.TestCase):
 
     def test_srv_entry(self):
         """Test creating server entry."""
-        entry = SymbolPathEntry(
-            entry_type="srv", cache_path="/cache", server_url="https://server.com", local_path=None
-        )
+        entry = SymbolPathEntry(entry_type="srv", cache_path="/cache", server_url="https://server.com", local_path=None)
         assert entry.entry_type == "srv"
         assert entry.cache_path == "/cache"
         assert entry.server_url == "https://server.com"
