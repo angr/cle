@@ -42,11 +42,14 @@ class TestPDBInfo(unittest.TestCase):
         mock_pe = MagicMock()
         mock_entry = MagicMock()
         mock_entry.struct.Type = 2  # IMAGE_DEBUG_TYPE_CODEVIEW
-        mock_entry.entry.CvSignature = 0x53445352  # RSDS
+        mock_entry.entry.name = "CV_INFO_PDB70"
+        mock_entry.entry.CvSignature = b"RSDS"
         mock_entry.entry.Signature_Data1 = 0x12345678
         mock_entry.entry.Signature_Data2 = 0xABCD
         mock_entry.entry.Signature_Data3 = 0xEF01
-        mock_entry.entry.Signature_Data4 = [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88]
+        mock_entry.entry.Signature_Data4 = 0x1122
+        mock_entry.entry.Signature_Data5 = 0x3344
+        mock_entry.entry.Signature_Data6_value = 0x55667788
         mock_entry.entry.Age = 1
         mock_entry.entry.PdbFileName = b"C:\\path\\to\\test.pdb\x00"
         mock_pe.DIRECTORY_ENTRY_DEBUG = [mock_entry]
@@ -64,7 +67,8 @@ class TestPDBInfo(unittest.TestCase):
         mock_pe = MagicMock()
         mock_entry = MagicMock()
         mock_entry.struct.Type = 2  # IMAGE_DEBUG_TYPE_CODEVIEW
-        mock_entry.entry.CvSignature = 0x3031424E  # NB10
+        mock_entry.entry.name = "CV_INFO_PDB20"
+        mock_entry.entry.CvSignature = b"NB10"
         mock_entry.entry.TimeDateStamp = 0xDEADBEEF
         mock_entry.entry.Age = 2
         mock_entry.entry.PdbFileName = b"old.pdb\x00"
@@ -393,15 +397,22 @@ class TestSymbolResolver(unittest.TestCase):
 
     def test_init_with_explicit_path(self):
         """Test initialization with explicit symbol path."""
-        resolver = SymbolResolver("srv*https://server.com")
-        assert resolver.symbol_path == "srv*https://server.com"
+        resolver = SymbolResolver("srv*https://server.com", search_microsoft_symserver=False)
+        assert resolver.symbol_path_str == "srv*https://server.com"
         assert len(resolver.entries) == 1
+
+    def test_init_with_explicit_path_no_microsoft_symserver(self):
+        """Test initialization with explicit symbol path but no Microsoft symserver."""
+        resolver = SymbolResolver("srv*https://server.com", download_symbols=True, search_microsoft_symserver=True)
+        assert resolver.symbol_path_str == "srv*https://server.com"
+        assert len(resolver.entries) == 2
+        assert resolver.entries[1].server_url == "https://msdl.microsoft.com/download/symbols"
 
     def test_init_reads_environment(self):
         """Test that resolver reads from environment if no path provided."""
         with patch.dict(os.environ, {"_NT_SYMBOL_PATH": "srv*https://env-server.com"}):
             resolver = SymbolResolver()
-            assert resolver.symbol_path == "srv*https://env-server.com"
+            assert resolver.symbol_path_str == "srv*https://env-server.com"
 
     def test_init_prefers_nt_symbol_path(self):
         """Test that _NT_SYMBOL_PATH takes precedence over SYMBOL_PATH."""
@@ -409,7 +420,7 @@ class TestSymbolResolver(unittest.TestCase):
             os.environ, {"_NT_SYMBOL_PATH": "srv*https://nt-server.com", "SYMBOL_PATH": "srv*https://other-server.com"}
         ):
             resolver = SymbolResolver()
-            assert "nt-server.com" in resolver.symbol_path
+            assert "nt-server.com" in resolver.symbol_path_str
 
     def test_search_local_store_flat_layout(self):
         """Test searching local store with flat layout."""
@@ -470,11 +481,39 @@ class TestSymbolResolver(unittest.TestCase):
             assert result == pdb_path
 
     @patch.object(SymbolServerClient, "download_pdb")
+    def test_find_pdb_download_disabled_by_default(self, mock_download):
+        """Test that find_pdb does not download when download_symbols is False."""
+        mock_download.return_value = "https://server.com/test.pdb"
+
+        resolver = SymbolResolver("srv*https://server.com", search_microsoft_symserver=False)
+        info = PDBInfo(pdb_name="test.pdb", guid="ABC", age=1, signature_id="ABC1")
+
+        result = resolver.find_pdb(info)
+        assert result is None
+        mock_download.assert_not_called()
+
+    def test_find_pdb_download_disabled_by_confirm_callback(self):
+        """Test that find_pdb does not download when the confirm callback returns False."""
+        confirm_called = {"called": False}
+
+        def confirm_callback(url) -> bool:
+            confirm_called["called"] = True
+            assert url.startswith("https://server.com/")
+            return False
+
+        resolver = SymbolResolver("srv*https://server.com", download_symbols=True, search_microsoft_symserver=False)
+        info = PDBInfo(pdb_name="test.pdb", guid="ABC", age=1, signature_id="ABC1")
+
+        result = resolver.find_pdb(info, confirm_callback=confirm_callback)
+        assert confirm_called["called"] is True
+        assert result is None
+
+    @patch.object(SymbolServerClient, "download_pdb")
     def test_find_pdb_downloads_from_server(self, mock_download):
         """Test that find_pdb downloads from server when not in cache."""
         mock_download.return_value = "/tmp/downloaded.pdb"
 
-        resolver = SymbolResolver("srv*https://server.com")
+        resolver = SymbolResolver("srv*https://server.com", download_symbols=True, search_microsoft_symserver=False)
         info = PDBInfo(pdb_name="test.pdb", guid="ABC", age=1, signature_id="ABC1")
 
         result = resolver.find_pdb(info)
@@ -506,7 +545,7 @@ class TestSymbolResolver(unittest.TestCase):
         """Test that find_pdb passes confirm_callback to download_pdb."""
         mock_download.return_value = "/tmp/downloaded.pdb"
 
-        resolver = SymbolResolver("srv*https://server.com")
+        resolver = SymbolResolver("srv*https://server.com", download_symbols=True, search_microsoft_symserver=False)
         info = PDBInfo(pdb_name="test.pdb", guid="ABC", age=1, signature_id="ABC1")
 
         def confirm_callback(url):
@@ -525,7 +564,7 @@ class TestSymbolResolver(unittest.TestCase):
         """Test that find_pdb passes progress_callback to download_pdb."""
         mock_download.return_value = "/tmp/downloaded.pdb"
 
-        resolver = SymbolResolver("srv*https://server.com")
+        resolver = SymbolResolver("srv*https://server.com", download_symbols=True, search_microsoft_symserver=False)
         info = PDBInfo(pdb_name="test.pdb", guid="ABC", age=1, signature_id="ABC1")
 
         def progress_callback(downloaded, total):
@@ -544,7 +583,7 @@ class TestSymbolResolver(unittest.TestCase):
         """Test that DownloadCancelledError propagates from find_pdb."""
         mock_download.side_effect = DownloadCancelledError("Download cancelled")
 
-        resolver = SymbolResolver("srv*https://server.com")
+        resolver = SymbolResolver("srv*https://server.com", download_symbols=True, search_microsoft_symserver=False)
         info = PDBInfo(pdb_name="test.pdb", guid="ABC", age=1, signature_id="ABC1")
 
         with self.assertRaises(DownloadCancelledError):

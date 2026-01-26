@@ -13,13 +13,11 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import pefile
 
-log = logging.getLogger(name=__name__)
+_l = logging.getLogger(name=__name__)
 
 
 class DownloadCancelledError(Exception):
     """Raised when a download is cancelled by the client."""
-
-    pass
 
 
 @dataclass
@@ -42,18 +40,11 @@ class PDBInfo:
             if debug_entry.struct.Type != 2:
                 continue
 
-            if not debug_entry.entry:
-                continue
-
             # Check for RSDS signature (PDB 7.0 format)
-            if hasattr(debug_entry.entry, "CvSignature"):
-                cv_sig = debug_entry.entry.CvSignature
-                # RSDS = 0x53445352
-                if cv_sig == 0x53445352:
-                    return cls._parse_rsds(debug_entry.entry)
-                # NB10 = 0x3031424E (older PDB 2.0 format)
-                elif cv_sig == 0x3031424E:
-                    return cls._parse_nb10(debug_entry.entry)
+            if debug_entry.entry.name == "CV_INFO_PDB70":
+                return cls._parse_rsds(debug_entry.entry)
+            elif debug_entry.entry.name == "CV_INFO_PDB20":
+                return cls._parse_nb10(debug_entry.entry)
 
         return None
 
@@ -61,18 +52,21 @@ class PDBInfo:
     def _parse_rsds(cls, entry) -> PDBInfo | None:
         """Parse RSDS (PDB 7.0) CodeView debug info."""
         try:
-            # pefile provides Signature as a struct with Data1-Data4 components
+            # pefile provides Signature as a struct with Data1-Data6 components
             # or as Signature_Data1, etc. directly on entry
             if hasattr(entry, "Signature_Data1"):
                 data1 = entry.Signature_Data1
                 data2 = entry.Signature_Data2
                 data3 = entry.Signature_Data3
-                data4 = bytes(entry.Signature_Data4)
+                data4 = entry.Signature_Data4
+                data5 = entry.Signature_Data5
+                data6 = entry.Signature_Data6_value
             else:
                 return None
 
-            # Build GUID: Data1 (4 bytes) + Data2 (2 bytes) + Data3 (2 bytes) + Data4 (8 bytes)
-            guid = f"{data1:08X}{data2:04X}{data3:04X}{data4.hex().upper()}"
+            # Build GUID: Data1 (4 bytes) + Data2 (2 bytes) + Data3 (2 bytes) + Data4 (2 bytes) + Data5 (2 bytes) +
+            # Data6 (4 bytes)
+            guid = f"{data1:08X}{data2:04X}{data3:04X}{data4:02X}{data5:02X}{data6:04X}"
 
             age = entry.Age
             pdb_name = entry.PdbFileName.rstrip(b"\x00").decode("utf-8", errors="replace")
@@ -82,8 +76,8 @@ class PDBInfo:
             signature_id = f"{guid}{age:x}"
 
             return cls(pdb_name=pdb_name, guid=guid, age=age, signature_id=signature_id)
-        except (AttributeError, ValueError) as e:
-            log.debug("Failed to parse RSDS debug info: %s", e)
+        except (AttributeError, ValueError) as ex:
+            _l.debug("Failed to parse RSDS debug info: %s", ex)
             return None
 
     @classmethod
@@ -101,8 +95,8 @@ class PDBInfo:
             signature_id = f"{guid}{age:x}"
 
             return cls(pdb_name=pdb_name, guid=guid, age=age, signature_id=signature_id)
-        except (AttributeError, ValueError) as e:
-            log.debug("Failed to parse NB10 debug info: %s", e)
+        except (AttributeError, ValueError):
+            _l.debug("Failed to parse NB10 debug info.", exc_info=True)
             return None
 
 
@@ -142,7 +136,7 @@ class SymbolPathParser:
             if not entry_str:
                 continue
 
-            parts = entry_str.split("*")
+            parts = [part.strip(" \n") for part in entry_str.split("*")]
             first = parts[0].lower()
 
             if first == "cache":
@@ -169,7 +163,12 @@ class SymbolPathParser:
 
             else:
                 # Local path - check if it looks like a path
-                if os.path.isabs(entry_str) or entry_str.startswith("\\\\") or entry_str.startswith("~"):
+                if (
+                    os.path.isabs(entry_str)
+                    or entry_str.startswith("\\\\")
+                    or entry_str.startswith("/")
+                    or entry_str.startswith("~")
+                ):
                     expanded = os.path.expanduser(entry_str)
                     entries.append(
                         SymbolPathEntry(entry_type="local", cache_path=None, server_url=None, local_path=expanded)
@@ -211,13 +210,11 @@ class SymbolPathParser:
     @classmethod
     def get_default_cache_dir(cls) -> str:
         """Get default symbol cache directory."""
-        # Windows default: %LOCALAPPDATA%\dbg\sym
+        # Windows default: %TEMP%\SymbolCache
         if os.name == "nt":
-            local_app_data = os.environ.get("LOCALAPPDATA", "")
-            if local_app_data:
-                return os.path.join(local_app_data, "dbg", "sym")
+            return os.path.join(tempfile.gettempdir(), "SymbolCache")
 
-        # Fallback: ~/.symbols
+        # Fallback: ~/.symbols (on non-Windows)
         return os.path.join(os.path.expanduser("~"), ".symbols")
 
 
@@ -276,22 +273,22 @@ class SymbolServerClient:
             urls_to_try.append((compressed_url, compressed_name))
 
         for url, filename in urls_to_try:
-            log.debug("Trying to download from: %s", url)
+            _l.debug("Trying to download from: %s", url)
 
             # Check with confirm_callback if provided
             if confirm_callback is not None:
                 if not confirm_callback(url):
-                    log.debug("Download skipped by confirm_callback: %s", url)
+                    _l.debug("Download skipped by confirm_callback: %s", url)
                     continue
 
             # Determine destination
             if cache_path:
                 dest_dir = os.path.join(cache_path, pdb_info.pdb_name, pdb_info.signature_id)
-                os.makedirs(dest_dir, exist_ok=True)
-                dest_path = os.path.join(dest_dir, filename)
             else:
                 # Use temp directory if no cache
-                dest_path = os.path.join(tempfile.gettempdir(), f"pdb_{pdb_info.signature_id}_{filename}")
+                dest_dir = os.path.join(tempfile.gettempdir(), "symbols", pdb_info.pdb_name, pdb_info.signature_id)
+            os.makedirs(dest_dir, exist_ok=True)
+            dest_path = os.path.join(dest_dir, filename)
 
             if self._try_download(url, dest_path, progress_callback):
                 # Handle compressed files
@@ -302,13 +299,14 @@ class SymbolServerClient:
                     if decompressed:
                         return decompressed
                     # If decompression fails, continue to next URL
-                    log.debug("Decompression failed, trying next URL")
+                    _l.debug("Decompression failed, trying next URL")
                     continue
                 return dest_path
 
         return None
 
-    def _build_symbol_url(self, server_url: str, pdb_info: PDBInfo) -> str:
+    @staticmethod
+    def _build_symbol_url(server_url: str, pdb_info: PDBInfo) -> str:
         """Build symbol server URL for PDB lookup."""
         # Ensure no trailing slash
         server_url = server_url.rstrip("/")
@@ -355,6 +353,7 @@ class SymbolServerClient:
                 bytes_downloaded = 0
 
                 # Read in chunks to handle large files
+                cleanup = False
                 with open(dest_path, "wb") as f:
                     while True:
                         chunk = response.read(8192)
@@ -367,28 +366,32 @@ class SymbolServerClient:
                         if progress_callback is not None:
                             if not progress_callback(bytes_downloaded, total_size):
                                 # Callback returned False, cancel download
-                                log.debug("Download cancelled by progress_callback: %s", url)
-                                # Clean up partial file
-                                try:
-                                    os.unlink(dest_path)
-                                except OSError:
-                                    pass
-                                raise DownloadCancelledError(f"Download cancelled: {url}")
+                                _l.debug("Download cancelled by progress_callback: %s", url)
+                                cleanup = True
+                                break
 
-            log.debug("Successfully downloaded to: %s", dest_path)
+                if cleanup:
+                    # Clean up partial file
+                    try:
+                        os.unlink(dest_path)
+                    except OSError:
+                        pass
+                    raise DownloadCancelledError(f"Download cancelled: {url}")
+
+            _l.debug("Successfully downloaded to: %s", dest_path)
             return True
 
-        except urllib.error.HTTPError as e:
-            if e.code == 404:
-                log.debug("Symbol not found at: %s", url)
+        except urllib.error.HTTPError as ex:
+            if ex.code == 404:
+                _l.debug("Symbol not found at: %s", url)
             else:
-                log.debug("HTTP error downloading %s: %s", url, e)
+                _l.debug("HTTP error downloading %s: %s", url, ex)
             return False
-        except urllib.error.URLError as e:
-            log.debug("URL error downloading %s: %s", url, e.reason)
+        except urllib.error.URLError as ex:
+            _l.debug("URL error downloading %s: %s", url, ex.reason)
             return False
-        except OSError as e:
-            log.debug("IO error downloading %s: %s", url, e)
+        except OSError as ex:
+            _l.debug("IO error downloading %s: %s", url, ex)
             return False
 
     def _decompress_cab(self, cab_path: str, dest_path: str) -> str | None:
@@ -403,7 +406,7 @@ class SymbolServerClient:
         try:
             result = subprocess.run(["cabextract", "-q", "-d", dest_dir, cab_path], capture_output=True, timeout=30)
             if result.returncode == 0 and os.path.exists(dest_path):
-                log.debug("Decompressed CAB with cabextract: %s", dest_path)
+                _l.debug("Decompressed CAB with cabextract: %s", dest_path)
                 return dest_path
         except (FileNotFoundError, subprocess.TimeoutExpired):
             pass
@@ -413,12 +416,12 @@ class SymbolServerClient:
             try:
                 result = subprocess.run(["expand", cab_path, dest_path], capture_output=True, timeout=30)
                 if result.returncode == 0 and os.path.exists(dest_path):
-                    log.debug("Decompressed CAB with expand: %s", dest_path)
+                    _l.debug("Decompressed CAB with expand: %s", dest_path)
                     return dest_path
             except (FileNotFoundError, subprocess.TimeoutExpired):
                 pass
 
-        log.warning(
+        _l.warning(
             "Could not decompress CAB file %s. Install cabextract (Linux) or ensure expand.exe is available (Windows).",
             cab_path,
         )
@@ -428,15 +431,60 @@ class SymbolServerClient:
 class SymbolResolver:
     """Main class for resolving PDB files from symbol path."""
 
-    def __init__(self, symbol_path: str | None = None):
+    def __init__(
+        self,
+        symbol_path_str: str | None = None,
+        local_dirs: list[str] | None = None,
+        download_symbols: bool = False,
+        search_microsoft_symserver: bool = True,
+    ):
         """
         Initialize resolver.
 
         Args:
-            symbol_path: Symbol path string. If None, reads from environment.
+            symbol_path_str: Symbol path string. If None, reads from environment ("_NT_SYMBOL_PATH" or "SYMBOL_PATH").
+                             Pass an empty string to disable loading from the environment.
+            local_dirs: Additional local directories to prepend to symbol path.
+            download_symbols: Whether to attempt downloading from symbol servers or not. Defaults to False.
+            search_microsoft_symserver: Whether to include the public Microsoft symbol server in searches. Defaults to
+                                        True.
         """
-        self.symbol_path = symbol_path if symbol_path is not None else self._get_symbol_path_from_env()
-        self.entries = SymbolPathParser.parse(self.symbol_path) if self.symbol_path else []
+        self.symbol_path_str = symbol_path_str if symbol_path_str is not None else self._get_symbol_path_from_env()
+        self.entries = SymbolPathParser.parse(self.symbol_path_str) if self.symbol_path_str else []
+        self.download_symbols = download_symbols
+        self.search_microsoft_symserver = search_microsoft_symserver
+
+        if local_dirs:
+            for local_dir in local_dirs:
+                expanded = os.path.expanduser(local_dir)
+                self.entries.insert(
+                    0,
+                    SymbolPathEntry(entry_type="local", cache_path=None, server_url=None, local_path=expanded),
+                )
+
+        if (
+            self.search_microsoft_symserver
+            and not self._has_ms_symbol_server_entry(self.entries)
+            and self.download_symbols
+        ):
+            # Append Microsoft symbol server by default
+            cache_path = None
+            for ent in self.entries:
+                if ent.entry_type == "srv" and ent.cache_path:
+                    cache_path = ent.cache_path
+                    break
+            if not cache_path:
+                cache_path = SymbolPathParser.get_default_cache_dir()
+
+            self.entries.append(
+                SymbolPathEntry(
+                    entry_type="srv",
+                    cache_path=cache_path,
+                    server_url=SymbolServerClient.MICROSOFT_SYMBOL_SERVER,
+                    local_path=None,
+                )
+            )
+
         self.client = SymbolServerClient()
 
     @staticmethod
@@ -444,10 +492,20 @@ class SymbolResolver:
         """Read symbol path from environment variables."""
         return os.environ.get("_NT_SYMBOL_PATH") or os.environ.get("SYMBOL_PATH")
 
+    @staticmethod
+    def _has_ms_symbol_server_entry(entries: list[SymbolPathEntry]) -> bool:
+        """Check if Microsoft symbol server is already in entries."""
+        for entry in entries:
+            if (
+                entry.entry_type == "srv"
+                and entry.server_url.lower() == SymbolServerClient.MICROSOFT_SYMBOL_SERVER.lower()
+            ):
+                return True
+        return False
+
     def find_pdb(
         self,
         pdb_info: PDBInfo,
-        binary_dir: str | None = None,
         confirm_callback: Callable[[str], bool] | None = None,
         progress_callback: Callable[[int, int | None], bool] | None = None,
     ) -> str | None:
@@ -469,7 +527,7 @@ class SymbolResolver:
         Raises:
             DownloadCancelledError: If the download was cancelled via progress_callback.
         """
-        log.debug("Searching for PDB: %s (signature: %s)", pdb_info.pdb_name, pdb_info.signature_id)
+        _l.debug("Searching for PDB: %s (signature: %s)", pdb_info.pdb_name, pdb_info.signature_id)
 
         for entry in self.entries:
             result = None
@@ -483,16 +541,16 @@ class SymbolResolver:
                     result = self._search_local_store(entry.cache_path, pdb_info)
 
                 # Download from server if not in cache
-                if result is None and entry.server_url:
+                if result is None and self.download_symbols and entry.server_url:
                     result = self._search_symbol_server(
                         entry, pdb_info, confirm_callback=confirm_callback, progress_callback=progress_callback
                     )
 
             if result:
-                log.info("Found PDB at: %s", result)
+                _l.info("Found PDB at: %s", result)
                 return result
 
-        log.debug("PDB not found in symbol path")
+        _l.debug("PDB not found in symbol path")
         return None
 
     def _search_local_store(self, local_path: str | None, pdb_info: PDBInfo) -> str | None:
@@ -520,10 +578,10 @@ class SymbolResolver:
                 if decompressed:
                     return decompressed
 
-        # Check flat layout (PDB directly in directory) - note: doesn't verify GUID/age
+        # Check flat layout (PDB directly in directory); unverified
         flat_path = os.path.join(local_path, pdb_info.pdb_name)
-        if os.path.exists(flat_path):
-            log.debug("Found PDB in flat layout (unverified): %s", flat_path)
+        if os.path.isfile(flat_path):
+            _l.debug("Found PDB in flat layout (unverified): %s", flat_path)
             return flat_path
 
         return None
