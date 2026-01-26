@@ -394,7 +394,7 @@ class SymbolServerClient:
             return False
 
     @staticmethod
-    def _decompress_cab(cab_path: str, dest_path: str) -> str | None:  # pylint:disable=unused-argument
+    def _decompress_cab(cab_path: str, dest_path: str) -> str | None:  # pylint:disable=unused-argument,useless-return
         """
         Decompress CAB file (Microsoft's symbol compression format).
 
@@ -404,7 +404,7 @@ class SymbolServerClient:
             "cle does not support decompressing CAB file %s yet. Contributions welcome.",
             cab_path,
         )
-        return None  # pylint:disable=useless-return
+        return None
 
 
 class SymbolResolver:
