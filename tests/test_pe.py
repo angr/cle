@@ -6,7 +6,10 @@ import shutil
 import tempfile
 import unittest
 
+import pefile
+
 import cle
+from cle.backends.pe.symbolserver import PDBInfo
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
 
@@ -186,10 +189,6 @@ class TestPEBackend(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             # First, load the PE to get the PDB info
-            import pefile
-
-            from cle.backends.pe.symbolserver import PDBInfo
-
             pe = pefile.PE(exe, fast_load=True)
             pe.parse_data_directories()
             pdb_info = PDBInfo.from_pe(pe)

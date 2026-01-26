@@ -1,9 +1,11 @@
 #!/usr/bin/env python
+# pylint:disable=no-self-use,use-implicit-booleaness-not-comparison
 from __future__ import annotations
 
 import os
 import tempfile
 import unittest
+import urllib.error
 from unittest.mock import MagicMock, patch
 
 from cle.backends.pe.symbolserver import (
@@ -224,9 +226,13 @@ class TestSymbolServerClient(unittest.TestCase):
     @patch("urllib.request.urlopen")
     def test_try_download_404(self, mock_urlopen):
         """Test handling of 404 response."""
-        import urllib.error
-
-        mock_urlopen.side_effect = urllib.error.HTTPError(url="", code=404, msg="Not Found", hdrs={}, fp=None)  # type: ignore
+        mock_urlopen.side_effect = urllib.error.HTTPError(
+            url="",
+            code=404,
+            msg="Not Found",
+            hdrs={},  # type: ignore
+            fp=None,
+        )
 
         client = SymbolServerClient()
 
@@ -243,8 +249,6 @@ class TestSymbolServerClient(unittest.TestCase):
     @patch("urllib.request.urlopen")
     def test_try_download_network_error(self, mock_urlopen):
         """Test handling of network errors."""
-        import urllib.error
-
         mock_urlopen.side_effect = urllib.error.URLError("Connection refused")
 
         client = SymbolServerClient()
@@ -547,7 +551,7 @@ class TestSymbolResolver(unittest.TestCase):
         resolver = SymbolResolver("srv*https://server.com", download_symbols=True, search_microsoft_symserver=False)
         info = PDBInfo(pdb_name="test.pdb", guid="ABC", age=1, signature_id="ABC1")
 
-        def confirm_callback(url):
+        def confirm_callback(url):  # pylint:disable=unused-argument
             return True
 
         result = resolver.find_pdb(info, confirm_callback=confirm_callback)
@@ -566,7 +570,7 @@ class TestSymbolResolver(unittest.TestCase):
         resolver = SymbolResolver("srv*https://server.com", download_symbols=True, search_microsoft_symserver=False)
         info = PDBInfo(pdb_name="test.pdb", guid="ABC", age=1, signature_id="ABC1")
 
-        def progress_callback(downloaded, total):
+        def progress_callback(downloaded, total):  # pylint:disable=unused-argument
             return True
 
         result = resolver.find_pdb(info, progress_callback=progress_callback)
