@@ -91,9 +91,6 @@ class TestSymbolPathParser(unittest.TestCase):
         result = SymbolPathParser.parse("")
         assert result == []
 
-        result = SymbolPathParser.parse(None)
-        assert result == []
-
     def test_parse_simple_local_path(self):
         """Test parsing simple local path."""
         result = SymbolPathParser.parse("/home/user/symbols")
@@ -118,6 +115,7 @@ class TestSymbolPathParser(unittest.TestCase):
         result = SymbolPathParser.parse("srv*~/cache*https://msdl.microsoft.com/download/symbols")
         assert len(result) == 1
         assert result[0].entry_type == "srv"
+        assert result[0].cache_path is not None
         assert "cache" in result[0].cache_path
         assert result[0].server_url == "https://msdl.microsoft.com/download/symbols"
 
@@ -228,7 +226,7 @@ class TestSymbolServerClient(unittest.TestCase):
         """Test handling of 404 response."""
         import urllib.error
 
-        mock_urlopen.side_effect = urllib.error.HTTPError(url="", code=404, msg="Not Found", hdrs={}, fp=None)
+        mock_urlopen.side_effect = urllib.error.HTTPError(url="", code=404, msg="Not Found", hdrs={}, fp=None)  # type: ignore
 
         client = SymbolServerClient()
 
@@ -420,6 +418,7 @@ class TestSymbolResolver(unittest.TestCase):
             os.environ, {"_NT_SYMBOL_PATH": "srv*https://nt-server.com", "SYMBOL_PATH": "srv*https://other-server.com"}
         ):
             resolver = SymbolResolver()
+            assert resolver.symbol_path_str
             assert "nt-server.com" in resolver.symbol_path_str
 
     def test_search_local_store_flat_layout(self):

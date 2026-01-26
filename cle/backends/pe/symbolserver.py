@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import os
-import subprocess
 import tempfile
 import urllib.error
 import urllib.request
@@ -147,7 +146,7 @@ class SymbolPathParser:
                     current_cache = cls.get_default_cache_dir()
                 continue
 
-            elif first == "srv":
+            if first == "srv":
                 # srv*<cache>*<server> or srv*<server>
                 entry = cls._parse_srv_entry(parts[1:], current_cache)
                 if entry:
@@ -394,35 +393,15 @@ class SymbolServerClient:
             _l.debug("IO error downloading %s: %s", url, ex)
             return False
 
-    def _decompress_cab(self, cab_path: str, dest_path: str) -> str | None:
+    @staticmethod
+    def _decompress_cab(cab_path: str, dest_path: str) -> str | None:  # pylint:disable=unused-argument
         """
         Decompress CAB file (Microsoft's symbol compression format).
 
         Returns path to decompressed file, or None if decompression not available.
         """
-        dest_dir = os.path.dirname(dest_path)
-
-        # Try using cabextract (common on Linux)
-        try:
-            result = subprocess.run(["cabextract", "-q", "-d", dest_dir, cab_path], capture_output=True, timeout=30)
-            if result.returncode == 0 and os.path.exists(dest_path):
-                _l.debug("Decompressed CAB with cabextract: %s", dest_path)
-                return dest_path
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            pass
-
-        # Try using expand.exe (Windows)
-        if os.name == "nt":
-            try:
-                result = subprocess.run(["expand", cab_path, dest_path], capture_output=True, timeout=30)
-                if result.returncode == 0 and os.path.exists(dest_path):
-                    _l.debug("Decompressed CAB with expand: %s", dest_path)
-                    return dest_path
-            except (FileNotFoundError, subprocess.TimeoutExpired):
-                pass
-
         _l.warning(
-            "Could not decompress CAB file %s. Install cabextract (Linux) or ensure expand.exe is available (Windows).",
+            "cle does not support decompressing CAB file %s yet. Contributions welcome.",
             cab_path,
         )
         return None
@@ -498,6 +477,7 @@ class SymbolResolver:
         for entry in entries:
             if (
                 entry.entry_type == "srv"
+                and entry.server_url is not None
                 and entry.server_url.lower() == SymbolServerClient.MICROSOFT_SYMBOL_SERVER.lower()
             ):
                 return True
@@ -611,6 +591,9 @@ class SymbolResolver:
         Raises:
             DownloadCancelledError: If the download was cancelled via progress_callback.
         """
+        if entry.server_url is None:
+            return None
+
         return self.client.download_pdb(
             entry.server_url,
             pdb_info,
