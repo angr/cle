@@ -881,16 +881,22 @@ class ELF(MetaELF):
         if filename_idx is not None:
             debug_line = dwarf.line_program_for_CU(cu)
             assert debug_line is not None
-            if debug_line.header.file_names is None:
-                assert filename_idx == 1
-                filename = file_path
-            else:
+            if debug_line.header.file_names is not None:
                 basename = debug_line.header.file_names[filename_idx]
                 basename_str = basename.DW_LNCT_path.decode(errors="replace")
                 dirname_idx = basename.DW_LNCT_directory_index
                 dirname = debug_line.header.directories[dirname_idx]
                 dirname_str = dirname.DW_LNCT_path.decode(errors="replace")
                 filename = f"{dirname_str}/{basename_str}"
+            elif debug_line.header.file_entry is not None:
+                basename = debug_line.header.file_entry[filename_idx - 1]
+                basename_str = basename.name.decode(errors="replace")
+                dirname_idx = basename.dir_index
+                dirname_str = debug_line.header.include_directory[dirname_idx - 1].decode(errors="replace")
+                filename = f"{dirname_str}/{basename_str}"
+            else:
+                assert filename_idx == 1
+                filename = file_path
         else:
             filename = None
 
