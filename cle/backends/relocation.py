@@ -53,6 +53,9 @@ class Relocation:
             self.resolve(None, extern_object=extern_object)
             return
 
+        if self.symbol is None:
+            return
+
         if self.symbol.is_static or self.symbol.is_local:
             # A static or local symbol should only be resolved by itself.
             self.resolve(self.symbol, extern_object=extern_object)
@@ -84,11 +87,10 @@ class Relocation:
             return
 
         # Use extern_size_hints if available (computed from relocation addends)
-        min_size = 0
-        if hasattr(self.owner, "extern_size_hints"):
-            min_size = self.owner.extern_size_hints.get(self.symbol.name, 0)
+        extern_size_hints = getattr(self.owner, "extern_size_hints", {})
+        min_size = extern_size_hints.get(self.symbol.name, 0)
 
-        new_symbol = extern_object.make_extern(self.symbol.name, size=min_size, sym_type=self.symbol._type, thumb=thumb)
+        new_symbol = extern_object.make_extern(self.symbol.name, size=min_size, sym_type=self.symbol._type, thumb=thumb)  # type: ignore[union-attr]
         self.resolve(new_symbol, extern_object=extern_object)
 
     def resolve(self, obj, extern_object=None):  # pylint: disable=unused-argument
