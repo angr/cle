@@ -13,12 +13,12 @@ def test_f_finale_extern_size_hints():
     ld = cle.Loader(path, auto_load_libs=False)
     obj = ld.main_object
 
-    assert obj.is_relocatable
+    assert obj.is_relocatable  # type: ignore[attr-defined]
     assert hasattr(obj, "extern_size_hints")
 
     # mobjinfo: max addend is 52
     # min_size = 52 + 8 = 60
-    assert obj.extern_size_hints["mobjinfo"] == 60
+    assert obj.extern_size_hints["mobjinfo"] == 60  # type: ignore[attr-defined]
 
     mobjinfo = None
     for sym in ld.symbols:

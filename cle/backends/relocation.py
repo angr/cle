@@ -90,7 +90,9 @@ class Relocation:
         extern_size_hints = getattr(self.owner, "extern_size_hints", {})
         min_size = extern_size_hints.get(self.symbol.name, 0)
 
-        new_symbol = extern_object.make_extern(self.symbol.name, size=min_size, sym_type=self.symbol._type, thumb=thumb)  # type: ignore[union-attr]
+        new_symbol = extern_object.make_extern(  # type: ignore[union-attr]
+            self.symbol.name, size=min_size, sym_type=self.symbol._type, thumb=thumb
+        )
         self.resolve(new_symbol, extern_object=extern_object)
 
     def resolve(self, obj, extern_object=None):  # pylint: disable=unused-argument
