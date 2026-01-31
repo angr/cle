@@ -63,7 +63,7 @@ class Relocation:
 
         weak_result = None
         for so in solist:
-            symbol = so.get_symbol(self.symbol.name)
+            symbol = so.get_symbol(self.symbol.name)  # type: ignore[union-attr]
             if symbol is not None and symbol.is_export:
                 if not symbol.is_weak:
                     self.resolve(symbol, extern_object=extern_object)
