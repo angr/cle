@@ -176,6 +176,7 @@ class ELF(MetaELF):
         self.is_relocatable = self._reader.header.e_type == "ET_REL"
         self.pic = self.pic or self._reader.header.e_type in ("ET_REL", "ET_DYN")
         self.tls_block_offset = None  # this is an ELF-only attribute
+        self.extern_size_hints: dict[str, int] = {}  # maps symbol name to a size based on reloc addends
         self._dynamic = {}
         self.deps = []
 
@@ -1269,6 +1270,16 @@ class ELF(MetaELF):
         for reloc in relocs:
             if reloc.symbol.name != "" and (force_jmprel or got_min <= reloc.linked_addr < got_max):
                 self.jmprel[reloc.symbol.name] = reloc
+
+        # For relocatable objects, track max addend per symbol to infer extern sizes
+        # Only use RELA sections where addend is explicit (x86_64, AArch64, etc.)
+        # REL sections (ARM, i386) store instruction bytes, not struct offsets
+        if self.is_relocatable:
+            for reloc in relocs:
+                if reloc.symbol and reloc.symbol.name and getattr(reloc, "is_rela", False) and reloc.addend > 0:
+                    name = reloc.symbol.name
+                    min_size = reloc.addend + self.arch.bytes
+                    self.extern_size_hints[name] = max(self.extern_size_hints.get(name, 0), min_size)
 
     def __register_tls(self, seg_readelf):
         self.tls_block_size = seg_readelf.header.p_memsz
