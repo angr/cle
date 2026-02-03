@@ -397,11 +397,15 @@ class PE(Backend):
         callbacks = []
 
         callback_rva = AT.from_lva(addr, self).to_rva()
-        callback = self._pe.get_dword_at_rva(callback_rva)
+        is_64bit = self.arch.bits == 64
+        ptr_size = 8 if is_64bit else 4
+        get_ptr = self._pe.get_qword_at_rva if is_64bit else self._pe.get_dword_at_rva
+
+        callback = get_ptr(callback_rva)
         while callback != 0 and callback is not None:
             callbacks.append(callback)
-            callback_rva += 4
-            callback = self._pe.get_dword_at_rva(callback_rva)
+            callback_rva += ptr_size
+            callback = get_ptr(callback_rva)
 
         return callbacks
 
