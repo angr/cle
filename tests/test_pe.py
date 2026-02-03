@@ -128,6 +128,17 @@ class TestPEBackend(unittest.TestCase):
         assert len(ld.tls.modules) == 1
         assert tls.get_tls_data_addr(0) == tls.memory.unpack_word(0)
 
+    def test_tls_x64(self):
+        exe = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "TLS.exe")
+        ld = cle.Loader(exe, auto_load_libs=False)
+        tls = ld.tls.new_thread()
+
+        assert ld.main_object.tls_used
+        assert ld.main_object.tls_callbacks == [0x140001000]
+
+        assert tls is not None
+        assert len(ld.tls.modules) == 1
+
     def test_pdb(self):
         exe = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "fauxware.exe")
         pdb = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "fauxware.pdb")
