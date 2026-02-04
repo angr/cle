@@ -213,7 +213,12 @@ class PE(Backend):
             log.exception("Failed to load PDB at %s", pdb_path)
             return
 
-        for item in itertools.chain(pdb.globals, pdb.publics):
+        if pdb.globals is None:  # pdbs may not have global symbols
+            iterator = pdb.publics
+        else:
+            iterator = itertools.chain(pdb.globals, pdb.publics)
+
+        for item in iterator:
             rva = item["relativeVirtualAddress"]
             if rva is None:
                 continue
