@@ -892,7 +892,10 @@ class ELF(MetaELF):
                 basename = debug_line.header.file_entry[filename_idx - 1]
                 basename_str = basename.name.decode(errors="replace")
                 dirname_idx = basename.dir_index
-                dirname_str = debug_line.header.include_directory[dirname_idx - 1].decode(errors="replace")
+                if dirname_idx == 0:
+                    dirname_str = "."
+                else:
+                    dirname_str = debug_line.header.include_directory[dirname_idx - 1].decode(errors="replace")
                 filename = f"{dirname_str}/{basename_str}"
             else:
                 assert filename_idx == 1
