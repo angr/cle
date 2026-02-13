@@ -1168,6 +1168,8 @@ class ELF(MetaELF):
             rela_tag = "DT_" + self.rela_type
             relsz_tag = rela_tag + "SZ"
             if rela_tag in self._dynamic:
+                if "DT_PLTRELSZ" in self._dynamic:
+                    relsz_tag = "DT_PLTRELSZ"
                 reloffset = AT.from_lva(self._dynamic[rela_tag], self).to_rva()
                 if relsz_tag not in self._dynamic:
                     raise CLEInvalidBinaryError(f"Dynamic section contains {rela_tag} but not {relsz_tag}")
