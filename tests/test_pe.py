@@ -2,9 +2,14 @@
 from __future__ import annotations
 
 import os
+import shutil
+import tempfile
 import unittest
 
+import pefile
+
 import cle
+from cle.backends.pe.symbolserver import PDBInfo
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
 
@@ -123,7 +128,17 @@ class TestPEBackend(unittest.TestCase):
         assert len(ld.tls.modules) == 1
         assert tls.get_tls_data_addr(0) == tls.memory.unpack_word(0)
 
-    @unittest.skipUnless(cle.backends.pe.pe.PDB_SUPPORT_ENABLED, "PDB")
+    def test_tls_x64(self):
+        exe = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "TLS.exe")
+        ld = cle.Loader(exe, auto_load_libs=False)
+        tls = ld.tls.new_thread()
+
+        assert ld.main_object.tls_used
+        assert ld.main_object.tls_callbacks == [0x140001000]
+
+        assert tls is not None
+        assert len(ld.tls.modules) == 1
+
     def test_pdb(self):
         exe = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "fauxware.exe")
         pdb = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "fauxware.pdb")
@@ -163,6 +178,85 @@ class TestPEBackend(unittest.TestCase):
         exe = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "simple_crackme_x64.exe")
         ld = cle.Loader(exe, auto_load_libs=False)
         assert ld.find_symbol("main")
+
+    def test_debug_symbol_paths_flat_layout(self):
+        """Test loading PDB from debug_symbol_paths with flat layout."""
+        exe = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "fauxware.exe")
+        pdb = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "fauxware.pdb")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Copy PDB to a separate directory (flat layout)
+            pdb_dest = os.path.join(tmpdir, "fauxware.pdb")
+            shutil.copy(pdb, pdb_dest)
+
+            # Load with debug_symbol_paths pointing to the temp directory
+            ld = cle.Loader(exe, auto_load_libs=False, load_debug_info=True, main_opts={"debug_symbol_paths": [tmpdir]})
+            assert ld.find_symbol("authenticate")
+
+    def test_debug_symbol_paths_symbol_store_layout(self):
+        """Test loading PDB from debug_symbol_paths with symbol store layout."""
+        exe = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "fauxware.exe")
+        pdb = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "fauxware.pdb")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # First, load the PE to get the PDB info
+            pe = pefile.PE(exe, fast_load=True)
+            pe.parse_data_directories()
+            pdb_info = PDBInfo.from_pe(pe)
+            pe.close()
+
+            # Create symbol store layout: tmpdir/pdbname/signature/pdbname
+            if pdb_info:
+                store_dir = os.path.join(tmpdir, pdb_info.pdb_name, pdb_info.signature_id)
+                os.makedirs(store_dir)
+                pdb_dest = os.path.join(store_dir, pdb_info.pdb_name)
+                shutil.copy(pdb, pdb_dest)
+
+                # Load with debug_symbol_paths pointing to the temp directory
+                ld = cle.Loader(
+                    exe, auto_load_libs=False, load_debug_info=True, main_opts={"debug_symbol_paths": [tmpdir]}
+                )
+                assert ld.find_symbol("authenticate")
+
+    def test_debug_symbol_paths_multiple_paths(self):
+        """Test loading PDB with multiple debug_symbol_paths."""
+        exe = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "fauxware.exe")
+        pdb = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "fauxware.pdb")
+
+        with tempfile.TemporaryDirectory() as tmpdir1:
+            with tempfile.TemporaryDirectory() as tmpdir2:
+                # Put PDB in second directory
+                pdb_dest = os.path.join(tmpdir2, "fauxware.pdb")
+                shutil.copy(pdb, pdb_dest)
+
+                # Load with both paths, PDB should be found in second path
+                ld = cle.Loader(
+                    exe,
+                    auto_load_libs=False,
+                    load_debug_info=True,
+                    main_opts={"debug_symbol_paths": [tmpdir1, tmpdir2]},
+                )
+                assert ld.find_symbol("authenticate")
+
+    def test_debug_symbol_paths_nonexistent_path(self):
+        """Test that nonexistent debug_symbol_paths are handled gracefully."""
+        exe = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "fauxware.exe")
+        pdb = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "fauxware.pdb")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Copy PDB to valid directory
+            pdb_dest = os.path.join(tmpdir, "fauxware.pdb")
+            shutil.copy(pdb, pdb_dest)
+
+            # Include a nonexistent path before the valid one
+            nonexistent = "/nonexistent/path/that/does/not/exist"
+            ld = cle.Loader(
+                exe,
+                auto_load_libs=False,
+                load_debug_info=True,
+                main_opts={"debug_symbol_paths": [nonexistent, tmpdir]},
+            )
+            assert ld.find_symbol("authenticate")
 
 
 if __name__ == "__main__":

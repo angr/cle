@@ -180,6 +180,7 @@ class SymbolTableSymbol(AbstractMachOSymbol):
         else:
             return None
 
+    @property
     def is_weak(self):
         # compare https://developer.apple.com/library/mac/documentation/DeveloperTools/Conceptual/MachOTopics/1-Articles/executing_files.html
         return self.is_weak_referenced

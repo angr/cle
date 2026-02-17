@@ -13,7 +13,7 @@ class TestTlsResiliency(TestCase):
     @staticmethod
     def test_tls_pe_incorrect_tls_data_start():
         p = os.path.join(test_location, "i386", "windows", "2.exe")
-        path_ld = cle.Loader(p)
+        path_ld = cle.Loader(p, auto_load_libs=True)
         assert path_ld is not None
         th = path_ld.tls.new_thread()
         assert th is not None

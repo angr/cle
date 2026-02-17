@@ -17,7 +17,7 @@ def test_empty_segements():
     :return:
     """
     path = os.path.join(test_location, "armel", "efm32gg.elf")
-    cle.Loader(path, rebase_granularity=0x1000)
+    cle.Loader(path, rebase_granularity=0x1000, auto_load_libs=True)
     # If we survive this, we're doing OK!
 
 
@@ -30,7 +30,7 @@ def test_thumb_object():
     :return:
     """
     path = os.path.join(test_location, "armel", "i2c_api.o")
-    loader = cle.Loader(path, rebase_granularity=0x1000)
+    loader = cle.Loader(path, rebase_granularity=0x1000, auto_load_libs=True)
     for r in loader.main_object.relocs:
         if r.__class__ == cle.backends.elf.relocation.arm.R_ARM_THM_JUMP24:
             if r.symbol.name == "HAL_I2C_ER_IRQHandler":

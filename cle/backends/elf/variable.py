@@ -78,12 +78,13 @@ class Variable:
         return var
 
     # overwritten for stack variables
-    def rebased_addr_from_cfa(self, cfa: int):
+    def rebased_addr_from_cfa(self, cfa: int) -> int:
         """
         The address of this variable in the global memory.
 
         :param cfa:     The canonical frame address as described by the DWARF standard.
         """
+        assert self.rebased_addr is not None
         return self.rebased_addr
 
     @property
@@ -139,6 +140,7 @@ class StackVariable(Variable):
         self.relative_addr = relative_addr
 
     def rebased_addr_from_cfa(self, cfa: int):
+        assert self.relative_addr is not None
         return self.relative_addr + cfa
 
     @property

@@ -176,6 +176,7 @@ class ELF(MetaELF):
         self.is_relocatable = self._reader.header.e_type == "ET_REL"
         self.pic = self.pic or self._reader.header.e_type in ("ET_REL", "ET_DYN")
         self.tls_block_offset = None  # this is an ELF-only attribute
+        self.extern_size_hints: dict[str, int] = {}  # maps symbol name to a size based on reloc addends
         self._dynamic = {}
         self.deps = []
 
@@ -333,7 +334,11 @@ class ELF(MetaELF):
             # Check the ARM attributes, if they exist
             arm_attrs = ELF._extract_arm_attrs(reader)
             if arm_attrs and "TAG_CPU_NAME" in arm_attrs:
-                if arm_attrs["TAG_CPU_NAME"].endswith("-M") or "Cortex-M" in arm_attrs["TAG_CPU_NAME"]:
+                # Match Cortex-M variants:
+                # - Explicit: "Cortex-M3", "Cortex-M4", "Cortex-M33", etc.
+                # - ARMv*-M: "6-M", "7-M", "8-M.MAIN", "8-M.BASE", "8.1-M.MAIN", etc.
+                cpu_name = arm_attrs["TAG_CPU_NAME"]
+                if "Cortex-M" in cpu_name or "-M" in cpu_name:
                     return archinfo.ArchARMCortexM("Iend_LE")
             if reader.header.e_flags & 0x200:
                 return archinfo.ArchARMEL("Iend_LE" if reader.little_endian else "Iend_BE")
@@ -454,6 +459,9 @@ class ELF(MetaELF):
         super().rebase(new_base)
 
         self.addr_to_line = SortedDict((addr + delta, value) for addr, value in self.addr_to_line.items())
+        self.functions_debug_info = {addr + delta: value for addr, value in self.functions_debug_info.items()}
+        for f in self.functions_debug_info.values():
+            f.rebase(delta)
 
     #
     # Private Methods
@@ -698,20 +706,24 @@ class ELF(MetaELF):
                 self.addr_to_line[relocated_addr].add((str(filename), line.state.line))
 
     @staticmethod
-    def _load_ranges_form_die(die: DIE, aranges) -> list[tuple[int, int]] | None:
+    def _load_ranges_form_die(die: DIE, aranges, base_addr: int | None = None) -> list[tuple[int, int]] | None:
         if aranges is not None and "DW_AT_ranges" in die.attributes:
-            base_addr = 0
             result = []
             for entry in aranges.get_range_list_at_offset(die.attributes["DW_AT_ranges"].value, die.cu):
                 if isinstance(entry, BaseAddressEntry):
                     base_addr = entry.base_address
                 elif isinstance(entry, RangeEntry):
-                    result.append((base_addr + entry.begin_offset, base_addr + entry.end_offset))
+                    if entry.is_absolute:
+                        result.append((entry.begin_offset, entry.end_offset))
+                    else:
+                        if base_addr is None:
+                            base_addr = die.cu.get_top_DIE().attributes["DW_AT_low_pc"].value
+                        result.append((base_addr + entry.begin_offset, base_addr + entry.end_offset))
             return result
         return None
 
     @staticmethod
-    def _load_low_high_pc_form_die(die: DIE) -> tuple[int | None, int | None]:
+    def _load_low_high_pc_form_die(die: DIE, base_addr: int = 0) -> tuple[int | None, int | None]:
         """
         Load low and high pc from a DIE.
 
@@ -723,7 +735,7 @@ class ELF(MetaELF):
         lowpc = die.attributes["DW_AT_low_pc"].value
 
         if "DW_AT_high_pc" not in die.attributes:
-            return lowpc, None
+            return lowpc + base_addr, None
 
         # DWARF v4 in section 2.17 describes how to interpret the
         # DW_AT_high_pc attribute based on the class of its form.
@@ -739,7 +751,7 @@ class ELF(MetaELF):
         else:
             log.warning("Error: invalid DW_AT_high_pc class:%s", highpc_attr_class)
             return lowpc, None
-        return lowpc, highpc
+        return lowpc + base_addr, highpc + base_addr
 
     def _load_dies(self, dwarf: DWARFInfo):
         """
@@ -827,7 +839,7 @@ class ELF(MetaELF):
                 if sub_prog is not None:
                     assert isinstance(sub_prog, Subprogram)
                     cu_.functions[sub_prog.low_pc] = sub_prog
-                    self.functions_debug_info[sub_prog.low_pc] = sub_prog
+                    self.functions_debug_info[sub_prog.ranges[0][0]] = sub_prog
             elif die_child.tag == "DW_TAG_namespace":
                 if "DW_AT_name" in die_child.attributes:
                     new_namespace = namespace + [die_child.attributes["DW_AT_name"].value.decode("utf-8")]
@@ -847,13 +859,56 @@ class ELF(MetaELF):
         subprogram,
         namespace: list[str] | None = None,
     ) -> LexicalBlock | None:
+        if "DW_AT_abstract_origin" in die.attributes:
+            origin = cu.get_DIE_from_refaddr(cu.cu_offset + die.attributes["DW_AT_abstract_origin"].value)
+        else:
+            origin = None
+
         if "DW_AT_name" in die.attributes:
             name = "::".join((namespace or []) + [die.attributes["DW_AT_name"].value.decode("utf-8")])
-        elif "DW_AT_abstract_origin" in die.attributes:
-            origin = die.get_DIE_from_attribute("DW_AT_abstract_origin")
+        elif origin is not None:
             name = self._dwarf_get_name_with_namespace(origin)
         else:
             name = None
+
+        if "DW_AT_decl_file" in die.attributes:
+            filename_idx = die.attributes["DW_AT_decl_file"].value
+        elif origin is not None and "DW_AT_decl_file" in origin.attributes:
+            filename_idx = origin.attributes["DW_AT_decl_file"].value
+        else:
+            filename_idx = None
+
+        if filename_idx is not None:
+            debug_line = dwarf.line_program_for_CU(cu)
+            assert debug_line is not None
+            if debug_line.header.file_names is not None:
+                basename = debug_line.header.file_names[filename_idx]
+                basename_str = basename.DW_LNCT_path.decode(errors="replace")
+                dirname_idx = basename.DW_LNCT_directory_index
+                dirname = debug_line.header.directories[dirname_idx]
+                dirname_str = dirname.DW_LNCT_path.decode(errors="replace")
+                filename = f"{dirname_str}/{basename_str}"
+            elif debug_line.header.file_entry is not None:
+                basename = debug_line.header.file_entry[filename_idx - 1]
+                basename_str = basename.name.decode(errors="replace")
+                dirname_idx = basename.dir_index
+                if dirname_idx == 0:
+                    dirname_str = "."
+                else:
+                    dirname_str = debug_line.header.include_directory[dirname_idx - 1].decode(errors="replace")
+                filename = f"{dirname_str}/{basename_str}"
+            else:
+                assert filename_idx == 1
+                filename = file_path
+        else:
+            filename = None
+
+        if "DW_AT_decl_line" in die.attributes:
+            line = die.attributes["DW_AT_decl_line"].value
+        elif origin is not None and "DW_AT_decl_line" in origin.attributes:
+            line = origin.attributes["DW_AT_decl_line"].value
+        else:
+            line = None
 
         low_pc, high_pc = self._load_low_high_pc_form_die(die)
         ranges = None
@@ -865,7 +920,7 @@ class ELF(MetaELF):
         if subprogram is None:
             subprogram = block = Subprogram.from_die(die, self, name, low_pc, high_pc, ranges)
         else:
-            block = LexicalBlock(low_pc, high_pc, ranges)
+            block = LexicalBlock(low_pc, high_pc, ranges, filename, line)
 
         for sub_die in cu.iter_DIE_children(die):
             is_variable = sub_die.tag == "DW_TAG_variable"
@@ -884,8 +939,10 @@ class ELF(MetaELF):
                 if sub_block is not None:
                     block.child_blocks.append(sub_block)
             elif sub_die.tag == "DW_TAG_inlined_subroutine":
-                subr = InlinedFunction()
+                subr = InlinedFunction(sub_die.offset)
                 low_pc, high_pc = self._load_low_high_pc_form_die(sub_die)
+                if "DW_AT_entry_pc" in sub_die.attributes:
+                    subr.entry = sub_die.attributes["DW_AT_entry_pc"].value
                 if low_pc is not None and high_pc is not None:
                     subr.ranges.append((low_pc, high_pc))
                 elif "DW_AT_ranges" in sub_die.attributes:
@@ -896,7 +953,21 @@ class ELF(MetaELF):
                 if "DW_AT_abstract_origin" in sub_die.attributes:
                     origin = sub_die.get_DIE_from_attribute("DW_AT_abstract_origin")
                     subr.name = self._dwarf_get_name_with_namespace(origin)
+                    if "DW_AT_external" in origin.attributes:
+                        subr.extern = origin.attributes["DW_AT_external"].value
+                    nargs = 0
+                    for arg_die in origin.iter_children():
+                        if arg_die.tag == "DW_TAG_formal_parameter":
+                            nargs += 1
+                    subr.nargs = nargs
+
                 subprogram.inlined_functions.append(subr)
+
+                sub_block = self._load_die_lex_block(
+                    sub_die, dwarf, aranges, expr_parser, type_list, cu, file_path, subprogram, namespace
+                )
+                if sub_block is not None:
+                    block.child_blocks.append(sub_block)
 
         return block
 
@@ -1269,6 +1340,16 @@ class ELF(MetaELF):
         for reloc in relocs:
             if reloc.symbol.name != "" and (force_jmprel or got_min <= reloc.linked_addr < got_max):
                 self.jmprel[reloc.symbol.name] = reloc
+
+        # For relocatable objects, track max addend per symbol to infer extern sizes
+        # Only use RELA sections where addend is explicit (x86_64, AArch64, etc.)
+        # REL sections (ARM, i386) store instruction bytes, not struct offsets
+        if self.is_relocatable:
+            for reloc in relocs:
+                if reloc.symbol and reloc.symbol.name and getattr(reloc, "is_rela", False) and reloc.addend > 0:
+                    name = reloc.symbol.name
+                    min_size = reloc.addend + self.arch.bytes
+                    self.extern_size_hints[name] = max(self.extern_size_hints.get(name, 0), min_size)
 
     def __register_tls(self, seg_readelf):
         self.tls_block_size = seg_readelf.header.p_memsz

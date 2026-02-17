@@ -5,14 +5,11 @@ import logging
 import os
 import re
 import struct
+from collections.abc import Callable
 
 import archinfo
 import pefile
-
-try:
-    import pyxdia
-except ImportError:
-    pyxdia = None
+import pyxdia
 
 from cle.address_translator import AT
 from cle.backends.backend import Backend, FunctionHint, FunctionHintSource, register_backend
@@ -23,8 +20,8 @@ from .regions import PESection
 from .relocation import get_relocation
 from .relocation.generic import IMAGE_REL_BASED_ABSOLUTE, IMAGE_REL_BASED_HIGHADJ, DllImport
 from .symbol import WinSymbol
+from .symbolserver import PDBInfo, SymbolResolver
 
-PDB_SUPPORT_ENABLED = pyxdia is not None
 SECTION_NAME_STRING_TABLE_OFFSET_RE = re.compile(r"\/(\d+)")
 VALID_SYMBOL_NAME_RE = re.compile(r"[A-Za-z0-9_@$?]+")
 
@@ -38,13 +35,42 @@ class PE(Backend):
     Useful backend options:
 
     - ``debug_symbols``: Provides the path to a PDB file which contains the binary's debug symbols
+    - ``debug_symbol_dirs``: List of directories to search for PDB files (searched before symbol servers)
+    - ``debug_symbol_path_str``: A string indicating symbol search paths, which may be provided in the
+                                _NT_SYMBOL_PATH format.
+    - ``download_debug_symbols``: Whether to attempt downloading debug symbols from symbol servers (if provided) or
+                                  not. Default to False.
+    - ``download_debug_symbol_confirm``: A callable that takes a URL string and returns True if downloading the debug
+                                         symbol from the URL is allowed by the user, False otherwise.
+    - ``download_debug_symbol_progress``: A callable that takes two integer arguments: bytes downloaded and total bytes.
+                                          This callable is called periodically to report download progress.
+    - ``search_microsoft_symserver``: Whether to include the Microsoft symbol server in symbol searches. Default to
+                                      True. Requires ``download_debug_symbols`` to be True to have any effect.
     """
 
     is_default = True  # Tell CLE to automatically consider using the PE backend
 
-    def __init__(self, *args, debug_symbols=None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        debug_symbols=None,
+        debug_symbol_dirs=None,
+        debug_symbol_path_str: str | None = None,
+        download_debug_symbols: bool = False,
+        download_debug_symbol_confirm: Callable[[str], bool] | None = None,
+        download_debug_symbol_progress: Callable[[int, int | None], bool] | None = None,
+        search_microsoft_symserver: bool = True,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
-        self.set_load_args(debug_symbols=debug_symbols)
+        self.set_load_args(debug_symbols=debug_symbols, debug_symbol_paths=debug_symbol_dirs)
+        self._debug_symbol_dirs = debug_symbol_dirs or []
+        self._debug_symbol_path_str = debug_symbol_path_str
+        self._download_debug_symbols = download_debug_symbols
+        self._download_debug_symbol_confirm = download_debug_symbol_confirm
+        self._download_debug_symbol_progress = download_debug_symbol_progress
+        self._search_microsoft_symserver = search_microsoft_symserver
+
         self.segments = self.sections  # in a PE, sections and segments have the same meaning
         self.os = "windows"
         self._raw_data = self._binary_stream.read()
@@ -180,10 +206,6 @@ class PE(Backend):
         """
         Load available symbols from PDB at `pdb_path`
         """
-        if pyxdia is None:
-            log.warning("Install pyxdia to load symbols from %s", pdb_path)
-            return
-
         log.debug("Loading symbols from %s", pdb_path)
         try:
             pdb = pyxdia.PDB(pdb_path)
@@ -191,7 +213,12 @@ class PE(Backend):
             log.exception("Failed to load PDB at %s", pdb_path)
             return
 
-        for item in itertools.chain(pdb.globals, pdb.publics):
+        if pdb.globals is None:  # pdbs may not have global symbols
+            iterator = pdb.publics
+        else:
+            iterator = itertools.chain(pdb.globals, pdb.publics)
+
+        for item in iterator:
             rva = item["relativeVirtualAddress"]
             if rva is None:
                 continue
@@ -375,11 +402,15 @@ class PE(Backend):
         callbacks = []
 
         callback_rva = AT.from_lva(addr, self).to_rva()
-        callback = self._pe.get_dword_at_rva(callback_rva)
+        is_64bit = self.arch.bits == 64
+        ptr_size = 8 if is_64bit else 4
+        get_ptr = self._pe.get_qword_at_rva if is_64bit else self._pe.get_dword_at_rva
+
+        callback = get_ptr(callback_rva)
         while callback != 0 and callback is not None:
             callbacks.append(callback)
-            callback_rva += 4
-            callback = self._pe.get_dword_at_rva(callback_rva)
+            callback_rva += ptr_size
+            callback = get_ptr(callback_rva)
 
         return callbacks
 
@@ -414,21 +445,26 @@ class PE(Backend):
     def _find_pdb_path(self):
         """
         Find path to the PDB file containing debug information for this binary.
+
+        Search order:
+        1. Embedded path in PE (if exists on disk)
+        2. Next to binary with embedded filename
+        3. Same name as binary with .pdb extension
+        4. debug_symbol_paths (if provided)
+        5. Symbol path (_NT_SYMBOL_PATH / SYMBOL_PATH environment variable)
+           - Local symbol stores
+           - Symbol servers (with download and caching)
         """
-        path = None
-        checks = []
+        attempts = []
 
-        # Check PE file for path to PDB
-        if hasattr(self._pe, "DIRECTORY_ENTRY_DEBUG"):
-            for de in self._pe.DIRECTORY_ENTRY_DEBUG:
-                if de.entry and hasattr(de.entry, "PdbFileName"):
-                    path = de.entry.PdbFileName.rstrip(b"\x00").decode()
-                    break
+        # Extract PDB info from debug directory for symbol server lookups
+        pdb_info = PDBInfo.from_pe(self._pe)
 
-        if path:
+        if pdb_info is not None:
+            path = pdb_info.pdb_name
             if os.path.exists(path):
                 return path
-            checks.append(path)
+            attempts.append(path)
 
             # PDB not at specified location; check next to binary
             if self.binary:
@@ -436,16 +472,53 @@ class PE(Backend):
                 path = os.path.join(os.path.dirname(self.binary), filename)
                 if os.path.exists(path):
                     return path
-                checks.append(path)
+                attempts.append(path)
 
         # Guess PDB has same name as binary
         if self.binary:
             path = os.path.splitext(self.binary)[0] + ".pdb"
             if os.path.exists(path):
                 return path
-            checks.append(path)
+            attempts.append(path)
 
-        log.warning("Unable to find PDB file for this PE. Tried: %s", str(checks))
+        # Search debug_symbol_paths (user-provided paths)
+        if pdb_info and self._debug_symbol_dirs:
+            for search_path in self._debug_symbol_dirs:
+                if not os.path.exists(search_path):
+                    continue
+
+                # Check symbol store layout: path/pdbname/signature/pdbname
+                store_path = os.path.join(search_path, pdb_info.pdb_name, pdb_info.signature_id, pdb_info.pdb_name)
+                if os.path.exists(store_path):
+                    return store_path
+
+                # Check flat layout: path/pdbname
+                flat_path = os.path.join(search_path, pdb_info.pdb_name)
+                if os.path.exists(flat_path):
+                    return flat_path
+
+            attempts.append(f"debug_symbol_paths ({self._debug_symbol_dirs})")
+
+        # Search symbol path (local stores and symbol servers)
+        if pdb_info:
+            binary_dir = os.path.dirname(self.binary) if self.binary else None
+            resolver = SymbolResolver(
+                symbol_path_str=self._debug_symbol_path_str,
+                local_dirs=[binary_dir] if binary_dir else None,
+                download_symbols=self._download_debug_symbols,
+                search_microsoft_symserver=self._search_microsoft_symserver,
+            )
+            symbol_path_result = resolver.find_pdb(
+                pdb_info,
+                confirm_callback=self._download_debug_symbol_confirm,
+                progress_callback=self._download_debug_symbol_progress,
+            )
+            if symbol_path_result:
+                return symbol_path_result
+            if resolver.symbol_path_str:
+                attempts.append(f"symbol path ({resolver.symbol_path_str})")
+
+        log.warning("Unable to find PDB file for this PE. Tried: %s", str(attempts))
         return None
 
     def _load_symbols_from_coff_header(self):
@@ -473,7 +546,7 @@ class PE(Backend):
         while idx < self._pe.FILE_HEADER.NumberOfSymbols:
             offset = self._pe.FILE_HEADER.PointerToSymbolTable + idx * sizeof_symbol_desc
             sym_desc = self._raw_data[offset : offset + sizeof_symbol_desc]
-            (name, value, section, type_, _, num_aux_syms) = struct.unpack("<8sIhHBB", sym_desc)
+            name, value, section, type_, _, num_aux_syms = struct.unpack("<8sIhHBB", sym_desc)
             name_as_dwords = struct.unpack("<II", name)
             if name_as_dwords[0] == 0:
                 name = self._read_from_string_table(name_as_dwords[1])

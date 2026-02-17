@@ -10,7 +10,7 @@ test_location = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", 
 
 def test_basic_named_region():
     bin_path = os.path.join(test_location, "armel", "lwip_udpecho_bm.elf")
-    loader = Loader(bin_path)
+    loader = Loader(bin_path, auto_load_libs=True)
     # Standard CortexM regions
     mmio = NamedRegion("mmio", 0x40000000, 0x50000000)
     sys = NamedRegion("sys", 0xE000E000, 0xE0010000)
