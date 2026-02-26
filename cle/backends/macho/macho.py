@@ -99,6 +99,7 @@ class MachO(Backend):
     sizeofcmds: int
 
     def __init__(self, *args, **kwargs):
+        skip_relocations = kwargs.pop("skip_relocations", False)
         super().__init__(*args, **kwargs)
         self.symbols = SymbolList(key=self._get_symbol_relative_addr)
 
@@ -240,12 +241,13 @@ class MachO(Backend):
         log.info("Parsing module init/term function pointers")
         self._parse_mod_funcs()
 
-        if self._dyld_chained_fixups_offset:
-            log.info("Parsing dyld bound symbols and fixup chains (ios15 and above)")
-            self._parse_dyld_chained_fixups()
-        else:
-            log.info("Parsing binding bytecode stream")
-            self.do_binding()
+        if not skip_relocations:
+            if self._dyld_chained_fixups_offset:
+                log.info("Parsing dyld bound symbols and fixup chains (ios15 and above)")
+                self._parse_dyld_chained_fixups()
+            else:
+                log.info("Parsing binding bytecode stream")
+                self.do_binding()
 
         self._load_stubs()
 
