@@ -39,7 +39,7 @@ from .relocation.generic import GenericRelativeReloc, MipsGlobalReloc, MipsLocal
 from .subprogram import LexicalBlock, Subprogram
 from .symbol import ELFSymbol, Symbol, SymbolType
 from .variable import Variable
-from .variable_type import VariableType, SubprogramType
+from .variable_type import VariableType, SubprogramType, resolve_reference_addr
 
 try:
     import pypcode
@@ -860,7 +860,7 @@ class ELF(MetaELF):
         namespace: list[str] | None = None,
     ) -> LexicalBlock | None:
         if "DW_AT_abstract_origin" in die.attributes:
-            origin = cu.get_DIE_from_refaddr(cu.cu_offset + die.attributes["DW_AT_abstract_origin"].value)
+            origin = die.get_DIE_from_attribute("DW_AT_abstract_origin")
         else:
             origin = None
 
