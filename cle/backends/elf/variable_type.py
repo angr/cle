@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from elftools.dwarf.die import DIE
+from enum import Enum
 
+from elftools.dwarf.die import DIE
 
 def resolve_reference_addr(die: DIE, attr_name: str) -> int:
     """
@@ -12,7 +13,6 @@ def resolve_reference_addr(die: DIE, attr_name: str) -> int:
     """
     resolved_die = die.get_DIE_from_attribute(attr_name)
     return resolved_die.offset + resolved_die.cu.cu_offset
-
 
 class VariableType:
     """
@@ -33,6 +33,19 @@ class VariableType:
         self._elf_object = elf_object
 
     @staticmethod
+    def find_namespace(die: DIE):
+        reverse_namespace = []
+        current_die: DIE | None = die.get_parent()
+        while current_die is not None:
+            if "DW_AT_name" in current_die.attributes and current_die.tag not in ("DW_TAG_compile_unit",):
+                name = current_die.attributes["DW_AT_name"].value.decode()
+                reverse_namespace.append(name)
+            else:
+                break
+            current_die = current_die.get_parent()
+        return list(reversed(reverse_namespace))
+
+    @staticmethod
     def read_from_die(die: DIE, elf_object):
         """
         entry method to read a DW_TAG_xxx_type
@@ -49,6 +62,30 @@ class VariableType:
             return TypedefType.read_from_die(die, elf_object)
         elif die.tag == "DW_TAG_union_type":
             return UnionType.read_from_die(die, elf_object)
+        elif die.tag == "DW_TAG_enumeration_type":
+            return EnumerationType.read_from_die(die, elf_object)
+        elif die.tag == "DW_TAG_subroutine_type":
+            return SubroutineType.read_from_die(die, elf_object)
+        elif die.tag == "DW_TAG_subprogram":
+            return SubprogramType.read_from_die(die, elf_object)
+        elif die.tag == "DW_TAG_atomic_type":
+            return AtomicType.read_from_die(die, elf_object)
+        elif die.tag == "DW_TAG_const_type":
+            return ConstType.read_from_die(die, elf_object)
+        elif die.tag == "DW_TAG_immutable_type":
+            return ImmutableType.read_from_die(die, elf_object)
+        elif die.tag == "DW_TAG_packed_type":
+            return PackedType.read_from_die(die, elf_object)
+        elif die.tag == "DW_TAG_reference_type":
+            return ReferenceType.read_from_die(die, elf_object)
+        elif die.tag == "DW_TAG_restrict_type":
+            return RestrictType.read_from_die(die, elf_object)
+        elif die.tag == "DW_TAG_rvalue_reference_type":
+            return RValueReferenceType.read_from_die(die, elf_object)
+        elif die.tag == "DW_TAG_shared_type":
+            return SharedType.read_from_die(die, elf_object)
+        elif die.tag == "DW_TAG_volatile_type":
+            return VolatileType.read_from_die(die, elf_object)
         return None
 
     @staticmethod
@@ -60,6 +97,17 @@ class VariableType:
             "DW_TAG_array_type",
             "DW_TAG_typedef",
             "DW_TAG_union_type",
+            "DW_TAG_enumeration_type",
+            "DW_TAG_subroutine_type",
+            "DW_TAG_subprogram",
+            "DW_TAG_const_type",
+            "DW_TAG_immutable_type",
+            "DW_TAG_packed_type",
+            "DW_TAG_reference_type",
+            "DW_TAG_restrict_type",
+            "DW_TAG_rvalue_reference_type",
+            "DW_TAG_shared_type",
+            "DW_TAG_volatile_type"
         )
 
 
@@ -72,8 +120,10 @@ class PointerType(VariableType):
     :param referenced_offset:  type of the referenced as offset in the compilation_unit
     """
 
-    def __init__(self, byte_size: int, elf_object, referenced_offset: int):
-        super().__init__("pointer", byte_size, elf_object)
+    def __init__(self, name: str | None, byte_size: int, elf_object, referenced_offset: int):
+        if name is None:
+            name = "pointer"
+        super().__init__(name, byte_size, elf_object)
         self._referenced_offset = referenced_offset
 
     @classmethod
@@ -82,10 +132,17 @@ class PointerType(VariableType):
         read an entry of DW_TAG_pointer_type. return None when there is no
         byte_size or type attribute.
         """
-        byte_size = die.attributes.get("DW_AT_byte_size", None)
+        byte_size_attr = die.attributes.get("DW_AT_byte_size", None)
 
-        if byte_size is None:
-            return None
+        name_attr = die.attributes.get("DW_AT_name", None)
+        name = None if name_attr is None else name_attr.value.decode()
+
+        if byte_size_attr is not None:
+            byte_size = byte_size_attr.value
+        else:
+            # In testing it looks like the Rust compiler does not emit a byte_size attribute
+            # Instead let's just say that the size of a pointer is given by the ELF's architecture
+            byte_size = elf_object.arch.bytes
 
         dw_at_type = die.attributes.get("DW_AT_type", None)
         if dw_at_type is None:
@@ -93,7 +150,7 @@ class PointerType(VariableType):
         else:
             referenced_offset = resolve_reference_addr(die, "DW_AT_type")
 
-        return cls(byte_size.value, elf_object, referenced_offset)
+        return cls(name, byte_size, elf_object, referenced_offset)
 
     @property
     def referenced_type(self):
@@ -105,11 +162,36 @@ class PointerType(VariableType):
             return type_list[self._referenced_offset]
         return None
 
+class BaseTypeEncoding(Enum):
+    ADDRESS = 0x1
+    BOOLEAN = 0x2
+    COMPLEX_FLOAT = 0x3
+    FLOAT = 0x4
+    SIGNED = 0x5
+    SIGNED_CHAR = 0x6
+    UNSIGNED = 0x7
+    UNSIGNED_CHAR = 0x8
+    IMAGINARY_FLOAT = 0x9
+    PACKED_DECIMAL = 0xa
+    NUMERIC_STRING = 0xb
+    EDITED = 0xc
+    SIGNED_FIXED = 0xd
+    UNSIGNED_FIXED = 0xe
+    DECIMAL_FLOAT = 0xf
+    UTF = 0x10
+    UCS = 0x11
+    ASCII = 0x12
+    LO_USER = 0x80
+    HI_USER = 0xff
 
 class BaseType(VariableType):
     """
     Entry class for DW_TAG_base_type. It is inherited from VariableType
     """
+
+    def __init__(self, name: str, byte_size: int, elf_object, encoding):
+        super().__init__(name, byte_size, elf_object)
+        self.encoding = encoding
 
     # for __init__ see VariableType
 
@@ -122,9 +204,14 @@ class BaseType(VariableType):
 
         dw_at_name = die.attributes.get("DW_AT_name", None)
         byte_size = die.attributes.get("DW_AT_byte_size", None)
+        encoding_attr = die.attributes.get("DW_AT_encoding", None)
+        if encoding_attr is not None:
+            encoding = BaseTypeEncoding(encoding_attr.value)
+        else:
+            encoding = None
         if byte_size is None:
             return None
-        return cls(dw_at_name.value.decode() if dw_at_name is not None else "unknown", byte_size.value, elf_object)
+        return cls(dw_at_name.value.decode() if dw_at_name is not None else "unknown", byte_size.value, elf_object, encoding)
 
 
 class StructType(VariableType):
@@ -136,8 +223,10 @@ class StructType(VariableType):
     :param elf_object:      elf object to reference to (useful for pointer,...)
     """
 
-    def __init__(self, name: str, byte_size: int, elf_object, members):
+    def __init__(self, name: str, byte_size: int | None, elf_object, namespace, members, align: int | None=None):
         super().__init__(name, byte_size, elf_object)
+        self.namespace = namespace
+        self.align = align
         self.members = members
 
     @classmethod
@@ -147,11 +236,21 @@ class StructType(VariableType):
         byte_size attribute.
         """
 
+        for die_child in die.iter_children():
+            if die_child.tag == "DW_TAG_variant_part":
+                return VariantType.read_from_die(die, elf_object)
+
         dw_at_name = die.attributes.get("DW_AT_name", None)
         byte_size = die.attributes.get("DW_AT_byte_size", None)
+        byte_size_val = byte_size.value if byte_size is not None else None
 
-        if byte_size is None:
-            return None
+        align_attr = die.attributes.get("DW_AT_alignment", None)
+        if align_attr is not None:
+            align_val = align_attr.value
+        else:
+            align_val = None
+
+        namespace = VariableType.find_namespace(die)
 
         members = []
         for die_child in die.iter_children():
@@ -159,7 +258,8 @@ class StructType(VariableType):
                 members.append(StructMember.read_from_die(die_child, elf_object))
 
         return cls(
-            dw_at_name.value.decode() if dw_at_name is not None else "unknown", byte_size.value, elf_object, members
+            dw_at_name.value.decode() if dw_at_name is not None else "unknown", byte_size_val,
+            elf_object, namespace, members, align=align_val
         )
 
     def __getitem__(self, member_name):
@@ -174,6 +274,113 @@ class UnionType(StructType):
     Entry class for DW_TAG_union_type. Inherits from StructType to make it trivial.
     """
 
+class VariantCaseType:
+    """
+    This class represents one possible value for a variant.
+
+    :param tag_value: The discriminator/tag value used for indicating this variant case
+    :param member: The member representing the layout of this particular variant case
+    """
+    def __init__(self, tag_value: int | None, member: StructMember | None):
+        self.tag_value = tag_value
+        self.member = member
+
+    @classmethod
+    def read_from_die(cls, die: DIE, elf_object):
+        tag_attr = die.attributes.get("DW_AT_discr_value", None)
+        if tag_attr is not None:
+            tag = tag_attr.value
+        else:
+            tag = None
+
+        member = None
+        for die_child in die.iter_children():
+            if die_child.tag == "DW_TAG_member":
+                member = StructMember.read_from_die(die_child, elf_object)
+                break
+
+        return cls(tag, member)
+
+    @property
+    def name(self):
+        return self.member.name
+
+    @property
+    def type(self):
+        return self.member.type
+
+    @property
+    def align(self):
+        return self.member.align
+
+class VariantType(VariableType):
+    """
+    :param tag: The type of the variant tag. This value may be None if the tag is not present in the variant. This\
+    can occur in situations where one or more of a variant case is unconstructable. For example in Rust the variant\
+    Result<Infallible, AllocError> has two cases: a non-error result and an error result. However, the Infallible type\
+    is impossible to construct, so the compiler knows only one case of the variant is possible to construct. This\
+    removes the need for the tag.
+    :param cases: The various arms of the variant. Note that the order of these cases is not relevant; if you\
+    want to know the corresponding tag value for a VariantCaseType, access the specific tag_value in the VariantCaseType
+    """
+    def __init__(self, name, byte_size, elf_object, namespace,
+                 tag: StructMember | None,
+                 cases: list[VariantCaseType], align: int | None=None):
+        super().__init__(name, byte_size, elf_object)
+        self.namespace = namespace
+        self.tag = tag
+        self.cases = cases
+        self.align = align
+
+    def __getitem__(self, item: int | str) -> VariantCaseType:
+        if isinstance(item, int):
+            for v in self.cases:
+                if v.tag_value == item:
+                    return v
+        elif isinstance(item, str):
+            for v in self.cases:
+                if v.name == item:
+                    return v
+        raise KeyError(f"Unknown variant case {item}")
+
+    def __getattr__(self, item: str) -> VariantCaseType:
+        return self[item]
+
+    @classmethod
+    def read_from_die(cls, die: DIE, elf_object):
+        dw_at_name = die.attributes.get("DW_AT_name", None)
+        byte_size = die.attributes.get("DW_AT_byte_size", None)
+
+        name = dw_at_name.value.decode() if dw_at_name is not None else "unknown"
+
+        namespace = VariableType.find_namespace(die)
+
+        variant_part = None
+        for die_child in die.iter_children():
+            if die_child.tag == "DW_TAG_variant_part":
+                variant_part = die_child
+                break
+
+        tag_attr = variant_part.attributes.get("DW_AT_discr", None)
+        if tag_attr is not None:
+            tag_die = variant_part.get_DIE_from_attribute("DW_AT_discr")
+            tag = StructMember.read_from_die(tag_die, elf_object)
+        else:
+            tag = None
+
+        align_attr = die.attributes.get("DW_AT_alignment", None)
+        if align_attr is not None:
+            align = align_attr.value
+        else:
+            align = None
+
+        values = []
+        if variant_part is not None:
+            for die_child in variant_part.iter_children():
+                if die_child.tag == "DW_TAG_variant":
+                    values.append(VariantCaseType.read_from_die(die_child, elf_object))
+
+        return cls(name, byte_size.value, elf_object, namespace, tag, values, align=align)
 
 class StructMember:
     """
@@ -188,11 +395,12 @@ class StructMember:
     :ivar name:             name of the member
     """
 
-    def __init__(self, name: str, addr_offset: int, type_offset, elf_object):
+    def __init__(self, name: str, addr_offset: int, type_offset, elf_object, align: int | None=None):
         self.name = name
         self.addr_offset = addr_offset
         self._elf_object = elf_object
         self._type_offset = type_offset
+        self.align = align
 
     @classmethod
     def read_from_die(cls, die: DIE, elf_object):
@@ -207,6 +415,12 @@ class StructMember:
         name = None if dw_at_name is None else dw_at_name.value.decode()
         ty = None if dw_at_type is None else resolve_reference_addr(die, "DW_AT_type")
 
+        align_attr = die.attributes.get("DW_AT_alignment", None)
+        if align_attr is not None:
+            align = align_attr.value
+        else:
+            align = None
+
         # From the DWARF5 manual, page 118:
         #    The member entry corresponding to a data member that is defined in a structure,
         #    union or class may have either a DW_AT_data_member_location attribute or a
@@ -215,7 +429,7 @@ class StructMember:
         # TODO bit_offset
         addr_offset = 0 if dw_at_memloc is None else dw_at_memloc.value
 
-        return cls(name, addr_offset, ty, elf_object)
+        return cls(name, addr_offset, ty, elf_object, align=align)
 
     @property
     def type(self):
@@ -238,9 +452,13 @@ class ArrayType(VariableType):
     :param element_offset:     type of the array elements as offset in the compilation_unit
     """
 
-    def __init__(self, byte_size, elf_object, element_offset):
+    def __init__(self, byte_size, elf_object, element_offset, count: int | None,
+                 lower_bound: int | None, upper_bound: int | None):
         super().__init__("array", byte_size, elf_object)
         self._element_offset = element_offset
+        self.count = count
+        self.lower_bound = lower_bound
+        self.upper_bound = upper_bound
 
     @classmethod
     def read_from_die(cls, die: DIE, elf_object):
@@ -254,10 +472,27 @@ class ArrayType(VariableType):
         dw_at_type = die.attributes.get("DW_AT_type", None)
         if dw_at_type is None:
             return None
+
+        count = None
+        lower_bound = None
+        upper_bound = None
+        for child in die.iter_children():
+            match child.tag:
+                case "DW_TAG_subrange_type":
+                    count_attr = child.attributes.get("DW_AT_count", None)
+                    if count_attr is not None:
+                        count = count_attr.value
+                    lower_bound_attr = child.attributes.get("DW_AT_lower_bound", None)
+                    if lower_bound_attr is not None:
+                        lower_bound = lower_bound_attr.value
+                    upper_bound_attr = child.attributes.get("DW_AT_upper_bound", None)
+                    if upper_bound_attr is not None:
+                        upper_bound = upper_bound_attr.value
+                    break
+
         return cls(
-            dw_byte_size.value if dw_byte_size is not None else None,
-            elf_object,
-            resolve_reference_addr(die, "DW_AT_type"),
+            dw_byte_size.value if dw_byte_size is not None else None, elf_object,
+            resolve_reference_addr(die, "DW_AT_type"), count, lower_bound, upper_bound
         )
 
     @property
@@ -277,9 +512,10 @@ class TypedefType(VariableType):
     :param type_offset: type as offset in the compilation_unit
     """
 
-    def __init__(self, name: str, byte_size, elf_object, type_offset):
+    def __init__(self, name: str, byte_size, elf_object, namespace, type_offset):
         super().__init__(name, byte_size, elf_object)
         self._type_offset = type_offset
+        self.namespace = namespace
 
     @classmethod
     def read_from_die(cls, die: DIE, elf_object):
@@ -295,7 +531,9 @@ class TypedefType(VariableType):
         type_offset = None if dw_at_type is None else resolve_reference_addr(die, "DW_AT_type")
         byte_size = None if dw_at_byte_size is None else dw_at_byte_size.value
 
-        return cls(name, byte_size, elf_object, type_offset)
+        namespace = VariableType.find_namespace(die)
+
+        return cls(name, byte_size, elf_object, namespace, type_offset)
 
     @property
     def type(self):
@@ -307,3 +545,247 @@ class TypedefType(VariableType):
         if self._type_offset in type_list.keys():
             return type_list[self._type_offset]
         return None
+
+class EnumeratorValue:
+    def __init__(self, name: str, const_value):
+        self.name = name
+        self.const_value = const_value
+
+    @classmethod
+    def read_from_die(cls, die: DIE, elf_object):
+        name_attr = die.attributes.get("DW_AT_name", None)
+        name = None if name_attr is None else name_attr.value.decode()
+
+        const_value_attr = die.attributes.get("DW_AT_const_value", None)
+        const_value = None if const_value_attr is None else const_value_attr.value
+
+        return cls(name, const_value)
+
+class EnumerationType(VariableType):
+    def __init__(self, name: str, byte_size: int, elf_object, namespace, type_offset, enumerator_values: list[EnumeratorValue]):
+        super().__init__(name, byte_size, elf_object)
+        self.namespace = namespace
+        self.enumerator_values = enumerator_values
+        self._type_offset = type_offset
+
+    def __len__(self):
+        return len(self.enumerator_values)
+
+    def __iter__(self):
+        return iter(self.enumerator_values)
+
+    @property
+    def type(self):
+        """
+        The underlying type of the enumeration
+        """
+        return self._elf_object.type_list[self._type_offset]
+
+    @classmethod
+    def read_from_die(cls, die: DIE, elf_object):
+        """
+        read an entry of DW_TAG_enumeration_type.
+        """
+
+        dw_byte_size = die.attributes.get("DW_AT_byte_size", None)
+        byte_size = dw_byte_size.value if dw_byte_size is not None else None
+
+        name_attr = die.attributes.get("DW_AT_name", None)
+        name = None if name_attr is None else name_attr.value.decode()
+
+        namespace = VariableType.find_namespace(die)
+
+        dw_at_type = die.attributes.get("DW_AT_type", None)
+        type_offset = None if dw_at_type is None else resolve_reference_addr(die, "DW_AT_type")
+        #type_offset = None if dw_at_type is None else dw_at_type.value + die.cu.cu_offset
+
+        enumerators = []
+        for child in die.iter_children():
+            match child.tag:
+                case "DW_TAG_enumerator":
+                    enumerators.append(EnumeratorValue.read_from_die(child, elf_object))
+
+        return cls(name, byte_size, elf_object, namespace, type_offset, enumerators)
+
+class SubroutineParameter:
+    def __init__(self, name: str | None, type_offset: int, elf_object):
+        self.name = name
+        self._type_offset = type_offset
+        self._elf_object = elf_object
+
+    @property
+    def type(self):
+        return self._elf_object.type_list[self._type_offset]
+
+class SubroutineType(VariableType):
+    def __init__(self, name: str, byte_size: int, elf_object, type_offset: int | None,
+                 parameters: list[SubroutineParameter]):
+        super().__init__(name, byte_size, elf_object)
+        self._type_offset = type_offset
+        self.parameters = parameters
+
+    @property
+    def type(self):
+        """
+        The return type of the subroutine, or None if the subroutine returns no value
+        """
+        if self._type_offset is None:
+            return None
+        else:
+            return self._elf_object.type_list[self._type_offset]
+
+    @classmethod
+    def read_from_die(cls, die: DIE, elf_object):
+        """
+        read an entry of DW_TAG_subroutine_type
+        """
+
+        dw_byte_size = die.attributes.get("DW_AT_byte_size", None)
+        byte_size = dw_byte_size.value if dw_byte_size is not None else None
+
+        name_attr = die.attributes.get("DW_AT_name", None)
+        name = None if name_attr is None else name_attr.value.decode()
+
+        if "DW_AT_type" in die.attributes:
+            type_offset = resolve_reference_addr(die, "DW_AT_type")
+        else:
+            type_offset = None
+
+        parameters: list[SubroutineParameter] = []
+        for child in die.iter_children():
+            match child.tag:
+                case "DW_TAG_formal_parameter":
+                    param_type_offset = resolve_reference_addr(child, "DW_AT_type")
+                    param_name_attr = child.attributes.get("DW_AT_name", None)
+                    param_name = None if param_name_attr is None else param_name_attr.value.decode()
+                    param = SubroutineParameter(param_name, param_type_offset, elf_object)
+                    parameters.append(param)
+
+        return cls(name, byte_size, elf_object, type_offset, parameters)
+
+class SubprogramParameter:
+    def __init__(self, name: str | None, type_offset: int, elf_object):
+        self.name = name
+        self._type_offset = type_offset
+        self._elf_object = elf_object
+
+    @property
+    def type(self):
+        return self._elf_object.type_list[self._type_offset]
+
+    @classmethod
+    def read_from_die(cls, die: DIE, elf_object):
+        param_type_offset = resolve_reference_addr(die, "DW_AT_type")
+
+        name_attr = die.attributes.get("DW_AT_name", None)
+        name = None if name_attr is None else name_attr.value.decode()
+
+        location_attr = die.attributes.get("DW_AT_location", None)
+
+        return cls(name, param_type_offset, elf_object)
+
+class SubprogramType:
+    def __init__(self, name: str, linkage_name: str | None, low_pc: int | None, high_pc: int | None, elf_object,
+                 type_offset: int | None, parameters: list[SubprogramParameter]):
+        self.name = name
+        self.linkage_name = linkage_name
+        self._elf_object = elf_object
+        self._type_offset = type_offset
+        self.parameters = parameters
+        self.low_pc = low_pc
+        self.high_pc = high_pc
+
+    @property
+    def type(self):
+        """
+        The return type of the subroutine, or None if the subroutine returns no value
+        """
+        if self._type_offset is None:
+            return None
+        else:
+            return self._elf_object.type_list[self._type_offset]
+
+    @classmethod
+    def read_from_die(cls, die: DIE, elf_object):
+        """
+        read an entry of DW_TAG_subroutine_type
+        """
+
+        if "DW_AT_abstract_origin" in die.attributes:
+            # abstract_origin seems to be used for inline functions. Let's just ignore these for now...
+            return None
+
+        name_attr = die.attributes.get("DW_AT_name", None)
+        name = None if name_attr is None else name_attr.value.decode()
+
+        linkage_name_attr = die.attributes.get("DW_AT_linkage_name", None)
+        linkage_name = None if linkage_name_attr is None else linkage_name_attr.value.decode()
+
+        if "DW_AT_type" in die.attributes:
+            type_offset = resolve_reference_addr(die, "DW_AT_type")
+        else:
+            type_offset = None
+
+        low_pc_attr = die.attributes.get("DW_AT_low_pc", None)
+        low_pc = None if low_pc_attr is None else low_pc_attr.value
+
+        high_pc_attr = die.attributes.get("DW_AT_high_pc", None)
+        high_pc = None if high_pc_attr is None else high_pc_attr.value
+
+        parameters: list[SubprogramParameter] = []
+        for child in die.iter_children():
+            match child.tag:
+                case "DW_TAG_formal_parameter":
+                    parameters.append(SubprogramParameter.read_from_die(child, elf_object))
+
+        return cls(name, linkage_name, low_pc, high_pc, elf_object, type_offset, parameters)
+
+class TypeModifier(VariableType):
+    def __init__(self, elf_object, type_offset):
+        super().__init__(self.name, None, elf_object)
+        self._type_offset = type_offset
+
+    @property
+    def type(self):
+        """
+        The underlying type of the const
+        """
+        return self._elf_object.type_list.get(self._type_offset, None)
+
+    @classmethod
+    def read_from_die(cls, die: DIE, elf_object):
+        """
+        read an entry of DW_TAG_const_type.
+        """
+
+        dw_at_type = die.attributes.get("DW_AT_type", None)
+        type_offset = None if dw_at_type is None else resolve_reference_addr(die, "DW_AT_type")
+
+        return cls(elf_object, type_offset)
+
+class AtomicType(TypeModifier):
+    name = "atomic"
+
+class ConstType(TypeModifier):
+    name = "const"
+
+class ImmutableType(TypeModifier):
+    name = "immutable"
+
+class PackedType(TypeModifier):
+    name = "packed"
+
+class ReferenceType(TypeModifier):
+    name = "reference"
+
+class RestrictType(TypeModifier):
+    name = "restrict"
+
+class RValueReferenceType(TypeModifier):
+    name = "r_value_reference"
+
+class SharedType(TypeModifier):
+    name = "shared"
+
+class VolatileType(TypeModifier):
+    name = "volatile"
