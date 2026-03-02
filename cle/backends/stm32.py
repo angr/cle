@@ -41,12 +41,12 @@ class VectorTable(LittleEndianStructure):
         """Reset handler address with Thumb bit cleared"""
         return self.reset_handler & (~1)
 
-    def get_irq_handler(self, data: bytes, irq_num: int) -> int:
+    def get_irq_handler(self, irq_num: int) -> int:
         """Get peripheral interrupt handler address (IRQ 0+)"""
         vector_offset = (16 + irq_num) * 4
-        if vector_offset + 4 > len(data):
+        if vector_offset + 4 > len(self._data):
             return 0
-        return struct.unpack_from("<I", data, vector_offset)[0]
+        return struct.unpack_from("<I", self._data, vector_offset)[0]
 
     @classmethod
     def from_bytes(cls, data: bytes) -> VectorTable:
@@ -61,6 +61,13 @@ class VectorTable(LittleEndianStructure):
 
 
 class STM32Segment(Segment):
+    """
+    Segment class for STM32 flash regions. We set is_exec=True for the flash-mapped
+    segment at 0x08000000, and False for the alias at 0x0. This allows CLE to treat
+    the flash as executable code when analyzing, while still allowing access to
+    the same data at the alias address.
+    """
+
     def __init__(self, offset, vaddr, filesize, memsize):
         super().__init__(offset, vaddr, filesize, memsize)
         self.is_exec = False
@@ -102,7 +109,7 @@ class STM32Backend(Backend):
             stream.seek(pos)
 
     @classmethod
-    def is_compatible(cls, data_or_stream) -> bool:
+    def is_compatible(cls, stream) -> bool:
         """
         Accept either a bytes-like object (when called directly) or a stream (when CLE probes)
         Heuristic:
@@ -111,16 +118,15 @@ class STM32Backend(Backend):
         - word1 has Thumb bit set (LSB == 1)
         """
         # allow being called with a stream or raw bytes
-        if hasattr(data_or_stream, "read"):
+        if hasattr(stream, "read"):
             # stream-like
-            stream = data_or_stream
             pos = stream.tell()
             try:
                 data = stream.read(64)  # Read enough for full vector table
             finally:
                 stream.seek(pos)
         else:
-            data = data_or_stream
+            data = stream
 
         if not data or len(data) < 64:
             return False
@@ -131,7 +137,7 @@ class STM32Backend(Backend):
             return False
 
         # Check if initial SP looks like RAM
-        if not (cls.RAM_LOW <= vector_table.initial_sp < cls.RAM_HIGH):
+        if not cls.RAM_LOW <= vector_table.initial_sp < cls.RAM_HIGH:
             return False
 
         # Check if reset handler has Thumb bit set
