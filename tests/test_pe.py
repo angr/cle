@@ -174,6 +174,15 @@ class TestPEBackend(unittest.TestCase):
         ]
         assert section_names[-len(debug_section_names) :] == debug_section_names
 
+    def test_tls_directory_address_of_callbacks_null(self):
+        # https://github.com/angr/cle/issues/657
+        exe = os.path.join(
+            TEST_BASE, "tests", "x86_64", "windows", "7107ab06446ce4a51226196453066e7d361972364ad1543fe8a3a03a957e1bd5"
+        )
+        ld = cle.Loader(exe, auto_load_libs=False)
+
+        assert ld.main_object.tls_callbacks == []
+
     def test_coff_symbol_loaded(self):
         exe = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "simple_crackme_x64.exe")
         ld = cle.Loader(exe, auto_load_libs=False)

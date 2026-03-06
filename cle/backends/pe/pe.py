@@ -391,7 +391,9 @@ class PE(Backend):
             self.tls_data_start = AT.from_lva(tls.StartAddressOfRawData, self).to_rva()
             self.tls_data_size = tls.EndAddressOfRawData - tls.StartAddressOfRawData
             self.tls_index_address = tls.AddressOfIndex
-            self.tls_callbacks = self._register_tls_callbacks(tls.AddressOfCallBacks)
+            self.tls_callbacks = (
+                self._register_tls_callbacks(tls.AddressOfCallBacks) if tls.AddressOfCallBacks != 0 else []
+            )
             self.tls_block_size = self.tls_data_size + tls.SizeOfZeroFill
 
     def _register_tls_callbacks(self, addr):
