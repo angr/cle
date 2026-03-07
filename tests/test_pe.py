@@ -258,6 +258,18 @@ class TestPEBackend(unittest.TestCase):
             )
             assert ld.find_symbol("authenticate")
 
+    def test_load_binary_larger_than_highest_address(self):
+        # https://github.com/angr/angr/issues/6209
+        exe = os.path.join(
+            TEST_BASE, "tests", "i386", "windows", "aa893de523f58ee14972b94fef7ecdbb930cbdc700d8be097eb8a6de2549ce73"
+        )
+        ld = cle.Loader(exe, auto_load_libs=False)
+
+        assert len(ld.all_objects) == 2
+        assert ld.main_object.min_addr == 0x400000
+        assert ld.main_object.max_addr == 0x44F02D
+        assert ld.all_objects[1].min_addr == 0x500000
+
 
 if __name__ == "__main__":
     unittest.main()
