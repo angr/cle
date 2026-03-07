@@ -88,7 +88,7 @@ class GNUHashTable:
         H2 = H1 >> self.shift2
         N = (H1 // C) & (self.maskwords - 1)
         BITMASK = (1 << (H1 % C)) | (1 << (H2 % C))
-        return (self.bloom[N] & BITMASK) == BITMASK
+        return (self.bloom[N] & BITMASK) == BITMASK if N < len(self.bloom) else False
 
     def get(self, k):
         """
