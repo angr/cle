@@ -22,7 +22,7 @@ dependencies = [
     "arpy==1.1.1",
     "cart",
     "minidump>=0.0.10",
-    "pefile",
+    "pefile==2024.8.26",
     "pyelftools>=0.29",
     "pyvex==9.2.207.dev0",
     "pyxbe~=1.0.3",
