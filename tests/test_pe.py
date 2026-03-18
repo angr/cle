@@ -279,6 +279,21 @@ class TestPEBackend(unittest.TestCase):
         assert ld.main_object.max_addr == 0x44F02D
         assert ld.all_objects[1].min_addr == 0x500000
 
+    def test_loading_incomplete_pe_file(self):
+        exe = os.path.join(
+            TEST_BASE, "tests", "i386", "windows", "a94bbeed0ef51db3d3964bb0cc2cbed0adab0e47997d88f34daa92faa1a91e8a"
+        )
+        ld = cle.Loader(exe, auto_load_libs=False)
+
+        assert ld.main_object is not None
+        txt_sec = ld.main_object.sections[0]
+        assert txt_sec.name == ".text"
+        assert txt_sec.memsize == 0x29EA
+        data = ld.memory.load(txt_sec.vaddr, txt_sec.memsize)
+        assert len(data) == 5025
+        assert data[:4] == b"\x8bD$\x04"
+        assert data[-4:] == b"3\xdb;\xc3"
+
 
 if __name__ == "__main__":
     unittest.main()
