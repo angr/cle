@@ -138,7 +138,7 @@ class PE(Backend):
 
         self.linking = "dynamic" if self.deps else "static"
         self.jmprel = self._get_jmprel()
-        mapped_image = self._pe.get_memory_mapped_image(max_virtual_address=0x100000000)
+        mapped_image = self._get_memory_mapped_image()
         if self.max_addr - self.min_addr < len(mapped_image):
             # we are loading more bytes than max_addr would allow (there is data at the end of the file that is not
             # covered by any sections), so we need to truncate mapped_image.
@@ -245,6 +245,58 @@ class PE(Backend):
     #
     # Private methods
     #
+
+    def _get_memory_mapped_image(self, max_virtual_address=0x100000000) -> bytes:
+        """
+        Get the data corresponding to the memory layout of the PE file as a single bytes object.
+
+        This method replicates the feature of pefile.PE.get_memory_mapped_image() but with the addition of some logic
+        for keeping partially mapped sections.
+        """
+
+        data = self._pe.__data__
+
+        mapped_data_lst: list[bytes] = [self._pe.header]
+        mapped_data_len = len(self._pe.header)
+        for sec in self._pe.sections:
+            if sec.Misc_VirtualSize == 0 and sec.SizeOfRawData == 0:
+                # skip empty sections
+                continue
+
+            size = sec.SizeOfRawData
+            ptr = self._pe.adjust_PointerToRawData(sec.PointerToRawData)
+            va_adj = self._pe.adjust_SectionAlignment(
+                sec.VirtualAddress,
+                self._pe.OPTIONAL_HEADER.SectionAlignment,
+                self._pe.OPTIONAL_HEADER.FileAlignment,
+            )
+
+            if ptr < len(data) < ptr + size:
+                # truncated section, keep the part that is still within the file
+                size = len(data) - ptr
+
+            if ptr >= len(data) or ptr + size > len(data) or va_adj >= max_virtual_address:
+                log.warning(
+                    "Section %s has PointerToRawData %#x and SizeOfRawData %#x, which is out of bounds for the file "
+                    "size. Skipping this section.",
+                    sec.Name,
+                    sec.PointerToRawData,
+                    sec.SizeOfRawData,
+                )
+                continue
+
+            padding_len = va_adj - mapped_data_len
+
+            if padding_len > 0:
+                mapped_data_lst.append(b"\x00" * padding_len)
+            elif padding_len < 0:
+                mapped_data = b"".join(mapped_data_lst)
+                mapped_data_lst = [mapped_data[:padding_len]]
+            mapped_data_len += padding_len
+
+            mapped_data_lst.append(sec.get_data())
+
+        return b"".join(mapped_data_lst)
 
     def _parse_pe_non_reloc_data_directories(self):
         """
