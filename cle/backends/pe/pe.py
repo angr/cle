@@ -294,7 +294,9 @@ class PE(Backend):
                 mapped_data_lst = [mapped_data[:padding_len]]
             mapped_data_len += padding_len
 
-            mapped_data_lst.append(sec.get_data())
+            sec_data = sec.get_data()
+            mapped_data_lst.append(sec_data)
+            mapped_data_len += len(sec_data)
 
         return b"".join(mapped_data_lst)
 
