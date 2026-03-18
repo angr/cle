@@ -54,7 +54,6 @@ testing = [
     "pypcode>=1.1",
     "pytest",
     "pytest-xdist",
-    "types-pefile",
 ]
 
 [tool.setuptools]
