@@ -12,6 +12,7 @@ import sortedcontainers
 from cle.address_translator import AT
 from cle.errors import CLEError, CLEOperationError
 from cle.memory import Clemory
+from cle.structs import DataDirectory
 
 from .regions import Regions
 from .relocation import Relocation
@@ -20,6 +21,7 @@ from .symbol import Symbol
 if TYPE_CHECKING:
     from cle.backends import Section, Segment
     from cle.loader import Loader
+    from cle.structs import MemRegion
 
 log = logging.getLogger(name=__name__)
 
@@ -31,6 +33,7 @@ class FunctionHintSource:
 
     EH_FRAME = 0
     EXTERNAL_EH_FRAME = 1
+    EXPORT_TABLE = 2
 
 
 class FunctionHint:
@@ -41,14 +44,16 @@ class FunctionHint:
     :ivar int size:     Size of the function.
     :ivar source:       Source of this hint.
     :vartype source:    int
+    :ivar str | None name: Optional symbol name, if known.
     """
 
-    __slots__ = ("addr", "size", "source")
+    __slots__ = ("addr", "size", "source", "name")
 
-    def __init__(self, addr, size, source):
+    def __init__(self, addr, size, source, name=None):
         self.addr = addr
         self.size = size
         self.source = source
+        self.name = name
 
     def __repr__(self):
         return f"<FuncHint@{self.addr:#x}, {self.size} bytes>"
@@ -242,6 +247,10 @@ class Backend:
         # they should be rebased when .rebase() is called
         self.function_hints: list[FunctionHint] = []
 
+        # Metadata regions (e.g., PE import/export tables)
+        # they should be rebased when .rebase() is called
+        self.meta_regions: list[MemRegion] = []
+
         # line number mapping
         self.addr_to_line = {}
 
@@ -375,6 +384,16 @@ class Backend:
         for hint in self.function_hints:
             hint.addr = hint.addr + self.image_base_delta
 
+        self._rebase_meta_regions(self.image_base_delta)
+
+    def _rebase_meta_regions(self, delta: int):
+        """Rebase all meta_regions by the given delta."""
+        for region in self.meta_regions:
+            region.vaddr += delta
+            if isinstance(region, DataDirectory):
+                for sub in region.sub_regions:
+                    sub.vaddr += delta
+
     def relocate(self):
         """
         Apply all resolved relocations to memory.
@@ -497,7 +516,7 @@ class Backend:
         Deprecated
         """
         log.critical(
-            "Deprecation warning: initial_register_values is deprecated - " "use backend.thread_registers() instead"
+            "Deprecation warning: initial_register_values is deprecated - use backend.thread_registers() instead"
         )
         return self.thread_registers().items()
 
