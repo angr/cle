@@ -393,238 +393,512 @@ class PE(Backend):
         metadata structures.
         All addresses are stored as linked virtual addresses (linked_base + RVA).
         """
+        self._meta_iat()
+        self._meta_exports()
+        self._meta_imports()
+        self._meta_delay_imports()
+        self._meta_resources()
+        self._meta_exceptions()
+        self._meta_base_relocations()
+        self._meta_debug()
+        self._meta_tls()
+        self._meta_load_config()
+        self._meta_bound_imports()
+        self._meta_com_descriptor()
+
+    def _meta_pe_context(self) -> tuple[pefile.PE, int, bool, int]:
+        """Return common values used by meta-region helpers: (pe, base, is_64, ptr_size)."""
         pe = self._pe
         base = self.linked_base
         is_64 = self.arch.bits == 64 if self._arch is not None else (pe.OPTIONAL_HEADER.Magic == 0x20B)
         ptr_size = 8 if is_64 else 4
+        return pe, base, is_64, ptr_size
 
-        # --- IAT (Data Directory 12) ---
-        iat_idx = pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_IAT"]
-        iat_dd = pe.OPTIONAL_HEADER.DATA_DIRECTORY[iat_idx]
-        if iat_dd.VirtualAddress and iat_dd.Size:
-            self.meta_regions.append(
+    def _meta_dd(self, name: str) -> pefile.Structure | None:
+        """Return a data directory entry if it has a nonzero VirtualAddress and Size, else None."""
+        idx = pefile.DIRECTORY_ENTRY[name]
+        dd = self._pe.OPTIONAL_HEADER.DATA_DIRECTORY[idx]
+        if dd.VirtualAddress and dd.Size:
+            return dd
+        return None
+
+    def _meta_iat(self):
+        """IAT (Data Directory 12)."""
+        pe, base, is_64, ptr_size = self._meta_pe_context()
+        iat_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_IAT")
+        if iat_dd is None:
+            return
+        self.meta_regions.append(
+            PointerArray(
+                vaddr=base + iat_dd.VirtualAddress,
+                entry_size=ptr_size,
+                count=iat_dd.Size // ptr_size,
+                sort=MemRegionSort.IAT,
+            )
+        )
+
+    def _meta_exports(self):
+        """Export Directory (Data Directory 0)."""
+        pe, base, is_64, ptr_size = self._meta_pe_context()
+        if not hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
+            return
+        exp_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_EXPORT")
+        if exp_dd is None:
+            return
+        exp = pe.DIRECTORY_ENTRY_EXPORT
+        exp_struct = exp.struct
+
+        sub_regions: list[MemRegion] = []
+
+        # Export directory header (IMAGE_EXPORT_DIRECTORY, 40 bytes)
+        sub_regions.append(
+            MemRegion(
+                vaddr=base + exp_dd.VirtualAddress,
+                size=exp_struct.sizeof(),
+                sort=MemRegionSort.EXPORT_DIRECTORY,
+            )
+        )
+
+        n_funcs = exp_struct.NumberOfFunctions
+        n_names = exp_struct.NumberOfNames
+
+        # AddressOfFunctions array
+        if exp_struct.AddressOfFunctions and n_funcs:
+            sub_regions.append(
                 PointerArray(
-                    vaddr=base + iat_dd.VirtualAddress,
-                    entry_size=ptr_size,
-                    count=iat_dd.Size // ptr_size,
-                    sort=MemRegionSort.IAT,
+                    vaddr=base + exp_struct.AddressOfFunctions,
+                    entry_size=4,
+                    count=n_funcs,
+                    sort=MemRegionSort.EXPORT_ADDR_TABLE,
                 )
             )
 
-        # --- Export Directory (Data Directory 0) ---
-        if hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
-            exp_dd = pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_EXPORT"]]
-            exp = pe.DIRECTORY_ENTRY_EXPORT
-            exp_struct = exp.struct
-
-            sub_regions: list[MemRegion] = []
-
-            # Export directory header (IMAGE_EXPORT_DIRECTORY, 40 bytes)
+        # AddressOfNames array
+        if exp_struct.AddressOfNames and n_names:
             sub_regions.append(
-                MemRegion(
-                    vaddr=base + exp_dd.VirtualAddress,
-                    size=exp_struct.sizeof(),
-                    sort=MemRegionSort.EXPORT_DIRECTORY,
+                PointerArray(
+                    vaddr=base + exp_struct.AddressOfNames,
+                    entry_size=4,
+                    count=n_names,
+                    sort=MemRegionSort.EXPORT_NAME_TABLE,
                 )
             )
 
-            n_funcs = exp_struct.NumberOfFunctions
-            n_names = exp_struct.NumberOfNames
-
-            # AddressOfFunctions array
-            if exp_struct.AddressOfFunctions and n_funcs:
-                sub_regions.append(
-                    PointerArray(
-                        vaddr=base + exp_struct.AddressOfFunctions,
-                        entry_size=4,
-                        count=n_funcs,
-                        sort=MemRegionSort.EXPORT_ADDR_TABLE,
-                    )
-                )
-
-            # AddressOfNames array
-            if exp_struct.AddressOfNames and n_names:
-                sub_regions.append(
-                    PointerArray(
-                        vaddr=base + exp_struct.AddressOfNames,
-                        entry_size=4,
-                        count=n_names,
-                        sort=MemRegionSort.EXPORT_NAME_TABLE,
-                    )
-                )
-
-            # AddressOfNameOrdinals array
-            if exp_struct.AddressOfNameOrdinals and n_names:
-                sub_regions.append(
-                    PointerArray(
-                        vaddr=base + exp_struct.AddressOfNameOrdinals,
-                        entry_size=2,
-                        count=n_names,
-                        sort=MemRegionSort.EXPORT_ORDINAL_TABLE,
-                    )
-                )
-
-            # Export name strings: from end of ordinals table to end of export data directory
-            if n_names and exp_struct.AddressOfNameOrdinals:
-                strings_start = exp_struct.AddressOfNameOrdinals + n_names * 2
-                strings_end = exp_dd.VirtualAddress + exp_dd.Size
-                if strings_end > strings_start:
-                    sub_regions.append(
-                        StringBlob(
-                            vaddr=base + strings_start,
-                            size=strings_end - strings_start,
-                            sort=MemRegionSort.STRING_BLOB,
-                        )
-                    )
-
-            self.meta_regions.append(
-                DataDirectory(
-                    vaddr=base + exp_dd.VirtualAddress,
-                    size=exp_dd.Size,
-                    sort=MemRegionSort.EXPORT_DIRECTORY,
-                    sub_regions=sub_regions,
-                )
-            )
-
-            # Extract function hints from exports
-            exp_rva_start = exp_dd.VirtualAddress
-            exp_rva_end = exp_dd.VirtualAddress + exp_dd.Size
-            for sym in exp.symbols:
-                if sym.forwarder is not None:
-                    continue
-                # Forwarder RVAs point within the export directory; skip them
-                if exp_rva_start <= sym.address < exp_rva_end:
-                    continue
-                name = sym.name.decode() if sym.name else None
-                self.function_hints.append(
-                    FunctionHint(
-                        base + sym.address,
-                        0,
-                        FunctionHintSource.EXPORT_TABLE,
-                        name=name,
-                    )
-                )
-
-        # --- Import Directory (Data Directory 1) ---
-        if hasattr(pe, "DIRECTORY_ENTRY_IMPORT"):
-            imp_dd = pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_IMPORT"]]
-            entries = pe.DIRECTORY_ENTRY_IMPORT
-
-            sub_regions: list[MemRegion] = []
-
-            # Import descriptor array (including null terminator)
-            n_descs = len(entries) + 1  # +1 for null terminator
+        # AddressOfNameOrdinals array
+        if exp_struct.AddressOfNameOrdinals and n_names:
             sub_regions.append(
-                StructArray(
-                    vaddr=base + imp_dd.VirtualAddress,
-                    entry_size=20,  # sizeof(IMAGE_IMPORT_DESCRIPTOR)
-                    count=n_descs,
-                    sort=MemRegionSort.IMPORT_DIRECTORY,
+                PointerArray(
+                    vaddr=base + exp_struct.AddressOfNameOrdinals,
+                    entry_size=2,
+                    count=n_names,
+                    sort=MemRegionSort.EXPORT_ORDINAL_TABLE,
                 )
             )
 
-            # Per-DLL ILT arrays and track hint/name range
-            hn_min = None
-            hn_max = None
-            for entry in entries:
-                ilt_rva = entry.struct.OriginalFirstThunk
-                if ilt_rva:
-                    n_imports = len(entry.imports) + 1  # +1 for null terminator
-                    sub_regions.append(
-                        PointerArray(
-                            vaddr=base + ilt_rva,
-                            entry_size=ptr_size,
-                            count=n_imports,
-                            sort=MemRegionSort.ILT,
-                        )
-                    )
-
-                # Track hint/name table extent
-                for imp in entry.imports:
-                    if imp.hint_name_table_rva:
-                        rva = imp.hint_name_table_rva
-                        # Each hint/name entry = 2 byte hint + name + null byte, word-aligned
-                        name_len = len(imp.name) + 1 if imp.name else 1
-                        entry_size = 2 + name_len
-                        if entry_size % 2:
-                            entry_size += 1
-                        entry_end = rva + entry_size
-                        if hn_min is None or rva < hn_min:
-                            hn_min = rva
-                        if hn_max is None or entry_end > hn_max:
-                            hn_max = entry_end
-
-            # Hint/Name table blob
-            if hn_min is not None and hn_max is not None:
+        # Export name strings: from end of ordinals table to end of export data directory
+        if n_names and exp_struct.AddressOfNameOrdinals:
+            strings_start = exp_struct.AddressOfNameOrdinals + n_names * 2
+            strings_end = exp_dd.VirtualAddress + exp_dd.Size
+            if strings_end > strings_start:
                 sub_regions.append(
                     StringBlob(
-                        vaddr=base + hn_min,
-                        size=hn_max - hn_min,
-                        sort=MemRegionSort.IMPORT_HINT_NAME_TABLE,
+                        vaddr=base + strings_start,
+                        size=strings_end - strings_start,
+                        sort=MemRegionSort.STRING_BLOB,
                     )
                 )
 
-            # DLL name strings (pointed to by each descriptor's Name field)
-            for entry in entries:
-                name_rva = entry.struct.Name
-                if name_rva and entry.dll:
-                    sub_regions.append(
-                        StringBlob(
-                            vaddr=base + name_rva,
-                            size=len(entry.dll) + 1,  # +1 for null terminator
-                            sort=MemRegionSort.STRING_BLOB,
-                        )
-                    )
+        self.meta_regions.append(
+            DataDirectory(
+                vaddr=base + exp_dd.VirtualAddress,
+                size=exp_dd.Size,
+                sort=MemRegionSort.EXPORT_DIRECTORY,
+                sub_regions=sub_regions,
+            )
+        )
 
-            self.meta_regions.append(
-                DataDirectory(
-                    vaddr=base + imp_dd.VirtualAddress,
-                    size=imp_dd.Size,
-                    sort=MemRegionSort.IMPORT_DIRECTORY,
-                    sub_regions=sub_regions,
+        # Extract function hints from exports
+        exp_rva_start = exp_dd.VirtualAddress
+        exp_rva_end = exp_dd.VirtualAddress + exp_dd.Size
+        for sym in exp.symbols:
+            if sym.forwarder is not None:
+                continue
+            # Forwarder RVAs point within the export directory; skip them
+            if exp_rva_start <= sym.address < exp_rva_end:
+                continue
+            name = sym.name.decode() if sym.name else None
+            self.function_hints.append(
+                FunctionHint(
+                    base + sym.address,
+                    0,
+                    FunctionHintSource.EXPORT_TABLE,
+                    name=name,
                 )
             )
 
-        # --- Delay Import Directory (Data Directory 13) ---
-        if hasattr(pe, "DIRECTORY_ENTRY_DELAY_IMPORT"):
-            delay_dd = pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT"]]
-            entries = pe.DIRECTORY_ENTRY_DELAY_IMPORT
+    def _meta_imports(self):
+        """Import Directory (Data Directory 1)."""
+        pe, base, is_64, ptr_size = self._meta_pe_context()
+        if not hasattr(pe, "DIRECTORY_ENTRY_IMPORT"):
+            return
+        imp_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_IMPORT")
+        if imp_dd is None:
+            return
+        entries = pe.DIRECTORY_ENTRY_IMPORT
 
-            sub_regions: list[MemRegion] = []
+        sub_regions: list[MemRegion] = []
 
-            # Delay import descriptor array (including null terminator)
-            n_descs = len(entries) + 1
+        # Import descriptor array (including null terminator)
+        n_descs = len(entries) + 1  # +1 for null terminator
+        sub_regions.append(
+            StructArray(
+                vaddr=base + imp_dd.VirtualAddress,
+                entry_size=20,  # sizeof(IMAGE_IMPORT_DESCRIPTOR)
+                count=n_descs,
+                sort=MemRegionSort.IMPORT_DIRECTORY,
+            )
+        )
+
+        # Per-DLL ILT arrays and track hint/name range
+        hn_min = None
+        hn_max = None
+        for entry in entries:
+            ilt_rva = entry.struct.OriginalFirstThunk
+            if ilt_rva:
+                n_imports = len(entry.imports) + 1  # +1 for null terminator
+                sub_regions.append(
+                    PointerArray(
+                        vaddr=base + ilt_rva,
+                        entry_size=ptr_size,
+                        count=n_imports,
+                        sort=MemRegionSort.ILT,
+                    )
+                )
+
+            # Track hint/name table extent
+            for imp in entry.imports:
+                if imp.hint_name_table_rva:
+                    rva = imp.hint_name_table_rva
+                    # Each hint/name entry = 2 byte hint + name + null byte, word-aligned
+                    name_len = len(imp.name) + 1 if imp.name else 1
+                    entry_size = 2 + name_len
+                    if entry_size % 2:
+                        entry_size += 1
+                    entry_end = rva + entry_size
+                    if hn_min is None or rva < hn_min:
+                        hn_min = rva
+                    if hn_max is None or entry_end > hn_max:
+                        hn_max = entry_end
+
+        # Hint/Name table blob
+        if hn_min is not None and hn_max is not None:
+            sub_regions.append(
+                StringBlob(
+                    vaddr=base + hn_min,
+                    size=hn_max - hn_min,
+                    sort=MemRegionSort.IMPORT_HINT_NAME_TABLE,
+                )
+            )
+
+        # DLL name strings (pointed to by each descriptor's Name field)
+        for entry in entries:
+            name_rva = entry.struct.Name
+            if name_rva and entry.dll:
+                sub_regions.append(
+                    StringBlob(
+                        vaddr=base + name_rva,
+                        size=len(entry.dll) + 1,  # +1 for null terminator
+                        sort=MemRegionSort.STRING_BLOB,
+                    )
+                )
+
+        self.meta_regions.append(
+            DataDirectory(
+                vaddr=base + imp_dd.VirtualAddress,
+                size=imp_dd.Size,
+                sort=MemRegionSort.IMPORT_DIRECTORY,
+                sub_regions=sub_regions,
+            )
+        )
+
+    def _meta_delay_imports(self):
+        """Delay Import Directory (Data Directory 13)."""
+        pe, base, is_64, ptr_size = self._meta_pe_context()
+        if not hasattr(pe, "DIRECTORY_ENTRY_DELAY_IMPORT"):
+            return
+        delay_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT")
+        if delay_dd is None:
+            return
+        entries = pe.DIRECTORY_ENTRY_DELAY_IMPORT
+
+        sub_regions: list[MemRegion] = []
+
+        # Delay import descriptor array (including null terminator)
+        n_descs = len(entries) + 1
+        sub_regions.append(
+            StructArray(
+                vaddr=base + delay_dd.VirtualAddress,
+                entry_size=32,  # sizeof(IMAGE_DELAY_IMPORT_DESCRIPTOR)
+                count=n_descs,
+                sort=MemRegionSort.DELAY_IMPORT_DIRECTORY,
+            )
+        )
+
+        # Per-DLL delay INT arrays
+        for entry in entries:
+            int_rva = entry.struct.pINT
+            if int_rva:
+                n_imports = len(entry.imports) + 1
+                sub_regions.append(
+                    PointerArray(
+                        vaddr=base + int_rva,
+                        entry_size=ptr_size,
+                        count=n_imports,
+                        sort=MemRegionSort.ILT,
+                    )
+                )
+
+        self.meta_regions.append(
+            DataDirectory(
+                vaddr=base + delay_dd.VirtualAddress,
+                size=delay_dd.Size,
+                sort=MemRegionSort.DELAY_IMPORT_DIRECTORY,
+                sub_regions=sub_regions,
+            )
+        )
+
+    def _meta_resources(self):
+        """Resource Directory (Data Directory 2)."""
+        pe, base, is_64, ptr_size = self._meta_pe_context()
+        if not hasattr(pe, "DIRECTORY_ENTRY_RESOURCE"):
+            return
+        res_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_RESOURCE")
+        if res_dd is None:
+            return
+        self.meta_regions.append(
+            DataDirectory(
+                vaddr=base + res_dd.VirtualAddress,
+                size=res_dd.Size,
+                sort=MemRegionSort.RESOURCE_DIRECTORY,
+            )
+        )
+
+    def _meta_exceptions(self):
+        """Exception Directory (Data Directory 3) - RUNTIME_FUNCTION table."""
+        pe, base, is_64, ptr_size = self._meta_pe_context()
+        if not hasattr(pe, "DIRECTORY_ENTRY_EXCEPTION"):
+            return
+        exc_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_EXCEPTION")
+        if exc_dd is None:
+            return
+        runtime_function_size = 12  # sizeof(RUNTIME_FUNCTION)
+        count = exc_dd.Size // runtime_function_size
+        sub_regions: list[MemRegion] = []
+        if count:
             sub_regions.append(
                 StructArray(
-                    vaddr=base + delay_dd.VirtualAddress,
-                    entry_size=32,  # sizeof(IMAGE_DELAY_IMPORT_DESCRIPTOR)
-                    count=n_descs,
-                    sort=MemRegionSort.DELAY_IMPORT_DIRECTORY,
+                    vaddr=base + exc_dd.VirtualAddress,
+                    entry_size=runtime_function_size,
+                    count=count,
+                    sort=MemRegionSort.EXCEPTION_DIRECTORY,
                 )
             )
+        self.meta_regions.append(
+            DataDirectory(
+                vaddr=base + exc_dd.VirtualAddress,
+                size=exc_dd.Size,
+                sort=MemRegionSort.EXCEPTION_DIRECTORY,
+                sub_regions=sub_regions,
+            )
+        )
 
-            # Per-DLL delay INT arrays
-            for entry in entries:
-                int_rva = entry.struct.pINT
-                if int_rva:
-                    n_imports = len(entry.imports) + 1
-                    sub_regions.append(
-                        PointerArray(
-                            vaddr=base + int_rva,
-                            entry_size=ptr_size,
-                            count=n_imports,
-                            sort=MemRegionSort.ILT,
-                        )
+    def _meta_base_relocations(self):
+        """Base Relocation Directory (Data Directory 5)."""
+        pe, base, is_64, ptr_size = self._meta_pe_context()
+        reloc_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_BASERELOC")
+        if reloc_dd is None:
+            return
+        self.meta_regions.append(
+            DataDirectory(
+                vaddr=base + reloc_dd.VirtualAddress,
+                size=reloc_dd.Size,
+                sort=MemRegionSort.BASE_RELOCATION,
+            )
+        )
+
+    def _meta_debug(self):
+        """Debug Directory (Data Directory 6)."""
+        pe, base, is_64, ptr_size = self._meta_pe_context()
+        if not hasattr(pe, "DIRECTORY_ENTRY_DEBUG"):
+            return
+        dbg_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_DEBUG")
+        if dbg_dd is None:
+            return
+        debug_dir_entry_size = 28  # sizeof(IMAGE_DEBUG_DIRECTORY)
+        count = dbg_dd.Size // debug_dir_entry_size
+        sub_regions: list[MemRegion] = []
+        if count:
+            sub_regions.append(
+                StructArray(
+                    vaddr=base + dbg_dd.VirtualAddress,
+                    entry_size=debug_dir_entry_size,
+                    count=count,
+                    sort=MemRegionSort.DEBUG_DIRECTORY,
+                )
+            )
+        self.meta_regions.append(
+            DataDirectory(
+                vaddr=base + dbg_dd.VirtualAddress,
+                size=dbg_dd.Size,
+                sort=MemRegionSort.DEBUG_DIRECTORY,
+                sub_regions=sub_regions,
+            )
+        )
+
+    def _meta_tls(self):
+        """TLS Directory (Data Directory 9)."""
+        pe, base, is_64, ptr_size = self._meta_pe_context()
+        if not hasattr(pe, "DIRECTORY_ENTRY_TLS"):
+            return
+        tls_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_TLS")
+        if tls_dd is None:
+            return
+        tls_dir_size = 40 if is_64 else 24  # sizeof(IMAGE_TLS_DIRECTORY)
+        sub_regions: list[MemRegion] = [
+            MemRegion(
+                vaddr=base + tls_dd.VirtualAddress,
+                size=tls_dir_size,
+                sort=MemRegionSort.TLS_DIRECTORY,
+            )
+        ]
+        self.meta_regions.append(
+            DataDirectory(
+                vaddr=base + tls_dd.VirtualAddress,
+                size=tls_dd.Size,
+                sort=MemRegionSort.TLS_DIRECTORY,
+                sub_regions=sub_regions,
+            )
+        )
+
+    def _meta_load_config(self):
+        """Load Config Directory (Data Directory 10)."""
+        pe, base, is_64, ptr_size = self._meta_pe_context()
+        if not hasattr(pe, "DIRECTORY_ENTRY_LOAD_CONFIG"):
+            return
+        lc_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG")
+        if lc_dd is None:
+            return
+        lc = pe.DIRECTORY_ENTRY_LOAD_CONFIG.struct
+
+        sub_regions: list[MemRegion] = []
+
+        # Load config directory structure
+        sub_regions.append(
+            MemRegion(
+                vaddr=base + lc_dd.VirtualAddress,
+                size=lc_dd.Size,
+                sort=MemRegionSort.LOAD_CONFIG_DIRECTORY,
+            )
+        )
+
+        # SE Handler Table (32-bit only)
+        if not is_64 and hasattr(lc, "SEHandlerTable") and hasattr(lc, "SEHandlerCount"):
+            if lc.SEHandlerTable and lc.SEHandlerCount:
+                sub_regions.append(
+                    PointerArray(
+                        vaddr=lc.SEHandlerTable,
+                        entry_size=4,
+                        count=lc.SEHandlerCount,
+                        sort=MemRegionSort.LOAD_CONFIG_DIRECTORY,
                     )
-
-            self.meta_regions.append(
-                DataDirectory(
-                    vaddr=base + delay_dd.VirtualAddress,
-                    size=delay_dd.Size,
-                    sort=MemRegionSort.DELAY_IMPORT_DIRECTORY,
-                    sub_regions=sub_regions,
                 )
+
+        # Guard CF Function Table
+        if hasattr(lc, "GuardCFFunctionTable") and hasattr(lc, "GuardCFFunctionCount"):
+            if lc.GuardCFFunctionTable and lc.GuardCFFunctionCount:
+                sub_regions.append(
+                    PointerArray(
+                        vaddr=lc.GuardCFFunctionTable,
+                        entry_size=4,
+                        count=lc.GuardCFFunctionCount,
+                        sort=MemRegionSort.LOAD_CONFIG_DIRECTORY,
+                    )
+                )
+
+        # Guard Address-Taken IAT Entry Table
+        if hasattr(lc, "GuardAddressTakenIatEntryTable") and hasattr(lc, "GuardAddressTakenIatEntryCount"):
+            if lc.GuardAddressTakenIatEntryTable and lc.GuardAddressTakenIatEntryCount:
+                sub_regions.append(
+                    PointerArray(
+                        vaddr=lc.GuardAddressTakenIatEntryTable,
+                        entry_size=4,
+                        count=lc.GuardAddressTakenIatEntryCount,
+                        sort=MemRegionSort.LOAD_CONFIG_DIRECTORY,
+                    )
+                )
+
+        # Guard Long Jump Target Table
+        if hasattr(lc, "GuardLongJumpTargetTable") and hasattr(lc, "GuardLongJumpTargetCount"):
+            if lc.GuardLongJumpTargetTable and lc.GuardLongJumpTargetCount:
+                sub_regions.append(
+                    PointerArray(
+                        vaddr=lc.GuardLongJumpTargetTable,
+                        entry_size=4,
+                        count=lc.GuardLongJumpTargetCount,
+                        sort=MemRegionSort.LOAD_CONFIG_DIRECTORY,
+                    )
+                )
+
+        # Guard EH Continuation Table
+        if hasattr(lc, "GuardEHContinuationTable") and hasattr(lc, "GuardEHContinuationCount"):
+            if lc.GuardEHContinuationTable and lc.GuardEHContinuationCount:
+                sub_regions.append(
+                    PointerArray(
+                        vaddr=lc.GuardEHContinuationTable,
+                        entry_size=4,
+                        count=lc.GuardEHContinuationCount,
+                        sort=MemRegionSort.LOAD_CONFIG_DIRECTORY,
+                    )
+                )
+
+        self.meta_regions.append(
+            DataDirectory(
+                vaddr=base + lc_dd.VirtualAddress,
+                size=lc_dd.Size,
+                sort=MemRegionSort.LOAD_CONFIG_DIRECTORY,
+                sub_regions=sub_regions,
             )
+        )
+
+    def _meta_bound_imports(self):
+        """Bound Import Directory (Data Directory 11)."""
+        pe, base, is_64, ptr_size = self._meta_pe_context()
+        if not hasattr(pe, "DIRECTORY_ENTRY_BOUND_IMPORT"):
+            return
+        bi_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT")
+        if bi_dd is None:
+            return
+        self.meta_regions.append(
+            DataDirectory(
+                vaddr=base + bi_dd.VirtualAddress,
+                size=bi_dd.Size,
+                sort=MemRegionSort.BOUND_IMPORT_DIRECTORY,
+            )
+        )
+
+    def _meta_com_descriptor(self):
+        """COM Descriptor / CLR Runtime Header (Data Directory 14)."""
+        pe, base, is_64, ptr_size = self._meta_pe_context()
+        com_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR")
+        if com_dd is None:
+            return
+        self.meta_regions.append(
+            DataDirectory(
+                vaddr=base + com_dd.VirtualAddress,
+                size=com_dd.Size,
+                sort=MemRegionSort.COM_DESCRIPTOR,
+            )
+        )
 
     def __register_relocs(self):
         if not hasattr(self._pe, "DIRECTORY_ENTRY_BASERELOC"):
