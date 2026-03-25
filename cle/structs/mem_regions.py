@@ -22,6 +22,14 @@ class MemRegionSort(Enum):
     IMPORT_DIRECTORY = "import-directory"
     IMPORT_HINT_NAME_TABLE = "import-hint-name-table"
     DELAY_IMPORT_DIRECTORY = "delay-import-directory"
+    RESOURCE_DIRECTORY = "resource-directory"
+    EXCEPTION_DIRECTORY = "exception-directory"
+    BASE_RELOCATION = "base-relocation"
+    DEBUG_DIRECTORY = "debug-directory"
+    TLS_DIRECTORY = "tls-directory"
+    LOAD_CONFIG_DIRECTORY = "load-config-directory"
+    BOUND_IMPORT_DIRECTORY = "bound-import-directory"
+    COM_DESCRIPTOR = "com-descriptor"
 
 
 class MemRegion:
