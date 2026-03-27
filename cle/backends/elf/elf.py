@@ -860,7 +860,10 @@ class ELF(MetaELF):
         namespace: list[str] | None = None,
     ) -> LexicalBlock | None:
         if "DW_AT_abstract_origin" in die.attributes:
-            origin = cu.get_DIE_from_refaddr(cu.cu_offset + die.attributes["DW_AT_abstract_origin"].value)
+            try:
+                origin = cu.get_DIE_from_refaddr(cu.cu_offset + die.attributes["DW_AT_abstract_origin"].value)
+            except DWARFError:
+                origin = None
         else:
             origin = None
 
