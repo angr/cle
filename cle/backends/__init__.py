@@ -21,6 +21,7 @@ from .static_archive import StaticArchive
 from .symbol import Symbol, SymbolSubType, SymbolType
 from .te import TE
 from .uefi_firmware import UefiFirmware
+from .universal2 import Universal2
 from .xbe import XBE
 
 # BinjaBin is not imported by default since importing it is too slow
@@ -61,5 +62,6 @@ __all__ = [
     "SymbolSubType",
     "UefiFirmware",
     "TE",
+    "Universal2",
     "CARTFile",
 ]
