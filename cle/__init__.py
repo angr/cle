@@ -41,10 +41,10 @@ from .backends import (
     SRec,
     StaticArchive,
     Symbol,
-    Universal2,
     SymbolSubType,
     SymbolType,
     UefiFirmware,
+    Universal2,
     register_backend,
 )
 from .backends.externs import (
