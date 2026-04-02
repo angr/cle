@@ -191,7 +191,7 @@ class PE(Backend):
 
         assert pe.FILE_HEADER is not None
 
-        arch = archinfo.arch_from_id(pefile.MACHINE_TYPE[pe.FILE_HEADER.Machine])
+        arch = archinfo.arch_from_id(pefile.MACHINE_TYPE[pe.FILE_HEADER.Machine])  # pylint:disable=no-member
         return arch == obj.arch
 
     #
@@ -424,7 +424,7 @@ class PE(Backend):
 
     def _meta_iat(self):
         """IAT (Data Directory 12)."""
-        pe, base, is_64, ptr_size = self._meta_pe_context()
+        _pe, base, _is_64, ptr_size = self._meta_pe_context()
         iat_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_IAT")
         if iat_dd is None:
             return
@@ -439,7 +439,7 @@ class PE(Backend):
 
     def _meta_exports(self):
         """Export Directory (Data Directory 0)."""
-        pe, base, is_64, ptr_size = self._meta_pe_context()
+        pe, base, _is_64, _ptr_size = self._meta_pe_context()
         if not hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
             return
         exp_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_EXPORT")
@@ -538,7 +538,7 @@ class PE(Backend):
 
     def _meta_imports(self):
         """Import Directory (Data Directory 1)."""
-        pe, base, is_64, ptr_size = self._meta_pe_context()
+        pe, base, _is_64, ptr_size = self._meta_pe_context()
         if not hasattr(pe, "DIRECTORY_ENTRY_IMPORT"):
             return
         imp_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_IMPORT")
@@ -623,7 +623,7 @@ class PE(Backend):
 
     def _meta_delay_imports(self):
         """Delay Import Directory (Data Directory 13)."""
-        pe, base, is_64, ptr_size = self._meta_pe_context()
+        pe, base, _is_64, ptr_size = self._meta_pe_context()
         if not hasattr(pe, "DIRECTORY_ENTRY_DELAY_IMPORT"):
             return
         delay_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT")
@@ -669,7 +669,7 @@ class PE(Backend):
 
     def _meta_resources(self):
         """Resource Directory (Data Directory 2)."""
-        pe, base, is_64, ptr_size = self._meta_pe_context()
+        pe, base, _is_64, _ptr_size = self._meta_pe_context()
         if not hasattr(pe, "DIRECTORY_ENTRY_RESOURCE"):
             return
         res_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_RESOURCE")
@@ -685,7 +685,7 @@ class PE(Backend):
 
     def _meta_exceptions(self):
         """Exception Directory (Data Directory 3) - RUNTIME_FUNCTION table."""
-        pe, base, is_64, ptr_size = self._meta_pe_context()
+        pe, base, _is_64, _ptr_size = self._meta_pe_context()
         if not hasattr(pe, "DIRECTORY_ENTRY_EXCEPTION"):
             return
         exc_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_EXCEPTION")
@@ -714,7 +714,7 @@ class PE(Backend):
 
     def _meta_base_relocations(self):
         """Base Relocation Directory (Data Directory 5)."""
-        pe, base, is_64, ptr_size = self._meta_pe_context()
+        _pe, base, _is_64, _ptr_size = self._meta_pe_context()
         reloc_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_BASERELOC")
         if reloc_dd is None:
             return
@@ -728,7 +728,7 @@ class PE(Backend):
 
     def _meta_debug(self):
         """Debug Directory (Data Directory 6)."""
-        pe, base, is_64, ptr_size = self._meta_pe_context()
+        pe, base, _is_64, _ptr_size = self._meta_pe_context()
         if not hasattr(pe, "DIRECTORY_ENTRY_DEBUG"):
             return
         dbg_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_DEBUG")
@@ -757,7 +757,7 @@ class PE(Backend):
 
     def _meta_tls(self):
         """TLS Directory (Data Directory 9)."""
-        pe, base, is_64, ptr_size = self._meta_pe_context()
+        pe, base, is_64, _ptr_size = self._meta_pe_context()
         if not hasattr(pe, "DIRECTORY_ENTRY_TLS"):
             return
         tls_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_TLS")
@@ -782,7 +782,7 @@ class PE(Backend):
 
     def _meta_load_config(self):
         """Load Config Directory (Data Directory 10)."""
-        pe, base, is_64, ptr_size = self._meta_pe_context()
+        pe, base, is_64, _ptr_size = self._meta_pe_context()
         if not hasattr(pe, "DIRECTORY_ENTRY_LOAD_CONFIG"):
             return
         lc_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG")
@@ -872,7 +872,7 @@ class PE(Backend):
 
     def _meta_bound_imports(self):
         """Bound Import Directory (Data Directory 11)."""
-        pe, base, is_64, ptr_size = self._meta_pe_context()
+        pe, base, _is_64, _ptr_size = self._meta_pe_context()
         if not hasattr(pe, "DIRECTORY_ENTRY_BOUND_IMPORT"):
             return
         bi_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT")
@@ -888,7 +888,7 @@ class PE(Backend):
 
     def _meta_com_descriptor(self):
         """COM Descriptor / CLR Runtime Header (Data Directory 14)."""
-        pe, base, is_64, ptr_size = self._meta_pe_context()
+        _pe, base, _is_64, _ptr_size = self._meta_pe_context()
         com_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR")
         if com_dd is None:
             return
