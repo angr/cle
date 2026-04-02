@@ -368,7 +368,9 @@ class MachO(Backend):
 
     @staticmethod
     def extract_soname(path):
-        return path.split("/")[-1]
+        if isinstance(path, str):
+            return path.split("/")[-1]
+        return None
 
     @classmethod
     def is_compatible(cls, stream):

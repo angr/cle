@@ -44,6 +44,7 @@ from .backends import (
     SymbolSubType,
     SymbolType,
     UefiFirmware,
+    Universal2,
     register_backend,
 )
 from .backends.externs import (
@@ -107,6 +108,7 @@ __all__ = [
     "Segment",
     "Soot",
     "StaticArchive",
+    "Universal2",
     "register_backend",
     "ExternObject",
     "ExternSegment",

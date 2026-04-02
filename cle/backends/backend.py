@@ -532,6 +532,18 @@ class Backend:
                 return sym
         return None
 
+    @property
+    def available_arches(self) -> list[str]:
+        """Return the list of architecture names available in this binary.
+
+        For most backends this is a single-element list derived from the loaded
+        architecture.  Container backends (e.g. Universal2) override this to
+        report every architecture present in the file.
+        """
+        if self.arch is not None:
+            return [self.arch.name]
+        return []
+
     @staticmethod
     def extract_soname(path) -> str | None:  # pylint: disable=unused-argument
         """
