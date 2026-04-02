@@ -4,6 +4,8 @@ import logging
 import struct
 from io import BytesIO
 
+import archinfo
+
 from .backend import Backend, register_backend
 
 log = logging.getLogger(__name__)
@@ -22,6 +24,25 @@ CPU_TYPE_NAMES = {
     0x1000007: "x64",
 }
 
+# Mapping from Mach-O cputype to archinfo ident strings (same as MachO._detect_arch_ident)
+_CPUTYPE_TO_ARCH_IDENT = {
+    0x100000C: "aarch64",
+    0xC: "arm",
+    0x7: "x86",
+    0x1000007: "x64",
+}
+
+
+def _cputype_to_arch(cputype):
+    """Resolve a Mach-O cputype integer to an archinfo.Arch instance, or None."""
+    ident = _CPUTYPE_TO_ARCH_IDENT.get(cputype)
+    if ident is None:
+        return None
+    try:
+        return archinfo.arch_from_id(ident)
+    except archinfo.ArchError:
+        return None
+
 
 class Universal2(Backend):
     """Backend for loading macOS Universal Binary 2 (fat) files.
@@ -34,7 +55,8 @@ class Universal2(Backend):
 
     To load only a specific architecture slice, pass ``arch`` in the loader options::
 
-        cle.Loader("path/to/universal", main_opts={"arch": "aarch64"})
+        import archinfo
+        cle.Loader("path/to/universal", main_opts={"arch": archinfo.ArchAArch64()})
     """
 
     is_default = True
@@ -93,11 +115,12 @@ class Universal2(Backend):
 
         # Filter to requested architecture if specified
         if arch is not None:
-            target_arch = arch.lower()
+            if not isinstance(arch, archinfo.Arch):
+                raise TypeError(f"arch must be an archinfo.Arch instance, got {type(arch).__name__}")
             filtered = []
             for cputype, cpusubtype, offset, size, align in slices:
-                arch_name = CPU_TYPE_NAMES.get(cputype)
-                if arch_name and arch_name.lower() == target_arch:
+                slice_arch = _cputype_to_arch(cputype)
+                if slice_arch is not None and isinstance(arch, type(slice_arch)):
                     filtered.append((cputype, cpusubtype, offset, size, align))
             if not filtered:
                 available = [CPU_TYPE_NAMES.get(s[0], f"unknown(0x{s[0]:X})") for s in slices]

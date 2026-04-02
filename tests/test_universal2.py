@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 
+import archinfo
 import pytest
 
 import cle
@@ -53,16 +54,16 @@ def test_universal2_load_all_slices():
 
 
 def test_universal2_load_single_arch():
-    """Test loading only one architecture slice by specifying arch."""
+    """Test loading only one architecture slice by specifying an archinfo.Arch instance."""
     # Load only the x86_64 slice
-    ld = cle.Loader(FATBIN, auto_load_libs=False, main_opts={"arch": "x64"})
+    ld = cle.Loader(FATBIN, auto_load_libs=False, main_opts={"arch": archinfo.ArchAMD64()})
     main = ld.main_object
     assert isinstance(main, Universal2)
     assert len(main.child_objects) == 1
     assert main.child_objects[0].arch.name == "AMD64"
 
     # Load only the aarch64 slice
-    ld = cle.Loader(FATBIN, auto_load_libs=False, main_opts={"arch": "aarch64"})
+    ld = cle.Loader(FATBIN, auto_load_libs=False, main_opts={"arch": archinfo.ArchAArch64()})
     main = ld.main_object
     assert isinstance(main, Universal2)
     assert len(main.child_objects) == 1
@@ -72,7 +73,13 @@ def test_universal2_load_single_arch():
 def test_universal2_invalid_arch():
     """Test that requesting a non-existent architecture raises an error."""
     with pytest.raises(KeyError, match="not found in universal binary"):
-        cle.Loader(FATBIN, auto_load_libs=False, main_opts={"arch": "mips"})
+        cle.Loader(FATBIN, auto_load_libs=False, main_opts={"arch": archinfo.ArchMIPS32()})
+
+
+def test_universal2_arch_type_error():
+    """Test that passing a non-Arch value for arch raises TypeError."""
+    with pytest.raises(TypeError, match="arch must be an archinfo.Arch instance"):
+        cle.Loader(FATBIN, auto_load_libs=False, main_opts={"arch": "aarch64"})
 
 
 def test_universal2_available_arches():
@@ -86,7 +93,7 @@ def test_universal2_available_arches():
     assert "aarch64" in archs
 
     # available_arches should reflect the full header even when a single arch is loaded
-    ld = cle.Loader(FATBIN, auto_load_libs=False, main_opts={"arch": "x64"})
+    ld = cle.Loader(FATBIN, auto_load_libs=False, main_opts={"arch": archinfo.ArchAMD64()})
     main = ld.main_object
     assert len(main.available_arches) == 2
     assert len(main.child_objects) == 1
