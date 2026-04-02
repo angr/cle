@@ -6,6 +6,8 @@ from io import BytesIO
 
 import archinfo
 
+from cle.errors import CLEError
+
 from .backend import Backend, register_backend
 
 log = logging.getLogger(__name__)
@@ -102,14 +104,16 @@ class Universal2(Backend):
         for _ in range(nfat_arch):
             if is_fat64:
                 # fat_arch_64: cputype(4) cpusubtype(4) offset(8) size(8) align(4) reserved(4)
-                cputype, cpusubtype, offset, size, align, _reserved = struct.unpack(
-                    endian + "IIQQiI", self._binary_stream.read(32)
-                )
+                header = self._binary_stream.read(32)
+                if len(header) < 32:
+                    raise CLEError("Unexpected end of file while reading fat_arch")
+                cputype, cpusubtype, offset, size, align, _reserved = struct.unpack(endian + "IIQQiI", header)
             else:
                 # fat_arch: cputype(4) cpusubtype(4) offset(4) size(4) align(4)
-                cputype, cpusubtype, offset, size, align = struct.unpack(
-                    endian + "IIIIi", self._binary_stream.read(20)
-                )
+                header = self._binary_stream.read(20)
+                if len(header) < 20:
+                    raise CLEError("Unexpected end of file while reading fat_arch")
+                cputype, cpusubtype, offset, size, align = struct.unpack(endian + "IIIIi", header)
             slices.append((cputype, cpusubtype, offset, size, align))
         self._fat_arches = list(slices)
 
@@ -125,8 +129,7 @@ class Universal2(Backend):
             if not filtered:
                 available = [CPU_TYPE_NAMES.get(s[0], f"unknown(0x{s[0]:X})") for s in slices]
                 raise KeyError(
-                    f"Architecture {arch!r} not found in universal binary. "
-                    f"Available architectures: {available}"
+                    f"Architecture {arch!r} not found in universal binary. Available architectures: {available}"
                 )
             slices = filtered
 
@@ -135,10 +138,16 @@ class Universal2(Backend):
         # may be MH_EXECUTE binaries that require is_main_bin=True. We temporarily
         # unset _main_object before each child load so MachO's MH_EXECUTE assertion
         # passes, then restore it immediately after.
+
+        # pop "backend" from main_opts to prevent child loads from trying to load as Universal2 again
+        self.loader._main_opts.pop("backend", None)
+
         for cputype, cpusubtype, offset, size, align in slices:
             arch_name = CPU_TYPE_NAMES.get(cputype, f"unknown_0x{cputype:X}")
             self._binary_stream.seek(offset)
             slice_data = self._binary_stream.read(size)
+            if len(slice_data) < size:
+                raise CLEError(f"Unexpected end of file while reading slice for {arch_name}")
             slice_stream = BytesIO(slice_data)
             slice_stream.name = f"{self.binary_basename}[{arch_name}]"
 
