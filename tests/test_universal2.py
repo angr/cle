@@ -89,8 +89,8 @@ def test_universal2_available_arches():
 
     archs = main.available_arches
     assert len(archs) == 2
-    assert "x64" in archs
-    assert "aarch64" in archs
+    assert "AMD64" in archs
+    assert "AARCH64" in archs
 
     # available_arches should reflect the full header even when a single arch is loaded
     ld = cle.Loader(FATBIN, auto_load_libs=False, main_opts={"arch": archinfo.ArchAMD64()})
@@ -105,5 +105,5 @@ def test_universal2_child_names():
     main = ld.main_object
 
     names = {child.binary_basename for child in main.child_objects}
-    assert any("[x64]" in n for n in names)
-    assert any("[aarch64]" in n for n in names)
+    assert any("[AMD64]" in n for n in names)
+    assert any("[AARCH64]" in n for n in names)
