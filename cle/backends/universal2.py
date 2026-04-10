@@ -20,10 +20,10 @@ FAT_CIGAM_64 = 0xBFBAFECA
 
 # Mach-O CPU type constants (from mach/machine.h)
 CPU_TYPE_NAMES = {
-    0x100000C: "aarch64",
-    0xC: "arm",
-    0x7: "x86",
-    0x1000007: "x64",
+    0x100000C: archinfo.ArchAArch64.name,
+    0xC: archinfo.ArchARM.name,
+    0x7: archinfo.ArchX86.name,
+    0x1000007: archinfo.ArchAMD64.name,
 }
 
 # Mapping from Mach-O cputype to archinfo ident strings (same as MachO._detect_arch_ident)
