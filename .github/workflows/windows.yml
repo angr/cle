@@ -12,10 +12,21 @@ jobs:
       - uses: actions/checkout@v3
         with:
           path: cle
+      - name: Resolve binaries branch
+        id: binaries-ref
+        shell: bash
+        run: |
+          BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
+          if [ -n "$BRANCH" ] && git ls-remote --exit-code --heads https://github.com/angr/binaries.git "$BRANCH" >/dev/null 2>&1; then
+            echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=master" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v3
         with:
           repository: angr/binaries
           path: binaries
+          ref: ${{ steps.binaries-ref.outputs.ref }}
       - uses: actions/setup-python@v4
         with:
           python-version: "3.10"

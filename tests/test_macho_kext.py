@@ -5,6 +5,7 @@ import os
 import cle
 from cle import MachO
 from cle.backends.macho.macho_enums import MachoFiletype
+from cle.backends.macho.segment import MachOSegment
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
 KEXT = os.path.join(TEST_BASE, "tests", "aarch64", "IPwnKit.macho.kext")
@@ -34,6 +35,7 @@ def test_kext_base_addr():
 def test_kext_segments():
     ld = cle.Loader(KEXT, auto_load_libs=False)
     mo = ld.main_object
+    assert isinstance(mo, MachO)
     segnames = [s.segname for s in mo.segments]
     assert "__TEXT" in segnames
     assert "__TEXT_EXEC" in segnames
@@ -45,8 +47,10 @@ def test_kext_segments():
 def test_kext_sections():
     ld = cle.Loader(KEXT, auto_load_libs=False)
     mo = ld.main_object
+    assert isinstance(mo, MachO)
     section_names = set()
     for seg in mo.segments:
+        assert isinstance(seg, MachOSegment)
         for sec in seg.sections:
             section_names.add((seg.segname, sec.sectname))
     assert ("__TEXT_EXEC", "__text") in section_names

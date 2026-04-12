@@ -35,7 +35,6 @@ from .structs import (
     dyld_chained_fixups_header,
     dyld_chained_starts_in_segment,
 )
-from .structs import DyldChainedPtrFormats as _DCPF
 from .symbol import AbstractMachOSymbol, DyldBoundSymbol, SymbolTableSymbol
 
 log = logging.getLogger(name=__name__)
@@ -44,6 +43,9 @@ __all__ = ("MachO", "MachOSection", "MachOSegment", "SymbolList")
 
 
 class _ChainStride(typing.NamedTuple):
+    """Stride layout for a dyld chained-pointer format: the byte multiplier for the `next`
+    field and whether to read the packed pointer through the Arm64e or Generic64 view."""
+
     bytes: int
     use_arm64e: bool
 
@@ -51,14 +53,14 @@ class _ChainStride(typing.NamedTuple):
 # Per dyld's fixup-chains.h: each pointer format defines a stride (the byte multiplier for the
 # `next` field) and which packed-pointer layout to read (Arm64e vs Generic64). The two layouts put
 # `next` at different bit positions, so picking the wrong one yields garbage walks.
-_CHAIN_STRIDE: dict[_DCPF, _ChainStride] = {
-    _DCPF.DYLD_CHAINED_PTR_ARM64E: _ChainStride(bytes=8, use_arm64e=True),
-    _DCPF.DYLD_CHAINED_PTR_64: _ChainStride(bytes=4, use_arm64e=False),
-    _DCPF.DYLD_CHAINED_PTR_64_OFFSET: _ChainStride(bytes=4, use_arm64e=False),
-    _DCPF.DYLD_CHAINED_PTR_ARM64E_KERNEL: _ChainStride(bytes=4, use_arm64e=True),
-    _DCPF.DYLD_CHAINED_PTR_ARM64E_USERLAND: _ChainStride(bytes=8, use_arm64e=True),
-    _DCPF.DYLD_CHAINED_PTR_ARM64E_FIRMWARE: _ChainStride(bytes=4, use_arm64e=True),
-    _DCPF.DYLD_CHAINED_PTR_ARM64E_USERLAND24: _ChainStride(bytes=8, use_arm64e=True),
+_CHAIN_STRIDE: dict[DyldChainedPtrFormats, _ChainStride] = {
+    DyldChainedPtrFormats.DYLD_CHAINED_PTR_ARM64E: _ChainStride(bytes=8, use_arm64e=True),
+    DyldChainedPtrFormats.DYLD_CHAINED_PTR_64: _ChainStride(bytes=4, use_arm64e=False),
+    DyldChainedPtrFormats.DYLD_CHAINED_PTR_64_OFFSET: _ChainStride(bytes=4, use_arm64e=False),
+    DyldChainedPtrFormats.DYLD_CHAINED_PTR_ARM64E_KERNEL: _ChainStride(bytes=4, use_arm64e=True),
+    DyldChainedPtrFormats.DYLD_CHAINED_PTR_ARM64E_USERLAND: _ChainStride(bytes=8, use_arm64e=True),
+    DyldChainedPtrFormats.DYLD_CHAINED_PTR_ARM64E_FIRMWARE: _ChainStride(bytes=4, use_arm64e=True),
+    DyldChainedPtrFormats.DYLD_CHAINED_PTR_ARM64E_USERLAND24: _ChainStride(bytes=8, use_arm64e=True),
 }
 
 
