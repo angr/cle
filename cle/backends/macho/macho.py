@@ -35,11 +35,31 @@ from .structs import (
     dyld_chained_fixups_header,
     dyld_chained_starts_in_segment,
 )
+from .structs import DyldChainedPtrFormats as _DCPF
 from .symbol import AbstractMachOSymbol, DyldBoundSymbol, SymbolTableSymbol
 
 log = logging.getLogger(name=__name__)
 
 __all__ = ("MachO", "MachOSection", "MachOSegment", "SymbolList")
+
+
+class _ChainStride(typing.NamedTuple):
+    bytes: int
+    use_arm64e: bool
+
+
+# Per dyld's fixup-chains.h: each pointer format defines a stride (the byte multiplier for the
+# `next` field) and which packed-pointer layout to read (Arm64e vs Generic64). The two layouts put
+# `next` at different bit positions, so picking the wrong one yields garbage walks.
+_CHAIN_STRIDE: dict[_DCPF, _ChainStride] = {
+    _DCPF.DYLD_CHAINED_PTR_ARM64E: _ChainStride(bytes=8, use_arm64e=True),
+    _DCPF.DYLD_CHAINED_PTR_64: _ChainStride(bytes=4, use_arm64e=False),
+    _DCPF.DYLD_CHAINED_PTR_64_OFFSET: _ChainStride(bytes=4, use_arm64e=False),
+    _DCPF.DYLD_CHAINED_PTR_ARM64E_KERNEL: _ChainStride(bytes=4, use_arm64e=True),
+    _DCPF.DYLD_CHAINED_PTR_ARM64E_USERLAND: _ChainStride(bytes=8, use_arm64e=True),
+    _DCPF.DYLD_CHAINED_PTR_ARM64E_FIRMWARE: _ChainStride(bytes=4, use_arm64e=True),
+    _DCPF.DYLD_CHAINED_PTR_ARM64E_USERLAND24: _ChainStride(bytes=8, use_arm64e=True),
+}
 
 
 # pylint: disable=abstract-method
@@ -157,8 +177,12 @@ class MachO(Backend):
                 "7I", binary_file, 0, 28
             )
 
-            # Libraries are always implicitly PIC
-            self.pic = bool(self.flags & MH_flags.MH_PIE) or bool(self.filetype & MachoFiletype.MH_DYLIB)
+            # Libraries, bundles, and kexts are always implicitly PIC
+            self.pic = bool(self.flags & MH_flags.MH_PIE) or self.filetype in (
+                MachoFiletype.MH_DYLIB,
+                MachoFiletype.MH_BUNDLE,
+                MachoFiletype.MH_KEXT_BUNDLE,
+            )
 
             if not bool(self.flags & MH_flags.MH_TWOLEVEL):  # ensure MH_TWOLEVEL
                 log.error(
@@ -207,6 +231,9 @@ class MachO(Backend):
                 # A Library is loaded as a dependency, this is fine, the loader will map it to somewhere above the main
                 # binary, so we don't need to do anything
                 pass
+            elif self.filetype in (MachoFiletype.MH_BUNDLE, MachoFiletype.MH_KEXT_BUNDLE):
+                if self.is_main_bin:
+                    self._custom_base_addr = 0
             else:
                 # This case is not explicitly supported yet.
                 # There are various other MachoFiletypes, which might have different quirks in their loading
@@ -1154,59 +1181,87 @@ class MachO(Backend):
             starts = self._get_struct(dyld_chained_starts_in_segment, starts_addr)
 
             seg = self.find_segment_containing(starts.segment_offset)
-            # There are weird binaries where the offsets inside the file
-            # and inside the virtual addr space don't match anymore.
-            # This isn't properly supported yet, and the only known case is the __PII section inside the __ETC segment
-            # of rare binaries, which isn't that important for most purposes
-            shift = seg.vaddr - (seg.offset)
-            if shift != 0:
-                assert isinstance(seg, MachOSegment)
-                assert seg.segname == "__ETC", (
-                    "Only __ETC segments are known to have this shift, please open an"
-                    " issue for this binary so it can be investigated"
-                )
-                log.error("Segment shift detected in, not handling fixups here for now")
-                continue
+            # In some binaries (kexts, __ETC segments) the segment's file offset and virtual
+            # address differ. Chain entries are read at *file* offsets but relocation addresses
+            # must be virtual (relative to the linked base). Compute the delta once here and
+            # add it when creating relocations below.
+            file_to_vaddr_shift = seg.vaddr - seg.offset if seg is not None else 0
 
             page_starts_data = self._read(self._binary_stream, starts_addr + 22, starts.page_count * 2)
             page_starts = struct.unpack("<" + ("H" * starts.page_count), page_starts_data)
 
             pointer_format: DyldChainedPtrFormats = starts.pointer_format
             log.info("Page has pointer_format: %s", pointer_format)
+            # Each pointer format has its own (next, stride) layout. Generic64 packs `next` as a
+            # 12-bit field at bit 52; Arm64e packs it as 11 bits at bit 51. Mixing them up reads
+            # garbage out of the chain header — see the kext path with DYLD_CHAINED_PTR_ARM64E_KERNEL.
+            stride = _CHAIN_STRIDE.get(pointer_format)
+            if stride is None:
+                raise NotImplementedError(f"Chain stride for pointer format {pointer_format} not known")
+            is_arm64e = stride.use_arm64e
             for j, start in enumerate(page_starts):
                 if start == DYLD_CHAINED_PTR_START_NONE:
                     continue
-                chain_entry_addr = starts.segment_offset + (j * starts.page_size) + start
-                current_chain_addr = chain_entry_addr
+                page_base = starts.segment_offset + (j * starts.page_size)
+                page_end = page_base + starts.page_size
+                current_chain_addr = page_base + start
                 log.info("Reading chain at %x", current_chain_addr)
 
                 while True:
-                    chained_rebase_ptr: ChainedFixupPointerOnDisk = self._get_struct(
-                        ChainedFixupPointerOnDisk, current_chain_addr
-                    )
+                    try:
+                        chained_rebase_ptr: ChainedFixupPointerOnDisk = self._get_struct(
+                            ChainedFixupPointerOnDisk, current_chain_addr
+                        )
+                    except ValueError:
+                        log.warning("Chain entry at %#x extends past end of file; stopping", current_chain_addr)
+                        break
                     bind = chained_rebase_ptr.isBind(pointer_format)
                     rebase = chained_rebase_ptr.isRebase(pointer_format, self.mapped_base)
                     if bind is not None:
                         libOrdinal, _addend = bind
+                        if libOrdinal >= len(self._dyld_imports):
+                            log.error(
+                                "Chained fixup bind ordinal %d out of range (have %d imports) at %#x; "
+                                "stopping chain walk",
+                                libOrdinal,
+                                len(self._dyld_imports),
+                                current_chain_addr,
+                            )
+                            break
                         import_symbol = self._dyld_imports[libOrdinal]
-                        reloc = MachOSymbolRelocation(self, import_symbol, current_chain_addr, None)
+                        reloc_addr = current_chain_addr + file_to_vaddr_shift
+                        reloc = MachOSymbolRelocation(self, import_symbol, reloc_addr, None)
                         self.relocs.append(reloc)
-                        # Legacy Code uses bind_xrefs, explicitly add this to make this compatible for now
                         import_symbol.bind_xrefs.append(reloc.dest_addr + self.linked_base)
-                        log.debug("Binding for %s found at %x", import_symbol, current_chain_addr)
+                        log.debug("Binding for %s found at %x", import_symbol, reloc_addr)
                     elif rebase is not None:
+                        reloc_addr = current_chain_addr + file_to_vaddr_shift
                         target = self.linked_base + rebase
-                        location: MemoryPointer = self.linked_base + current_chain_addr
-                        anon_reloc = MachOPointerRelocation(owner=self, relative_addr=current_chain_addr, data=rebase)
+                        location: MemoryPointer = self.linked_base + reloc_addr
+                        anon_reloc = MachOPointerRelocation(owner=self, relative_addr=reloc_addr, data=rebase)
                         self.relocs.append(anon_reloc)
                         log.debug("Rebase to %x found at %x", target, location)
 
                     else:
                         raise CLEInvalidBinaryError("FixupPointer was neither bind nor rebase, that shouldn't happen")
 
-                    skip = chained_rebase_ptr.generic64.rebase.next * 4
-                    current_chain_addr += skip
+                    if is_arm64e:
+                        next_count = chained_rebase_ptr.arm64e.rebase.next
+                    else:
+                        next_count = chained_rebase_ptr.generic64.rebase.next
+                    skip = next_count * stride.bytes
                     if skip == 0:
+                        break
+                    current_chain_addr += skip
+                    if current_chain_addr >= page_end:
+                        # Chains are per-page; if a malformed chain would walk into the next page,
+                        # stop rather than reinterpreting unrelated data as fixup entries.
+                        log.warning(
+                            "Chain walked past page end at %#x (page %#x..%#x); stopping",
+                            current_chain_addr,
+                            page_base,
+                            page_end,
+                        )
                         break
 
     def get_symbol_by_address_fuzzy(self, address):
