@@ -117,7 +117,7 @@ class Universal2(Backend):
             slices.append((cputype, cpusubtype, offset, size, align))
         self._fat_arches = list(slices)
 
-        # Filter to requested architecture if specified
+        # Filter to requested architecture, or pick the first slice
         if arch is not None:
             if not isinstance(arch, archinfo.Arch):
                 raise TypeError(f"arch must be an archinfo.Arch instance, got {type(arch).__name__}")
@@ -132,6 +132,15 @@ class Universal2(Backend):
                     f"Architecture {arch!r} not found in universal binary. Available architectures: {available}"
                 )
             slices = filtered
+        elif len(slices) > 1:
+            available = [CPU_TYPE_NAMES.get(s[0], f"unknown(0x{s[0]:X})") for s in slices]
+            log.warning(
+                "Universal binary contains multiple architectures %s; "
+                "loading only the first (%s). Pass arch= to select a specific slice.",
+                available,
+                available[0],
+            )
+            slices = slices[:1]
 
         # Load each slice using _load_object_isolated.
         # Unlike StaticArchive (where children are .o files), universal binary slices
