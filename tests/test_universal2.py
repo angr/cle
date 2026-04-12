@@ -29,8 +29,8 @@ def test_universal2_autodetect():
     assert type(ld.main_object) is Universal2
 
 
-def test_universal2_load_all_slices():
-    """Test loading all architecture slices from a universal binary."""
+def test_universal2_default_first_slice():
+    """Test that loading without arch= picks only the first slice."""
     ld = cle.Loader(FATBIN, auto_load_libs=False)
 
     main = ld.main_object
@@ -38,19 +38,14 @@ def test_universal2_load_all_slices():
     assert main.is_outer is True
     assert main.has_memory is False
 
-    # Should have two child objects (x86_64 + aarch64)
-    assert len(main.child_objects) == 2
-    assert len(main.slices) == 2
+    # Should load only the first slice when no arch is specified
+    assert len(main.child_objects) == 1
+    assert len(main.slices) == 1
 
-    # All children should be MachO objects parented to the Universal2
-    for child in main.child_objects:
-        assert isinstance(child, MachO)
-        assert child.parent_object is main
-
-    # Check that both expected architectures are present
-    arch_names = {child.arch.name for child in main.child_objects}
-    assert "AMD64" in arch_names
-    assert "AARCH64" in arch_names
+    # The child should be a MachO object parented to the Universal2
+    child = main.child_objects[0]
+    assert isinstance(child, MachO)
+    assert child.parent_object is main
 
 
 def test_universal2_load_single_arch():
@@ -101,9 +96,8 @@ def test_universal2_available_arches():
 
 def test_universal2_child_names():
     """Test that child objects have descriptive names including architecture."""
-    ld = cle.Loader(FATBIN, auto_load_libs=False)
+    ld = cle.Loader(FATBIN, auto_load_libs=False, main_opts={"arch": archinfo.ArchAMD64()})
     main = ld.main_object
 
     names = {child.binary_basename for child in main.child_objects}
     assert any("[x64]" in n for n in names)
-    assert any("[aarch64]" in n for n in names)
