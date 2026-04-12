@@ -101,3 +101,22 @@ def test_universal2_child_names():
 
     names = {child.binary_basename for child in main.child_objects}
     assert any("[x64]" in n for n in names)
+
+
+def test_universal2_filter_slices_by_arch():
+    """The slice-filter helper used by the dependency-loading path picks the matching arch."""
+    # (cputype, cpusubtype, offset, size, align) tuples — only the cputype field matters here.
+    slices = [
+        (0x1000007, 0, 0, 0, 0),  # x86_64
+        (0x100000C, 0, 0, 0, 0),  # aarch64
+    ]
+    aarch64 = Universal2._filter_slices_by_arch(slices, archinfo.ArchAArch64())
+    assert len(aarch64) == 1
+    assert aarch64[0][0] == 0x100000C
+
+    amd64 = Universal2._filter_slices_by_arch(slices, archinfo.ArchAMD64())
+    assert len(amd64) == 1
+    assert amd64[0][0] == 0x1000007
+
+    with pytest.raises(KeyError, match="not found in universal binary"):
+        Universal2._filter_slices_by_arch(slices, archinfo.ArchMIPS32())
