@@ -437,7 +437,8 @@ class Loader:
 
     def find_object_containing(self, addr: int, membership_check: bool = True) -> Backend | None:
         """
-        Return the object that contains the given address, or None if the address is unmapped.
+        Return the object that contains the given address, or None if the address is unmapped. This lookup method does
+        not include outer objects (obj.is_outer is True).
 
         :param int addr:    The address that should be contained in the object.
         :param bool membership_check:   Whether a membership check should be performed or not (True by default). This
@@ -459,7 +460,11 @@ class Loader:
                 raise CLEError(f"Unsupported memory type {type(obj_.memory)}")
 
         # check the cache first
-        if self._last_object is not None and self._last_object.min_addr <= addr <= self._last_object.max_addr:
+        if (
+            self._last_object is not None
+            and not self._last_object.is_outer
+            and self._last_object.min_addr <= addr <= self._last_object.max_addr
+        ):
             if not membership_check:
                 return self._last_object
             if not self._last_object.has_memory:
@@ -472,7 +477,7 @@ class Loader:
             return None
 
         obj = key_bisect_floor_key(self.all_objects, addr, keyfunc=lambda x: x.min_addr)
-        if obj is None:
+        if obj is None or obj.is_outer:
             return None
         if not obj.min_addr <= addr <= obj.max_addr:
             return None
