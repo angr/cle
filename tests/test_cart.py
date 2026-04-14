@@ -89,7 +89,7 @@ def test_cart_blob_with_load_options():
 
 
 def test_cart_find_object_containing_excludes_wrapper():
-    """Test that the CARTFile wrapper (has_memory=False) is not returned by find_object_containing.
+    """Test that the CARTFile wrapper (is_outer=True) is not returned by find_object_containing.
 
     Regression test for https://github.com/angr/angr/issues/6311: the CARTFile wrapper at address 0
     was returned by find_object_containing(0), causing angr's variable recovery to create a spurious
