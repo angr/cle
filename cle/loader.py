@@ -459,10 +459,12 @@ class Loader:
                 raise CLEError(f"Unsupported memory type {type(obj_.memory)}")
 
         # check the cache first
-        if self._last_object is not None and self._last_object.min_addr <= addr <= self._last_object.max_addr:
+        if (
+            self._last_object is not None
+            and self._last_object.has_memory
+            and self._last_object.min_addr <= addr <= self._last_object.max_addr
+        ):
             if not membership_check:
-                return self._last_object
-            if not self._last_object.has_memory:
                 return self._last_object
             o = _check_object_memory(self._last_object)
             if o:
@@ -480,8 +482,7 @@ class Loader:
             self._last_object = obj
             return obj
         if not obj.has_memory:
-            self._last_object = obj
-            return obj
+            return None
         return _check_object_memory(obj)
 
     def find_segment_containing(self, addr: int, skip_pseudo_objects: bool = True) -> Segment | None:
