@@ -29,8 +29,8 @@ def test_universal2_autodetect():
     assert type(ld.main_object) is Universal2
 
 
-def test_universal2_load_all_slices():
-    """Test loading all architecture slices from a universal binary."""
+def test_universal2_default_first_slice():
+    """Test that loading without arch= picks only the first slice."""
     ld = cle.Loader(FATBIN, auto_load_libs=False)
 
     main = ld.main_object
@@ -38,19 +38,14 @@ def test_universal2_load_all_slices():
     assert main.is_outer is True
     assert main.has_memory is False
 
-    # Should have two child objects (x86_64 + aarch64)
-    assert len(main.child_objects) == 2
-    assert len(main.slices) == 2
+    # Should load only the first slice when no arch is specified
+    assert len(main.child_objects) == 1
+    assert len(main.slices) == 1
 
-    # All children should be MachO objects parented to the Universal2
-    for child in main.child_objects:
-        assert isinstance(child, MachO)
-        assert child.parent_object is main
-
-    # Check that both expected architectures are present
-    arch_names = {child.arch.name for child in main.child_objects}
-    assert "AMD64" in arch_names
-    assert "AARCH64" in arch_names
+    # The child should be a MachO object parented to the Universal2
+    child = main.child_objects[0]
+    assert isinstance(child, MachO)
+    assert child.parent_object is main
 
 
 def test_universal2_load_single_arch():
@@ -101,9 +96,27 @@ def test_universal2_available_arches():
 
 def test_universal2_child_names():
     """Test that child objects have descriptive names including architecture."""
-    ld = cle.Loader(FATBIN, auto_load_libs=False)
+    ld = cle.Loader(FATBIN, auto_load_libs=False, main_opts={"arch": archinfo.ArchAMD64()})
     main = ld.main_object
 
     names = {child.binary_basename for child in main.child_objects}
     assert any("[x64]" in n for n in names)
-    assert any("[aarch64]" in n for n in names)
+
+
+def test_universal2_filter_slices_by_arch():
+    """The slice-filter helper used by the dependency-loading path picks the matching arch."""
+    # (cputype, cpusubtype, offset, size, align) tuples — only the cputype field matters here.
+    slices = [
+        (0x1000007, 0, 0, 0, 0),  # x86_64
+        (0x100000C, 0, 0, 0, 0),  # aarch64
+    ]
+    aarch64 = Universal2._filter_slices_by_arch(slices, archinfo.ArchAArch64())
+    assert len(aarch64) == 1
+    assert aarch64[0][0] == 0x100000C
+
+    amd64 = Universal2._filter_slices_by_arch(slices, archinfo.ArchAMD64())
+    assert len(amd64) == 1
+    assert amd64[0][0] == 0x1000007
+
+    with pytest.raises(KeyError, match="not found in universal binary"):
+        Universal2._filter_slices_by_arch(slices, archinfo.ArchMIPS32())

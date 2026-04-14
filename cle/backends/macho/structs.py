@@ -130,6 +130,15 @@ class dyld_chained_ptr_arm64e_bind24(HelperStruct):
     https://github.com/apple-opensource/dyld/blob/852.2/include/mach-o/fixup-chains.h#L164-L173
     """
 
+    _fields_ = [
+        ("ordinal", c_uint64, 24),
+        ("zero", c_uint64, 8),
+        ("addend", c_uint64, 19),
+        ("next", c_uint64, 11),
+        ("bind", c_uint64, 1),
+        ("auth", c_uint64, 1),
+    ]
+
 
 # noinspection PyPep8Naming
 class dyld_chained_ptr_arm64e_auth_bind24(HelperStruct):

@@ -117,21 +117,32 @@ class Universal2(Backend):
             slices.append((cputype, cpusubtype, offset, size, align))
         self._fat_arches = list(slices)
 
-        # Filter to requested architecture if specified
+        # Pick which slice(s) to actually load. Loading every slice into memory at once produces
+        # conflicting placement requirements (multiple MH_EXECUTE slices all want 0x400000) and
+        # multiple is_main_bin objects, which break downstream consumers. The rules are:
+        #   - If arch= was passed explicitly, honor it.
+        #   - Otherwise, if we are the main binary, pick the first slice and warn.
+        #   - Otherwise (loaded as a dependency), pick the slice matching the main binary's arch.
         if arch is not None:
             if not isinstance(arch, archinfo.Arch):
                 raise TypeError(f"arch must be an archinfo.Arch instance, got {type(arch).__name__}")
-            filtered = []
-            for cputype, cpusubtype, offset, size, align in slices:
-                slice_arch = _cputype_to_arch(cputype)
-                if slice_arch is not None and isinstance(arch, type(slice_arch)):
-                    filtered.append((cputype, cpusubtype, offset, size, align))
-            if not filtered:
+            slices = self._filter_slices_by_arch(slices, arch)
+        elif self._is_main_universal:
+            if len(slices) > 1:
                 available = [CPU_TYPE_NAMES.get(s[0], f"unknown(0x{s[0]:X})") for s in slices]
-                raise KeyError(
-                    f"Architecture {arch!r} not found in universal binary. Available architectures: {available}"
+                log.warning(
+                    "Universal binary contains multiple architectures %s; "
+                    "loading only the first (%s). Pass arch= to select a specific slice.",
+                    available,
+                    available[0],
                 )
-            slices = filtered
+            slices = slices[:1]
+        else:
+            main_arch = self.loader._main_object.arch if self.loader._main_object is not None else None
+            if main_arch is None:
+                slices = slices[:1]
+            else:
+                slices = self._filter_slices_by_arch(slices, main_arch)
 
         # Load each slice using _load_object_isolated.
         # Unlike StaticArchive (where children are .o files), universal binary slices
@@ -171,6 +182,18 @@ class Universal2(Backend):
         # hack pt. 2
         if self.loader._main_object is self:
             self.loader._main_object = None
+
+    @staticmethod
+    def _filter_slices_by_arch(slices, arch):
+        filtered = []
+        for entry in slices:
+            slice_arch = _cputype_to_arch(entry[0])
+            if slice_arch is not None and isinstance(arch, type(slice_arch)):
+                filtered.append(entry)
+        if not filtered:
+            available = [CPU_TYPE_NAMES.get(s[0], f"unknown(0x{s[0]:X})") for s in slices]
+            raise KeyError(f"Architecture {arch!r} not found in universal binary. Available architectures: {available}")
+        return filtered
 
     @property
     def available_arches(self):
