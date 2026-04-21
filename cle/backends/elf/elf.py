@@ -949,8 +949,10 @@ class ELF(MetaELF):
                     ranges = self._load_ranges_form_die(sub_die, aranges)
                     if ranges is not None:
                         subr.ranges = ranges
+                subr.void = "DW_AT_type" not in sub_die.attributes
                 if "DW_AT_abstract_origin" in sub_die.attributes:
                     origin = sub_die.get_DIE_from_attribute("DW_AT_abstract_origin")
+                    assert origin is not None
                     subr.name = self._dwarf_get_name_with_namespace(origin)
                     if "DW_AT_external" in origin.attributes:
                         subr.extern = origin.attributes["DW_AT_external"].value
@@ -959,6 +961,7 @@ class ELF(MetaELF):
                         if arg_die.tag == "DW_TAG_formal_parameter":
                             nargs += 1
                     subr.nargs = nargs
+                subr.void = "DW_AT_type" not in origin.attributes
 
                 subprogram.inlined_functions.append(subr)
 

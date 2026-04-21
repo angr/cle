@@ -15,6 +15,7 @@ class InlinedFunction:
     extern: bool = False
     entry: int | None = None
     nargs: int | None = None
+    void: bool = False
 
     @property
     def low_pc(self):
