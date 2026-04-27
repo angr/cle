@@ -38,9 +38,11 @@ class ThreadManager:
         if obj.tls_data_start < 0:
             log.warning("The provided object has a negative tls_data_start. Skip TLS loading.")
             return None
-        if obj.tls_data_size <= 0:
+        if obj.tls_data_size < 0:
             log.warning("The provided object has an invalid tls_data_size. Skip TLS loading.")
             return None
+        if obj.tls_data_size == 0:
+            return b"".ljust(obj.tls_block_size, b"\0")
         return obj.memory.load(obj.tls_data_start, obj.tls_data_size).ljust(obj.tls_block_size, b"\0")
 
     def new_thread(self, insert=True):
