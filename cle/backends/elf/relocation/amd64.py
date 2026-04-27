@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from .generic import (
     GenericAbsoluteAddendReloc,
+    GenericAbsoluteReloc,
     GenericCopyReloc,
     GenericIRelativeReloc,
-    GenericJumpslotReloc,
     GenericPCRelativeAddendReloc,
     GenericRelativeReloc,
     GenericTLSDoffsetReloc,
@@ -36,11 +36,11 @@ class R_X86_64_IRELATIVE(GenericIRelativeReloc):
     pass
 
 
-class R_X86_64_GLOB_DAT(GenericJumpslotReloc):
+class R_X86_64_GLOB_DAT(GenericAbsoluteReloc):
     pass
 
 
-class R_X86_64_JUMP_SLOT(GenericJumpslotReloc):
+class R_X86_64_JUMP_SLOT(GenericAbsoluteReloc):
     pass
 
 
