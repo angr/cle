@@ -563,6 +563,25 @@ class MachOPointerRelocation(Relocation):
         # This needs to be set to true, so that the rebase will actually be applied later
         self.resolved = True
 
+    def relocate(self):
+        if not self.resolved:
+            return False
+
+        dst_section = self.owner.find_section_containing(self.rebased_addr)
+        val_section = self.owner.find_section_containing(self.value)
+
+        if (
+            dst_section is not None
+            and dst_section.name == "__la_symbol_ptr"
+            and val_section is not None
+            and val_section.name == "__stub_helper"
+        ):
+            log.debug("Skipping relocation of stub helper pointer at %#x", self.rebased_addr)
+            return False
+
+        self.owner.memory.pack_word(self.dest_addr, self.value)
+        return True
+
     def __repr__(self):
         return f"<MachO Ptr Fixup at {hex(self.relative_addr)} to {hex(self.data)}>"
 
