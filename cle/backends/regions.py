@@ -1,16 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import Generic, TypeVar
 
 from cle.utils import key_bisect_find, key_bisect_insort_left
 
 from .region import Region
 
-R = TypeVar("R", bound=Region)
 
-
-class Regions(Generic[R]):
+class Regions[R: Region]:
     """
     A container class acting as a list of regions (sections or segments). Additionally, it keeps an sorted list of
     all regions that are mapped into memory to allow fast lookups.
