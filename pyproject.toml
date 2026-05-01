@@ -41,17 +41,17 @@ Homepage = "https://api.angr.io/projects/cle/en/latest/"
 Repository = "https://github.com/angr/cle"
 
 [project.optional-dependencies]
+pcode = [
+    "pypcode>=1.1"
+]
+
+[dependency-groups]
 docs = [
     "furo",
     "myst-parser",
     "sphinx",
     "sphinx-autodoc-typehints",
 ]
-pcode = [
-    "pypcode>=1.1"
-]
-
-[dependency-groups]
 testing = [
     "cffi",
     "pypcode>=1.1",

@@ -4,20 +4,14 @@
 version: 2
 sphinx:
   configuration: docs/conf.py
-  fail_on_warning: true
-build:
-  os: ubuntu-22.04
-  tools:
-    python: "3.10"
-  jobs:
-    pre_install:
-      - pip install git+https://github.com/angr/archinfo.git
-      - pip install git+https://github.com/angr/pyvex.git
-
+formats: [pdf]
 python:
   install:
-    - method: pip
-      path: .
-      extra_requirements:
-        - docs
-
+    - method: uv
+      command: sync
+      extras: all
+      groups: [docs]
+build:
+  os: ubuntu-24.04
+  tools:
+    python: "3.12"
