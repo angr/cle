@@ -50,11 +50,14 @@ docs = [
 pcode = [
     "pypcode>=1.1"
 ]
+
+[dependency-groups]
 testing = [
     "cffi",
     "pypcode>=1.1",
     "pytest",
     "pytest-xdist",
+    "setuptools", # Required for cffi runtime compilation support
 ]
 
 [tool.setuptools]
