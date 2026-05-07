@@ -8,9 +8,8 @@ from minidump import minidumpfile
 from minidump.streams import SystemInfoStream
 
 from cle.backends.backend import Backend, register_backend
-from cle.backends.region import Section, Segment
-from cle.errors import CLEError, CLEInvalidBinaryError
-
+from cle.backends.region import Segment
+from cle.errors import CLEError
 from .regions import DumpSection
 
 
