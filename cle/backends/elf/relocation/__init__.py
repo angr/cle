@@ -9,6 +9,7 @@ from .i386 import relocation_table_i386
 from .mips import relocation_table_mips
 from .ppc import relocation_table_ppc
 from .ppc64 import relocation_table_ppc64
+from .riscv64 import relocation_table_riscv64
 from .s390x import relocation_table_s390x
 from .sparc import relocation_table_sparc
 
@@ -19,6 +20,7 @@ ALL_RELOCATIONS = {
     "AARCH64": relocation_table_arm64,
     "ARMEL": relocation_table_arm,
     "ARMHF": relocation_table_arm,
+    "RISCV64": relocation_table_riscv64,
     "X86": relocation_table_i386,
     "MIPS32": relocation_table_mips,
     "MIPS64": relocation_table_mips,
