@@ -9,8 +9,9 @@ from minidump.streams import SystemInfoStream
 
 from cle.backends.backend import Backend, register_backend
 from cle.backends.region import Section, Segment
-from .regions import DumpSection
 from cle.errors import CLEError, CLEInvalidBinaryError
+
+from .regions import DumpSection
 
 
 class MinidumpMissingStreamError(Exception):
@@ -68,15 +69,15 @@ class Minidump(Backend):
             # A module can span multiple segments
             module_start = module.baseaddress
             module_end = module.baseaddress + module.size
-            
+
             for segment in segments:
                 seg_start = segment.start_virtual_address
                 seg_end = segment.start_virtual_address + segment.size
-                
+
                 # Check for overlap
                 overlap_start = max(module_start, seg_start)
                 overlap_end = min(module_end, seg_end)
-                
+
                 if overlap_start < overlap_end:
                     # find protection for this overlap
                     protect = 0
@@ -85,8 +86,10 @@ class Minidump(Backend):
                             if info.BaseAddress <= overlap_start < info.BaseAddress + info.RegionSize:
                                 protect = info.Protect
                                 break
-                    
-                    section = DumpSection(module, segment, protect, vaddr=overlap_start, size=overlap_end-overlap_start)
+
+                    section = DumpSection(
+                        module, segment, protect, vaddr=overlap_start, size=overlap_end - overlap_start
+                    )
                     self.sections.append(section)
                     self.sections_map[ntpath.basename(section.name)] = section
 

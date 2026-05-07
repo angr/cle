@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from cle.backends.region import Section
 from minidump.streams import MemoryInfoListStream
 
+from cle.backends.region import Section
 
 AP = MemoryInfoListStream.AllocationProtect
 
@@ -22,9 +22,13 @@ class DumpSection(Section):
     ):
         super().__init__(
             module.name,
-            segment.start_file_address + (vaddr - segment.start_virtual_address) if vaddr else segment.start_file_address,
+            (
+                segment.start_file_address + (vaddr - segment.start_virtual_address)
+                if vaddr
+                else segment.start_file_address
+            ),
             vaddr or module.baseaddress,
-            size or module.size
+            size or module.size,
         )
         self.protect = protect
 
@@ -42,10 +46,7 @@ class DumpSection(Section):
 
     @property
     def is_writable(self) -> bool:
-        writable = (
-            AP.PAGE_READWRITE.value
-            | AP.PAGE_EXECUTE_READWRITE.value
-        )
+        writable = AP.PAGE_READWRITE.value | AP.PAGE_EXECUTE_READWRITE.value
         return bool(self.protect.value & writable)
 
     @property
@@ -57,4 +58,3 @@ class DumpSection(Section):
             | AP.PAGE_EXECUTE_WRITECOPY.value
         )
         return bool(self.protect.value & executable)
-
