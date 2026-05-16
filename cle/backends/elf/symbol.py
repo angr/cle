@@ -5,7 +5,7 @@ from elftools.elf.enums import ENUM_ST_INFO_TYPE
 from cle.address_translator import AT
 from cle.backends.symbol import Symbol, SymbolType
 
-from .symbol_type import ELFSymbolType
+from .symbol_type import ELFSymbolType, parse_symbol_type
 
 
 def maybedecode(string):
@@ -23,20 +23,11 @@ class ELFSymbol(Symbol):
 
     def __init__(self, owner, symb):
         subtype_num = ENUM_ST_INFO_TYPE.get(symb.entry.st_info.type, symb.entry.st_info.type)
-        arch_list = [owner.arch.name, None]
         if "UNIX" in owner.os:
-            arch_list.insert(1, "gnu")
-        for arch in arch_list:
-            try:
-                self._subtype = ELFSymbolType((subtype_num, arch))
-            except ValueError:
-                pass
-            else:
-                self._type = self._subtype.to_base_type()
-                break
+            arch_list = (owner.arch.name, "gnu", None)
         else:
-            self._subtype = None
-            self._type = SymbolType.TYPE_OTHER
+            arch_list = (owner.arch.name, None)
+        self._subtype, self._type = parse_symbol_type(subtype_num, arch_list)
 
         sec_ndx, value = symb.entry.st_shndx, symb.entry.st_value
 
