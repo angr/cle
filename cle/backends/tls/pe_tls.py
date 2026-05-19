@@ -105,8 +105,9 @@ class PETLSObject(TLSObject):
 
             self.memory.pack_word(index_offset, image_offset)
             self.relocs.append(InternalTLSRelocation(image_offset, index_offset, self))
-            self.memory.add_backer(image_offset, image)
-            self.used_data += len(image)
+            if image:
+                self.memory.add_backer(image_offset, image)
+                self.used_data += len(image)
 
     def get_tls_data_addr(self, tls_idx):
         """
