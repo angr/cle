@@ -139,6 +139,20 @@ class TestPEBackend(unittest.TestCase):
         assert tls is not None
         assert len(ld.tls.modules) == 1
 
+    def test_empty_tls_data(self):
+        exe = os.path.join(
+            TEST_BASE, "tests", "i386", "windows", "0245fc3455f66354cef5b73de12318f881e89a7f2af19b5592349ce1d7de2017"
+        )
+        ld = cle.Loader(exe, auto_load_libs=False)
+        tls = ld.tls.new_thread()
+
+        assert ld.main_object.tls_used
+        assert ld.main_object.tls_data_size == 0
+        assert ld.main_object.tls_block_size == 0
+
+        assert tls is not None
+        assert len(ld.tls.modules) == 1
+
     def test_pdb(self):
         exe = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "fauxware.exe")
         pdb = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "fauxware.pdb")
