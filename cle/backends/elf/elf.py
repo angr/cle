@@ -1508,8 +1508,7 @@ class ELF(MetaELF):
             self.compiler = compiler, version
 
     def __register_section_symbols(self, sec_re):
-        for sym_re in sec_re.iter_symbols():
-            self.symbols.add(self.get_symbol(sym_re))
+        self.symbols.update(self.get_symbol(sym_re) for sym_re in sec_re.iter_symbols())
 
     def __relocate_mips(self, symtab):
         if "DT_MIPS_BASE_ADDRESS" not in self._dynamic:
