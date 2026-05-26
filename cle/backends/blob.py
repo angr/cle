@@ -116,8 +116,5 @@ class Blob(Backend):
     def _cache_content(self):
         return
 
-    def _checksum(self):
-        return
-
 
 register_backend("blob", Blob)
