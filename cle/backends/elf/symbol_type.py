@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from functools import cache
+
 from cle.backends.symbol import SymbolSubType, SymbolType
 
 
@@ -142,3 +144,14 @@ def __ELFSymbolTypeArchParser(cls, value):
 
 
 setattr(ELFSymbolType, "__new__", __ELFSymbolTypeArchParser)
+
+
+@cache
+def parse_symbol_type(elf_value: int, arches: tuple[str | None, ...]) -> tuple[ELFSymbolType | None, SymbolType]:
+    for arch in arches:
+        try:
+            subtype = ELFSymbolType((elf_value, arch))
+        except ValueError:
+            continue
+        return subtype, subtype.to_base_type()
+    return None, SymbolType.TYPE_OTHER
