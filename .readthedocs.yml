@@ -2,6 +2,9 @@
 # See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
 
 version: 2
+submodules:
+  include: all
+  recursive: true
 sphinx:
   configuration: docs/conf.py
 formats: [pdf]

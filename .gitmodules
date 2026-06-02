@@ -1,0 +1,3 @@
+[submodule "deps/uefi-firmware"]
+	path = deps/uefi-firmware
+	url = https://github.com/theopolis/uefi-firmware-parser.git

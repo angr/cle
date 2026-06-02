@@ -7,8 +7,10 @@ import cffi
 import cle
 
 
-def test_cclemory():  # pylint: disable=no-member
+def disabled_test_cclemory():  # pylint: disable=no-member
     # This is a test case for C-backed Clemory.
+    # Fish disabled this test case until the bug in py-cffi is fixed:
+    # https://github.com/python-cffi/cffi/issues/246
 
     clemory = cle.Clemory(None, root=True)
     clemory.add_backer(0, b"\x90" * 1000)
