@@ -68,9 +68,9 @@ class Blob(Backend):
         for file_offset, mem_addr, size in segments:
             self._load(file_offset, mem_addr, size)
 
-    @staticmethod
-    def is_compatible(stream):
-        return stream == 0  # I hate pylint
+    @classmethod
+    def is_compatible(cls, stream):  # pylint: disable=unused-argument
+        return False
 
     @property
     def min_addr(self):
@@ -114,9 +114,6 @@ class Blob(Backend):
         return True
 
     def _cache_content(self):
-        return
-
-    def _checksum(self):
         return
 
 

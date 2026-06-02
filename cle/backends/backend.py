@@ -214,9 +214,9 @@ class Backend:
         # loader will pick it up
         self.force_main_object = None
 
-        # checksums
-        self.md5 = None
-        self.sha256 = None
+        # Lazy checksums — computed on first access via the `md5` / `sha256` properties.
+        self._md5: bytes | None = None
+        self._sha256: bytes | None = None
 
         self.mapped_base_symbolic = 0
         # These are set by cle, and should not be overriden manually
@@ -284,7 +284,28 @@ class Backend:
             raise CLEError(f"Bad parameter: arch={arch}")
 
         self._cache_content()
-        self._checksum()
+
+    @property
+    def md5(self) -> bytes | None:
+        """MD5 digest of the binary, computed lazily on first access."""
+        if self._md5 is None:
+            self._md5 = self._compute_digest(hashlib.md5)
+        return self._md5
+
+    @property
+    def sha256(self) -> bytes | None:
+        """SHA-256 digest of the binary, computed lazily on first access."""
+        if self._sha256 is None:
+            self._sha256 = self._compute_digest(hashlib.sha256)
+        return self._sha256
+
+    def _compute_digest(self, hasher) -> bytes | None:
+        if self._binary_stream is None:
+            return None
+        self._binary_stream.seek(0)
+        data = self._binary_stream.read()
+        self._binary_stream.seek(0)
+        return hasher(data).digest()
 
     @property
     def arch(self) -> archinfo.Arch:
@@ -585,18 +606,6 @@ class Backend:
             data = self._binary_stream.read()
             self._binary_stream.seek(0)
             self.cached_content = data
-
-    def _checksum(self):
-        """
-        Calculate MD5 and SHA256 checksum for the binary.
-        """
-
-        if self._binary_stream is not None:
-            self._binary_stream.seek(0)
-            data = self._binary_stream.read()
-            self._binary_stream.seek(0)
-            self.md5 = hashlib.md5(data).digest()
-            self.sha256 = hashlib.sha256(data).digest()
 
     def __getstate__(self):
         state = self.__dict__.copy()
