@@ -81,12 +81,16 @@ sources = [
     "deps/uefi-firmware/uefi_firmware/compression/Tiano/EfiCompress.c",
     "deps/uefi-firmware/uefi_firmware/compression/Tiano/TianoCompress.c",
 ]
+py-limited-api=true
 
 [tool.setuptools.dynamic]
 version = { attr = "cle.__version__" }
 
 [tool.setuptools.package-data]
 cle = ["py.typed"]
+
+[tool.distutils.bdist_wheel]
+py_limited_api = "cp312"
 
 [tool.uv.sources]
 archinfo = { git = "https://github.com/angr/archinfo.git", branch = "master" }
