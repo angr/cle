@@ -36,6 +36,7 @@ class CoffFileHeader(ctypes.LittleEndianStructure):
     """
 
     _pack_ = 1
+    _layout_ = "ms"
     _fields_ = [
         ("Machine", ctypes.c_uint16),
         ("NumberOfSections", ctypes.c_uint16),
@@ -64,6 +65,7 @@ class CoffSectionTableEntry(ctypes.LittleEndianStructure):
     """
 
     _pack_ = 1
+    _layout_ = "ms"
     _fields_ = [
         ("Name", ctypes.c_uint8 * 8),
         ("VirtualSize", ctypes.c_uint32),
@@ -95,6 +97,7 @@ class CoffSymbolTableEntry(ctypes.LittleEndianStructure):
     """
 
     _pack_ = 1
+    _layout_ = "ms"
     _fields_ = [
         ("Name", ctypes.c_uint8 * 8),
         ("Value", ctypes.c_uint32),
@@ -135,6 +138,7 @@ class CoffRelocationTableEntry(ctypes.LittleEndianStructure):
     """
 
     _pack_ = 1
+    _layout_ = "ms"
     _fields_ = [
         ("VirtualAddress", ctypes.c_uint32),
         ("SymbolTableIndex", ctypes.c_uint32),
