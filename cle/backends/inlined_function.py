@@ -10,6 +10,7 @@ class InlinedFunction:
     """
 
     dwoffset: int
+    depth: int
     name: str | None = None
     ranges: list[tuple[int, int]] = field(default_factory=list)
     extern: bool = False

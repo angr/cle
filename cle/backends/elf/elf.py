@@ -938,7 +938,7 @@ class ELF(MetaELF):
                 if sub_block is not None:
                     block.child_blocks.append(sub_block)
             elif sub_die.tag == "DW_TAG_inlined_subroutine":
-                subr = InlinedFunction(sub_die.offset)
+                subr = InlinedFunction(sub_die.offset, _die_depth(sub_die))
                 low_pc, high_pc = self._load_low_high_pc_form_die(sub_die)
                 if "DW_AT_entry_pc" in sub_die.attributes:
                     subr.entry = sub_die.attributes["DW_AT_entry_pc"].value
@@ -1661,6 +1661,14 @@ class ELF(MetaELF):
 
         log.info("Found candidate languages: %s", [lang.id for lang in languages])
         return languages
+
+
+def _die_depth(die: DIE | None) -> int:
+    result = 0
+    while die is not None:
+        die = die.get_parent()
+        result += 1
+    return result
 
 
 register_backend("elf", ELF)
