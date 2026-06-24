@@ -21,7 +21,6 @@ jobs:
       - uses: actions/checkout@v6
         with:
           path: cle
-          submodules: recursive
       - uses: actions/checkout@v6
         with:
           repository: angr/binaries

@@ -27,6 +27,7 @@ dependencies = [
     "pyxbe~=1.0.3",
     "pyxdia~=0.1",
     "sortedcontainers>=2.0",
+    "uefi-firmware>=1.10",
 ]
 
 [project.readme]
@@ -59,29 +60,6 @@ testing = [
 
 [tool.setuptools]
 include-package-data = true
-
-[tool.setuptools.packages.find]
-where = [".", "deps/uefi-firmware"]
-include = ["cle*", "uefi_firmware*"]
-
-[[tool.setuptools.ext-modules]]
-name = "uefi_firmware.efi_compressor"
-include-dirs = ["deps/uefi-firmware/uefi_firmware/compression/Include"]
-sources = [
-    "deps/uefi-firmware/uefi_firmware/compression/EfiCompressor.c",
-    "deps/uefi-firmware/uefi_firmware/compression/LZMA/LzmaCompress.c",
-    "deps/uefi-firmware/uefi_firmware/compression/LZMA/LzmaDecompress.c",
-    "deps/uefi-firmware/uefi_firmware/compression/LZMA/SDK/C/Bra.c",
-    "deps/uefi-firmware/uefi_firmware/compression/LZMA/SDK/C/Bra86.c",
-    "deps/uefi-firmware/uefi_firmware/compression/LZMA/SDK/C/CpuArch.c",
-    "deps/uefi-firmware/uefi_firmware/compression/LZMA/SDK/C/LzFind.c",
-    "deps/uefi-firmware/uefi_firmware/compression/LZMA/SDK/C/LzmaDec.c",
-    "deps/uefi-firmware/uefi_firmware/compression/LZMA/SDK/C/LzmaEnc.c",
-    "deps/uefi-firmware/uefi_firmware/compression/Tiano/Decompress.c",
-    "deps/uefi-firmware/uefi_firmware/compression/Tiano/EfiCompress.c",
-    "deps/uefi-firmware/uefi_firmware/compression/Tiano/TianoCompress.c",
-]
-py-limited-api=true
 
 [tool.setuptools.dynamic]
 version = { attr = "cle.__version__" }
