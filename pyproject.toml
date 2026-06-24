@@ -27,7 +27,7 @@ dependencies = [
     "pyxbe~=1.0.3",
     "pyxdia~=0.1",
     "sortedcontainers>=2.0",
-    "uefi-firmware>=1.10",
+    "uefi-firmware~=1.16",
 ]
 
 [project.readme]
