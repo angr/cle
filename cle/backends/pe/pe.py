@@ -9,7 +9,11 @@ from collections.abc import Callable
 
 import archinfo
 import pefile
-import pyxdia
+
+try:
+    import pyxdia
+except ImportError:
+    pyxdia = None
 
 from cle.address_translator import AT
 from cle.backends.backend import Backend, FunctionHint, FunctionHintSource, register_backend
@@ -215,6 +219,10 @@ class PE(Backend):
         """
         Load available symbols from PDB at `pdb_path`
         """
+        if pyxdia is None:
+            log.warning("PDB support is unavailable because pyxdia is not installed")
+            return
+
         log.debug("Loading symbols from %s", pdb_path)
         try:
             pdb = pyxdia.PDB(pdb_path)

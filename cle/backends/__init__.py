@@ -20,9 +20,13 @@ from .srec import SRec
 from .static_archive import StaticArchive
 from .symbol import Symbol, SymbolSubType, SymbolType
 from .te import TE
-from .uefi_firmware import UefiFirmware
 from .universal2 import Universal2
 from .xbe import XBE
+
+try:
+    from .uefi_firmware import UefiFirmware
+except ImportError:
+    UefiFirmware = None
 
 # BinjaBin is not imported by default since importing it is too slow
 # you may manually import it by running `from cle.backends.binja import BinjaBin`
@@ -60,8 +64,10 @@ __all__ = [
     "Symbol",
     "SymbolType",
     "SymbolSubType",
-    "UefiFirmware",
     "TE",
     "Universal2",
     "CARTFile",
 ]
+
+if UefiFirmware is not None:
+    __all__.append("UefiFirmware")

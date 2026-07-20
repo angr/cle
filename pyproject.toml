@@ -25,9 +25,9 @@ dependencies = [
     "pyelftools>=0.29",
     "pyvex==9.3.1.dev0",
     "pyxbe~=1.0.3",
-    "pyxdia~=0.1",
+    "pyxdia~=0.1; sys_platform != 'emscripten'",
     "sortedcontainers>=2.0",
-    "uefi-firmware~=1.16",
+    "uefi-firmware~=1.16; sys_platform != 'emscripten'",
 ]
 
 [project.readme]
