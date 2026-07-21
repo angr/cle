@@ -105,10 +105,11 @@ class UefiFirmware(Backend):
             self.loader._main_object = None
 
     @singledispatchmethod
-    def _load(self, uefi_obj):
-        raise CLEUnknownFormatError(f"{type(self).__name__} can't load firmware object: {uefi_obj}")
+    def _load(self, uefi_obj):  # pylint: disable=no-self-use
+        raise CLEUnknownFormatError(f"Can't load firmware object: {uefi_obj}")
 
-    def _load_generic(self, uefi_obj):
+    @_load.register
+    def _load_generic(self, uefi_obj: uefi_firmware.FirmwareObject):
         for obj in uefi_obj.objects:
             self._load(obj)
 
@@ -116,7 +117,8 @@ class UefiFirmware(Backend):
     def _load_none(self, uefi_obj: None):
         pass
 
-    def _load_firmwarefile(self, uefi_obj):
+    @_load.register
+    def _load_firmwarefile(self, uefi_obj: uefi_firmware.uefi.FirmwareFile):
         old_uuid = self._current_file
         if uefi_obj.type == 7:  # driver
             uuid = UUID(bytes=uefi_obj.guid)
@@ -125,7 +127,8 @@ class UefiFirmware(Backend):
         self._load_generic(uefi_obj)
         self._current_file = old_uuid
 
-    def _load_firmwarefilesection(self, uefi_obj):
+    @_load.register
+    def _load_firmwarefilesection(self, uefi_obj: uefi_firmware.uefi.FirmwareFileSystemSection):
         pending = self._drivers_pending.get(self._current_file, None)
         if pending is not None:
             if uefi_obj.type == 16:  # pe32 image
@@ -181,7 +184,7 @@ class UefiModuleMixin(Backend):
     def __repr__(self):
         return (
             f"<{type(self).__name__} Object "
-            f"{self.guid}{f' {self.user_interface_name}' if self.user_interface_name else ''}, "
+            f'{self.guid}{f" {self.user_interface_name}" if self.user_interface_name else ""}, '
             f"maps [{self.min_addr:#x}:{self.max_addr:#x}]>"
         )
 
@@ -198,10 +201,4 @@ class UefiTE(UefiModuleMixin, TE):
     """
 
 
-if uefi_firmware is not None:
-    # singledispatchmethod exposes register on the descriptor; pylint sees only the bound method here.
-    # pylint: disable=no-member
-    UefiFirmware._load.register(uefi_firmware.FirmwareObject)(UefiFirmware._load_generic)
-    UefiFirmware._load.register(uefi_firmware.uefi.FirmwareFile)(UefiFirmware._load_firmwarefile)
-    UefiFirmware._load.register(uefi_firmware.uefi.FirmwareFileSystemSection)(UefiFirmware._load_firmwarefilesection)
-    register_backend("uefi", UefiFirmware)
+register_backend("uefi", UefiFirmware)
