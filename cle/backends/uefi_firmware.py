@@ -106,7 +106,7 @@ class UefiFirmware(Backend):
 
     @singledispatchmethod
     def _load(self, uefi_obj):
-        raise CLEUnknownFormatError(f"Can't load firmware object: {uefi_obj}")
+        raise CLEUnknownFormatError(f"{type(self).__name__} can't load firmware object: {uefi_obj}")
 
     def _load_generic(self, uefi_obj):
         for obj in uefi_obj.objects:
