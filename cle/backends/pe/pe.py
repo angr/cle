@@ -106,6 +106,9 @@ class PE(Backend):
             self.deps = [entry.dll.decode().lower() for entry in self._pe.DIRECTORY_ENTRY_IMPORT]
         else:
             self.deps = []
+        # Note: delay-load DLLs are intentionally not added to self.deps. Their imports still bind (to extern stubs
+        # when the DLL is not loaded, or to real exports when it is a regular dependency too), and keeping them out
+        # of deps avoids changing default auto_load_libs behavior by pulling in lazily-loaded DLLs.
 
         if self.binary is not None and not self.is_main_bin:
             self.provides = os.path.basename(self.binary).lower()
@@ -130,6 +133,7 @@ class PE(Backend):
         self._ordinal_exports = {}
         self._symbol_cache = self._exports  # same thing
         self._handle_imports()
+        self._handle_delay_imports()
         self._handle_exports()
         self._handle_seh()
         self._parse_meta_regions()
@@ -367,6 +371,54 @@ class PE(Backend):
                     if reloc is not None:
                         self.imports[imp_name] = reloc
                         self.relocs.append(reloc)
+
+    def _handle_delay_imports(self):
+        """
+        Bind delay-load imports (Data Directory 13) exactly like regular imports.
+
+        A delay-load import's IAT slot (in a writable section such as ``.didat``) initially points at a per-import
+        binding thunk that calls ``__delayLoadHelper2`` on first use. Left as-is, every delay-loaded API call in the
+        CFG resolves to that anonymous thunk rather than to the named import. By creating an import symbol and a
+        ``DllImport`` relocation at the slot, the loader writes the resolved address (an extern stub when
+        ``auto_load_libs`` is off, or the real export when the DLL is loaded) into the slot, so calls resolve to the
+        named import just like regular imports do.
+        """
+        if not hasattr(self._pe, "DIRECTORY_ENTRY_DELAY_IMPORT"):
+            return
+        for entry in self._pe.DIRECTORY_ENTRY_DELAY_IMPORT:
+            for imp in entry.imports:
+                if not imp.address:
+                    # the descriptor did not yield a usable IAT slot address
+                    continue
+                if imp.name is None:  # must be an import by ordinal
+                    imp_name = f"ordinal.{imp.ordinal}.{entry.dll.lower().decode()}"
+                else:
+                    imp_name = imp.name.decode()
+
+                if imp_name in self.imports:
+                    # already bound as a regular import; do not clobber it
+                    continue
+
+                symb = WinSymbol(
+                    owner=self,
+                    name=imp_name,
+                    addr=0,
+                    is_import=True,
+                    is_export=False,
+                    ordinal_number=imp.ordinal,
+                    forwarder=None,
+                )
+                self.symbols.add(symb)
+                reloc = self._make_reloc(
+                    addr=AT.from_lva(imp.address, self).to_rva(),
+                    reloc_type=None,
+                    symbol=symb,
+                    resolvewith=entry.dll.decode(),
+                )
+
+                if reloc is not None:
+                    self.imports[imp_name] = reloc
+                    self.relocs.append(reloc)
 
     def _handle_exports(self):
         if hasattr(self._pe, "DIRECTORY_ENTRY_EXPORT"):
