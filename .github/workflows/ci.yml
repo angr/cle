@@ -11,6 +11,57 @@ jobs:
   ci:
     uses: angr/ci-settings/.github/workflows/angr-ci.yml@master
 
+  pyodide:
+    name: Test (Pyodide)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout CLE
+        uses: actions/checkout@v6
+        with:
+          path: workspace/cle
+      - name: Checkout archinfo
+        uses: actions/checkout@v6
+        with:
+          repository: angr/archinfo
+          path: workspace/archinfo
+      - name: Checkout PyVEX
+        uses: actions/checkout@v6
+        with:
+          repository: angr/pyvex
+          path: workspace/pyvex
+          submodules: recursive
+      - name: Checkout test binaries
+        uses: actions/checkout@v6
+        with:
+          repository: angr/binaries
+          path: workspace/binaries
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+      - name: Build PyVEX for Pyodide
+        uses: pypa/cibuildwheel@v4.1.0
+        with:
+          package-dir: workspace/pyvex
+          output-dir: workspace/wheels
+        env:
+          CIBW_PLATFORM: pyodide
+          CIBW_PYODIDE_VERSION: "314.0.0"
+      - name: Build pure-Python wheels
+        run: |
+          uv build --wheel --out-dir workspace/wheels workspace/archinfo
+          uv build --wheel --out-dir workspace/wheels workspace/cle
+          uvx --from pip pip wheel --no-deps --wheel-dir workspace/wheels arpy==1.1.1
+      - name: Test CLE in Pyodide
+        env:
+          PYODIDE_XBUILDENV_PATH: ${{ github.workspace }}/workspace/.pyodide-xbuildenv
+        run: |
+          uvx --python 3.14 --from 'pyodide-build[resolve]' pyodide xbuildenv install 314.0.0 \
+            --path "$PYODIDE_XBUILDENV_PATH"
+          uvx --python 3.14 --from 'pyodide-build[resolve]' pyodide venv --clear workspace/venv
+          source workspace/venv/bin/activate
+          python -m pip install --force-reinstall workspace/wheels/*.whl pytest
+          cd workspace/cle
+          python -m pytest tests
+
   test:
     name: Test ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
