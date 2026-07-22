@@ -13,6 +13,6 @@ sys.modules["uefi_firmware"] = None
 import cle
 from cle.backends import ALL_BACKENDS
 
-assert "uefi" not in ALL_BACKENDS
+assert "uefi" in ALL_BACKENDS
 """
     subprocess.run([sys.executable, "-c", script], check=True)
