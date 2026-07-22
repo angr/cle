@@ -8,7 +8,11 @@ from functools import singledispatchmethod
 from uuid import UUID
 
 import archinfo
-import uefi_firmware
+
+try:
+    import uefi_firmware
+except ImportError:
+    uefi_firmware = None
 
 from cle.errors import CLEUnknownFormatError
 
@@ -50,11 +54,15 @@ class UefiFirmware(Backend):
 
     @classmethod
     def is_compatible(cls, stream):
+        if uefi_firmware is None:
+            return False
         buffer = cls._to_bytes(stream)
         parser = uefi_firmware.AutoParser(buffer)
         return parser.type() != "unknown"
 
     def __init__(self, *args, **kwargs) -> None:
+        if uefi_firmware is None:
+            raise ImportError("The UEFI backend requires the uefi-firmware package")
         super().__init__(*args, **kwargs)
 
         # hack: we are using a loader internal method in a non-kosher way which will cause our children to be
