@@ -72,7 +72,7 @@ py_limited_api = "cp312"
 
 [tool.uv.sources]
 archinfo = { git = "https://github.com/angr/archinfo.git", branch = "master" }
-pyvex = { git = "https://github.com/angr/pyvex.git", branch = "master" }
+pyvex = { git = "https://github.com/angr/pyvex.git", branch = "wasm-host-support" }
 
 [tool.black]
 line-length = 120
