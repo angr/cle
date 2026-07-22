@@ -45,6 +45,7 @@ jobs:
         env:
           CIBW_PLATFORM: pyodide
           CIBW_PYODIDE_VERSION: "314.0.0"
+          CIBW_TEST_COMMAND: pytest {package}/tests
       - name: Build pure-Python wheels
         run: |
           uv build --wheel --out-dir workspace/wheels workspace/archinfo
