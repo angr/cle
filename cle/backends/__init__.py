@@ -12,6 +12,7 @@ from .java.jar import Jar
 from .java.soot import Soot
 from .macho import MachO
 from .minidump import Minidump
+from .n64 import N64
 from .named_region import NamedRegion
 from .pe import PE, PEStubs
 from .region import Region, Section, Segment
@@ -47,6 +48,7 @@ __all__ = [
     "SRec",
     "Minidump",
     "MachO",
+    "N64",
     "NamedRegion",
     "Jar",
     "Apk",
