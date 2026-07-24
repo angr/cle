@@ -17,6 +17,7 @@ except ImportError:
 
 from cle.address_translator import AT
 from cle.backends.backend import Backend, FunctionHint, FunctionHintSource, register_backend
+from cle.backends.coff import IMAGE_SYM_CLASS
 from cle.backends.symbol import SymbolType
 from cle.structs import DataDirectory, MemRegion, MemRegionSort, PointerArray, StringBlob, StructArray
 from cle.utils import extract_null_terminated_bytestr
@@ -134,7 +135,8 @@ class PE(Backend):
         self._symbol_cache = self._exports  # same thing
         self._handle_imports()
         self._handle_delay_imports()
-        self._handle_exports()
+        coff_symbol_types = self._load_symbols_from_coff_header()
+        self._handle_exports(coff_symbol_types)
         self._handle_seh()
         self._parse_meta_regions()
         if self.loader._perform_relocations:
@@ -161,8 +163,6 @@ class PE(Backend):
             pdb_path = debug_symbols or self._find_pdb_path()
             if pdb_path:
                 self.load_symbols_from_pdb(pdb_path)
-
-        self._load_symbols_from_coff_header()
 
         self.is_dotnet = (
             self._pe.OPTIONAL_HEADER.DATA_DIRECTORY[
@@ -420,13 +420,19 @@ class PE(Backend):
                     self.imports[imp_name] = reloc
                     self.relocs.append(reloc)
 
-    def _handle_exports(self):
+    def _handle_exports(self, coff_symbol_types: dict[int, set[SymbolType]]):
         if hasattr(self._pe, "DIRECTORY_ENTRY_EXPORT"):
             symbols = self._pe.DIRECTORY_ENTRY_EXPORT.symbols
             for exp in symbols:
                 name = exp.name.decode() if exp.name is not None else None
                 forwarder = exp.forwarder.decode() if exp.forwarder is not None else None
-                symb = WinSymbol(self, name, exp.address, False, True, exp.ordinal, forwarder)
+                matching_types = coff_symbol_types.get(exp.address, set())
+                symbol_type = (
+                    next(iter(matching_types))
+                    if forwarder is None and len(matching_types) == 1
+                    else SymbolType.TYPE_FUNCTION
+                )
+                symb = WinSymbol(self, name, exp.address, False, True, exp.ordinal, forwarder, symbol_type)
                 self.symbols.add(symb)
                 self._exports[name] = symb
                 self._ordinal_exports[exp.ordinal] = symb
@@ -1159,9 +1165,12 @@ class PE(Backend):
         log.warning("Unable to find PDB file for this PE. Tried: %s", str(attempts))
         return None
 
-    def _load_symbols_from_coff_header(self):
+    def _load_symbols_from_coff_header(self) -> dict[int, set[SymbolType]]:
         """
-        COFF debug info is deprecated, but may still be provided (e.g. by mingw).
+        Load symbols from the deprecated COFF debug information that some toolchains (e.g. MinGW) still provide.
+
+        Return the concrete types of external definitions grouped by RVA so that the export table can reuse them.
+        Local symbols are still loaded, but cannot describe an export.
         """
         type_to_symbol_type = {
             0: SymbolType.TYPE_OBJECT,
@@ -1178,13 +1187,14 @@ class PE(Backend):
         )
         if end_of_table_offset >= len(self._raw_data):
             log.warning("PE symbol table out of bounds")
-            return
+            return {}
 
+        symbol_types: dict[int, set[SymbolType]] = {}
         idx = 0
         while idx < self._pe.FILE_HEADER.NumberOfSymbols:
             offset = self._pe.FILE_HEADER.PointerToSymbolTable + idx * sizeof_symbol_desc
             sym_desc = self._raw_data[offset : offset + sizeof_symbol_desc]
-            name, value, section, type_, _, num_aux_syms = struct.unpack("<8sIhHBB", sym_desc)
+            name, value, section, type_, storage_class, num_aux_syms = struct.unpack("<8sIhHBB", sym_desc)
             name_as_dwords = struct.unpack("<II", name)
             if name_as_dwords[0] == 0:
                 name = self._read_from_string_table(name_as_dwords[1])
@@ -1192,10 +1202,14 @@ class PE(Backend):
                 name = name.rstrip(b"\x00").decode("latin-1")
             if section > 0 and type_ in type_to_symbol_type and VALID_SYMBOL_NAME_RE.fullmatch(name):
                 rva = self._pe.sections[section - 1].VirtualAddress + value
-                symbol = WinSymbol(self, name, rva, False, False, None, None, type_to_symbol_type[type_])
+                symbol_type = type_to_symbol_type[type_]
+                symbol = WinSymbol(self, name, rva, False, False, None, None, symbol_type)
                 log.debug("Adding symbol %s", symbol)
                 self.symbols.add(symbol)
+                if storage_class == IMAGE_SYM_CLASS.EXTERNAL:
+                    symbol_types.setdefault(rva, set()).add(symbol_type)
             idx += 1 + num_aux_syms
+        return symbol_types
 
 
 register_backend("pe", PE)
