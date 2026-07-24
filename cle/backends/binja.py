@@ -59,6 +59,8 @@ class BinjaSymbol(Symbol):
 
 
 class BinjaReloc(Relocation):
+    __slots__ = ()
+
     @property
     def value(self):
         return self.relative_addr

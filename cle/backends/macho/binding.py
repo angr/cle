@@ -492,6 +492,8 @@ class MachOSymbolRelocation(Relocation):
     Generic Relocation for MachO. It handles relocations that point to symbols
     """
 
+    __slots__ = ("data",)
+
     symbol: AbstractMachOSymbol
 
     def __init__(self, owner: MachO, symbol: AbstractMachOSymbol, relative_addr: int, data):
@@ -536,6 +538,8 @@ class MachOPointerRelocation(Relocation):
     A relocation for a pointer without any associated symbol
     These are either generated while handling the rebase blob, or while parsing chained fixups
     """
+
+    __slots__ = ("data",)
 
     def __init__(self, owner: MachO, relative_addr: int, data):
         """

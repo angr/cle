@@ -93,6 +93,8 @@ class SimDataSimpleRelocation(Relocation):
     A relocation used to implement PointTo. Pretty simple.
     """
 
+    __slots__ = ("addend", "preresolved")
+
     def __init__(self, owner, symbol, addr, addend, preresolved=False):
         super().__init__(owner, symbol, addr)
         self.addend = addend

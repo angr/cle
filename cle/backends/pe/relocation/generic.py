@@ -26,15 +26,19 @@ class DllImport(PEReloc):
     provides a unique name to the relocation type.
     """
 
-    pass
+    __slots__ = ()
 
 
 class IMAGE_REL_BASED_ABSOLUTE(PEReloc):
+    __slots__ = ()
+
     def relocate(self):
         pass
 
 
 class IMAGE_REL_BASED_HIGHADJ(PEReloc):
+    __slots__ = ("next_rva",)
+
     def __init__(self, owner, addr, next_rva):
         super().__init__(owner, None, addr)
         self.next_rva = next_rva
@@ -55,6 +59,8 @@ class IMAGE_REL_BASED_HIGHADJ(PEReloc):
 
 
 class IMAGE_REL_BASED_HIGHLOW(PEReloc):
+    __slots__ = ()
+
     @property
     def value(self):
         org_bytes = self.owner.memory.load(self.relative_addr, 4)
@@ -65,6 +71,8 @@ class IMAGE_REL_BASED_HIGHLOW(PEReloc):
 
 
 class IMAGE_REL_BASED_DIR64(PEReloc):
+    __slots__ = ()
+
     @property
     def value(self):
         org_bytes = self.owner.memory.load(self.relative_addr, 8)
@@ -82,6 +90,8 @@ class IMAGE_REL_BASED_DIR64(PEReloc):
 
 
 class IMAGE_REL_BASED_HIGH(PEReloc):
+    __slots__ = ()
+
     @property
     def value(self):
         org_bytes = self.owner.memory.load(self.relative_addr, 2)
@@ -93,6 +103,8 @@ class IMAGE_REL_BASED_HIGH(PEReloc):
 
 
 class IMAGE_REL_BASED_LOW(PEReloc):
+    __slots__ = ()
+
     @property
     def value(self):
         org_bytes = self.owner.memory.load(self.relative_addr, 2)

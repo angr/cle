@@ -58,6 +58,8 @@ class ThreadManager:
 
 
 class InternalTLSRelocation(Relocation):
+    __slots__ = ("val",)
+
     AUTO_HANDLE_NONE = True
 
     def __init__(self, val, offset, owner):

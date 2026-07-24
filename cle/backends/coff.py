@@ -286,6 +286,8 @@ class CoffRelocation(Relocation):
     Relocation for a COFF object.
     """
 
+    __slots__ = ()
+
     PACK_FORMAT = "<i"
 
     def relocate(self):
@@ -302,6 +304,8 @@ class CoffRelocationREL32(CoffRelocation):
     Relocation for IMAGE_REL_*_REL32
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         assert self.resolvedby is not None
@@ -314,6 +318,8 @@ class CoffRelocationDIR32(CoffRelocation):
     """
     Relocation for IMAGE_REL_*_DIR32
     """
+
+    __slots__ = ()
 
     @property
     def value(self):
@@ -328,6 +334,8 @@ class CoffRelocationDIR32NB(CoffRelocation):
     Relocation for IMAGE_REL_*_DIR32
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         assert self.resolvedby is not None
@@ -340,6 +348,8 @@ class CoffRelocationADDR32NB(CoffRelocation):
     """
     Relocation for IMAGE_REL_AMD64_ADDR32NB
     """
+
+    __slots__ = ()
 
     PACK_FORMAT = "<I"
 
@@ -354,6 +364,8 @@ class CoffRelocationADDR64(CoffRelocation):
     Relocation for IMAGE_REL_AMD64_ADDR64
     """
 
+    __slots__ = ()
+
     PACK_FORMAT = "<Q"
 
     @property
@@ -366,6 +378,8 @@ class CoffRelocationSECTION(CoffRelocation):
     """
     Relocation for IMAGE_REL_*_SECTION
     """
+
+    __slots__ = ()
 
     PACK_FORMAT = "<H"
 
@@ -380,6 +394,8 @@ class CoffRelocationSECREL(CoffRelocation):
     """
     Relocation for IMAGE_REL_*_SECREL
     """
+
+    __slots__ = ()
 
     PACK_FORMAT = "<I"
 

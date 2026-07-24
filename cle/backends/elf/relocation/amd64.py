@@ -21,66 +21,80 @@ from .generic import (
 
 
 class R_X86_64_64(GenericAbsoluteAddendReloc):
-    pass
+    __slots__ = ()
 
 
 class R_X86_64_COPY(GenericCopyReloc):
-    pass
+    __slots__ = ()
 
 
 class R_X86_64_RELATIVE(GenericRelativeReloc):
-    pass
+    __slots__ = ()
 
 
 class R_X86_64_IRELATIVE(GenericIRelativeReloc):
-    pass
+    __slots__ = ()
 
 
 class R_X86_64_GLOB_DAT(GenericAbsoluteReloc):
-    pass
+    __slots__ = ()
 
 
 class R_X86_64_JUMP_SLOT(GenericAbsoluteReloc):
-    pass
+    __slots__ = ()
 
 
 class R_X86_64_DTPMOD64(GenericTLSModIdReloc):
-    pass
+    __slots__ = ()
 
 
 class R_X86_64_DTPOFF64(GenericTLSDoffsetReloc):
-    pass
+    __slots__ = ()
 
 
 class R_X86_64_TPOFF64(GenericTLSOffsetReloc):
-    pass
+    __slots__ = ()
 
 
 class R_X86_64_PC32(RelocTruncate32Mixin, GenericPCRelativeAddendReloc):
+    __slots__ = ()
+
     check_sign_extend = True
 
 
 class R_X86_64_32(RelocTruncate32Mixin, GenericAbsoluteAddendReloc):
+    __slots__ = ()
+
     check_zero_extend = True
 
 
 class R_X86_64_32S(RelocTruncate32Mixin, GenericAbsoluteAddendReloc):
+    __slots__ = ()
+
     check_sign_extend = True
 
 
 class R_X86_64_PLT32(RelocTruncate32Mixin, GenericPCRelativeAddendReloc):
+    __slots__ = ()
+
     check_sign_extend = True
 
 
 class R_X86_64_GOTPCREL(RelocGOTMixin, RelocTruncate32Mixin, GenericPCRelativeAddendReloc):
+    __slots__ = ()
+
     check_sign_extend = True
 
 
 class R_X86_64_GOTPCRELX(RelocGOTMixin, RelocTruncate32Mixin, GenericPCRelativeAddendReloc):
+    __slots__ = ()
+
     check_sign_extend = True
 
 
 class R_X86_64_REX_GOTPCRELX(RelocGOTMixin, RelocTruncate32Mixin, GenericPCRelativeAddendReloc):
+    __slots__ = ()
+
     check_sign_extend = True
 
 

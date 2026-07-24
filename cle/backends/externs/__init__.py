@@ -48,6 +48,8 @@ class ExternSegment(Segment):
 
 
 class TOCRelocation(Relocation):
+    __slots__ = ()
+
     @property
     def value(self):
         return self.resolvedby.rebased_addr

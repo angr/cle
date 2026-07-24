@@ -16,31 +16,31 @@ from .generic import (
 
 
 class R_390_GLOB_DAT(GenericJumpslotReloc):
-    pass
+    __slots__ = ()
 
 
 class R_390_JMP_SLOT(GenericJumpslotReloc):
-    pass
+    __slots__ = ()
 
 
 class R_390_RELATIVE(GenericRelativeReloc):
-    pass
+    __slots__ = ()
 
 
 class R_390_64(GenericAbsoluteAddendReloc):
-    pass
+    __slots__ = ()
 
 
 class R_390_TLS_TPOFF(GenericTLSOffsetReloc):
-    pass
+    __slots__ = ()
 
 
 class R_390_IRELATIVE(GenericIRelativeReloc):
-    pass
+    __slots__ = ()
 
 
 class R_390_COPY(GenericCopyReloc):
-    pass
+    __slots__ = ()
 
 
 relocation_table_s390x = {

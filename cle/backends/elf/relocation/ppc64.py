@@ -24,6 +24,8 @@ log = logging.getLogger(name=__name__)
 
 
 class R_PPC64_JMP_SLOT(ELFReloc):
+    __slots__ = ()
+
     def relocate(self):
         if self.owner.is_ppc64_abiv1:
             # R_PPC64_JMP_SLOT
@@ -41,31 +43,31 @@ class R_PPC64_JMP_SLOT(ELFReloc):
 
 
 class R_PPC64_RELATIVE(GenericRelativeReloc):
-    pass
+    __slots__ = ()
 
 
 class R_PPC64_IRELATIVE(GenericIRelativeReloc):
-    pass
+    __slots__ = ()
 
 
 class R_PPC64_ADDR64(GenericAbsoluteAddendReloc):
-    pass
+    __slots__ = ()
 
 
 class R_PPC64_GLOB_DAT(GenericJumpslotReloc):
-    pass
+    __slots__ = ()
 
 
 class R_PPC64_DTPMOD64(GenericTLSModIdReloc):
-    pass
+    __slots__ = ()
 
 
 class R_PPC64_DTPREL64(GenericTLSDoffsetReloc):
-    pass
+    __slots__ = ()
 
 
 class R_PPC64_TPREL64(GenericTLSOffsetReloc):
-    pass
+    __slots__ = ()
 
 
 class R_PPC64_REL24(ELFReloc):
@@ -74,6 +76,8 @@ class R_PPC64_REL24(ELFReloc):
     Calculation: (S + A - P) >> 2
     Field: low24*
     """
+
+    __slots__ = ()
 
     @property
     def value(self):
@@ -97,6 +101,8 @@ class R_PPC64_TOC16_LO(ELFReloc):
     Calculation: #lo(S + A - .TOC.)
     Field: half16
     """
+
+    __slots__ = ()
 
     @property
     def value(self):
@@ -122,6 +128,8 @@ class R_PPC64_TOC16_HI(ELFReloc):
     Field: half16
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         A = self.addend
@@ -146,6 +154,8 @@ class R_PPC64_TOC16_HA(ELFReloc):
     Field: half16
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         A = self.addend
@@ -169,6 +179,8 @@ class R_PPC64_TOC(ELFReloc):
     Calculation: .TOC.
     Field: doubleword64
     """
+
+    __slots__ = ()
 
     @property
     def value(self):

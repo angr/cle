@@ -68,6 +68,8 @@ class R_ARM_CALL(ELFReloc):
       - T is 1 if the symbol is of type STT_FUNC and addresses a Thumb instruction
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         P = self.rebased_addr  # Location of this instruction
@@ -108,6 +110,8 @@ class R_ARM_PREL31(ELFReloc):
       - T is 1 if the symbol is of type STT_FUNC and addresses a Thumb instruction
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         P = self.rebased_addr  # Location of this instruction
@@ -141,6 +145,8 @@ class R_ARM_REL32(ELFReloc):
       - T is 1 if the symbol is of type STT_FUNC and addresses a Thumb instruction
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         P = self.rebased_addr  # Location of this instruction
@@ -167,6 +173,8 @@ class R_ARM_ABS32(ELFReloc):
       - T is 1 if the symbol is of type STT_FUNC and addresses a Thumb instruction
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         A = self.addend  # The instruction
@@ -189,6 +197,8 @@ class R_ARM_MOVW_ABS_NC(ELFReloc):
       - A is the addend
       - T is 1 if the symbol is of type STT_FUNC and addresses a Thumb instruction
     """
+
+    __slots__ = ()
 
     @property
     def value(self):
@@ -224,6 +234,8 @@ class R_ARM_MOVT_ABS(ELFReloc):
       - S is the address of the symbol
       - A is the addend
     """
+
+    __slots__ = ()
 
     @property
     def value(self):
@@ -273,6 +285,8 @@ class R_ARM_THM_CALL(ELFReloc):
 
       - Implementation appears correct with the bits placed into offset[23:22]
     """
+
+    __slots__ = ("_insn_bytes",)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -374,61 +388,61 @@ class R_ARM_THM_CALL(ELFReloc):
 
 
 class R_ARM_COPY(GenericCopyReloc):
-    pass
+    __slots__ = ()
 
 
 class R_ARM_GLOB_DAT(GenericJumpslotReloc):
-    pass
+    __slots__ = ()
 
 
 class R_ARM_JUMP_SLOT(GenericJumpslotReloc):
-    pass
+    __slots__ = ()
 
 
 class R_ARM_RELATIVE(GenericRelativeReloc):
-    pass
+    __slots__ = ()
 
 
 class R_ARM_ABS32_NOI(GenericAbsoluteAddendReloc):
-    pass
+    __slots__ = ()
 
 
 class R_ARM_REL32_NOI(GenericPCRelativeAddendReloc):
-    pass
+    __slots__ = ()
 
 
 class R_ARM_TLS_DTPMOD32(GenericTLSModIdReloc):
-    pass
+    __slots__ = ()
 
 
 class R_ARM_TLS_DTPOFF32(GenericTLSDoffsetReloc):
-    pass
+    __slots__ = ()
 
 
 class R_ARM_TLS_TPOFF32(GenericTLSOffsetReloc):
-    pass
+    __slots__ = ()
 
 
 class R_ARM_JUMP24(R_ARM_CALL):
-    pass
+    __slots__ = ()
 
 
 class R_ARM_PC24(R_ARM_CALL):
-    pass
+    __slots__ = ()
 
 
 # EDG says: Implementing these the easy way.
 # Inaccuracies may exist.  This is ARM, after all.
 class R_ARM_THM_JUMP24(R_ARM_THM_CALL):
-    pass
+    __slots__ = ()
 
 
 class R_ARM_THM_JUMP19(R_ARM_THM_CALL):
-    pass
+    __slots__ = ()
 
 
 class R_ARM_THM_JUMP6(R_ARM_THM_CALL):
-    pass
+    __slots__ = ()
 
 
 class R_ARM_THM_MOVW_ABS_NC(ELFReloc):
@@ -436,6 +450,8 @@ class R_ARM_THM_MOVW_ABS_NC(ELFReloc):
     ((S + A) | T) & 0xffff
     Ref: https://github.com/ARM-software/abi-aa/blob/main/aaelf32/aaelf32.rst
     """
+
+    __slots__ = ()
 
     @property
     def value(self):
@@ -478,6 +494,8 @@ class R_ARM_THM_MOVT_ABS(ELFReloc):
     Ref: https://github.com/ARM-software/abi-aa/blob/main/aaelf32/aaelf32.rst
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         insn_bytes = self.owner.memory.load(self.relative_addr, 4)
@@ -517,6 +535,8 @@ class R_ARM_GOT_PREL(GenericPCRelativeAddendReloc, RelocTruncate32Mixin, RelocGO
     GOT(S) + A - P
     Ref: https://github.com/ARM-software/abi-aa/blob/main/aaelf32/aaelf32.rst
     """
+
+    __slots__ = ()
 
 
 relocation_table_arm = {
