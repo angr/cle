@@ -4,11 +4,11 @@ from .pereloc import PEReloc
 
 
 class IMAGE_REL_BASED_ARM_MOV32(PEReloc):
-    pass
+    __slots__ = ()
 
 
 class IMAGE_REL_BASED_THUMB_MOV32(PEReloc):
-    pass
+    __slots__ = ()
 
 
 relocation_table_arm = {

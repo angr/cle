@@ -8,6 +8,8 @@ log = logging.getLogger(name=__name__)
 
 
 class ELFReloc(Relocation):
+    __slots__ = ("is_rela", "_addend")
+
     def __init__(self, owner, symbol, relative_addr, addend=None):
         super().__init__(owner, symbol, relative_addr)
 

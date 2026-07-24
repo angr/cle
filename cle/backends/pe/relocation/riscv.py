@@ -4,15 +4,15 @@ from .pereloc import PEReloc
 
 
 class IMAGE_REL_BASED_RISCV_HIGH20(PEReloc):
-    pass
+    __slots__ = ()
 
 
 class IMAGE_REL_BASED_RISCV_LOW12I(PEReloc):
-    pass
+    __slots__ = ()
 
 
 class IMAGE_REL_BASED_RISCV_LOW12S(PEReloc):
-    pass
+    __slots__ = ()
 
 
 relocation_table_riscv = {

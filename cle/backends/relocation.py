@@ -30,9 +30,10 @@ class Relocation:
     :ivar resolved:         Whether the application of this relocation was successful
     """
 
+    __slots__ = ("owner", "symbol", "relative_addr", "resolvedby", "resolved", "resolvewith", "__weakref__")
+
     def __init__(self, owner: Backend, symbol: Symbol | None, relative_addr: int):
         self.owner = owner
-        self.arch = owner.arch
         self.symbol = symbol
         self.relative_addr = relative_addr
         self.resolvedby: Symbol | None = None
@@ -112,6 +113,10 @@ class Relocation:
         else:
             if not self.AUTO_HANDLE_NONE:
                 raise TypeError("Programming error: resolving symbol with None but does not have CAN_HANDLE_NONE set")
+
+    @property
+    def arch(self):
+        return self.owner.arch
 
     @property
     def rebased_addr(self):

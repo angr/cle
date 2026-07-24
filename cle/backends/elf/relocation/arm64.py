@@ -25,42 +25,44 @@ log = logging.getLogger(name=__name__)
 
 
 class R_AARCH64_ABS64(GenericAbsoluteAddendReloc):
-    pass
+    __slots__ = ()
 
 
 class R_AARCH64_COPY(GenericCopyReloc):
-    pass
+    __slots__ = ()
 
 
 class R_AARCH64_GLOB_DAT(GenericJumpslotReloc):
-    pass
+    __slots__ = ()
 
 
 class R_AARCH64_JUMP_SLOT(GenericJumpslotReloc):
-    pass
+    __slots__ = ()
 
 
 class R_AARCH64_RELATIVE(GenericRelativeReloc):
-    pass
+    __slots__ = ()
 
 
 class R_AARCH64_IRELATIVE(GenericIRelativeReloc):
-    pass
+    __slots__ = ()
 
 
 class R_AARCH64_TLS_DTPREL(GenericTLSDoffsetReloc):
-    pass
+    __slots__ = ()
 
 
 class R_AARCH64_TLS_DTPMOD(GenericTLSModIdReloc):
-    pass
+    __slots__ = ()
 
 
 class R_AARCH64_TLS_TPREL(GenericTLSOffsetReloc):
-    pass
+    __slots__ = ()
 
 
 class R_AARCH64_TLSDESC(GenericTLSDescriptorReloc):
+    __slots__ = ()
+
     RESOLVER_ADDR = 0xFFFF_FFFF_FFFF_FE00
 
 
@@ -70,12 +72,16 @@ class R_AARCH64_PREL32(GenericPCRelativeAddendReloc):
     Calculation: (S + A - P)
     """
 
+    __slots__ = ()
+
 
 class R_AARCH64_JUMP26(ELFReloc):
     """
     Relocation Type: 282
     Calculation: (S + A - P)
     """
+
+    __slots__ = ()
 
     @property
     def value(self):
@@ -101,6 +107,8 @@ class R_AARCH64_CALL26(ELFReloc):
     Calculation: (S + A - P)
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         A = self.addend
@@ -124,6 +132,8 @@ class R_AARCH64_ADR_PREL_PG_HI21(ELFReloc):
     Relocation Type: 275
     Calculation: Page(S + A) - Page(P)
     """
+
+    __slots__ = ()
 
     @property
     def value(self):
@@ -151,6 +161,8 @@ class R_AARCH64_ADD_ABS_LO12_NC(ELFReloc):
     Calculation: (S + A)
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         A = self.addend
@@ -171,6 +183,8 @@ class R_AARCH64_LDST8_ABS_LO12_NC(ELFReloc):
     Relocation Type: 278
     Calculation: (S + A)
     """
+
+    __slots__ = ()
 
     @property
     def value(self):
@@ -193,6 +207,8 @@ class R_AARCH64_LDST16_ABS_LO12_NC(ELFReloc):
     Calculation: (S + A)
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         A = self.addend
@@ -213,6 +229,8 @@ class R_AARCH64_LDST32_ABS_LO12_NC(ELFReloc):
     Relocation Type: 285
     Calculation: (S + A)
     """
+
+    __slots__ = ()
 
     @property
     def value(self):
@@ -235,6 +253,8 @@ class R_AARCH64_LDST64_ABS_LO12_NC(ELFReloc):
     Calculation: (S + A)
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         A = self.addend
@@ -255,6 +275,8 @@ class R_AARCH64_LDST128_ABS_LO12_NC(ELFReloc):
     Relocation Type: 299
     Calculation: (S + A)
     """
+
+    __slots__ = ()
 
     @property
     def value(self):

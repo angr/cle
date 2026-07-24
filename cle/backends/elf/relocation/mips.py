@@ -28,14 +28,16 @@ from .generic import (
 
 
 class R_MIPS_32(GenericAbsoluteAddendReloc):
-    pass
+    __slots__ = ()
 
 
 class R_MIPS_REL32(GenericRelativeReloc):
-    pass
+    __slots__ = ()
 
 
 class R_MIPS_26(GenericAbsoluteReloc):
+    __slots__ = ()
+
     def relocate(self):
         if not self.resolved:
             return False
@@ -48,26 +50,28 @@ class R_MIPS_26(GenericAbsoluteReloc):
 
 
 class R_MIPS_JUMP_SLOT(GenericAbsoluteReloc):
-    pass
+    __slots__ = ()
 
 
 class R_MIPS_GLOB_DAT(GenericAbsoluteReloc):
-    pass
+    __slots__ = ()
 
 
 class R_MIPS_TLS_DTPMOD32(GenericTLSModIdReloc):
-    pass
+    __slots__ = ()
 
 
 class R_MIPS_TLS_TPREL32(GenericTLSOffsetReloc):
-    pass
+    __slots__ = ()
 
 
 class R_MIPS_TLS_DTPREL32(GenericTLSDoffsetReloc):
-    pass
+    __slots__ = ()
 
 
 class R_MIPS_HI16(GenericAbsoluteReloc):
+
+    __slots__ = ()
 
     def find_matching_lo16_relocation(self):
         current_hi16_index = self.owner.relocs.index(self)
@@ -103,6 +107,8 @@ class R_MIPS_HI16(GenericAbsoluteReloc):
 
 
 class R_MIPS_LO16(GenericAbsoluteReloc):
+    __slots__ = ()
+
     def relocate(self):
         if not self.resolved:
             return False
@@ -118,23 +124,23 @@ class R_MIPS_LO16(GenericAbsoluteReloc):
 
 
 class R_MIPS_64(GenericAbsoluteAddendReloc):
-    pass
+    __slots__ = ()
 
 
 class R_MIPS_COPY(GenericCopyReloc):
-    pass
+    __slots__ = ()
 
 
 class R_MIPS_TLS_DTPMOD64(GenericTLSModIdReloc):
-    pass
+    __slots__ = ()
 
 
 class R_MIPS_TLS_DTPREL64(GenericTLSDoffsetReloc):
-    pass
+    __slots__ = ()
 
 
 class R_MIPS_TLS_TPREL64(GenericTLSOffsetReloc):
-    pass
+    __slots__ = ()
 
 
 relocation_table_mips = {
