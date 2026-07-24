@@ -34,7 +34,7 @@ PPC_BL_INST = 0x48000001
 
 
 class R_PPC_ADDR32(GenericAbsoluteAddendReloc):
-    pass
+    __slots__ = ()
 
 
 class R_PPC_ADDR24(ELFReloc):
@@ -43,6 +43,8 @@ class R_PPC_ADDR24(ELFReloc):
     Calculation: (S + A) >> 2
     Field: low24*
     """
+
+    __slots__ = ()
 
     @property
     def value(self):
@@ -60,6 +62,8 @@ class R_PPC_ADDR16(ELFReloc):
     Field: half16*
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         A = self.addend
@@ -75,6 +79,8 @@ class R_PPC_ADDR16_LO(ELFReloc):
     Calculation: #lo(S + A)
     Field: half16
     """
+
+    __slots__ = ()
 
     @property
     def value(self):
@@ -99,6 +105,8 @@ class R_PPC_ADDR16_HI(ELFReloc):
     Field: half16
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         A = self.addend
@@ -121,6 +129,8 @@ class R_PPC_ADDR16_HA(ELFReloc):  # pylint: disable=undefined-variable
     Calculation: #ha(S + A)
     Field: half16
     """
+
+    __slots__ = ()
 
     @property
     def value(self):
@@ -145,6 +155,8 @@ class R_PPC_ADDR14(ELFReloc):
     Field: low14*
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         A = self.addend
@@ -161,6 +173,8 @@ class R_PPC_ADDR14_BRTAKEN(ELFReloc):
     Field: low14*
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         A = self.addend
@@ -176,6 +190,8 @@ class R_PPC_ADDR14_BRNTAKEN(ELFReloc):
     Calculation: (S + A) >> 2
     Field: low14*
     """
+
+    __slots__ = ()
 
     @property
     def value(self):
@@ -203,6 +219,8 @@ class R_PPC_REL24(ELFReloc):
     The result must be resolved to the correct instruction encoding.
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         A = self.addend
@@ -223,6 +241,8 @@ class R_PPC_REL14(ELFReloc):
     Field: low14*
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         A = self.addend
@@ -241,6 +261,8 @@ class R_PPC_REL14_BRTAKEN(ELFReloc):
     Calculation: (S + A - P) >> 2
     Field: low14*
     """
+
+    __slots__ = ()
 
     @property
     def value(self):
@@ -261,6 +283,8 @@ class R_PPC_REL14_BRNTAKEN(ELFReloc):
     Field: low14*
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         A = self.addend
@@ -274,14 +298,16 @@ class R_PPC_REL14_BRNTAKEN(ELFReloc):
 
 
 class R_PPC_COPY(GenericCopyReloc):
-    pass
+    __slots__ = ()
 
 
 class R_PPC_GLOB_DAT(GenericJumpslotReloc):
-    pass
+    __slots__ = ()
 
 
 class R_PPC_JMP_SLOT(GenericJumpslotReloc):
+    __slots__ = ()
+
     def relocate(self):
         if "DT_PPC_GOT" not in self.owner._dynamic and "DT_LOPROC" not in self.owner._dynamic:
             # old PowerPC ABI - we overwrite this location with a jump (b, 0x12. .. .. .1) to the actual target
@@ -292,7 +318,7 @@ class R_PPC_JMP_SLOT(GenericJumpslotReloc):
 
 
 class R_PPC_RELATIVE(GenericRelativeReloc):
-    pass
+    __slots__ = ()
 
 
 class R_PPC_UADDR32(ELFReloc):
@@ -301,6 +327,8 @@ class R_PPC_UADDR32(ELFReloc):
     Calculation: S + A
     Field: word32
     """
+
+    __slots__ = ()
 
     @property
     def value(self):
@@ -318,6 +346,8 @@ class R_PPC_UADDR16(ELFReloc):
     Field: half16*
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         A = self.addend
@@ -333,6 +363,8 @@ class R_PPC_REL32(ELFReloc):  # pylint: disable=undefined-variable
     Calculation: S + A - P
     Field: word32
     """
+
+    __slots__ = ()
 
     @property
     def value(self):
@@ -351,6 +383,8 @@ class R_PPC_SECTOFF(ELFReloc):
     Field: half16*
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         R = self.relative_addr
@@ -366,6 +400,8 @@ class R_PPC_SECTOFF_LO(ELFReloc):
     Calculation: #lo(R + A)
     Field: half16
     """
+
+    __slots__ = ()
 
     @property
     def value(self):
@@ -384,6 +420,8 @@ class R_PPC_SECTOFF_HI(ELFReloc):
     Field: half16
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         R = self.relative_addr
@@ -400,6 +438,8 @@ class R_PPC_SECTOFF_HA(ELFReloc):
     Calculation: #ha(R + A)
     Field: half16
     """
+
+    __slots__ = ()
 
     @property
     def value(self):
@@ -418,6 +458,8 @@ class R_PPC_ADDR30(ELFReloc):
     Field: word30
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         S = self.resolvedby.rebased_addr
@@ -429,15 +471,15 @@ class R_PPC_ADDR30(ELFReloc):
 
 
 class R_PPC_DTPMOD32(GenericTLSModIdReloc):
-    pass
+    __slots__ = ()
 
 
 class R_PPC_DTPREL32(GenericTLSDoffsetReloc):
-    pass
+    __slots__ = ()
 
 
 class R_PPC_TPREL32(GenericTLSOffsetReloc):
-    pass
+    __slots__ = ()
 
 
 relocation_table_ppc = {

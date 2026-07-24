@@ -4,11 +4,11 @@ from .pereloc import PEReloc
 
 
 class IMAGE_REL_BASED_MIPS_JMPADDR(PEReloc):
-    pass
+    __slots__ = ()
 
 
 class IMAGE_REL_BASED_MIPS_JMPADDR16(PEReloc):
-    pass
+    __slots__ = ()
 
 
 relocation_table_mips = {

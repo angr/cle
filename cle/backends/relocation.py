@@ -30,6 +30,8 @@ class Relocation:
     :ivar resolved:         Whether the application of this relocation was successful
     """
 
+    __slots__ = ("owner", "arch", "symbol", "relative_addr", "resolvedby", "resolved", "resolvewith", "__weakref__")
+
     def __init__(self, owner: Backend, symbol: Symbol | None, relative_addr: int):
         self.owner = owner
         self.arch = owner.arch

@@ -15,6 +15,8 @@ class R_SPARC_HI22(ELFReloc):
     Calculation: (S + A) >> 10
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         result = (self.resolvedby.rebased_addr + self.addend) >> 10
@@ -30,6 +32,8 @@ class R_SPARC_WDISP30(ELFReloc):
     Calculation: (S + A - P) >> 2
     """
 
+    __slots__ = ()
+
     @property
     def value(self):
         result = (self.resolvedby.rebased_addr + self.addend - self.rebased_addr) >> 2
@@ -44,6 +48,8 @@ class R_SPARC_LO10(ELFReloc):
     Field: T-simm13
     Calculation: (S + A) & 0x3ff
     """
+
+    __slots__ = ()
 
     @property
     def value(self):

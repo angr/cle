@@ -31,6 +31,8 @@ __all__ = [
 
 
 class GenericTLSDoffsetReloc(ELFReloc):
+    __slots__ = ()
+
     @property
     def value(self):
         return self.addend + self.symbol.relative_addr
@@ -41,6 +43,8 @@ class GenericTLSDoffsetReloc(ELFReloc):
 
 
 class GenericTLSOffsetReloc(ELFReloc):
+    __slots__ = ()
+
     AUTO_HANDLE_NONE = True
 
     def relocate(self):
@@ -66,6 +70,8 @@ class GenericTLSDescriptorReloc(ELFReloc):
     # is passed a pointer to the descriptor. My guess is the resolver is supposed to basically perform
     # _tls_get_addr, but the intention is probably to make it possible to work with dynamically loaded objects.
 
+    __slots__ = ()
+
     RESOLVER_ADDR: int = NotImplemented
     AUTO_HANDLE_NONE = True
 
@@ -85,6 +91,8 @@ class GenericTLSDescriptorReloc(ELFReloc):
 
 
 class GenericTLSModIdReloc(ELFReloc):
+    __slots__ = ()
+
     AUTO_HANDLE_NONE = True
 
     def relocate(self):
@@ -97,6 +105,8 @@ class GenericTLSModIdReloc(ELFReloc):
 
 
 class GenericIRelativeReloc(ELFReloc):
+    __slots__ = ()
+
     AUTO_HANDLE_NONE = True
 
     def relocate(self):
@@ -107,18 +117,24 @@ class GenericIRelativeReloc(ELFReloc):
 
 
 class GenericAbsoluteAddendReloc(ELFReloc):
+    __slots__ = ()
+
     @property
     def value(self):
         return self.resolvedby.rebased_addr + self.addend
 
 
 class GenericPCRelativeAddendReloc(ELFReloc):
+    __slots__ = ()
+
     @property
     def value(self):
         return self.resolvedby.rebased_addr + self.addend - self.rebased_addr
 
 
 class GenericJumpslotReloc(ELFReloc):
+    __slots__ = ()
+
     @property
     def value(self):
         if self.is_rela:
@@ -128,6 +144,8 @@ class GenericJumpslotReloc(ELFReloc):
 
 
 class GenericRelativeReloc(ELFReloc):
+    __slots__ = ()
+
     AUTO_HANDLE_NONE = True
 
     @property
@@ -138,12 +156,16 @@ class GenericRelativeReloc(ELFReloc):
 
 
 class GenericAbsoluteReloc(ELFReloc):
+    __slots__ = ()
+
     @property
     def value(self):
         return self.resolvedby.rebased_addr
 
 
 class GenericCopyReloc(ELFReloc):
+    __slots__ = ()
+
     def resolve_symbol(self, solist, **kwargs):
         new_solist = [x for x in solist if x is not self.owner]
         super().resolve_symbol(new_solist, **kwargs)
@@ -160,10 +182,12 @@ class GenericCopyReloc(ELFReloc):
 
 
 class MipsGlobalReloc(GenericAbsoluteReloc):
-    pass
+    __slots__ = ()
 
 
 class MipsLocalReloc(ELFReloc):
+    __slots__ = ()
+
     AUTO_HANDLE_NONE = True
 
     def resolve_symbol(self, solist, **kwargs):
@@ -186,6 +210,8 @@ class RelocTruncate32Mixin:
     """
     A mix-in class for relocations that cover a 32-bit field regardless of the architecture's address word length.
     """
+
+    __slots__ = ()
 
     # If True, 32-bit truncated value must equal to its original when zero-extended
     check_zero_extend = False
@@ -221,6 +247,8 @@ class RelocGOTMixin:
     """
     A mix-in class which will cause the symbol to be resolved to a pointer to the symbol instead of the symbol
     """
+
+    __slots__ = ()
 
     def resolve(self, symbol, extern_object=None):
         assert extern_object is not None, "I have no idea how this would happen"
