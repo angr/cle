@@ -3,6 +3,10 @@ from __future__ import annotations
 import subprocess
 import sys
 
+import pytest
+
+pytestmark = pytest.mark.skipif(sys.platform == "emscripten", reason="subprocesses are unavailable in Pyodide")
+
 
 def test_import_without_uefi_firmware():
     script = """
