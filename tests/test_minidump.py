@@ -26,8 +26,11 @@ def test_minidump():
     assert sections_map["jusched.exe"].is_writable
     assert sections_map["jusched.exe"].is_executable
     assert not sections_map["jusched.exe"].only_contains_uninitialized_data
+    assert sections_map["jusched.exe"].filesize == 0x1000
+    assert sections_map["jusched.exe"].memsize == 0x92000
 
     assert len(ld.main_object.threads) == 2
+    assert len(ld.tls.threads) == 2
     registers = ld.main_object.thread_registers(0x0548)
     assert isinstance(registers, dict)
     assert registers == {
@@ -46,6 +49,28 @@ def test_minidump():
         "eflags": 580,
         "esp": 33357152,
     }
+
+
+@unittest.skipIf(cle.backends.minidump.minidumpfile is None, "minidump not available")
+def test_partial_minidump():
+    exe = os.path.join(TEST_BASE, "tests", "x86", "windows", "partial", "minidump2.dmp")
+    ld = cle.Loader(exe, auto_load_libs=False)
+    obj = ld.main_object
+
+    assert isinstance(obj, cle.Minidump)
+    assert isinstance(obj.arch, archinfo.ArchX86)
+    assert obj.os == "windows"
+    assert len(obj.segments) == 3
+    assert len(obj.sections) == 13
+    assert all(section.filesize == 0 < section.memsize for section in obj.sections)
+    assert "test_app.exe" in obj.sections_map
+    assert "kernel32.dll" in obj.sections_map
+
+    assert len(obj.threads) == 2
+    registers = obj.thread_registers(0x0BF4)
+    assert "eip" in registers
+    assert "fs" not in registers
+    assert not ld.tls.threads
 
 
 if __name__ == "__main__":

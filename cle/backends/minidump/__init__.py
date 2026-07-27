@@ -9,7 +9,7 @@ from minidump.streams import SystemInfoStream
 
 from cle.backends.backend import Backend, register_backend
 from cle.backends.region import Section, Segment
-from cle.errors import CLEError, CLEInvalidBinaryError
+from cle.errors import CLEError
 
 
 class MinidumpMissingStreamError(Exception):
@@ -26,6 +26,10 @@ class MinidumpSection(Section):
     Minidumps do not provide the original image section table here, so module-level permissions are necessarily
     conservative.
     """
+
+    def __init__(self, name, offset, vaddr, filesize, memsize):
+        super().__init__(name, offset, vaddr, memsize)
+        self.filesize = filesize
 
     @property
     def is_readable(self):
@@ -89,12 +93,24 @@ class Minidump(Backend):
             self.memory.add_backer(segment.start_virtual_address, data)
 
         for module in self._mdf.modules.modules:
-            for segment in segments:
-                if segment.start_virtual_address == module.baseaddress:
-                    break
+            segment = next(
+                (
+                    segment
+                    for segment in segments
+                    if segment.start_virtual_address
+                    <= module.baseaddress
+                    < segment.start_virtual_address + segment.size
+                ),
+                None,
+            )
+            if segment is None:
+                file_offset = 0
+                file_size = 0
             else:
-                raise CLEInvalidBinaryError("Missing segment for loaded module: " + module.name)
-            section = MinidumpSection(module.name, segment.start_file_address, module.baseaddress, module.size)
+                segment_offset = module.baseaddress - segment.start_virtual_address
+                file_offset = segment.start_file_address + segment_offset
+                file_size = min(module.size, segment.size - segment_offset)
+            section = MinidumpSection(module.name, file_offset, module.baseaddress, file_size, module.size)
             self.sections.append(section)
             self.sections_map[ntpath.basename(section.name)] = section
 
@@ -175,8 +191,10 @@ class Minidump(Backend):
             thread_registers[register] = members[position]
 
         if self.arch.name == "AMD64" or self.wow64:
-            gs_base = self.memory.unpack_word(teb + 0x30)
-            thread_registers["gs_const"] = gs_base
+            try:
+                thread_registers["gs_const"] = self.memory.unpack_word(teb + 0x30)
+            except KeyError:
+                pass
             if self.arch.name == "AMD64":
                 NUM_XMM_REGS = 16
                 xmms = struct.unpack_from("16s" * NUM_XMM_REGS, data, offset=0x1A0)
@@ -184,8 +202,10 @@ class Minidump(Backend):
                     f"xmm{i}": int.from_bytes(xmm, "little", signed=False) for i, xmm in enumerate(xmms)
                 }
         elif self.arch.name == "X86":
-            fs_base = self.memory.unpack_word(teb + 0x18)
-            thread_registers["fs"] = fs_base
+            try:
+                thread_registers["fs"] = self.memory.unpack_word(teb + 0x18)
+            except KeyError:
+                pass
 
         if self.wow64:
             register_translation = [

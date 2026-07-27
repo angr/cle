@@ -9,9 +9,13 @@ class MinidumpThreadManager(ThreadManager):
     def __init__(self, loader, arch, **kwargs):  # pylint: disable=unused-argument
         self.loader = loader
         self.arch = arch
-        self.threads = [
-            MinidumpThread(loader, arch, loader.main_object.thread_registers(tid)) for tid in loader.main_object.threads
-        ]
+        self.threads = []
+        for tid in loader.main_object.threads:
+            try:
+                self.threads.append(MinidumpThread(loader, arch, loader.main_object.thread_registers(tid)))
+            except KeyError:
+                # Small minidumps often preserve register contexts without the TEB or TLS pointer pages.
+                pass
         self.modules = []  # ???
 
     def new_thread(self, insert=False):  # pylint: disable=no-self-use
