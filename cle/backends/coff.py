@@ -289,13 +289,19 @@ class CoffRelocation(Relocation):
     Relocation for a COFF object.
     """
 
-    PACK_FORMAT = "<i"
+    PACK_FORMAT = "<I"
 
     def relocate(self):
         value = self.value
         if value is None:
             log.debug("Unresolved relocation with no symbol.")
             return False
+        # COFF relocation fields contain fixed-width bit patterns. Addends such as -6 are
+        # commonly represented in the input as 0xfffffffa, and adding a rebased symbol may
+        # overflow the corresponding Python signed integer range. Apply the ABI-mandated
+        # modulo operation before serializing the field.
+        width = struct.calcsize(self.PACK_FORMAT)
+        value &= (1 << (width * 8)) - 1
         self.owner.memory.store(self.relative_addr, struct.pack(self.PACK_FORMAT, value))
         return True
 
@@ -309,7 +315,7 @@ class CoffRelocationREL32(CoffRelocation):
     def value(self):
         assert self.resolvedby is not None
         org_bytes = self.owner.memory.load(self.relative_addr, 4)
-        org_value = struct.unpack("<I", org_bytes)[0]
+        org_value = struct.unpack("<i", org_bytes)[0]
         return org_value + self.resolvedby.rebased_addr - (self.rebased_addr + 4)
 
 
