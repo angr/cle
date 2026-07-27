@@ -52,6 +52,38 @@ ARCH_MAPPING = {
 }
 
 
+class TESection(Section):
+    """
+    A section in a Terse Executable image.
+    """
+
+    def __init__(self, section_header: SectionHeaderType, image_base: int):
+        super().__init__(
+            section_header.section_name.rstrip(b"\0").decode(),
+            section_header.pointer_to_raw_data,
+            section_header.virtual_address + image_base,
+            section_header.physical_address_virtual_size,
+        )
+        self.filesize = section_header.size_of_raw_data
+        self.characteristics = section_header.characteristics
+
+    @property
+    def is_readable(self):
+        return self.characteristics & 0x40000000 != 0
+
+    @property
+    def is_writable(self):
+        return self.characteristics & 0x80000000 != 0
+
+    @property
+    def is_executable(self):
+        return self.characteristics & 0x20000000 != 0
+
+    @property
+    def only_contains_uninitialized_data(self):
+        return self.filesize == 0
+
+
 class TE(Backend):
     """
     A "Terse Executable" format image, commonly used as part of UEFI firmware drivers.
@@ -78,15 +110,11 @@ class TE(Backend):
 
         offset_offset = self.header.stripped_size - HEADER.size
         self.linked_base = self.mapped_base = self.header.image_base + offset_offset
+        self._entry = self.linked_base + self.header.address_of_entry_point
 
         has_relocs = False
         for section_header in self.section_headers:
-            region = Section(
-                section_header.section_name.rstrip(b"\0").decode(),
-                section_header.pointer_to_raw_data,
-                section_header.virtual_address + self.linked_base,
-                section_header.physical_address_virtual_size,
-            )
+            region = TESection(section_header, self.linked_base)
             self._sections.append(region)
 
             if section_header.characteristics & 0x02000000 != 0 or section_header.physical_address_virtual_size == 0:
