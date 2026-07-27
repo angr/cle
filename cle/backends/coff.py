@@ -236,13 +236,16 @@ class CoffParser:
         name_encoded = bytes(self.symbols[symbol_idx].Name)
         name_as_dwords = struct.unpack("<II", name_encoded)
         if name_as_dwords[0] == 0:
-            name_encoded = extract_null_terminated_bytestr(self.strings, offset=name_as_dwords[1])
+            return self.get_string(name_as_dwords[1])
         return name_encoded.rstrip(b"\x00").decode("ascii")
+
+    def get_string(self, offset: int) -> str:
+        return extract_null_terminated_bytestr(self.strings, offset=offset).decode("ascii")
 
     def get_section_name(self, section_idx: int) -> str:
         name = bytes(self.sections[section_idx].Name).rstrip(b"\x00").decode("ascii")
         if name.startswith("/"):
-            return self.get_symbol_name(int(name[1:]))
+            return self.get_string(int(name[1:]))
         return name
 
 
