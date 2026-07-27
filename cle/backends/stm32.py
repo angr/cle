@@ -122,6 +122,7 @@ class STM32Backend(Backend):
             # stream-like
             pos = stream.tell()
             try:
+                stream.seek(0)
                 data = stream.read(64)  # Read enough for full vector table
             finally:
                 stream.seek(pos)
