@@ -19,6 +19,31 @@ class MinidumpMissingStreamError(Exception):
         self.stream = stream
 
 
+class MinidumpSection(Section):
+    """
+    A loaded module in a minidump.
+
+    Minidumps do not provide the original image section table here, so module-level permissions are necessarily
+    conservative.
+    """
+
+    @property
+    def is_readable(self):
+        return True
+
+    @property
+    def is_writable(self):
+        return True
+
+    @property
+    def is_executable(self):
+        return True
+
+    @property
+    def only_contains_uninitialized_data(self):
+        return False
+
+
 class Minidump(Backend):
     is_default = True
 
@@ -69,7 +94,7 @@ class Minidump(Backend):
                     break
             else:
                 raise CLEInvalidBinaryError("Missing segment for loaded module: " + module.name)
-            section = Section(module.name, segment.start_file_address, module.baseaddress, module.size)
+            section = MinidumpSection(module.name, segment.start_file_address, module.baseaddress, module.size)
             self.sections.append(section)
             self.sections_map[ntpath.basename(section.name)] = section
 

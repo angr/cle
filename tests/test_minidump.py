@@ -22,6 +22,10 @@ def test_minidump():
     sections_map = ld.main_object.sections_map
     assert "jusched.exe" in sections_map
     assert "kernel32.dll" in sections_map
+    assert sections_map["jusched.exe"].is_readable
+    assert sections_map["jusched.exe"].is_writable
+    assert sections_map["jusched.exe"].is_executable
+    assert not sections_map["jusched.exe"].only_contains_uninitialized_data
 
     assert len(ld.main_object.threads) == 2
     registers = ld.main_object.thread_registers(0x0548)
