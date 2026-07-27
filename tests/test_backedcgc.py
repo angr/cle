@@ -22,5 +22,6 @@ def test_backed_cgc_preserves_relative_executable_backer():
     obj = loader.main_object
     assert isinstance(obj, cle.BackedCGC)
     assert obj.entry == 0x8048FB4
+    assert obj.thread_registers() == {"eip": 0x8048FB4}
     assert [start for start, _ in obj.memory._backers] == [0]
     assert loader.memory.load(0x8048000, 4) == b"\x7fCGC"

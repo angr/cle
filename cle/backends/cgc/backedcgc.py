@@ -89,7 +89,7 @@ class BackedCGC(CGC):
         return [0]
 
     def thread_registers(self, thread=None):
-        return self.register_backer.items()
+        return self.register_backer
 
 
 register_backend("backedcgc", BackedCGC)
