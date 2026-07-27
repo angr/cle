@@ -6,6 +6,30 @@ import cle
 from cle.backends.te import HEADER, SECTION_HEADER
 
 
+def test_aarch64_machine():
+    header = HEADER.pack(
+        0x5A56,
+        0xAA64,
+        0,
+        10,
+        HEADER.size,
+        0,
+        0,
+        0x400000,
+        0,
+        0,
+        0,
+        0,
+    )
+    loader = cle.Loader(
+        io.BytesIO(header),
+        auto_load_libs=False,
+        main_opts={"backend": "te"},
+    )
+    assert loader.main_object.arch.name == "AARCH64"
+    assert loader.main_object.entry == 0x400000
+
+
 def test_section_permissions():
     header = HEADER.pack(
         0x5A56,

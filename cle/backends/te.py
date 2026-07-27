@@ -49,6 +49,7 @@ ARCH_MAPPING = {
     0x8664: "X64",
     0x01C0: "ARM Cortex-M",
     0x01C2: "ARM",
+    0xAA64: "AARCH64",
 }
 
 
