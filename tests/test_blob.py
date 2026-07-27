@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import io
 import os
 import pickle
+
+import archinfo
+import pytest
 
 import cle
 
@@ -64,6 +68,24 @@ def test_blob_1():
     assert ld.main_object.min_addr == BASE_ADDR
     assert ld.main_object.max_addr == BASE_ADDR + blob_file_size - 1
     assert ld.main_object.entry == ENTRYPOINT
+
+
+def test_blob_narrow_pcode_extern_object_placement():
+    pytest.importorskip("pypcode")
+    arch = archinfo.ArchPcode("8051:BE:16:default")
+    ld = cle.Loader(
+        io.BytesIO(b"\0" * 0x1500),
+        main_opts={
+            "backend": "blob",
+            "base_addr": 0,
+            "entry_point": 0,
+            "arch": arch,
+        },
+    )
+
+    extern = ld.extern_object
+    assert extern.min_addr == 0x1500
+    assert extern.max_addr < 2**arch.bits
 
 
 if __name__ == "__main__":

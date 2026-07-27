@@ -1073,23 +1073,28 @@ class Loader:
         overlap with anything already loaded.
         """
         # this assumes that self.main_object exists, which should... definitely be safe
-        if self.main_object.arch.bits < 32 or self.main_object.max_addr >= 2 ** (self.main_object.arch.bits - 1):
+        if self.main_object.arch.bits < 32:
             # HACK: On small arches, we should be more aggressive in packing stuff in.
+            alignment = 1
+            gap_start = 0
+        elif self.main_object.max_addr >= 2 ** (self.main_object.arch.bits - 1):
+            alignment = self._rebase_granularity
             gap_start = 0
         else:
-            gap_start = ALIGN_UP(self.main_object.max_addr + 1, self._rebase_granularity)
+            alignment = self._rebase_granularity
+            gap_start = ALIGN_UP(self.main_object.max_addr + 1, alignment)
         for o in self.all_objects:
             if gap_start + size <= o.min_addr:
                 break
             else:
-                gap_start = ALIGN_UP(o.max_addr + 1, self._rebase_granularity)
+                gap_start = ALIGN_UP(o.max_addr + 1, alignment)
 
         if gap_start + size > 2**self.main_object.arch.bits:
             # this may happen when loading an ELF core whose main object may occupy a large range of memory addresses
             # with large unoccupied holes left in the middle
             # we fall back to finding unoccupied holes
             for this_seg, next_seg in zip(self.main_object.segments.raw_list, self.main_object.segments.raw_list[1:]):
-                gap_start = ALIGN_UP(this_seg.vaddr + this_seg.memsize, self._rebase_granularity)
+                gap_start = ALIGN_UP(this_seg.vaddr + this_seg.memsize, alignment)
                 gap = next_seg.vaddr - gap_start
                 if gap >= size:
                     break
