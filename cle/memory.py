@@ -277,7 +277,7 @@ class Clemory(ClemoryBase):
         return f"<{self.__class__.__name__} [{hex(self.min_addr)}:{hex(self.max_addr)}]>"
 
     def remove_backer(self, start):
-        backer_idx = bisect.bisect(self._backers, start, key=lambda x: x[0])
+        backer_idx = bisect.bisect_left(self._backers, start, key=lambda x: x[0])
 
         if len(self._backers) <= backer_idx or self._backers[backer_idx][0] != start:
             raise ValueError("Can't find backer to remove")

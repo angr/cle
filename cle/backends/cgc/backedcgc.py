@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from cle.address_translator import AT
 from cle.backends.backend import register_backend
 from cle.backends.region import Segment
 
@@ -55,9 +56,10 @@ class BackedCGC(CGC):
                 break
         else:
             raise ValueError("Couldn't find executable segment?")
+        exec_seg_rva = AT.from_lva(exec_seg_addr, self).to_rva()
 
-        for start, _ in self.memory._backers:
-            if start != exec_seg_addr:
+        for start, _ in list(self.memory._backers):
+            if start != exec_seg_rva:
                 self.memory.remove_backer(start)
 
         for start, data in sorted(self.memory_backer.items()):
@@ -69,10 +71,11 @@ class BackedCGC(CGC):
             if start == exec_seg_addr:
                 continue
 
-            if start in self.memory:
+            relative_start = AT.from_lva(start, self).to_rva()
+            if relative_start in self.memory:
                 raise ValueError("IF THIS GETS THROWN I'M GONNA JUMP OUT THE WINDOW")
 
-            self.memory.add_backer(start, data)
+            self.memory.add_backer(relative_start, data)
 
         if self.register_backer is not None and "eip" in self.register_backer:
             self._entry = self.register_backer["eip"]

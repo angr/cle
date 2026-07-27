@@ -115,6 +115,16 @@ def test_clemory_contains():
     assert clemory.consecutive is True
 
 
+def test_remove_backer_at_exact_start():
+    clemory = cle.Clemory(None, root=True)
+    clemory.add_backer(0, b"A")
+    clemory.add_backer(10, b"B")
+
+    clemory.remove_backer(0)
+
+    assert clemory._backers == [(10, bytearray(b"B"))]
+
+
 def main():
     g = globals()
     for func_name, func in g.items():
