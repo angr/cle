@@ -14,7 +14,7 @@ log = logging.getLogger(name=__name__)
 
 __all__ = ("SRec",)
 
-srec_regex = "S([0-9])([0-9a-fA-F]{{2}})([0-9a-fA-F]{{{addr_size}}})([0-9a-fA-F]{{4,64}})([0-9a-fA-F]{{2}})"
+srec_regex = "S([0-9])([0-9a-fA-F]{{2}})([0-9a-fA-F]{{{addr_size}}})([0-9a-fA-F]*)([0-9a-fA-F]{{2}})"
 SREC_ADDR_SIZE = {"0": 16, "1": 16, "5": 16, "9": 16, "2": 24, "6": 24, "8": 24, "3": 32, "7": 32}
 
 
@@ -42,26 +42,40 @@ class SRec(Backend):
 
     @staticmethod
     def parse_record(line):
-        addr_size = SREC_ADDR_SIZE[chr(line[1])]
+        if not isinstance(line, bytes) or len(line) < 4 or not line.startswith(b"S"):
+            raise CLEError(f"Invalid SRec record: {line}")
+        try:
+            addr_size = SREC_ADDR_SIZE[chr(line[1])]
+        except (KeyError, ValueError) as error:
+            raise CLEError(f"Invalid SRec record type: {line}") from error
         srec_re = re.compile(srec_regex.format(addr_size=addr_size // 4).encode())
-        m = srec_re.match(line)
+        m = srec_re.fullmatch(line)
         if not m:
             raise CLEError(f"Invalid SRec record: {line}")
         my_cksum = 0
         rectype, count, addr, data, cksum = m.groups()
         cksum = int(cksum, 16)
-        for d in binascii.unhexlify(line[2:-2]):
+        try:
+            payload = binascii.unhexlify(line[2:-2])
+        except binascii.Error as error:
+            raise CLEError(f"Invalid SRec hexadecimal data: {line}") from error
+        for d in payload:
             my_cksum = (my_cksum + d) % 256
         my_cksum = 0xFF - my_cksum
         if my_cksum != cksum:
             raise CLEError(f"Invalid checksum: Computed {hex(my_cksum)}, found {hex(cksum)}")
         count = int(count, 16) - ((addr_size // 8) + 1)
+        if count < 0:
+            raise CLEError("SRec byte count is smaller than its address and checksum")
         addr = int(addr, 16)
         rectype = int(rectype, 16)
         if data:
-            data = binascii.unhexlify(data)
-        if data and count != len(data):
-            raise CLEError("Data length field does not match length of actual data: " + line)
+            try:
+                data = binascii.unhexlify(data)
+            except binascii.Error as error:
+                raise CLEError(f"Invalid SRec hexadecimal data: {line}") from error
+        if count != len(data):
+            raise CLEError(f"Data length field does not match length of actual data: {line}")
         return rectype, addr, data
 
     @staticmethod
@@ -124,7 +138,7 @@ class SRec(Backend):
                 max_addr = max(max_addr, addr + len(data) - 1)
             elif rectype in SREC_START_EXEC:
                 got_entry = True
-                self._entry = int.from_bytes(data, "big")
+                self._entry = addr
                 log.debug("Found entry point at %#x", self._entry)
                 self._initial_ip = self._entry
             else:
