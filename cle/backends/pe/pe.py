@@ -175,13 +175,20 @@ class PE(Backend):
 
     @classmethod
     def is_compatible(cls, stream):
-        identstring = stream.read(0x1000)
-        stream.seek(0)
-        if identstring.startswith(b"MZ") and len(identstring) > 0x40:
-            peptr = struct.unpack("I", identstring[0x3C:0x40])[0]
-            if peptr < len(identstring) and identstring[peptr : peptr + 4] == b"PE\0\0":
-                return True
-        return False
+        try:
+            stream.seek(0)
+            dos_header = stream.read(0x40)
+            if len(dos_header) < 0x40 or not dos_header.startswith(b"MZ"):
+                return False
+
+            pe_offset = struct.unpack_from("<I", dos_header, 0x3C)[0]
+            try:
+                stream.seek(pe_offset)
+            except (OSError, OverflowError, ValueError):
+                return False
+            return stream.read(4) == b"PE\0\0"
+        finally:
+            stream.seek(0)
 
     @classmethod
     def check_magic_compatibility(cls, stream):

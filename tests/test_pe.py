@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 from __future__ import annotations
 
+import io
+import mmap
 import os
 import shutil
+import struct
 import tempfile
 import unittest
 
@@ -19,6 +22,81 @@ class TestPEBackend(unittest.TestCase):
     """
     Test PE Backend
     """
+
+    def test_is_compatible_with_large_dos_stub(self):
+        for pe_offset in (0x1000, 0x1200, 0x10000):
+            with self.subTest(pe_offset=pe_offset):
+                image = bytearray(pe_offset + 4)
+                image[:2] = b"MZ"
+                struct.pack_into("<I", image, 0x3C, pe_offset)
+                image[pe_offset : pe_offset + 4] = b"PE\0\0"
+
+                stream = io.BytesIO(image)
+                assert cle.PE.is_compatible(stream)
+                assert stream.tell() == 0
+
+    def test_loader_detects_pe_with_large_dos_stub(self):
+        binary_path = os.path.join(TEST_BASE, "tests", "x86", "windows", "TLS.exe")
+        with open(binary_path, "rb") as binary:
+            original = bytearray(binary.read())
+
+        pe = pefile.PE(data=bytes(original), fast_load=True)
+        old_pe_offset = pe.DOS_HEADER.e_lfanew
+        first_section_offset = min(section.PointerToRawData for section in pe.sections if section.PointerToRawData)
+        pe_headers = original[old_pe_offset:first_section_offset]
+
+        pe_offset = max(0x10000, (len(original) + 0xFFF) & ~0xFFF)
+        image = original + bytearray(pe_offset + len(pe_headers) - len(original))
+        image[pe_offset : pe_offset + len(pe_headers)] = pe_headers
+        struct.pack_into("<I", image, 0x3C, pe_offset)
+
+        loaded = cle.Loader(io.BytesIO(image), auto_load_libs=False)
+        assert isinstance(loaded.main_object, cle.PE)
+        assert loaded.main_object.arch.name == "X86"
+
+    def test_is_compatible_reads_only_headers(self):
+        class ReadTrackingStream(io.BytesIO):
+            def __init__(self, data):
+                super().__init__(data)
+                self.bytes_read = 0
+
+            def read(self, size=-1):
+                data = super().read(size)
+                self.bytes_read += len(data)
+                return data
+
+        pe_offset = 0x10000
+        image = bytearray(pe_offset + 4)
+        image[:2] = b"MZ"
+        struct.pack_into("<I", image, 0x3C, pe_offset)
+        image[pe_offset : pe_offset + 4] = b"PE\0\0"
+        stream = ReadTrackingStream(image)
+
+        assert cle.PE.is_compatible(stream)
+        assert stream.bytes_read == 0x40 + 4
+        assert stream.tell() == 0
+
+    def test_is_compatible_rejects_malformed_headers(self):
+        truncated_offset = bytearray(0x40)
+        truncated_offset[:2] = b"MZ"
+        struct.pack_into("<I", truncated_offset, 0x3C, 0xFFFFFFFF)
+
+        invalid_signature = bytearray(0x1004)
+        invalid_signature[:2] = b"MZ"
+        struct.pack_into("<I", invalid_signature, 0x3C, 0x1000)
+        invalid_signature[0x1000:0x1004] = b"PX\0\0"
+
+        for image in (b"", b"MZ", truncated_offset, invalid_signature):
+            with self.subTest(image_size=len(image)):
+                stream = io.BytesIO(image)
+                assert not cle.PE.is_compatible(stream)
+                assert stream.tell() == 0
+
+        with mmap.mmap(-1, len(truncated_offset)) as stream:
+            stream.write(truncated_offset)
+            stream.seek(0)
+            assert not cle.PE.is_compatible(stream)
+            assert stream.tell() == 0
 
     def test_exe(self):
         exe = os.path.join(TEST_BASE, "tests", "x86", "windows", "TLS.exe")
