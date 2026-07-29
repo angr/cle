@@ -13,6 +13,7 @@ from .java.soot import Soot
 from .macho import MachO
 from .minidump import Minidump
 from .named_region import NamedRegion
+from .ne import NE
 from .pe import PE, PEStubs
 from .region import Region, Section, Segment
 from .regions import Regions
@@ -48,6 +49,7 @@ __all__ = [
     "Minidump",
     "MachO",
     "NamedRegion",
+    "NE",
     "Jar",
     "Apk",
     "Soot",

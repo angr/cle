@@ -95,6 +95,9 @@ There are several backends that can be used to load a single file:
   - PE is a backend to load Microsoft's Portable Executable format,
     effectively Windows binaries. It uses the (optional) `pefile` module.
 
+  - NE loads 16-bit Windows New Executable programs and libraries using a
+    segmented x86 p-code architecture.
+
   - Mach-O is a backend to load, you guessed it, Mach-O binaries. Support is
     limited for this backend.
 

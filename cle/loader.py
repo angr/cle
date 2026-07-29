@@ -1073,7 +1073,8 @@ class Loader:
         overlap with anything already loaded.
         """
         # this assumes that self.main_object exists, which should... definitely be safe
-        if self.main_object.arch.bits < 32 or self.main_object.max_addr >= 2 ** (self.main_object.arch.bits - 1):
+        address_bits = self.main_object.mapped_address_bits
+        if address_bits < 32 or self.main_object.max_addr >= 2 ** (address_bits - 1):
             # HACK: On small arches, we should be more aggressive in packing stuff in.
             gap_start = 0
         else:
@@ -1084,7 +1085,7 @@ class Loader:
             else:
                 gap_start = ALIGN_UP(o.max_addr + 1, self._rebase_granularity)
 
-        if gap_start + size > 2**self.main_object.arch.bits:
+        if gap_start + size > 2**address_bits:
             # this may happen when loading an ELF core whose main object may occupy a large range of memory addresses
             # with large unoccupied holes left in the middle
             # we fall back to finding unoccupied holes
@@ -1100,7 +1101,7 @@ class Loader:
 
     def _is_range_free(self, va, size):
         # self.main_object should not be None here
-        if va < 0 or va + size > 2**self.main_object.arch.bits:
+        if va < 0 or va + size > 2**self.main_object.mapped_address_bits:
             return False
 
         for o in self.all_objects:
