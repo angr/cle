@@ -351,7 +351,6 @@ class Clemory(ClemoryBase):
             "max_addr": self.max_addr,
         }
 
-
     def __setstate__(self, s):
         self._arch = s["_arch"]
         self._backers = s["_backers"]
