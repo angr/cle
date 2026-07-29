@@ -39,15 +39,15 @@ class VariableType:
         """
         if die.tag == "DW_TAG_base_type":
             return BaseType.read_from_die(die, elf_object)
-        elif die.tag == "DW_TAG_pointer_type":
+        if die.tag == "DW_TAG_pointer_type":
             return PointerType.read_from_die(die, elf_object)
-        elif die.tag == "DW_TAG_structure_type":
+        if die.tag == "DW_TAG_structure_type":
             return StructType.read_from_die(die, elf_object)
-        elif die.tag == "DW_TAG_array_type":
+        if die.tag == "DW_TAG_array_type":
             return ArrayType.read_from_die(die, elf_object)
-        elif die.tag == "DW_TAG_typedef":
+        if die.tag == "DW_TAG_typedef":
             return TypedefType.read_from_die(die, elf_object)
-        elif die.tag == "DW_TAG_union_type":
+        if die.tag == "DW_TAG_union_type":
             return UnionType.read_from_die(die, elf_object)
         return None
 

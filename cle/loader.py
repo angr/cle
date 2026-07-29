@@ -243,8 +243,7 @@ class Loader:
     def __repr__(self):
         if self._main_binary_stream is None and self._main_binary_path is not None:
             return f"<Loaded {os.path.basename(self._main_binary_path)}, maps [{self.min_addr:#x}:{self.max_addr:#x}]>"
-        else:
-            return f"<Loaded from stream, maps [{self.min_addr:#x}:{self.max_addr:#x}]>"
+        return f"<Loaded from stream, maps [{self.min_addr:#x}:{self.max_addr:#x}]>"
 
     @property
     def max_addr(self) -> int:
@@ -453,11 +452,10 @@ class Loader:
                     self._last_object = obj_
                     return obj_
                 return None
-            elif isinstance(obj_.memory, str):
+            if isinstance(obj_.memory, str):
                 self._last_object = obj_
                 return obj_
-            else:
-                raise CLEError(f"Unsupported memory type {type(obj_.memory)}")
+            raise CLEError(f"Unsupported memory type {type(obj_.memory)}")
 
         # check the cache first
         if (
@@ -589,7 +587,7 @@ class Loader:
             # Soot address
             # TODO launch this shit into the sun
             return thing.method.fullname  # type: ignore
-        elif isinstance(thing, int):
+        if isinstance(thing, int):
             # address
             if fuzzy:
                 so = self.find_object_containing(thing)
@@ -969,7 +967,7 @@ class Loader:
         # STEP 1: identify file
         if isinstance(spec, Backend):
             return spec
-        elif hasattr(spec, "read") and hasattr(spec, "seek"):
+        if hasattr(spec, "read") and hasattr(spec, "seek"):
             binary_stream = spec
             binary = None
             close = False
@@ -1247,8 +1245,7 @@ class Loader:
             return None
         if basefinal:
             return os.path.join(dirname, basefinal) + suffix
-        else:
-            return None
+        return None
 
     def _possible_idents(self, spec, lowercase=False):
         """
@@ -1318,12 +1315,11 @@ class Loader:
     def _backend_resolver(backend: str | type[Backend], default: T | None = None) -> type[Backend] | T | None:
         if isinstance(backend, type) and issubclass(backend, Backend):
             return backend
-        elif backend in ALL_BACKENDS:
+        if backend in ALL_BACKENDS:
             return ALL_BACKENDS[backend]
-        elif backend is None:
+        if backend is None:
             return default
-        else:
-            raise CLEError(f"Invalid backend: {backend}")
+        raise CLEError(f"Invalid backend: {backend}")
 
     #
     # Memory data loading methods

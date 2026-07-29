@@ -108,23 +108,22 @@ class ELFSymbolType(SymbolSubType):
         if self is ELFSymbolType.STT_NOTYPE:
             return SymbolType.TYPE_NONE
 
-        elif self in [ELFSymbolType.STT_FUNC, ELFSymbolType.STT_GNU_IFUNC]:
+        if self in [ELFSymbolType.STT_FUNC, ELFSymbolType.STT_GNU_IFUNC]:
             return SymbolType.TYPE_FUNCTION
 
-        elif self in [ELFSymbolType.STT_OBJECT, ELFSymbolType.STT_COMMON]:
+        if self in [ELFSymbolType.STT_OBJECT, ELFSymbolType.STT_COMMON]:
             return SymbolType.TYPE_OBJECT
 
-        elif self is ELFSymbolType.STT_SECTION:
+        if self is ELFSymbolType.STT_SECTION:
             return SymbolType.TYPE_SECTION
 
-        elif self is ELFSymbolType.STT_TLS:
+        if self is ELFSymbolType.STT_TLS:
             return SymbolType.TYPE_TLS_OBJECT
 
-        elif self is ELFSymbolType.STT_GNU_IFUNC:
+        if self is ELFSymbolType.STT_GNU_IFUNC:
             return SymbolType.TYPE_FUNCTION
 
-        else:
-            return SymbolType.TYPE_OTHER
+        return SymbolType.TYPE_OTHER
 
 
 def __ELFSymbolTypeArchParser(cls, value):
@@ -139,8 +138,7 @@ def __ELFSymbolTypeArchParser(cls, value):
     """
     if isinstance(value, int):
         return super(ELFSymbolType, cls).__new__(cls, (value, None))
-    else:
-        return super(ELFSymbolType, cls).__new__(cls, value)
+    return super(ELFSymbolType, cls).__new__(cls, value)
 
 
 setattr(ELFSymbolType, "__new__", __ELFSymbolTypeArchParser)

@@ -139,8 +139,7 @@ class GenericJumpslotReloc(ELFReloc):
     def value(self):
         if self.is_rela:
             return self.resolvedby.rebased_addr + self.addend
-        else:
-            return self.resolvedby.rebased_addr
+        return self.resolvedby.rebased_addr
 
 
 class GenericRelativeReloc(ELFReloc):

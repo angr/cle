@@ -66,7 +66,7 @@ def lookup(name: str, libname) -> type[SimData] | None:
     for simdata_cls in registered_data[name]:
         if type(libname) is type(simdata_cls.libname) is str and simdata_cls.libname.startswith(libname):  # noqa: E721
             return simdata_cls
-        elif simdata_cls is None or libname is None:
+        if simdata_cls is None or libname is None:
             weak_option = simdata_cls
 
     return weak_option

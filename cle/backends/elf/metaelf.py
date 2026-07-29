@@ -441,10 +441,9 @@ class MetaELF(Backend):
         """
         if self.is_ppc64_abiv1:
             return self._ppc64_abiv1_initial_rtoc
-        elif self.is_ppc64_abiv2:
+        if self.is_ppc64_abiv2:
             return self._ppc64_abiv2_get_initial_rtoc()
-        else:
-            return None
+        return None
 
     def _ppc64_abiv1_entry_fix(self):
         """

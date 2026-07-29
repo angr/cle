@@ -123,8 +123,7 @@ class PETLSObject(TLSObject):
         """
         if 0 <= tls_idx < self.used_modules:
             return self.memory.unpack_word(tls_idx * self.arch.bytes)
-        else:
-            raise IndexError("TLS index out of range")
+        raise IndexError("TLS index out of range")
 
     @property
     def max_addr(self):

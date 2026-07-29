@@ -42,7 +42,7 @@ class PDBInfo:
             # Check for RSDS signature (PDB 7.0 format)
             if debug_entry.entry.name == "CV_INFO_PDB70":  # type: ignore
                 return cls._parse_rsds(debug_entry.entry)
-            elif debug_entry.entry.name == "CV_INFO_PDB20":  # type: ignore
+            if debug_entry.entry.name == "CV_INFO_PDB20":  # type: ignore
                 return cls._parse_nb10(debug_entry.entry)
 
         return None

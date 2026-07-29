@@ -93,8 +93,7 @@ class ExceptionHandling:
                 f"<ExceptionHandling@{self.start_addr:#x}-{self.start_addr + self.size:#x}: "
                 f"handler@{self.handler_addr:#x}>"
             )
-        else:
-            return f"<ExceptionHandling@{self.start_addr:#x}-{self.start_addr + self.size:#x}: no handler>"
+        return f"<ExceptionHandling@{self.start_addr:#x}-{self.start_addr + self.size:#x}: no handler>"
 
 
 class Backend:
@@ -465,8 +464,7 @@ class Backend:
         loadable = self.find_loadable_containing(addr)
         if loadable is not None:
             return loadable.addr_to_offset(addr)
-        else:
-            return None
+        return None
 
     def offset_to_addr(self, offset: int) -> int | None:
         if self.segments:

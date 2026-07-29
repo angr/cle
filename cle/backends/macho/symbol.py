@@ -146,30 +146,26 @@ class SymbolTableSymbol(AbstractMachOSymbol):
             if LIBRARY_ORDINAL_DYN_LOOKUP == self.library_ordinal:
                 log.warning("LIBRARY_ORDINAL_DYN_LOOKUP found, cannot handle")
                 return None
-            else:
-                return self.owner.imported_libraries[self.library_ordinal]
+            return self.owner.imported_libraries[self.library_ordinal]
         return None
 
     @property
     def segment_name(self):
         if self.sym_type == SYMBOL_TYPE_SECT:
             return self.owner.sections_by_ordinal[self.n_sect].segname
-        else:
-            return None
+        return None
 
     @property
     def section_name(self):
         if self.sym_type == SYMBOL_TYPE_SECT:
             return self.owner.sections_by_ordinal[self.n_sect].sectname
-        else:
-            return None
+        return None
 
     @property
     def value(self):
         if self.sym_type == SYMBOL_TYPE_INDIR:
             return 0
-        else:
-            return self.n_value
+        return self.n_value
 
     @property
     def referenced_symbol_index(self):
@@ -177,8 +173,7 @@ class SymbolTableSymbol(AbstractMachOSymbol):
         symbol's name"""
         if self.sym_type == SYMBOL_TYPE_INDIR:
             return self.n_value
-        else:
-            return None
+        return None
 
     @property
     def is_weak(self):
@@ -208,8 +203,7 @@ class SymbolTableSymbol(AbstractMachOSymbol):
     def sym_type(self):  # cannot be called "type" as that shadows a builtin variable from Symbol
         if self.is_stab:
             return self.n_type
-        else:
-            return self.n_type & 0x0E
+        return self.n_type & 0x0E
 
     @property
     def is_common(self):
@@ -286,7 +280,7 @@ class DyldBoundSymbol(AbstractMachOSymbol):
         if BIND_SPECIAL_DYLIB_FLAT_LOOKUP == self.lib_ordinal:
             log.warning("BIND_SPECIAL_DYLIB_FLAT_LOOKUP found, cannot handle")
             return None
-        elif BIND_SPECIAL_DYLIB_WEAK_LOOKUP == self.lib_ordinal:
+        if BIND_SPECIAL_DYLIB_WEAK_LOOKUP == self.lib_ordinal:
             return None
         try:
             return self.owner.imported_libraries[self.lib_ordinal]

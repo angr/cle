@@ -1000,14 +1000,11 @@ class PE(Backend):
     def _make_reloc(self, addr, reloc_type, symbol=None, next_rva=None, resolvewith=None):
         # Handle special cases first
         if reloc_type == 0:  # 0 simply means "ignore this relocation"
-            reloc = IMAGE_REL_BASED_ABSOLUTE(owner=self, symbol=symbol, addr=addr, resolvewith=resolvewith)
-            return reloc
+            return IMAGE_REL_BASED_ABSOLUTE(owner=self, symbol=symbol, addr=addr, resolvewith=resolvewith)
         if reloc_type is None:  # for DLL imports
-            reloc = DllImport(owner=self, symbol=symbol, addr=addr, resolvewith=resolvewith)
-            return reloc
+            return DllImport(owner=self, symbol=symbol, addr=addr, resolvewith=resolvewith)
         if next_rva is not None:
-            reloc = IMAGE_REL_BASED_HIGHADJ(owner=self, addr=addr, next_rva=next_rva)
-            return reloc
+            return IMAGE_REL_BASED_HIGHADJ(owner=self, addr=addr, next_rva=next_rva)
 
         # Handle all the normal base relocations
         RelocClass = get_relocation(self.arch.name, reloc_type)

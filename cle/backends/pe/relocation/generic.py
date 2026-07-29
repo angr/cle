@@ -54,8 +54,7 @@ class IMAGE_REL_BASED_HIGHADJ(PEReloc):
         org_value = struct.unpack("<H", org_bytes)[0]
         adjusted_value = (org_value << 16) + self.next_rva
         adjusted_value = (AT.from_lva(adjusted_value, self.owner).to_mva() & 0xFFFF0000) >> 16
-        adjusted_bytes = struct.pack("<I", adjusted_value)
-        return adjusted_bytes
+        return struct.pack("<I", adjusted_value)
 
 
 class IMAGE_REL_BASED_HIGHLOW(PEReloc):
@@ -66,8 +65,7 @@ class IMAGE_REL_BASED_HIGHLOW(PEReloc):
         org_bytes = self.owner.memory.load(self.relative_addr, 4)
         org_value = struct.unpack("<I", org_bytes)[0]
         rebased_value = AT.from_lva(org_value, self.owner).to_mva()
-        rebased_bytes = struct.pack("<I", rebased_value & 0xFFFFFFFF)
-        return rebased_bytes
+        return struct.pack("<I", rebased_value & 0xFFFFFFFF)
 
 
 class IMAGE_REL_BASED_DIR64(PEReloc):
@@ -85,8 +83,7 @@ class IMAGE_REL_BASED_DIR64(PEReloc):
                 self.owner,
             )
             return None
-        rebased_bytes = struct.pack("<Q", rebased_value)
-        return rebased_bytes
+        return struct.pack("<Q", rebased_value)
 
 
 class IMAGE_REL_BASED_HIGH(PEReloc):
@@ -98,8 +95,7 @@ class IMAGE_REL_BASED_HIGH(PEReloc):
         org_value = struct.unpack("<H", org_bytes)[0]
         rebased_value = AT.from_lva(org_value, self.owner).to_mva()
         adjusted_value = (rebased_value >> 16) & 0xFFFF
-        adjusted_bytes = struct.pack("<H", adjusted_value)
-        return adjusted_bytes
+        return struct.pack("<H", adjusted_value)
 
 
 class IMAGE_REL_BASED_LOW(PEReloc):
@@ -111,8 +107,7 @@ class IMAGE_REL_BASED_LOW(PEReloc):
         org_value = struct.unpack("<H", org_bytes)[0]
         rebased_value = AT.from_lva(org_value, self.owner).to_mva()
         adjusted_value = rebased_value & 0x0000FFFF
-        adjusted_bytes = struct.pack("<H", adjusted_value)
-        return adjusted_bytes
+        return struct.pack("<H", adjusted_value)
 
 
 relocation_table_generic = {

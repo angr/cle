@@ -178,8 +178,7 @@ class Arm64e(ctypes.Union):
         addend19 = self.bind.addend
         if addend19 & 0x40000:
             return addend19 | 0xFFFFFFFFFFFC0000
-        else:
-            return addend19
+        return addend19
 
     @property
     def unpack_target(self):
@@ -295,24 +294,18 @@ class ChainedFixupPointerOnDisk(ctypes.Union):
                 if self.arm64e.authBind.auth:
                     if pointer_format == DyldChainedPtrFormats.DYLD_CHAINED_PTR_ARM64E_USERLAND24:
                         return self.arm64e.authBind24.ordinal, 0
-                    else:
-                        return self.arm64e.authBind.ordinal, 0
-                else:
-                    if pointer_format == DyldChainedPtrFormats.DYLD_CHAINED_PTR_ARM64E_USERLAND24:
-                        return self.arm64e.bind24.ordinal, self.arm64e.sign_extended_addend
-                    else:
-                        return self.arm64e.bind.ordinal, self.arm64e.sign_extended_addend
-            else:
-                return None
-        elif Generic64.check_valid_pointer_format(pointer_format):
+                    return self.arm64e.authBind.ordinal, 0
+                if pointer_format == DyldChainedPtrFormats.DYLD_CHAINED_PTR_ARM64E_USERLAND24:
+                    return self.arm64e.bind24.ordinal, self.arm64e.sign_extended_addend
+                return self.arm64e.bind.ordinal, self.arm64e.sign_extended_addend
+            return None
+        if Generic64.check_valid_pointer_format(pointer_format):
             # https://github.com/apple-opensource/dyld/blob/852.2/dyld3/MachOLoaded.cpp#L1126-L1132
             if self.generic64.bind.bind:
                 return self.generic64.bind.ordinal, self.generic64.bind.addend
-            else:
-                return None
+            return None
 
-        else:
-            raise NotImplementedError(f"Not yet supported pointer format {pointer_format}")
+        raise NotImplementedError(f"Not yet supported pointer format {pointer_format}")
 
     def isRebase(
         self, pointer_format: DyldChainedPtrFormats, preferredLoadAddress: MemoryPointer
@@ -330,32 +323,28 @@ class ChainedFixupPointerOnDisk(ctypes.Union):
             # https://github.com/apple-opensource/dyld/blob/852.2/dyld3/MachOLoaded.cpp#L1049-L1067
             if self.arm64e.bind.bind:
                 return False
-            else:
-                if self.arm64e.authRebase.auth:
-                    return self.arm64e.authRebase.target
-                else:
-                    targetRuntimeOffset = self.arm64e.unpack_target
-                    if pointer_format in [
-                        DyldChainedPtrFormats.DYLD_CHAINED_PTR_ARM64E,
-                        DyldChainedPtrFormats.DYLD_CHAINED_PTR_ARM64E_FIRMWARE,
-                    ]:
-                        targetRuntimeOffset -= preferredLoadAddress
+            if self.arm64e.authRebase.auth:
+                return self.arm64e.authRebase.target
+            targetRuntimeOffset = self.arm64e.unpack_target
+            if pointer_format in [
+                DyldChainedPtrFormats.DYLD_CHAINED_PTR_ARM64E,
+                DyldChainedPtrFormats.DYLD_CHAINED_PTR_ARM64E_FIRMWARE,
+            ]:
+                targetRuntimeOffset -= preferredLoadAddress
 
-                    return targetRuntimeOffset
+            return targetRuntimeOffset
 
-        elif Generic64.check_valid_pointer_format(pointer_format):
+        if Generic64.check_valid_pointer_format(pointer_format):
             # https://github.com/apple-opensource/dyld/blob/852.2/dyld3/MachOLoaded.cpp#L1068-L1076
             rebase = self.generic64.rebase
             if rebase.bind:
                 # Then this wasn't actually a rebase
                 return False
-            else:
-                targetRuntimeOffset = rebase.unpackedTarget
-                if pointer_format == DyldChainedPtrFormats.DYLD_CHAINED_PTR_64:
-                    targetRuntimeOffset -= preferredLoadAddress
-                return targetRuntimeOffset
-        else:
-            raise NotImplementedError(f"Not yet supported pointer format {pointer_format}")
+            targetRuntimeOffset = rebase.unpackedTarget
+            if pointer_format == DyldChainedPtrFormats.DYLD_CHAINED_PTR_64:
+                targetRuntimeOffset -= preferredLoadAddress
+            return targetRuntimeOffset
+        raise NotImplementedError(f"Not yet supported pointer format {pointer_format}")
 
 
 # DYLD_CHAINED_PTR_BASE: Dict[DyldChainedPtrFormats, Type[ChainedFixupPointerOnDisk]] = {

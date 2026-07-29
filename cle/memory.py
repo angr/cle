@@ -326,13 +326,12 @@ class Clemory(ClemoryBase):
         # Fast path
         if self.consecutive:
             return self.min_addr <= k < self.max_addr
-        else:
-            # Check if this is an empty Clemory instance
-            if not self._backers:
-                return False
-            # Check if it is out of the memory range
-            if k < self.min_addr or k >= self.max_addr:
-                return False
+        # Check if this is an empty Clemory instance
+        if not self._backers:
+            return False
+        # Check if it is out of the memory range
+        if k < self.min_addr or k >= self.max_addr:
+            return False
 
         try:
             self.__getitem__(k)
@@ -342,7 +341,7 @@ class Clemory(ClemoryBase):
             return True
 
     def __getstate__(self):
-        s = {
+        return {
             "_arch": self._arch,
             "_backers": self._backers,
             "_pointer": self._pointer,
@@ -352,7 +351,6 @@ class Clemory(ClemoryBase):
             "max_addr": self.max_addr,
         }
 
-        return s
 
     def __setstate__(self, s):
         self._arch = s["_arch"]

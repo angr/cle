@@ -78,8 +78,7 @@ class Symbol:
     def __repr__(self):
         if self.is_import:
             return f'<Symbol "{self.name}" in {self.owner.binary_basename} (import)>'
-        else:
-            return f'<Symbol "{self.name}" in {self.owner.binary_basename} at {self.rebased_addr:#x}>'
+        return f'<Symbol "{self.name}" in {self.owner.binary_basename} at {self.rebased_addr:#x}>'
 
     def resolve(self, obj):
         self.resolved = True

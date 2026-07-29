@@ -69,7 +69,7 @@ class Relocation:
                 if not symbol.is_weak:
                     self.resolve(symbol, extern_object=extern_object)
                     return
-                elif weak_result is None:
+                if weak_result is None:
                     weak_result = symbol
             # TODO: Was this check obsolted by the addition of is_static?
             # I think right now symbol.is_import = !symbol.is_export
@@ -77,7 +77,7 @@ class Relocation:
                 if not symbol.is_weak:
                     self.resolve(symbol, extern_object=extern_object)
                     return
-                elif weak_result is None:
+                if weak_result is None:
                     weak_result = symbol
 
         if weak_result is not None:

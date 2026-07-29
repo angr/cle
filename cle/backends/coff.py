@@ -386,8 +386,7 @@ class CoffRelocationSECTION(CoffRelocation):
     @property
     def value(self):
         assert isinstance(self.owner, Coff)
-        section_idx = 0  # FIXME
-        return section_idx
+        return 0  # FIXME
 
 
 class CoffRelocationSECREL(CoffRelocation):
@@ -402,8 +401,7 @@ class CoffRelocationSECREL(CoffRelocation):
     @property
     def value(self):
         assert isinstance(self.owner, Coff)
-        offset_to_symbol = 0  # FIXME
-        return offset_to_symbol
+        return 0  # FIXME
 
 
 RELOC_CLASSES: dict[IntEnum, dict[IntEnum, type[Relocation]]] = {
@@ -537,7 +535,7 @@ class Coff(Backend):
             if sym.SectionNumber > 0:
                 sym_addr = self._coff.sections[sym.SectionNumber - 1].PointerToRawData + sym.Value
                 return Symbol(self, name, sym_addr, 1, symbol_type)
-            elif sym.SectionNumber == 0:
+            if sym.SectionNumber == 0:
                 if produce_extern_symbols:
                     return Symbol(self, name, 0, sym.Value, symbol_type)
                 return None

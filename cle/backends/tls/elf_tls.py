@@ -49,8 +49,7 @@ class ELFThreadManager(ThreadManager):
     def _thread_cls(self):
         if self.arch.elf_tls.variant == 1:
             return ELFTLSObjectV1
-        else:
-            return ELFTLSObjectV2
+        return ELFTLSObjectV2
 
 
 class ELFTLSObject(TLSObject):

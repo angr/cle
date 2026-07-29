@@ -115,8 +115,7 @@ class Soot(Backend):
         except KeyError:
             if none_if_missing:
                 return None
-            else:
-                raise CLEError(f'Class "{cls_name}" does not exist.')
+            raise CLEError(f'Class "{cls_name}" does not exist.')
 
     def get_soot_method(self, thing, class_name=None, params=(), none_if_missing=False):
         """
@@ -162,8 +161,7 @@ class Soot(Backend):
         except CLEError:
             if none_if_missing:
                 return None
-            else:
-                raise
+            raise
 
         # Step 3: Get all methods matching the description
         methods = [
@@ -175,12 +173,11 @@ class Soot(Backend):
         if not methods:
             if none_if_missing:
                 return None
-            else:
-                raise CLEError(
-                    "Method with description {} does not exist in class {}.".format(
-                        method_description, method_description["class_name"]
-                    )
+            raise CLEError(
+                "Method with description {} does not exist in class {}.".format(
+                    method_description, method_description["class_name"]
                 )
+            )
 
         if len(methods) > 1:
             # Warn if we found several matching methods

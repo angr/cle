@@ -51,8 +51,7 @@ class R_PPC_ADDR24(ELFReloc):
         A = self.addend
         S = self.resolvedby.rebased_addr
 
-        result = (S + A) >> 2
-        return result
+        return (S + A) >> 2
 
 
 class R_PPC_ADDR16(ELFReloc):
@@ -69,8 +68,7 @@ class R_PPC_ADDR16(ELFReloc):
         A = self.addend
         S = self.resolvedby.rebased_addr
 
-        result = S + A
-        return result
+        return S + A
 
 
 class R_PPC_ADDR16_LO(ELFReloc):
@@ -88,8 +86,7 @@ class R_PPC_ADDR16_LO(ELFReloc):
         S = self.resolvedby.rebased_addr
 
         result = S + A
-        result = result & PPC_HALF16
-        return result
+        return result & PPC_HALF16
 
     def relocate(self):
         if not self.resolved:
@@ -113,8 +110,7 @@ class R_PPC_ADDR16_HI(ELFReloc):
         S = self.resolvedby.rebased_addr
 
         result = (S + A) >> 16
-        result = result & PPC_HALF16
-        return result
+        return result & PPC_HALF16
 
     def relocate(self):
         if not self.resolved:
@@ -138,8 +134,7 @@ class R_PPC_ADDR16_HA(ELFReloc):  # pylint: disable=undefined-variable
         S = self.resolvedby.rebased_addr
 
         result = S + A
-        result = ((result >> 16) + (1 if (result & 0x8000) else 0)) & PPC_HALF16
-        return result
+        return ((result >> 16) + (1 if (result & 0x8000) else 0)) & PPC_HALF16
 
     def relocate(self):
         if not self.resolved:
@@ -162,8 +157,7 @@ class R_PPC_ADDR14(ELFReloc):
         A = self.addend
         S = self.resolvedby.rebased_addr
 
-        result = (S + A) >> 2
-        return result
+        return (S + A) >> 2
 
 
 class R_PPC_ADDR14_BRTAKEN(ELFReloc):
@@ -180,8 +174,7 @@ class R_PPC_ADDR14_BRTAKEN(ELFReloc):
         A = self.addend
         S = self.resolvedby.rebased_addr
 
-        result = (S + A) >> 2
-        return result
+        return (S + A) >> 2
 
 
 class R_PPC_ADDR14_BRNTAKEN(ELFReloc):
@@ -198,8 +191,7 @@ class R_PPC_ADDR14_BRNTAKEN(ELFReloc):
         A = self.addend
         S = self.resolvedby.rebased_addr
 
-        result = (S + A) >> 2
-        return result
+        return (S + A) >> 2
 
 
 class R_PPC_REL24(ELFReloc):
@@ -230,8 +222,7 @@ class R_PPC_REL24(ELFReloc):
         result = (S + A - P) >> 2
         result = (result << 2) & PPC_LOW24
         result = (A & ~PPC_LOW24) | result
-        result = result | PPC_BL_INST
-        return result
+        return result | PPC_BL_INST
 
 
 class R_PPC_REL14(ELFReloc):
@@ -251,8 +242,7 @@ class R_PPC_REL14(ELFReloc):
 
         result = (S + A - P) >> 2
         result = (result << 2) & PPC_LOW14
-        result = (A & ~PPC_LOW14) | result
-        return result
+        return (A & ~PPC_LOW14) | result
 
 
 class R_PPC_REL14_BRTAKEN(ELFReloc):
@@ -272,8 +262,7 @@ class R_PPC_REL14_BRTAKEN(ELFReloc):
 
         result = (S + A - P) >> 2
         result = (result << 2) & PPC_LOW14
-        result = (A & ~PPC_LOW14) | result
-        return result
+        return (A & ~PPC_LOW14) | result
 
 
 class R_PPC_REL14_BRNTAKEN(ELFReloc):
@@ -293,8 +282,7 @@ class R_PPC_REL14_BRNTAKEN(ELFReloc):
 
         result = (S + A - P) >> 2
         result = (result << 2) & PPC_LOW14
-        result = (A & ~PPC_LOW14) | result
-        return result
+        return (A & ~PPC_LOW14) | result
 
 
 class R_PPC_COPY(GenericCopyReloc):
@@ -335,8 +323,7 @@ class R_PPC_UADDR32(ELFReloc):
         A = self.addend
         S = self.resolvedby.rebased_addr
 
-        result = S + A
-        return result
+        return S + A
 
 
 class R_PPC_UADDR16(ELFReloc):
@@ -353,8 +340,7 @@ class R_PPC_UADDR16(ELFReloc):
         A = self.addend
         S = self.resolvedby.rebased_addr
 
-        result = S + A
-        return result
+        return S + A
 
 
 class R_PPC_REL32(ELFReloc):  # pylint: disable=undefined-variable
@@ -372,8 +358,7 @@ class R_PPC_REL32(ELFReloc):  # pylint: disable=undefined-variable
         A = self.addend
         S = self.resolvedby.rebased_addr
 
-        result = (S + A - P) & PPC_WORD32
-        return result
+        return (S + A - P) & PPC_WORD32
 
 
 class R_PPC_SECTOFF(ELFReloc):
@@ -390,8 +375,7 @@ class R_PPC_SECTOFF(ELFReloc):
         R = self.relative_addr
         A = self.addend
 
-        result = R + A
-        return result
+        return R + A
 
 
 class R_PPC_SECTOFF_LO(ELFReloc):
@@ -409,8 +393,7 @@ class R_PPC_SECTOFF_LO(ELFReloc):
         A = self.addend
 
         result = R + A
-        result = result & PPC_HALF16
-        return result
+        return result & PPC_HALF16
 
 
 class R_PPC_SECTOFF_HI(ELFReloc):
@@ -428,8 +411,7 @@ class R_PPC_SECTOFF_HI(ELFReloc):
         A = self.addend
 
         result = (R + A) >> 16
-        result = result & PPC_HALF16
-        return result
+        return result & PPC_HALF16
 
 
 class R_PPC_SECTOFF_HA(ELFReloc):
@@ -447,8 +429,7 @@ class R_PPC_SECTOFF_HA(ELFReloc):
         A = self.addend
 
         result = R + A
-        result = ((result >> 16) + (1 if (result & 0x8000) else 0)) & PPC_HALF16
-        return result
+        return ((result >> 16) + (1 if (result & 0x8000) else 0)) & PPC_HALF16
 
 
 class R_PPC_ADDR30(ELFReloc):
@@ -466,8 +447,7 @@ class R_PPC_ADDR30(ELFReloc):
         A = self.addend
         P = self.rebased_addr
 
-        result = (S + A - P) >> 2
-        return result
+        return (S + A - P) >> 2
 
 
 class R_PPC_DTPMOD32(GenericTLSModIdReloc):

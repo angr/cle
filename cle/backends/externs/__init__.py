@@ -219,18 +219,16 @@ class ExternObject(Backend):
         if next_start >= limit:
             if self._is_mapped:
                 return None
+            if tls:
+                self.tls_data_size += next_start - limit
             else:
-                if tls:
-                    self.tls_data_size += next_start - limit
-                else:
-                    self.map_size += next_start - limit
+                self.map_size += next_start - limit
 
         if tls:
             self.tls_next_addr = next_start
             return addr
-        else:
-            self.next_addr = next_start
-            return addr
+        self.next_addr = next_start
+        return addr
 
     @property
     def max_addr(self):
@@ -247,13 +245,12 @@ class ExternObject(Backend):
             # the world.
             self._import_symbols[name] = sym
             return sym
-        else:
-            sym = self._import_symbols[name]
-            if sym.type != sym_type:
-                raise CLEOperationError(
-                    "Created the same extern import %s with two different types. Something isn't right!"
-                )
-            return sym
+        sym = self._import_symbols[name]
+        if sym.type != sym_type:
+            raise CLEOperationError(
+                "Created the same extern import %s with two different types. Something isn't right!"
+            )
+        return sym
 
     def _init_symbol(self, symbol):
         if isinstance(symbol, SimData):

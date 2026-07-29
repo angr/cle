@@ -342,7 +342,7 @@ class ELF(MetaELF):
                     return archinfo.ArchARMCortexM("Iend_LE")
             if reader.header.e_flags & 0x200:
                 return archinfo.ArchARMEL("Iend_LE" if reader.little_endian else "Iend_BE")
-            elif reader.header.e_flags & 0x400:
+            if reader.header.e_flags & 0x400:
                 return archinfo.ArchARMHF("Iend_LE" if reader.little_endian else "Iend_BE")
 
         try:

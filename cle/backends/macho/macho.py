@@ -67,8 +67,7 @@ class SymbolList(SortedKeyList):
     def get_by_name_and_ordinal(self, name: str, ordinal: int, include_stab=False) -> list[AbstractMachOSymbol]:
         if include_stab:
             return self._symbol_cache[(name, ordinal)]
-        else:
-            return [symbol for symbol in self._symbol_cache[(name, ordinal)] if not symbol.is_stab]
+        return [symbol for symbol in self._symbol_cache[(name, ordinal)] if not symbol.is_stab]
 
 
 # pylint: enable =abstract-method
@@ -472,22 +471,20 @@ class MachO(Backend):
             if magic in [MachO.MH_MAGIC_64, MachO.MH_MAGIC]:
                 log.debug("Detected little-endian")
                 return "<"
-            elif magic in [MachO.MH_CIGAM, MachO.MH_CIGAM_64]:
+            if magic in [MachO.MH_CIGAM, MachO.MH_CIGAM_64]:
                 log.debug("Detected big-endian")
                 return ">"
-            else:
-                log.debug("Not a mach-o file")
-                raise CLECompatibilityError()
+            log.debug("Not a mach-o file")
+            raise CLECompatibilityError()
         else:
             if magic in [MachO.MH_MAGIC_64, MachO.MH_MAGIC]:
                 log.debug("Detected big-endian")
                 return ">"
-            elif magic in [MachO.MH_CIGAM_64, MachO.MH_CIGAM]:
+            if magic in [MachO.MH_CIGAM_64, MachO.MH_CIGAM]:
                 log.debug("Detected little-endian")
                 return "<"
-            else:
-                log.debug("Not a mach-o file")
-                raise CLECompatibilityError()
+            log.debug("Not a mach-o file")
+            raise CLECompatibilityError()
 
     def do_binding(self):
         # Perform binding
