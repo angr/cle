@@ -8,7 +8,8 @@ from typing import BinaryIO
 
 import archinfo
 
-from cle.errors import CLEInvalidBinaryError
+from cle.errors import CLEInvalidBinaryError, CLEOperationError
+from cle.utils import stream_or_path
 
 from .backend import Backend, FunctionHint, FunctionHintSource, register_backend
 from .region import Segment
@@ -24,6 +25,7 @@ __all__ = (
     "NEHeader",
     "NEImportedModule",
     "NEImportedProcedure",
+    "NEInternalRelocation",
     "NEName",
     "NERelocation",
     "NESegment",
@@ -48,8 +50,6 @@ _SEGMENT_READONLY_OR_EXECUTEONLY = 0x0080
 _SEGMENT_RELOCATIONS = 0x0100
 
 _MODULE_DATA_MODE_MASK = 0x0003
-_MODULE_REAL_MODE = 0x0004
-_MODULE_PROTECTED_MODE = 0x0008
 _MODULE_LINK_ERROR = 0x2000
 _MODULE_LIBRARY = 0x8000
 
@@ -217,8 +217,10 @@ class _RawSegment:
     sector: int
     file_offset: int
     file_size: int
+    initialized_size: int
     flags: int
     memory_size: int
+    data: bytes
 
 
 class NESegment(Segment):
@@ -230,6 +232,19 @@ class NESegment(Segment):
         self.segment_number = raw.number
         self.sector = raw.sector
         self.flags = raw.flags
+        self.initialized_size = raw.initialized_size
+
+    @property
+    def is_iterated(self) -> bool:
+        return bool(self.flags & _SEGMENT_ITERATED)
+
+    def addr_to_offset(self, addr):
+        # Iterated segment bytes are synthesized from repetition records and do not have a one-to-one file offset.
+        return None if self.is_iterated else super().addr_to_offset(addr)
+
+    def offset_to_addr(self, offset):
+        # The compressed bytes are a representation of the segment, not bytes at corresponding loaded addresses.
+        return None if self.is_iterated else super().offset_to_addr(offset)
 
     @property
     def is_data(self) -> bool:
@@ -261,7 +276,7 @@ class NESegment(Segment):
 
     @property
     def only_contains_uninitialized_data(self) -> bool:
-        return self.filesize == 0
+        return self.initialized_size == 0
 
 
 class NESymbol(Symbol):
@@ -285,16 +300,110 @@ class NESymbol(Symbol):
         self.module_name = module_name
 
 
-class NERelocation(Relocation):
-    """An import fixup which preserves NE selector semantics instead of fabricating flat extern pointers."""
+class _NEFixupRelocation(Relocation):
+    """Common application logic for relocations in CLE's deterministic NE analysis address space."""
+
+    __slots__ = ("additive", "source_type")
+
+    def __init__(
+        self,
+        owner: NE,
+        symbol: NESymbol | None,
+        relative_addr: int,
+        *,
+        source_type: int,
+        additive: bool,
+    ):
+        super().__init__(owner, symbol, relative_addr)
+        self.source_type = source_type
+        self.additive = additive
+
+    def relocate(self):
+        if not self.resolved:
+            return False
+
+        target = self.value
+        if not 0 <= target <= 0xFFFFFFFF:
+            raise CLEOperationError(f"NE analysis relocation target {target:#x} does not fit in a 16:16 pointer")
+        target_offset = target & 0xFFFF
+        target_selector = target >> 16
+        memory = self.owner.memory
+
+        if not self.additive:
+            if self.source_type == 0x00:
+                memory.pack_word(self.dest_addr, target_offset, size=1)
+            elif self.source_type == 0x02:
+                memory.pack_word(self.dest_addr, target_selector, size=2)
+            elif self.source_type == 0x03:
+                memory.pack_word(self.dest_addr, target, size=4)
+            elif self.source_type == 0x05:
+                memory.pack_word(self.dest_addr, target_offset, size=2)
+            else:  # pragma: no cover - the parser rejects unsupported source types
+                raise CLEOperationError(f"Cannot apply NE source type {self.source_type:#x}")
+            return True
+
+        if self.source_type == 0x00:
+            current = memory.unpack_word(self.dest_addr, size=1)
+            memory.pack_word(self.dest_addr, (current + target_offset) & 0xFF, size=1)
+        elif self.source_type == 0x02:
+            current = memory.unpack_word(self.dest_addr, size=2)
+            if current:
+                raise CLEInvalidBinaryError(
+                    f"NE additive selector fixup at {self.dest_addr:#x} has nonzero addend {current:#x}"
+                )
+            memory.pack_word(self.dest_addr, target_selector, size=2)
+        elif self.source_type == 0x03:
+            current_offset = memory.unpack_word(self.dest_addr, size=2)
+            memory.pack_word(self.dest_addr, (current_offset + target_offset) & 0xFFFF, size=2)
+            memory.pack_word(self.dest_addr + 2, target_selector, size=2)
+        elif self.source_type == 0x05:
+            current = memory.unpack_word(self.dest_addr, size=2)
+            memory.pack_word(self.dest_addr, (current + target_offset) & 0xFFFF, size=2)
+        else:  # pragma: no cover - the parser rejects unsupported source types
+            raise CLEOperationError(f"Cannot apply additive NE source type {self.source_type:#x}")
+        return True
+
+
+class NEInternalRelocation(_NEFixupRelocation):
+    """A fixup to another location in the same NE module."""
+
+    __slots__ = ("target_rva",)
+
+    def __init__(
+        self,
+        owner: NE,
+        relative_addr: int,
+        *,
+        target_rva: int,
+        source_type: int,
+        additive: bool,
+    ):
+        super().__init__(
+            owner,
+            None,
+            relative_addr,
+            source_type=source_type,
+            additive=additive,
+        )
+        self.target_rva = target_rva
+        self.resolved = True
+
+    def resolve_symbol(self, solist, **kwargs):  # pylint: disable=unused-argument
+        return
+
+    @property
+    def value(self) -> int:
+        return self.owner.mapped_base + self.target_rva
+
+
+class NERelocation(_NEFixupRelocation):
+    """An imported NE fixup resolved to a module export or a module-qualified analysis extern."""
 
     __slots__ = (
-        "additive",
         "import_key",
         "import_ordinal",
         "module_name",
         "procedure_name",
-        "source_type",
     )
 
     def __init__(
@@ -310,12 +419,16 @@ class NERelocation(Relocation):
         additive: bool,
         import_key: str,
     ):
-        super().__init__(owner, symbol, relative_addr)
+        super().__init__(
+            owner,
+            symbol,
+            relative_addr,
+            source_type=source_type,
+            additive=additive,
+        )
         self.module_name = module_name
         self.procedure_name = procedure_name
         self.import_ordinal = import_ordinal
-        self.source_type = source_type
-        self.additive = additive
         self.import_key = import_key
         self.resolvewith = module_name
 
@@ -325,8 +438,8 @@ class NERelocation(Relocation):
             del owner.imports[symbol.name]
         owner.imports.setdefault(import_key, self)
 
-    def resolve_symbol(self, solist, **kwargs):  # pylint: disable=unused-argument
-        """Resolve only against a matching loaded NE module, never against a fabricated flat extern object."""
+    def resolve_symbol(self, solist, extern_object=None, **kwargs):  # pylint: disable=unused-argument
+        """Resolve against a matching NE module, or a module-qualified extern when no implementation was loaded."""
         if self.resolved or self.symbol is None:
             return
         wanted_module = NE.normalize_module_name(self.module_name)
@@ -341,24 +454,37 @@ class NERelocation(Relocation):
             if symbol is not None and symbol.is_export:
                 self.resolve(symbol)
                 return
+        if extern_object is not None:
+            self.resolve(
+                extern_object.make_extern(
+                    self.import_key,
+                    sym_type=SymbolType.TYPE_FUNCTION,
+                    libname=self.module_name,
+                )
+            )
+
+    def resolve(self, obj, extern_object=None):  # pylint: disable=unused-argument
+        # Every expanded chain site shares one import symbol. Resolve that symbol once while still marking each site.
+        if self.symbol is not None and self.symbol.resolved:
+            self.resolvedby = self.symbol.resolvedby
+            self.resolved = True
+            return
+        super().resolve(obj, extern_object=extern_object)
 
     @property
     def value(self) -> int:
-        return 0
-
-    def relocate(self):
-        # A Windows selector is allocated at runtime and cannot be represented by CLE's flat extern object. Applying
-        # only the offset half would silently corrupt far pointers, so imports remain metadata until selector-aware
-        # linking exists.
-        return False
+        if self.resolvedby is None:
+            raise CLEOperationError(f"Unresolved NE import {self.import_key} has no relocation value")
+        return self.resolvedby.rebased_addr
 
 
 class NE(Backend):
     """Loader for 16-bit Windows New Executable (NE) programs and libraries.
 
-    Native ``segment:offset`` addresses are represented in a sparse flat analysis space. Segment ``n`` occupies slot
-    ``(n - 1) << 16``; the high bits are an NE segment-table index, never a runtime x86 selector. This makes every
-    byte unambiguous while retaining a genuine 16-bit p-code architecture for instruction semantics.
+    Native ``segment:offset`` addresses are represented in a sparse flat analysis space. Relative to its module,
+    segment ``n`` occupies slot ``(n - 1) << 16``. Modules are mapped on 64 KiB boundaries, so the upper half of a
+    relocated 16:16 pointer is a deterministic analysis selector and the lower half remains the native segment
+    offset. Analysis selectors are address-space tokens, never selectors allocated by a particular Windows runtime.
     """
 
     is_default = True
@@ -370,11 +496,9 @@ class NE(Backend):
         reader = _Reader(self._binary_stream)
         self.ne_header = self._parse_header(reader)
 
-        arch_id = (
-            "x86:LE:16:Real Mode"
-            if self.ne_header.flags & _MODULE_REAL_MODE and not self.ne_header.flags & _MODULE_PROTECTED_MODE
-            else "x86:LE:16:Protected Mode"
-        )
+        # Windows NE does not encode an execution-mode choice in its module flags (bits 2 and 3 are reserved in the
+        # Windows 3.1 format). Use protected-mode semantics for the selector-based analysis address model.
+        arch_id = "x86:LE:16:Protected Mode"
         try:
             self.set_arch(archinfo.ArchPcode(arch_id))
         except archinfo.ArchError as exc:
@@ -382,9 +506,11 @@ class NE(Backend):
 
         self.os = "windows"
         self.mapped_base = self.linked_base = 0
-        self.pic = False
+        # Windows allocates selectors for every module at load time. Keep the main object at the historical zero base,
+        # but allow dependent NE modules to be placed in disjoint analysis slots.
+        self.pic = self.pic or not self.is_main_bin
         self.address_model = self.ADDRESS_MODEL
-        self.execution_mode = "real" if "Real Mode" in arch_id else "protected"
+        self.execution_mode = "protected"
         self.is_dll = self.ne_header.is_dll
         self.automatic_data_segment = self.ne_header.automatic_data_segment
         self.initial_cs = self.ne_header.initial_cs
@@ -412,9 +538,9 @@ class NE(Backend):
 
         self.module_references = self._parse_module_references(reader)
         self.imported_modules = tuple(module.normalized_name for module in self.module_references)
-        self.deps = list(self.imported_modules)
+        self.deps = [self.module_dependency_name(module.name) for module in self.module_references]
         self.linking = "dynamic" if self.deps else "static"
-        self.provides = self.normalize_module_name(self.module_name) if self.is_dll and self.module_name else None
+        self.provides = self.module_dependency_name(self.module_name) if self.is_dll and self.module_name else None
 
         self.entry_points = self._parse_entry_table(reader)
         self._validate_initial_context()
@@ -432,6 +558,21 @@ class NE(Backend):
         # CFGs, and serialization do not confuse this with the 16-bit register width.
         return 32
 
+    def rebase(self, new_base):
+        # A selector is represented by the upper half of a 16:16 analysis pointer. Keeping every module on a 64 KiB
+        # boundary preserves native segment offsets in the lower half.
+        if new_base % _SEGMENT_SLOT_SIZE:
+            raise CLEOperationError(f"NE analysis base {new_base:#x} is not aligned to 64 KiB")
+        super().rebase(new_base)
+
+    def segment_to_selector(self, segment_number: int) -> int:
+        """Return CLE's deterministic analysis selector for an NE segment.
+
+        This value is an address-space token, not a selector allocated by a particular Windows runtime.
+        """
+        rva = self.segment_to_rva(segment_number)
+        return (self.mapped_base + rva) >> 16
+
     @staticmethod
     def normalize_module_name(name: str) -> str:
         normalized = os.path.basename(name).casefold()
@@ -439,6 +580,12 @@ class NE(Backend):
             if normalized.endswith(suffix):
                 return normalized[: -len(suffix)]
         return normalized
+
+    @staticmethod
+    def module_dependency_name(name: str) -> str:
+        """Return the filename CLE should search for for an imported Windows module."""
+        filename = os.path.basename(name).casefold()
+        return filename if os.path.splitext(filename)[1] else f"{filename}.dll"
 
     def segment_to_rva(self, segment_number: int, offset: int = 0) -> int:
         """Encode an NE segment-table number and 16-bit offset as an analysis RVA.
@@ -503,6 +650,16 @@ class NE(Backend):
     @classmethod
     def check_magic_compatibility(cls, stream):
         return cls.is_compatible(stream)
+
+    @classmethod
+    def check_compatibility(cls, spec, obj):
+        if not isinstance(obj, NE):
+            return False
+        try:
+            with stream_or_path(spec) as stream:
+                return cls.is_compatible(stream)
+        except (OSError, OverflowError, ValueError):
+            return False
 
     def _cache_content(self):
         # NE parsing is deliberately bounded and random-access. Do not defeat that by caching an untrusted input.
@@ -600,6 +757,25 @@ class NE(Backend):
         reader.read(imported_start, entry_start - imported_start, "imported-name table")
         return header
 
+    @staticmethod
+    def _expand_iterated_segment(data: bytes, segment_number: int) -> bytes:
+        result = bytearray()
+        cursor = 0
+        while cursor < len(data):
+            if len(data) - cursor < 4:
+                raise CLEInvalidBinaryError(f"Truncated NE iterated-data record in segment {segment_number}")
+            iterations, size = struct.unpack_from("<HH", data, cursor)
+            cursor += 4
+            if size > len(data) - cursor:
+                raise CLEInvalidBinaryError(f"Truncated NE iterated-data payload in segment {segment_number}")
+            expanded_size = iterations * size
+            if expanded_size > _SEGMENT_SLOT_SIZE - len(result):
+                raise CLEInvalidBinaryError(f"Expanded NE iterated segment {segment_number} exceeds 64 KiB")
+            pattern = data[cursor : cursor + size]
+            cursor += size
+            result.extend(pattern * iterations)
+        return bytes(result)
+
     def _parse_segment_table(self, reader: _Reader) -> list[_RawSegment]:
         table = reader.read(
             self.ne_header.offset + self.ne_header.segment_table_offset,
@@ -610,18 +786,28 @@ class NE(Backend):
         for index in range(self.ne_header.segment_count):
             sector, length, flags, minimum_allocation = struct.unpack_from("<4H", table, index * 8)
             number = index + 1
-            if flags & _SEGMENT_ITERATED:
-                raise CLEInvalidBinaryError(f"NE segment {number} uses unsupported iterated data")
             file_offset = sector << self.ne_header.effective_alignment_shift if sector else 0
             file_size = (length or _SEGMENT_SLOT_SIZE) if sector else 0
-            memory_size = max(file_size, minimum_allocation or _SEGMENT_SLOT_SIZE)
+            data = reader.read(file_offset, file_size, f"segment {number} data") if file_size else b""
+            initialized_data = self._expand_iterated_segment(data, number) if flags & _SEGMENT_ITERATED else data
+            initialized_size = len(initialized_data)
+            memory_size = max(initialized_size, minimum_allocation or _SEGMENT_SLOT_SIZE)
             if memory_size > _SEGMENT_SLOT_SIZE:
                 raise CLEInvalidBinaryError(f"NE segment {number} exceeds 64 KiB")
             if flags & _SEGMENT_RELOCATIONS and file_size == 0:
                 raise CLEInvalidBinaryError(f"Uninitialized NE segment {number} has a relocation table")
-            if file_size:
-                reader.read(file_offset, file_size, f"segment {number} data")
-            result.append(_RawSegment(number, sector, file_offset, file_size, flags, memory_size))
+            result.append(
+                _RawSegment(
+                    number,
+                    sector,
+                    file_offset,
+                    file_size,
+                    initialized_size,
+                    flags,
+                    memory_size,
+                    initialized_data,
+                )
+            )
         return result
 
     @staticmethod
@@ -755,7 +941,7 @@ class NE(Backend):
                     raise CLEInvalidBinaryError(
                         f"NE entry ordinal {ordinal} refers to invalid code segment {segment_number}"
                     )
-                if offset >= segment.filesize:
+                if offset >= segment.initialized_size:
                     raise CLEInvalidBinaryError(
                         f"NE entry ordinal {ordinal} offset {offset:#x} is outside initialized segment {segment_number}"
                     )
@@ -799,7 +985,7 @@ class NE(Backend):
                 raise CLEInvalidBinaryError("NE executable has no initial CS")
         else:
             code = self.segments_by_number.get(header.initial_cs)
-            if code is None or not code.is_executable or header.initial_ip >= code.filesize:
+            if code is None or not code.is_executable or header.initial_ip >= code.initialized_size:
                 raise CLEInvalidBinaryError("NE initial CS:IP does not refer to mapped code")
 
         if header.initial_ss == 0:
@@ -913,7 +1099,7 @@ class NE(Backend):
             )
         for raw in raw_segments:
             segment = self.segments_by_number[raw.number]
-            data = reader.read(raw.file_offset, raw.file_size, f"segment {raw.number} data") if raw.file_size else b""
+            data = raw.data
             if raw.file_size and raw.file_offset < metadata_end:
                 raise CLEInvalidBinaryError(f"NE segment {raw.number} data overlaps executable metadata")
 
@@ -937,7 +1123,10 @@ class NE(Backend):
                 source_type_raw, flags, source_head, target_1, target_2 = struct.unpack_from(
                     "<BBHHH", table, 2 + index * 8
                 )
-                if source_type_raw & 0xF0 or source_type_raw not in _SOURCE_WIDTHS:
+                # Some Windows linkers set the otherwise-unused high bit. The Win16 loader ignores it when selecting
+                # the address operation, as does Wine; retain that compatibility without accepting unknown base types.
+                source_type = source_type_raw & 0x7F
+                if source_type not in _SOURCE_WIDTHS:
                     raise CLEInvalidBinaryError(
                         f"NE segment {raw.number} fixup {index} has unsupported source type {source_type_raw:#x}"
                     )
@@ -947,7 +1136,7 @@ class NE(Backend):
                     )
                 additive = bool(flags & 4)
                 source_offsets = self._expand_fixup_chain(
-                    data, source_head, _SOURCE_WIDTHS[source_type_raw], additive=additive
+                    data, source_head, _SOURCE_WIDTHS[source_type], additive=additive
                 )
                 total_sites += len(source_offsets)
                 if total_sites > _MAX_FIXUP_SITES:
@@ -956,13 +1145,25 @@ class NE(Backend):
                 target = self._parse_fixup_target(reader, flags & 3, target_1, target_2)
                 record = NEFixupRecord(
                     segment_number=raw.number,
-                    source_type=source_type_raw,
+                    source_type=source_type,
                     additive=additive,
                     source_offsets=source_offsets,
                     source_rvas=source_rvas,
                     **target,
                 )
                 fixups.append(record)
+
+                if record.target_rva is not None:
+                    for source_rva in source_rvas:
+                        self.relocs.append(
+                            NEInternalRelocation(
+                                self,
+                                source_rva,
+                                target_rva=record.target_rva,
+                                source_type=source_type,
+                                additive=additive,
+                            )
+                        )
 
                 if record.module_index is None:
                     continue
@@ -997,7 +1198,7 @@ class NE(Backend):
                             module_name=record.module_name,
                             procedure_name=record.procedure_name,
                             import_ordinal=record.procedure_ordinal,
-                            source_type=source_type_raw,
+                            source_type=source_type,
                             additive=additive,
                             import_key=import_key,
                         )
