@@ -5,6 +5,7 @@ Backends
    :maxdepth: 1
 
    ELF <elf>
+   DOS MZ <mz>
    Windows NE <ne>
    PE <pe>
    Mach-O <macho>

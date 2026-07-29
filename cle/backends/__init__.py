@@ -12,6 +12,7 @@ from .java.jar import Jar
 from .java.soot import Soot
 from .macho import MachO
 from .minidump import Minidump
+from .mz import MZ
 from .named_region import NamedRegion
 from .ne import NE
 from .pe import PE, PEStubs
@@ -49,6 +50,7 @@ __all__ = [
     "Minidump",
     "MachO",
     "NamedRegion",
+    "MZ",
     "NE",
     "Jar",
     "Apk",
