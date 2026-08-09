@@ -52,6 +52,8 @@ class CARTFile(Backend):
         if self.loader._main_object is None:
             self.loader._main_object = self
         child = self.loader._load_object_isolated(ostream, obj_ident=self.unpacked_name)
+        # the child was loaded from a stream and would otherwise report the stream's repr as its name
+        child.binary_basename = self.unpacked_name
         self.child_objects.append(child)
         self.has_memory = False
 
