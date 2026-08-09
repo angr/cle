@@ -20,8 +20,8 @@ from cle.backends.regions import Regions
 from cle.errors import CLECompatibilityError, CLEInvalidBinaryError, CLEOperationError
 
 from .encrypted_sentinel_backer import CryptSentinel
+from .macho_enums import ARMThreadFlavor, CPUType, MachoFiletype, MH_flags, X86ThreadFlavor
 from .macho_enums import LoadCommands as LC
-from .macho_enums import MachoFiletype, MH_flags
 from .section import MachOSection
 from .segment import MachOSegment
 from .structs import (
@@ -40,6 +40,16 @@ from .symbol import AbstractMachOSymbol, DyldBoundSymbol, SymbolTableSymbol
 log = logging.getLogger(name=__name__)
 
 __all__ = ("MachO", "MachOSection", "MachOSegment", "SymbolList")
+
+# Layout of the thread states LC_UNIXTHREAD can carry, keyed by (cputype, flavor) because a flavor number
+# only identifies a thread state together with the cputype it belongs to. Every format string stops at the
+# program counter, so the last field it unpacks is the entry point.
+UNIXTHREAD_PC_FORMATS = {
+    (CPUType.CPU_TYPE_X86, X86ThreadFlavor.x86_THREAD_STATE32): "11I",  # __eip
+    (CPUType.CPU_TYPE_X86_64, X86ThreadFlavor.x86_THREAD_STATE64): "17Q",  # __rip
+    (CPUType.CPU_TYPE_ARM, ARMThreadFlavor.ARM_THREAD_STATE): "16I",  # __pc
+    (CPUType.CPU_TYPE_ARM64, ARMThreadFlavor.ARM_THREAD_STATE64): "33Q",  # __pc
+}
 
 
 # pylint: disable=abstract-method
@@ -731,10 +741,10 @@ class MachO(Backend):
         try:
             arch_lookup = {
                 # contains all supported architectures. Note that apple deviates from standard ABI, see Apple docs
-                0x100000C: "aarch64",
-                0xC: "arm",
-                0x7: "x86",
-                0x1000007: "x64",
+                CPUType.CPU_TYPE_ARM64: "aarch64",
+                CPUType.CPU_TYPE_ARM: "arm",
+                CPUType.CPU_TYPE_X86: "x86",
+                CPUType.CPU_TYPE_X86_64: "x64",
             }
             return arch_lookup[self.cputype]  # subtype currently not needed
         except KeyError:
@@ -798,21 +808,32 @@ class MachO(Backend):
             raise CLEInvalidBinaryError()
 
         # parse basic structure
-        # _, cmdsize, flavor, long_count
-        _, _, flavor, _ = self._unpack("4I", f, offset, 16)
+        # _, cmdsize, flavor, count
+        _, _, flavor, count = self._unpack("4I", f, offset, 16)
 
-        # we only support 4 different types of thread state atm
-        # TODO: This is the place to add x86 and x86_64 thread states
-        if flavor == 1 and self.arch.bits != 64:  # ARM_THREAD_STATE or ARM_UNIFIED_THREAD_STATE or ARM_THREAD_STATE32
-            blob = self._unpack("16I", f, offset + 16, 64)  # parses only until __pc
-        elif flavor == 1 and self.arch.bits == 64 or flavor == 6:
-            # ARM_THREAD_STATE or ARM_UNIFIED_THREAD_STATE or ARM_THREAD_STATE64
-            blob = self._unpack("33Q", f, offset + 16, 264)  # parses only until __pc
-        else:
-            log.error("Unknown thread flavor: %d", flavor)
-            raise CLECompatibilityError()
+        # Nothing below can abort the load: the entry point is all LC_UNIXTHREAD contributes, and
+        # _resolve_entry already reports a binary that has no entry point at all.
+        fmt = UNIXTHREAD_PC_FORMATS.get((self.cputype, flavor))
+        if fmt is None:
+            # Without a known layout there is no telling where the program counter sits in the thread state.
+            log.warning("Unsupported thread state flavor %d for cputype %#x", flavor, self.cputype)
+            return
 
-        self.unixthread_pc = blob[-1]
+        # "=" asks for the standard sizes, which is what both byteorder prefixes select, so the size
+        # of the thread state does not depend on which one this binary needs.
+        size = struct.calcsize("=" + fmt)
+        if count * 4 < size:
+            # count is the length of the thread state in 32 bit words. Unpacking more than the command
+            # declares would read whatever follows it rather than the program counter.
+            log.warning("LC_UNIXTHREAD declares %d words of thread state, too few for flavor %d", count, flavor)
+            return
+
+        state = self._read(f, offset + 16, size)
+        if len(state) < size:
+            log.warning("File ends inside the LC_UNIXTHREAD thread state")
+            return
+
+        self.unixthread_pc = self._unpack_with_byteorder(fmt, state)[-1]
         log.debug("LC_UNIXTHREAD: __pc=%#x", self.unixthread_pc)
 
     def _load_dylib_info(self, f, offset):
