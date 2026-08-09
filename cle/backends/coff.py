@@ -53,6 +53,7 @@ class IMAGE_SCN(IntFlag):
     Section Flags (Characteristics field)
     """
 
+    MEM_DISCARDABLE = 0x02000000
     MEM_EXECUTE = 0x20000000
     MEM_READ = 0x40000000
     MEM_WRITE = 0x80000000
