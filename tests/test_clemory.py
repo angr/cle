@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import struct
 import timeit
 
 import cffi
+import pytest
 
 import cle
 
@@ -113,6 +115,47 @@ def test_clemory_contains():
     assert clemory.min_addr == 0
     assert clemory.max_addr == 70
     assert clemory.consecutive is True
+
+
+def test_clemory_malformed_format():
+    # a format string struct cannot parse is a format error, not an out-of-bounds access, and
+    # classifying it must not raise struct.error out of the handler doing the classification
+    clemory = cle.Clemory(None, root=True)
+    clemory.add_backer(0, b"A" * 4)
+
+    with pytest.raises(struct.error) as excinfo:
+        clemory.unpack(0, "<Z")
+    assert excinfo.value.__context__ is None
+
+    with pytest.raises(struct.error) as excinfo:
+        clemory.pack(0, "<Z", 1)
+    assert excinfo.value.__context__ is None
+
+    # a format struct can parse that runs off the end of the backer is still a KeyError
+    with pytest.raises(KeyError):
+        clemory.unpack(2, "<I")
+    with pytest.raises(KeyError):
+        clemory.pack(2, "<I", 1)
+
+
+def test_clemory_read_only_view_malformed_format():
+    clemory = cle.Clemory(None, root=True)
+    clemory.add_backer(0, b"A" * 4)
+    view = cle.ClemoryReadOnlyView(None, clemory)
+
+    with pytest.raises(struct.error) as excinfo:
+        view.unpack(0, "<Z")
+    assert excinfo.value.__context__ is None
+    with pytest.raises(KeyError):
+        view.unpack(2, "<I")
+
+    # and again now that the backer the reads above found is cached, which is a separate handler
+    assert view.unpack(0, "<H") == (0x4141,)
+    with pytest.raises(struct.error) as excinfo:
+        view.unpack(0, "<Z")
+    assert excinfo.value.__context__ is None
+    with pytest.raises(KeyError):
+        view.unpack(2, "<I")
 
 
 def main():
