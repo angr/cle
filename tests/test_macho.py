@@ -1,20 +1,38 @@
 #!/usr/bin/env python
 from __future__ import annotations
 
+import ctypes
 import logging
 import os
 import struct
+import tempfile
 from io import BytesIO
+
+import pytest
 
 import cle
 from cle import MachO
-from cle.backends.macho.macho_enums import LoadCommands, SectionAttributes, SectionType
+from cle.backends.macho.macho_enums import LoadCommands, MachoFiletype, MH_flags, SectionAttributes, SectionType
 from cle.backends.macho.section import MachOSection
+from cle.backends.macho.structs import DyldImportStruct, dyld_chained_fixups_header
+from cle.backends.macho.symbol import (
+    LIBRARY_ORDINAL_DYN_LOOKUP,
+    LIBRARY_ORDINAL_EXECUTABLE,
+    N_EXT,
+    N_STAB,
+    SYMBOL_TYPE_UNDEF,
+)
+from cle.errors import CLECompatibilityError
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
 
 SEGMENT_COMMAND_64 = "<2I16s4Q4I"
 SEGMENT_COMMAND_64_SIZE = struct.calcsize(SEGMENT_COMMAND_64)
+
+# offsets of mach header fields, and the leading fields of an nlist entry
+FILETYPE_OFFSET = 12
+FLAGS_OFFSET = 24
+NLIST_PREFIX = "<IBBH"  # n_strx, n_type, n_sect, n_desc
 
 
 def test_fauxware():
@@ -393,6 +411,178 @@ def test_filesize_larger_than_vmsize():
     assert macho.max_addr == 0x100003FFF
 
 
+def _copy_with_header_field(source, destination, offset, value):
+    """Copy a little-endian Mach-O file, replacing one 32-bit field of its mach header"""
+    with open(source, "rb") as f:
+        data = bytearray(f.read())
+    struct.pack_into("<I", data, offset, value)
+    with open(destination, "wb") as f:
+        f.write(data)
+    return destination
+
+
+def _copy_with_executable_library_ordinal(source, destination):
+    """Copy a Mach-O file, re-encoding every dynamic lookup import as one bound to the main executable
+
+    That is how the linker encodes the undefined symbols of a dlopen-ed bundle, which resolve against
+    whichever executable loaded it. The ordinal is recorded both in the symbol table and in the chained
+    fixup imports, and the two have to agree for a symbol to be matched up again while loading.
+    """
+    ld = cle.Loader(source, auto_load_libs=False)
+    assert isinstance(ld.main_object, MachO)
+    macho: MachO = ld.main_object
+    assert macho.symtab_offset is not None and macho.symtab_nsyms is not None
+    assert macho._dyld_chained_fixups_offset is not None
+
+    with open(source, "rb") as f:
+        data = bytearray(f.read())
+
+    nlist_size = 16 if macho.arch.bits == 64 else 12
+    for i in range(macho.symtab_nsyms):
+        entry = macho.symtab_offset + i * nlist_size
+        n_strx, n_type, n_sect, n_desc = struct.unpack_from(NLIST_PREFIX, data, entry)
+        if n_type & N_STAB or not n_type & N_EXT or n_type & 0x0E != SYMBOL_TYPE_UNDEF:
+            continue
+        if (n_desc >> 8) & 0xFF == LIBRARY_ORDINAL_DYN_LOOKUP:
+            n_desc = (n_desc & 0xFF) | (LIBRARY_ORDINAL_EXECUTABLE << 8)
+            struct.pack_into(NLIST_PREFIX, data, entry, n_strx, n_type, n_sect, n_desc)
+
+    header = dyld_chained_fixups_header.from_buffer(data, macho._dyld_chained_fixups_offset)
+    import_struct = DyldImportStruct.get_struct(header.imports_format)
+    imports_offset = macho._dyld_chained_fixups_offset + header.imports_offset
+    for i in range(header.imports_count):
+        imported = import_struct.from_buffer(data, imports_offset + i * ctypes.sizeof(import_struct))
+        if imported.lib_ordinal == LIBRARY_ORDINAL_DYN_LOOKUP:
+            imported.lib_ordinal = LIBRARY_ORDINAL_EXECUTABLE
+
+    with open(destination, "wb") as f:
+        f.write(data)
+    return destination
+
+
+def test_kext():
+    """A kernel extension is an ordinary linked image whose segments are relative to 0, like a dylib's"""
+    machofile = os.path.join(TEST_BASE, "tests", "aarch64", "IPwnKit.macho.kext")
+    ld = cle.Loader(machofile, auto_load_libs=False)
+    assert isinstance(ld.main_object, MachO)
+    macho: MachO = ld.main_object
+
+    assert macho.filetype == MachoFiletype.MH_KEXT_BUNDLE
+    assert macho.pic
+    assert [seg.segname for seg in macho.segments] == [
+        "__TEXT",
+        "__TEXT_EXEC",
+        "__DATA",
+        "__DATA_CONST",
+        "__LINKEDIT",
+    ]
+    assert (macho.min_addr, macho.max_addr) == (0x0, 0x23FFF)
+    assert len(macho.symbols) == 846
+
+
+def test_bundle():
+    """A dlopen-ed plugin bundle is laid out just like a dylib, and only its filetype field differs"""
+    machofile = os.path.join(
+        TEST_BASE,
+        "tests",
+        "aarch64",
+        "macho_lib_loading",
+        "FrameWorkApp.app_14",
+        "Frameworks",
+        "dynamicLibrary.framework",
+        "dynamicLibrary",
+    )
+    dylib_ld = cle.Loader(machofile, auto_load_libs=False)
+    assert isinstance(dylib_ld.main_object, MachO)
+    dylib: MachO = dylib_ld.main_object
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        bundle_file = _copy_with_header_field(
+            machofile, os.path.join(tmpdir, "dynamicLibrary.bundle"), FILETYPE_OFFSET, MachoFiletype.MH_BUNDLE
+        )
+        bundle_ld = cle.Loader(bundle_file, auto_load_libs=False)
+        assert isinstance(bundle_ld.main_object, MachO)
+        bundle: MachO = bundle_ld.main_object
+
+    assert bundle.filetype == MachoFiletype.MH_BUNDLE
+    assert bundle.pic
+    assert [seg.segname for seg in bundle.segments] == [seg.segname for seg in dylib.segments]
+    assert (bundle.min_addr, bundle.max_addr) == (dylib.min_addr, dylib.max_addr)
+
+
+def test_executable_library_ordinal():
+    """Library ordinal 255 names the executable that loaded the image, not one of its imported libraries"""
+    machofile = os.path.join(TEST_BASE, "tests", "aarch64", "IPwnKit.macho.kext")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        patched = _copy_with_executable_library_ordinal(machofile, os.path.join(tmpdir, "IPwnKit.macho.kext"))
+        ld = cle.Loader(patched, auto_load_libs=False)
+        assert isinstance(ld.main_object, MachO)
+        macho: MachO = ld.main_object
+
+    imports = [sym for sym in macho.symbols if sym.library_ordinal == LIBRARY_ORDINAL_EXECUTABLE]
+    assert imports
+    assert all(sym.library_name is None for sym in imports)
+
+
+def test_non_pie_executable_is_not_pic():
+    """Position independence comes from the MH_PIE flag, not from a bitwise test against a filetype ordinal"""
+    machofile = os.path.join(TEST_BASE, "tests", "x86_64", "fauxware.macho")
+    stock_ld = cle.Loader(machofile, auto_load_libs=False)
+    assert isinstance(stock_ld.main_object, MachO)
+    stock: MachO = stock_ld.main_object
+    assert stock.flags is not None and stock.flags & MH_flags.MH_PIE
+    assert stock.pic
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        non_pie = _copy_with_header_field(
+            machofile, os.path.join(tmpdir, "fauxware.nonpie"), FLAGS_OFFSET, stock.flags & ~MH_flags.MH_PIE
+        )
+
+        ld = cle.Loader(non_pie, auto_load_libs=False)
+        assert isinstance(ld.main_object, MachO)
+        macho: MachO = ld.main_object
+        assert macho.filetype == MachoFiletype.MH_EXECUTE
+        assert not macho.pic
+        assert macho.linked_base == macho.mapped_base == 0x100000000
+
+        # force_rebase is a loader option, so it still decides position independence on its own
+        forced_ld = cle.Loader(non_pie, auto_load_libs=False, main_opts={"force_rebase": True})
+        assert isinstance(forced_ld.main_object, MachO)
+        assert forced_ld.main_object.pic
+
+
+def test_dsym_is_rejected():
+    """A dSYM companion holds debug information only, so the refusal says that instead of asking for a report"""
+    machofile = os.path.join(TEST_BASE, "tests", "x86_64", "fauxware.macho")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        dsym = _copy_with_header_field(
+            machofile, os.path.join(tmpdir, "fauxware.dSYM"), FILETYPE_OFFSET, MachoFiletype.MH_DSYM
+        )
+        with pytest.raises(CLECompatibilityError, match="debug information"):
+            cle.Loader(dsym, auto_load_libs=False)
+
+
+def test_unsupported_filetype_is_named():
+    """A filetype this backend cannot map yet is refused by name, not as a bare number"""
+    machofile = os.path.join(TEST_BASE, "tests", "x86_64", "fauxware.macho")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        obj = _copy_with_header_field(
+            machofile, os.path.join(tmpdir, "fauxware.o"), FILETYPE_OFFSET, MachoFiletype.MH_OBJECT
+        )
+        with pytest.raises(CLECompatibilityError, match="MH_OBJECT"):
+            cle.Loader(obj, auto_load_libs=False)
+
+
+def test_unknown_filetype():
+    """A filetype outside the enum is a damaged header, which is this backend's problem to report"""
+    machofile = os.path.join(TEST_BASE, "tests", "x86_64", "fauxware.macho")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        damaged = _copy_with_header_field(machofile, os.path.join(tmpdir, "fauxware.damaged"), FILETYPE_OFFSET, 99)
+        with pytest.raises(CLECompatibilityError, match="Unknown Mach-O file type: 0x63"):
+            cle.Loader(damaged, auto_load_libs=False)
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     test_dummy()
@@ -406,3 +596,10 @@ if __name__ == "__main__":
     test_instruction_sections()
     test_zero_vmsize_segment()
     test_filesize_larger_than_vmsize()
+    test_kext()
+    test_bundle()
+    test_executable_library_ordinal()
+    test_non_pie_executable_is_not_pic()
+    test_dsym_is_rejected()
+    test_unsupported_filetype_is_named()
+    test_unknown_filetype()
