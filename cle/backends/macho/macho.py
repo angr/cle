@@ -41,6 +41,16 @@ log = logging.getLogger(name=__name__)
 
 __all__ = ("MachO", "MachOSection", "MachOSegment", "SymbolList")
 
+# Filetypes whose segments are linked relative to 0 instead of to a fixed load address: shared
+# libraries, the loadable plugin bundles that dlopen() maps, and kernel extensions.
+ZERO_BASED_FILETYPES = frozenset(
+    {
+        MachoFiletype.MH_DYLIB,
+        MachoFiletype.MH_BUNDLE,
+        MachoFiletype.MH_KEXT_BUNDLE,
+    }
+)
+
 
 # pylint: disable=abstract-method
 class SymbolList(SortedKeyList):
@@ -107,7 +117,7 @@ class MachO(Backend):
         self._mapped_base = None  # temporary holder für mapped base derived via loading
         self.cputype = None
         self.cpusubtype = None
-        self.filetype: int = None
+        self.filetype: MachoFiletype = None
         self.flags = None  # binary flags
         self.imported_libraries: list[str] = ["Self"]  # ordinal 0 = SELF_LIBRARY_ORDINAL
         self.sections_by_ordinal = [None]  # ordinal 0 = None == Self
@@ -153,12 +163,20 @@ class MachO(Backend):
 
             # parse the mach header:
             # (ignore all irrelevant fields)
-            _, self.cputype, self.cpusubtype, self.filetype, self.ncmds, self.sizeofcmds, self.flags = self._unpack(
+            _, self.cputype, self.cpusubtype, filetype, self.ncmds, self.sizeofcmds, self.flags = self._unpack(
                 "7I", binary_file, 0, 28
             )
+            try:
+                self.filetype = MachoFiletype(filetype)
+            except ValueError as e:
+                # A header with a filetype outside the enum is damaged, which is a compatibility
+                # problem for this backend rather than a bare ValueError for the caller to guess at
+                raise CLECompatibilityError(f"Unknown Mach-O file type: {filetype:#x}") from e
 
-            # Libraries are always implicitly PIC
-            self.pic = bool(self.flags & MH_flags.MH_PIE) or bool(self.filetype & MachoFiletype.MH_DYLIB)
+            # MH_PIE only ever appears on executables; everything linked relative to 0 is implicitly
+            # position independent. filetype is an ordinal, so it has to be compared, not masked.
+            # self.pic already carries the force_rebase option, which stays in force either way.
+            self.pic = self.pic or bool(self.flags & MH_flags.MH_PIE) or self.filetype in ZERO_BASED_FILETYPES
 
             if not bool(self.flags & MH_flags.MH_TWOLEVEL):  # ensure MH_TWOLEVEL
                 log.error(
@@ -178,7 +196,7 @@ class MachO(Backend):
 
             # Determine the base address the binary was linked against
             # and set the values for the Backend and Loader accordingly
-            if self.pic and self.filetype == MachoFiletype.MH_EXECUTE:
+            if self.filetype == MachoFiletype.MH_EXECUTE:
                 assert self.is_main_bin, "An file of type MH_EXECUTE should be the main bin, this should not happen"
                 # a Position Independent Main binary would later be loaded at 0x400000, which isn't legal for Mach-O
                 # Also, its segment vaddrs are relative to 0x100000000, so we set this as the linked base
@@ -188,30 +206,36 @@ class MachO(Backend):
                     self.linked_base = self.mapped_base = 2**32
                 elif self.arch.bits == 32:
                     self.linked_base = self.mapped_base = 0x4000
-            elif self.filetype == MachoFiletype.MH_DYLIB and self.is_main_bin:
-                # the segments of dylibs are just relative to the load address, i.e. the lowest segment addr is 0
-                # we need to set the load address to something because otherwise the loader will try to map the
-                # file to 0x400000, which is technically illegal for Mach-O because of PAGEZERO
-                #
-                # The problem is that libraries also tend to have relative pointers (e.g. inside ObjC Metadata),
-                # which are rebased by parsing the rebase_blob, which isn't supported yet (but coming soon)
-                # so we set the base addr to 0 to make them work out without having to deal with this
-                # IDA and Ghidra both seem to handle it this way too
-                # AFAIU this isn't a problem with iOS15+ binaries anymore that use the new binding fixups
-                # but for now we just load all libraries, that are loaded as the main object, at address 0
-                #
-                # We can't set the linked base to request this, because the MachO Backend implementation
-                # uses this to recalculate the addresses
-                self._custom_base_addr = 0
-            elif self.filetype == MachoFiletype.MH_DYLIB and not self.is_main_bin:
-                # A Library is loaded as a dependency, this is fine, the loader will map it to somewhere above the main
-                # binary, so we don't need to do anything
-                pass
+            elif self.filetype in ZERO_BASED_FILETYPES:
+                if self.is_main_bin:
+                    # the segments of dylibs are just relative to the load address, i.e. the lowest segment addr is 0
+                    # we need to set the load address to something because otherwise the loader will try to map the
+                    # file to 0x400000, which is technically illegal for Mach-O because of PAGEZERO
+                    #
+                    # The problem is that libraries also tend to have relative pointers (e.g. inside ObjC Metadata),
+                    # which are rebased by parsing the rebase_blob, which isn't supported yet (but coming soon)
+                    # so we set the base addr to 0 to make them work out without having to deal with this
+                    # IDA and Ghidra both seem to handle it this way too
+                    # AFAIU this isn't a problem with iOS15+ binaries anymore that use the new binding fixups
+                    # but for now we just load all libraries, that are loaded as the main object, at address 0
+                    #
+                    # We can't set the linked base to request this, because the MachO Backend implementation
+                    # uses this to recalculate the addresses
+                    self._custom_base_addr = 0
+                # Otherwise it is loaded as a dependency, which is fine: the loader will map it somewhere above
+                # the main binary, so we don't need to do anything
+            elif self.filetype == MachoFiletype.MH_DSYM:
+                # A dSYM companion holds DWARF and a symbol table for a binary that lives elsewhere; its
+                # __TEXT segment is the mach header and nothing else, so there is nothing to map or analyze
+                raise CLECompatibilityError(
+                    "Mach-O dSYM companion files carry debug information only, not a loadable image"
+                )
             else:
                 # This case is not explicitly supported yet.
-                # There are various other MachoFiletypes, which might have different quirks in their loading
+                # MH_OBJECT in particular needs per-section mapping and relocation processing, the way ELF
+                # handles ET_REL, before its addresses would mean anything.
                 raise CLECompatibilityError(
-                    f"Unsupported Mach-O file type: {MachoFiletype(self.filetype)}. "
+                    f"Unsupported Mach-O file type: {self.filetype.name}. "
                     "Please open an issue if you need support for this"
                 )
 
