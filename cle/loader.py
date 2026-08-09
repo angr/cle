@@ -1073,30 +1073,52 @@ class Loader:
         overlap with anything already loaded.
         """
         # this assumes that self.main_object exists, which should... definitely be safe
+        limit = 2**self.main_object.arch.bits
         if self.main_object.arch.bits < 32 or self.main_object.max_addr >= 2 ** (self.main_object.arch.bits - 1):
-            # HACK: On small arches, we should be more aggressive in packing stuff in.
-            gap_start = 0
+            # HACK: On small arches, we should be more aggressive in packing stuff in. An image that
+            # reaches into the top half of the address space, like an ELF core or a firmware image
+            # with a high reset vector, gets the same treatment: nearly all of the free space it
+            # leaves is underneath it.
+            start = 0
         else:
-            gap_start = ALIGN_UP(self.main_object.max_addr + 1, self._rebase_granularity)
-        for o in self.all_objects:
-            if gap_start + size <= o.min_addr:
+            start = self.main_object.max_addr + 1
+
+        # The rebase granularity is a preference, not a constraint. Honoring it costs up to one
+        # granule of address space per object, which a small address space or a static archive with
+        # thousands of members runs out of long before the space itself is full, so retry with
+        # finer alignments before giving up. Finer alignments also pack objects closer together,
+        # which is what a caller lowering the granularity is asking for.
+        alignments = [self._rebase_granularity]
+        alignments += [a for a in (0x1000, 1) if a < self._rebase_granularity]
+
+        for alignment in alignments:
+            for gap_start, gap_end in self._free_gaps(start, limit):
+                addr = ALIGN_UP(gap_start, alignment)
+                if addr + size <= gap_end:
+                    return addr
+
+        raise CLEOperationError("Ran out of room in address space")
+
+    def _free_gaps(self, start: int, end: int) -> Iterator[tuple[int, int]]:
+        """
+        Yield each ``(start, end)`` half-open subinterval of ``[start, end)`` that no loaded object
+        occupies. Only the space outside every object's ``[min_addr, max_addr]`` range is reported:
+        an object's memory is a single backer of the loader's memory spanning that whole range, so
+        anything mapped inside it would be unreachable through ``Loader.memory``.
+        """
+        for o in self.all_objects:  # sorted by min_addr
+            if o.max_addr < start:
+                continue
+            if o.min_addr >= end:
                 break
-            else:
-                gap_start = ALIGN_UP(o.max_addr + 1, self._rebase_granularity)
+            if start < o.min_addr:
+                yield start, o.min_addr
+            start = o.max_addr + 1
+            if start >= end:
+                return
 
-        if gap_start + size > 2**self.main_object.arch.bits:
-            # this may happen when loading an ELF core whose main object may occupy a large range of memory addresses
-            # with large unoccupied holes left in the middle
-            # we fall back to finding unoccupied holes
-            for this_seg, next_seg in zip(self.main_object.segments.raw_list, self.main_object.segments.raw_list[1:]):
-                gap_start = ALIGN_UP(this_seg.vaddr + this_seg.memsize, self._rebase_granularity)
-                gap = next_seg.vaddr - gap_start
-                if gap >= size:
-                    break
-            else:
-                raise CLEOperationError("Ran out of room in address space")
-
-        return gap_start
+        if start < end:
+            yield start, end
 
     def _is_range_free(self, va, size):
         # self.main_object should not be None here
