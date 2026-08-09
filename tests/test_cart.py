@@ -116,9 +116,46 @@ def test_cart_find_object_containing_excludes_wrapper():
     assert obj_at_0 is None, f"find_object_containing(0) should return None, not {type(obj_at_0).__name__}"
 
 
+def test_cart_child_is_named_after_the_wrapper():
+    """
+    The unpacked object is handed to the loader as a stream and has no path of its own, so it reports the wrapper's
+    unpacked name instead of None. Error messages about the object are the only place that name shows up.
+    """
+    cartfile = os.path.join(
+        TEST_BASE,
+        "tests",
+        "x86_64",
+        "1after909.cart",
+    )
+    ld = cle.Loader(
+        cartfile, auto_load_libs=False, main_opts={"arc4_key": b"\x02\xf53asdf\x00\x00\x00\x00\x00\x00\x00\x00\x00"}
+    )
+    assert ld.main_object.binary_basename == "1after909.cart.unpacked"
+
+
+def test_cart_layout_matches_unwrapped():
+    """
+    The wrapper is mapped first and reports a one-byte span at 0. That byte used to move the address the loader picks
+    for the objects it rebases, so a wrapped binary came out laid out differently from the same binary unwrapped.
+    """
+    plain = cle.Loader(os.path.join(TEST_BASE, "tests", "x86_64", "1after909"), auto_load_libs=False)
+    ld = cle.Loader(
+        os.path.join(TEST_BASE, "tests", "x86_64", "1after909.cart"),
+        auto_load_libs=False,
+        main_opts={"arc4_key": b"\x02\xf53asdf\x00\x00\x00\x00\x00\x00\x00\x00\x00"},
+    )
+
+    def layout(loader):
+        return [(type(o).__name__, o.min_addr, o.max_addr) for o in loader.all_objects if not o.is_outer]
+
+    assert layout(ld) == layout(plain)
+
+
 if __name__ == "__main__":
     test_cart_pe()
     test_cart_elf()
     test_cart_elf_with_load_options()
     test_cart_blob_with_load_options()
     test_cart_find_object_containing_excludes_wrapper()
+    test_cart_child_is_named_after_the_wrapper()
+    test_cart_layout_matches_unwrapped()
