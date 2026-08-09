@@ -164,12 +164,7 @@ class PE(Backend):
             if pdb_path:
                 self.load_symbols_from_pdb(pdb_path)
 
-        self.is_dotnet = (
-            self._pe.OPTIONAL_HEADER.DATA_DIRECTORY[
-                pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR"]
-            ].VirtualAddress
-            != 0
-        )
+        self.is_dotnet = self._meta_dd("IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR") is not None
 
     _pefile_cache = {}
 
@@ -481,9 +476,15 @@ class PE(Backend):
         return pe, base, is_64, ptr_size
 
     def _meta_dd(self, name: str) -> pefile.Structure | None:
-        """Return a data directory entry if it has a nonzero VirtualAddress and Size, else None."""
+        """Return the named data directory entry if the image has one with a nonzero VirtualAddress and Size."""
         idx = pefile.DIRECTORY_ENTRY[name]
-        dd = self._pe.OPTIONAL_HEADER.DATA_DIRECTORY[idx]
+        data_directory = self._pe.OPTIONAL_HEADER.DATA_DIRECTORY
+        # NumberOfRvaAndSizes may be smaller than the 16 directories the format defines - EFI stub images
+        # commonly declare 6 - so pefile parses a short DATA_DIRECTORY. A directory past the end is absent,
+        # which means the same thing a zero VirtualAddress means.
+        if idx >= len(data_directory):
+            return None
+        dd = data_directory[idx]
         if dd.VirtualAddress and dd.Size:
             return dd
         return None
