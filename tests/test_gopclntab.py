@@ -4,7 +4,6 @@ import os
 import struct
 import unittest
 
-import pytest
 from elftools.elf.elffile import ELFFile
 
 import cle
@@ -16,7 +15,7 @@ TEST_LOCATION = os.path.join(
 )
 
 # A stripped Go binary whose pclntab magic and textStart field have been clobbered.
-DAMAGED_BINARY = "/workspace/swoop/binaries/original/starling"
+DAMAGED_BINARY = os.path.join(TEST_LOCATION, "x86_64", "starling")
 
 
 def _symtab_functions(path):
@@ -79,7 +78,6 @@ class TestGoPclntab(unittest.TestCase):
         # textStart is runtime.text, which is past the start of .text
         assert tab.text_start == 0x4023E0
 
-    @pytest.mark.skipif(not os.path.isfile(DAMAGED_BINARY), reason="binary is not available")
     def test_damaged_header(self):
         ld = cle.Loader(DAMAGED_BINARY, auto_load_libs=False)
         obj = ld.main_object
