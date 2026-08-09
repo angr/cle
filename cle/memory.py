@@ -12,6 +12,22 @@ import archinfo
 __all__ = ("ClemoryBase", "Clemory", "ClemoryView", "ClemoryTranslator", "UninitializedClemory")
 
 
+def _classify_struct_error(error: struct.error, fmt: str, available: int, addr: int) -> Exception:
+    """
+    Decide what an access that raised `error` should report: a ``KeyError`` if it ran off the end of
+    its backer, and the error itself otherwise.
+
+    Return the exception rather than raising it so the caller can raise it outside its own handler,
+    where a short access does not carry the struct error as its context.
+    """
+    try:
+        fmt_size = struct.calcsize(fmt)
+    except struct.error:
+        # `fmt` itself is malformed, so this is not a question of how much room is left
+        return error
+    return KeyError(addr) if available < fmt_size else error
+
+
 class ClemoryBase:
     """
     The base class of all Clemory classes.
@@ -60,9 +76,8 @@ class ClemoryBase:
         try:
             return struct.unpack_from(fmt, backer, addr - start)
         except struct.error as e:
-            if len(backer) - (addr - start) >= struct.calcsize(fmt):
-                raise e
-            raise KeyError(addr)  # pylint: disable=raise-missing-from
+            error = _classify_struct_error(e, fmt, len(backer) - (addr - start), addr)
+        raise error
 
     def unpack_word(
         self, addr: int, size: int | None = None, signed: bool = False, endness: archinfo.Endness | None = None
@@ -130,9 +145,8 @@ class ClemoryBase:
         try:
             return struct.pack_into(fmt, backer, addr - start, *data)
         except struct.error as e:
-            if len(backer) - (addr - start) >= struct.calcsize(fmt):
-                raise e
-            raise KeyError(addr)  # pylint: disable=raise-missing-from
+            error = _classify_struct_error(e, fmt, len(backer) - (addr - start), addr)
+        raise error
 
     def pack_word(
         self,
@@ -786,9 +800,8 @@ class ClemoryReadOnlyView(ClemoryBase):
                 try:
                     return struct.unpack_from(fmt, data, addr - start)
                 except struct.error as ex:
-                    if len(data) - (addr - start) >= struct.calcsize(fmt):
-                        raise ex
-                    raise KeyError(addr) from ex
+                    error = _classify_struct_error(ex, fmt, len(data) - (addr - start), addr)
+                raise error
 
         idx = bisect.bisect_right(self._flattened_backers, addr, key=lambda x: x[0])
         if idx > 0:
@@ -803,9 +816,8 @@ class ClemoryReadOnlyView(ClemoryBase):
             self._last_backer_pos = idx
             return v
         except struct.error as ex:
-            if len(data) - (addr - start) >= struct.calcsize(fmt):
-                raise ex
-            raise KeyError(addr) from ex
+            error = _classify_struct_error(ex, fmt, len(data) - (addr - start), addr)
+        raise error
 
     def _flatten_backers(self):
         for start, backer in self._clemory.backers():
