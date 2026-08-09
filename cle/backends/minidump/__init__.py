@@ -9,7 +9,7 @@ from minidump.streams import SystemInfoStream
 
 from cle.backends.backend import Backend, register_backend
 from cle.backends.region import Section, Segment
-from cle.errors import CLEError, CLEInvalidBinaryError
+from cle.errors import CLEError
 
 
 class MinidumpMissingStreamError(Exception):
@@ -17,6 +17,37 @@ class MinidumpMissingStreamError(Exception):
         super().__init__()
         self.message = message
         self.stream = stream
+
+
+class MinidumpSection(Section):
+    """
+    A module loaded in the dumped process.
+
+    A minidump records each module's base address and image size but not its section table, so there is nothing to
+    derive real permissions from; every module reports read, write and execute, as the backend's segments do.
+    """
+
+    def __init__(self, name, offset, vaddr, filesize, memsize):
+        super().__init__(name, offset, vaddr, memsize)
+        # Section makes filesize equal memsize. A minidump captures selected memory ranges rather than whole
+        # images, so only the captured prefix of the module is actually present in the file.
+        self.filesize = filesize
+
+    @property
+    def is_readable(self):
+        return True
+
+    @property
+    def is_writable(self):
+        return True
+
+    @property
+    def is_executable(self):
+        return True
+
+    @property
+    def only_contains_uninitialized_data(self):
+        return self.filesize == 0
 
 
 class Minidump(Backend):
@@ -64,12 +95,29 @@ class Minidump(Backend):
             self.memory.add_backer(segment.start_virtual_address, data)
 
         for module in self._mdf.modules.modules:
-            for segment in segments:
-                if segment.start_virtual_address == module.baseaddress:
-                    break
+            # A minidump captures only the memory ranges the dump writer selected, so a module's image may be
+            # present in full, in part, or not at all. Map as much of it as the capture covers from the module's
+            # base address onwards. A module with nothing captured still gets a section: its address range is
+            # what tells an analysis which module an address belongs to.
+            segment = self.segments.find_region_containing(module.baseaddress)
+            if segment is None:
+                file_offset = 0
+                file_size = 0
             else:
-                raise CLEInvalidBinaryError("Missing segment for loaded module: " + module.name)
-            section = Section(module.name, segment.start_file_address, module.baseaddress, module.size)
+                file_offset = segment.offset + module.baseaddress - segment.vaddr
+                # An image is normally captured as several ranges, one per run of pages sharing a protection.
+                # Ranges that are adjacent in memory are written adjacently in the file, so such a module still
+                # occupies a single range of the file.
+                captured_end = segment.vaddr + segment.memsize
+                captured_file_end = segment.offset + segment.memsize
+                while captured_end - module.baseaddress < module.size:
+                    following = self.segments.find_region_containing(captured_end)
+                    if following is None or following.offset != captured_file_end:
+                        break
+                    captured_end += following.memsize
+                    captured_file_end += following.memsize
+                file_size = min(module.size, captured_end - module.baseaddress)
+            section = MinidumpSection(module.name, file_offset, module.baseaddress, file_size, module.size)
             self.sections.append(section)
             self.sections_map[ntpath.basename(section.name)] = section
 
@@ -149,9 +197,14 @@ class Minidump(Backend):
         for register, position in fmt_registers.items():
             thread_registers[register] = members[position]
 
+        # The segment base lives in the thread's TEB rather than in its saved context, and a dump that captured only
+        # a few memory ranges usually does not include the TEB page. Leave the register out when it cannot be read,
+        # so that everything the context does record stays usable.
         if self.arch.name == "AMD64" or self.wow64:
-            gs_base = self.memory.unpack_word(teb + 0x30)
-            thread_registers["gs_const"] = gs_base
+            try:
+                thread_registers["gs_const"] = self.memory.unpack_word(teb + 0x30)
+            except KeyError:
+                pass
             if self.arch.name == "AMD64":
                 NUM_XMM_REGS = 16
                 xmms = struct.unpack_from("16s" * NUM_XMM_REGS, data, offset=0x1A0)
@@ -159,8 +212,10 @@ class Minidump(Backend):
                     f"xmm{i}": int.from_bytes(xmm, "little", signed=False) for i, xmm in enumerate(xmms)
                 }
         elif self.arch.name == "X86":
-            fs_base = self.memory.unpack_word(teb + 0x18)
-            thread_registers["fs"] = fs_base
+            try:
+                thread_registers["fs"] = self.memory.unpack_word(teb + 0x18)
+            except KeyError:
+                pass
 
         if self.wow64:
             register_translation = [
@@ -177,7 +232,11 @@ class Minidump(Backend):
                 ("fs", "gs_const"),  # ???
             ]
 
-            thread_registers = {ereg: thread_registers[rreg] & 0xFFFFFFFF for ereg, rreg in register_translation}
+            thread_registers = {
+                ereg: thread_registers[rreg] & 0xFFFFFFFF
+                for ereg, rreg in register_translation
+                if rreg in thread_registers
+            }
 
         return thread_registers
 
