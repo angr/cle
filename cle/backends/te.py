@@ -56,22 +56,19 @@ ARCH_MAPPING = {
 
 class TESection(Section):
     """
-    A section of a Terse Executable image.
-
-    A TE section header is a COFF section header, so its permissions live in the ``IMAGE_SCN`` bits of the
-    characteristics field.
+    A section of a Terse Executable image. Its header is a COFF section header, so its permissions live in the
+    ``IMAGE_SCN`` bits of the characteristics field.
     """
 
     def __init__(self, section_header: SectionHeaderType, linked_base: int, stripped_offset: int):
         super().__init__(
             section_header.section_name.rstrip(b"\0").decode(),
-            # pointer_to_raw_data indexes the PE file the image was stripped down from, not the TE file itself
+            # pointer_to_raw_data indexes the pre-strip PE file, not the TE file
             section_header.pointer_to_raw_data - stripped_offset,
             section_header.virtual_address + linked_base,
             section_header.physical_address_virtual_size,
         )
-        # the base class assumes filesize == memsize; a TE section is only backed by size_of_raw_data bytes and the
-        # rest of its virtual size is zero-filled
+        # the base class assumes filesize == memsize; only size_of_raw_data bytes are backed
         self.filesize = section_header.size_of_raw_data
         self.characteristics = section_header.characteristics
 
@@ -89,7 +86,7 @@ class TESection(Section):
 
     @property
     def only_contains_uninitialized_data(self):
-        # a section with no raw data is zero-filled whether or not the linker set IMAGE_SCN.CNT_UNINITIALIZED_DATA
+        # zero-filled whether or not the linker set IMAGE_SCN.CNT_UNINITIALIZED_DATA
         return self.filesize == 0
 
 
@@ -119,7 +116,7 @@ class TE(Backend):
 
         stripped_offset = self.header.stripped_size - HEADER.size
         self.linked_base = self.mapped_base = self.header.image_base + stripped_offset
-        # address_of_entry_point is an RVA in the same space as the section virtual addresses below
+        # an RVA, in the same space as the section virtual addresses below
         self._entry = self.linked_base + self.header.address_of_entry_point
 
         has_relocs = False
