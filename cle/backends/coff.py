@@ -241,8 +241,7 @@ class CoffParser:
 
     def get_string(self, offset: int) -> str:
         """
-        Read the string table entry at `offset`, which counts from the start of the table and so
-        is never smaller than the four bytes holding the table's own size.
+        Read the string table entry at `offset`, counted from the start of the table.
         """
         return extract_null_terminated_bytestr(self.strings, offset=offset).decode("ascii")
 
@@ -302,11 +301,8 @@ class CoffRelocation(Relocation):
         if value is None:
             log.debug("Unresolved relocation with no symbol.")
             return False
-        # The field holds a fixed-width bit pattern, so the computed value is truncated to that
-        # width instead of being required to fit in it. It can leave the range on either side: an
-        # addend is stored as its own truncated two's complement pattern, so adding a mapped
-        # address to it carries past the top of the field, and a backwards displacement is
-        # negative.
+        # The field holds a fixed-width bit pattern, so the value is truncated to that width
+        # rather than required to fit in it.
         value &= (1 << (struct.calcsize(self.PACK_FORMAT) * 8)) - 1
         self.owner.memory.store(self.relative_addr, struct.pack(self.PACK_FORMAT, value))
         return True
