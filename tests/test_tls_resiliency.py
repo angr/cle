@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import io
 import os
-import struct
 import unittest
 from unittest import TestCase
+
+import archinfo
 
 import cle
 
@@ -14,22 +14,6 @@ except ImportError:
     pypcode = None
 
 test_location = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries", "tests"))
-
-EM_DSPIC30F = 118
-
-
-def minimal_elf(e_machine: int) -> bytes:
-    """
-    Build a minimal ELF32 LE executable with one PT_LOAD segment and no sections.
-    """
-    ehsize, phentsize = 52, 32
-    contents = bytes(16)
-    offset = ehsize + phentsize
-    vaddr = 0x400000 + offset
-    ehdr = b"\x7fELF" + bytes([1, 1, 1, 0, 0]) + bytes(7)
-    ehdr += struct.pack("<HHIIIIIHHHHHH", 2, e_machine, 1, vaddr, ehsize, 0, 0, ehsize, phentsize, 1, 40, 0, 0)
-    phdr = struct.pack("<IIIIIIII", 1, offset, vaddr, vaddr, len(contents), len(contents), 5, 0x1000)
-    return ehdr + phdr + contents
 
 
 class TestTlsResiliency(TestCase):
@@ -44,9 +28,18 @@ class TestTlsResiliency(TestCase):
     @staticmethod
     @unittest.skipIf(pypcode is None, "pypcode not installed")
     def test_tls_24bit_arch():
-        # EM_DSPIC30F is autodetected as dsPIC30F:LE:24:default, whose word is three bytes wide.
-        # Setting up the ELF TLS header writes the DTV pointer one word at a time.
-        ld = cle.Loader(io.BytesIO(minimal_elf(EM_DSPIC30F)), auto_load_libs=False)
+        # isqrt_atmega128.o is an ATmega128 object whose e_flags name the extended-address AVR
+        # variant, which Ghidra's AVR8 opinion file maps to avr8:LE:16:extended -- a language whose
+        # word is three bytes wide despite the 16 in its name. cle's own opinion matching compares
+        # the opinion's secondary constraint against e_type instead of e_flags, so it picks
+        # avr8:LE:16:default for every EM_AVR ELF; name the language here rather than wait for that
+        # to be fixed. Setting up the ELF TLS header writes the DTV pointer one word at a time.
+        p = os.path.join(test_location, "avr", "isqrt_atmega128.o")
+        ld = cle.Loader(
+            p,
+            main_opts={"arch": archinfo.ArchPcode("avr8:LE:16:extended")},
+            auto_load_libs=False,
+        )
         arch = ld.main_object.arch
         assert arch.bits == 24
 
