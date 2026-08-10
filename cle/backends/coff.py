@@ -236,13 +236,19 @@ class CoffParser:
         name_encoded = bytes(self.symbols[symbol_idx].Name)
         name_as_dwords = struct.unpack("<II", name_encoded)
         if name_as_dwords[0] == 0:
-            name_encoded = extract_null_terminated_bytestr(self.strings, offset=name_as_dwords[1])
+            return self.get_string(name_as_dwords[1])
         return name_encoded.rstrip(b"\x00").decode("ascii")
+
+    def get_string(self, offset: int) -> str:
+        """
+        Read the string table entry at `offset`, counted from the start of the table.
+        """
+        return extract_null_terminated_bytestr(self.strings, offset=offset).decode("ascii")
 
     def get_section_name(self, section_idx: int) -> str:
         name = bytes(self.sections[section_idx].Name).rstrip(b"\x00").decode("ascii")
         if name.startswith("/"):
-            return self.get_symbol_name(int(name[1:]))
+            return self.get_string(int(name[1:]))
         return name
 
 
@@ -288,13 +294,16 @@ class CoffRelocation(Relocation):
 
     __slots__ = ()
 
-    PACK_FORMAT = "<i"
+    PACK_FORMAT = "<I"
 
     def relocate(self):
         value = self.value
         if value is None:
             log.debug("Unresolved relocation with no symbol.")
             return False
+        # The field holds a fixed-width bit pattern, so the value is truncated to that width
+        # rather than required to fit in it.
+        value &= (1 << (struct.calcsize(self.PACK_FORMAT) * 8)) - 1
         self.owner.memory.store(self.relative_addr, struct.pack(self.PACK_FORMAT, value))
         return True
 
@@ -310,7 +319,8 @@ class CoffRelocationREL32(CoffRelocation):
     def value(self):
         assert self.resolvedby is not None
         org_bytes = self.owner.memory.load(self.relative_addr, 4)
-        org_value = struct.unpack("<I", org_bytes)[0]
+        # The field is a signed displacement, so its addend is too.
+        org_value = struct.unpack("<i", org_bytes)[0]
         return org_value + self.resolvedby.rebased_addr - (self.rebased_addr + 4)
 
 
@@ -350,8 +360,6 @@ class CoffRelocationADDR32NB(CoffRelocation):
     """
 
     __slots__ = ()
-
-    PACK_FORMAT = "<I"
 
     @property
     def value(self) -> int:
@@ -396,8 +404,6 @@ class CoffRelocationSECREL(CoffRelocation):
     """
 
     __slots__ = ()
-
-    PACK_FORMAT = "<I"
 
     @property
     def value(self):
