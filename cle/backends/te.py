@@ -6,6 +6,7 @@ from collections import namedtuple
 import archinfo
 
 from . import Backend, Section, register_backend
+from .coff import IMAGE_SCN
 
 HEADER = struct.Struct("<HHBBHIIQIIII")
 SECTION_HEADER = struct.Struct("<8sIIIIIIHHI")
@@ -49,7 +50,43 @@ ARCH_MAPPING = {
     0x8664: "X64",
     0x01C0: "ARM Cortex-M",
     0x01C2: "ARM",
+    0xAA64: "AARCH64",
 }
+
+
+class TESection(Section):
+    """
+    A section of a Terse Executable image.
+    """
+
+    def __init__(self, section_header: SectionHeaderType, linked_base: int, stripped_offset: int):
+        super().__init__(
+            section_header.section_name.rstrip(b"\0").decode(),
+            # pointer_to_raw_data indexes the pre-strip PE file, not the TE file
+            section_header.pointer_to_raw_data - stripped_offset,
+            section_header.virtual_address + linked_base,
+            section_header.physical_address_virtual_size,
+        )
+        # the base class assumes filesize == memsize; only size_of_raw_data bytes are backed
+        self.filesize = section_header.size_of_raw_data
+        self.characteristics = section_header.characteristics
+
+    @property
+    def is_readable(self):
+        return self.characteristics & IMAGE_SCN.MEM_READ != 0
+
+    @property
+    def is_writable(self):
+        return self.characteristics & IMAGE_SCN.MEM_WRITE != 0
+
+    @property
+    def is_executable(self):
+        return self.characteristics & IMAGE_SCN.MEM_EXECUTE != 0
+
+    @property
+    def only_contains_uninitialized_data(self):
+        # zero-filled whether or not the linker sets IMAGE_SCN.CNT_UNINITIALIZED_DATA
+        return self.filesize == 0
 
 
 class TE(Backend):
@@ -76,27 +113,27 @@ class TE(Backend):
 
         self.set_arch(archinfo.arch_from_id(ARCH_MAPPING[self.header.machine]))
 
-        offset_offset = self.header.stripped_size - HEADER.size
-        self.linked_base = self.mapped_base = self.header.image_base + offset_offset
+        stripped_offset = self.header.stripped_size - HEADER.size
+        self.linked_base = self.mapped_base = self.header.image_base + stripped_offset
+        # an RVA, in the same space as the section virtual addresses below
+        self._entry = self.linked_base + self.header.address_of_entry_point
 
         has_relocs = False
         for section_header in self.section_headers:
-            region = Section(
-                section_header.section_name.rstrip(b"\0").decode(),
-                section_header.pointer_to_raw_data,
-                section_header.virtual_address + self.linked_base,
-                section_header.physical_address_virtual_size,
-            )
-            self._sections.append(region)
+            section = TESection(section_header, self.linked_base, stripped_offset)
+            self._sections.append(section)
 
-            if section_header.characteristics & 0x02000000 != 0 or section_header.physical_address_virtual_size == 0:
+            if (
+                section_header.characteristics & IMAGE_SCN.MEM_DISCARDABLE != 0
+                or section_header.physical_address_virtual_size == 0
+            ):
                 # discard or no data
                 continue
-            self._binary_stream.seek(section_header.pointer_to_raw_data - offset_offset)
-            data = self._binary_stream.read(section_header.size_of_raw_data)
-            assert len(data) == section_header.size_of_raw_data
-            if section_header.size_of_raw_data < section_header.physical_address_virtual_size:
-                data = data.ljust(section_header.physical_address_virtual_size - section_header.size_of_raw_data, b"\0")
+            self._binary_stream.seek(section.offset)
+            data = self._binary_stream.read(section.filesize)
+            assert len(data) == section.filesize
+            # zero-fill up to the virtual size; ljust takes the total width, not the shortfall
+            data = data.ljust(section.memsize, b"\0")
             self.memory.add_backer(section_header.virtual_address, data)
 
             if section_header.number_of_relocations != 0:
