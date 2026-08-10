@@ -4,6 +4,7 @@ import os
 import unittest
 
 import archinfo
+import pefile
 
 import cle
 
@@ -34,7 +35,7 @@ def test_minidump():
     # section covers the entire image and the last bytes of the image are readable from the file offset it gives.
     assert jusched.memsize == 0x92000
     assert jusched.filesize == jusched.memsize
-    assert ld.memory.load(jusched.vaddr, 2) == b"MZ"
+    assert ld.memory.load(jusched.vaddr, 2) == pefile.IMAGE_DOS_SIGNATURE.to_bytes(2, "little")
     assert jusched.addr_to_offset(jusched.vaddr) == jusched.offset
     with open(exe, "rb") as fp:
         fp.seek(jusched.addr_to_offset(jusched.max_addr - 15))
