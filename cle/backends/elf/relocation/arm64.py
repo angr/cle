@@ -19,6 +19,7 @@ from .generic import (
     GenericTLSDoffsetReloc,
     GenericTLSModIdReloc,
     GenericTLSOffsetReloc,
+    RelocTruncate32Mixin,
 )
 
 log = logging.getLogger(name=__name__)
@@ -66,7 +67,7 @@ class R_AARCH64_TLSDESC(GenericTLSDescriptorReloc):
     RESOLVER_ADDR = 0xFFFF_FFFF_FFFF_FE00
 
 
-class R_AARCH64_PREL32(GenericPCRelativeAddendReloc):
+class R_AARCH64_PREL32(RelocTruncate32Mixin, GenericPCRelativeAddendReloc):
     """
     Relocation Type: 261
     Calculation: (S + A - P)
