@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import os
-import struct
-import tempfile
 
 import cle
+
+TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
 
 
 class MockBackend(cle.backends.Backend):  # pylint: disable=missing-class-docstring
@@ -19,73 +19,34 @@ class MockBackend(cle.backends.Backend):  # pylint: disable=missing-class-docstr
         return self.mapped_base + self.size - 1
 
 
-def sparse_elf32(loads):
-    """
-    Assemble an ET_EXEC i386 ELF with one PT_LOAD per ``(vaddr, data)`` pair and no section headers.
-    """
-    ehsize, phentsize = 52, 32
-    offset = ehsize + phentsize * len(loads)
-
-    phdrs = b""
-    body = b""
-    for vaddr, data in loads:
-        # p_type, p_offset, p_vaddr, p_paddr, p_filesz, p_memsz, p_flags, p_align
-        phdrs += struct.pack("<IIIIIIII", 1, offset, vaddr, vaddr, len(data), len(data), 5, 0x1000)
-        body += data
-        offset += len(data)
-
-    ehdr = struct.pack(
-        "<16sHHIIIIIHHHHHH",
-        b"\x7fELF\x01\x01\x01\x00" + bytes(8),
-        2,  # ET_EXEC
-        3,  # EM_386
-        1,
-        loads[0][0],  # e_entry
-        ehsize,  # e_phoff
-        0,  # e_shoff
-        0,  # e_flags
-        ehsize,
-        phentsize,
-        len(loads),
-        0,
-        0,
-        0,
-    )
-    return ehdr + phdrs + body
-
-
-def check_sparse_elf(loads):
+def check_sparse_elf(name):
     """
     Load a two-segment i386 image whose segments are 4 GB apart, then ask for the objects the loader
     places itself. Everything the loader maps must be readable through its memory.
     """
-    with tempfile.TemporaryDirectory() as directory:
-        path = os.path.join(directory, "sparse")
-        with open(path, "wb") as f:
-            f.write(sparse_elf32(loads))
+    path = os.path.join(TEST_BASE, "tests", "i386", name)
+    ld = cle.Loader(path, auto_load_libs=False, main_opts={"backend": "elf"})
+    assert (ld.main_object.min_addr, ld.main_object.max_addr) == (0xF800, 0xFFF00FFF)
 
-        ld = cle.Loader(path, auto_load_libs=False, main_opts={"backend": "elf"})
-        assert (ld.main_object.min_addr, ld.main_object.max_addr) == (0xF800, 0xFFF00FFF)
+    extern = ld.extern_object
+    tls = ld.tls.new_thread()
 
-        extern = ld.extern_object
-        tls = ld.tls.new_thread()
-
-        for obj in (extern, tls):
-            # 0xf800 is where the main object starts: an object placed inside its span would be
-            # unreachable, since the main object is a single backer of the loader's memory.
-            assert obj.max_addr < 0xF800
-            ld.memory.unpack_word(obj.min_addr)
+    for obj in (extern, tls):
+        # 0xf800 is where the main object starts: an object placed inside its span would be
+        # unreachable, since the main object is a single backer of the loader's memory.
+        assert obj.max_addr < 0xF800
+        ld.memory.unpack_word(obj.min_addr)
 
 
 def test_sparse_main_object():
     # The gap below the main object is 0xf800 bytes wide, smaller than the default rebase
     # granularity of 0x100000, and the space above it is smaller still.
-    check_sparse_elf([(0xF800, bytes(0x7F5)), (0xFFF00000, bytes(0x1000))])
+    check_sparse_elf("sparse_segments")
 
 
 def test_sparse_main_object_unsorted_program_headers():
     # Program headers do not have to be sorted by vaddr, and cle keeps them in file order.
-    check_sparse_elf([(0xFFF00000, bytes(0x1000)), (0xF800, bytes(0x7F5))])
+    check_sparse_elf("sparse_segments_unsorted_phdrs")
 
 
 def test_rebase_granularity_is_not_a_hard_object_limit():
@@ -94,7 +55,7 @@ def test_rebase_granularity_is_not_a_hard_object_limit():
     A static archive with thousands of tiny members hits that cap with the address space nearly
     empty; a granularity of 0x10000000 reaches the same state after sixteen objects.
     """
-    path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../binaries/tests/i386/manysum")
+    path = os.path.join(TEST_BASE, "tests", "i386", "manysum")
     ld = cle.Loader(path, auto_load_libs=False, rebase_granularity=0x10000000)
 
     objects = []
