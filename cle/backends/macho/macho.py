@@ -1041,11 +1041,18 @@ class MachO(Backend):
             # It would allocate 4GB of unneeded memory and also break rebasing
             # because now there is a segment that must be at address 0, while the other segments should be slid
             log.info("Found PAGEZERO, skipping backer for memory conservation")
+        elif seg.memsize == 0:
+            # A segment with vmsize 0 occupies no address space, so it must not be backed no matter how much file
+            # content it has. Debug info kept in the executable rather than a .dSYM is emitted like this: __DWARF has
+            # vmsize 0 and shares its vmaddr with the segment that follows it, so backing it would map the debug info
+            # over that segment.
+            log.info("Segment %r is not mapped at runtime, skipping backer", segname)
         elif seg.filesize > 0:
-            # Append segment data to memory
-            blob = self._read(f, seg.offset, seg.filesize)
-            if seg.filesize < seg.memsize:
-                blob += b"\0" * (seg.memsize - seg.filesize)  # padding
+            # Append segment data to memory. A segment maps memsize bytes and the file contributes at most that many
+            # of them, so anything the file has beyond memsize is not part of the mapping.
+            blob = self._read(f, seg.offset, min(seg.filesize, seg.memsize))
+            if len(blob) < seg.memsize:
+                blob += b"\0" * (seg.memsize - len(blob))  # padding
 
             # The memory of the Backend itself should start at 0, where 0 is the lowest meaningful address
             # In our case this would be the Mach header magic
