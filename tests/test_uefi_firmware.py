@@ -11,7 +11,7 @@ import pytest
 
 import cle
 from cle.backends import ALL_BACKENDS
-from cle.backends.uefi_firmware import UefiFirmware
+from cle.backends.uefi_firmware import UefiFirmware, UefiModuleMixin
 
 TESTS_BASE = Path(__file__).resolve().parent.parent.parent / "binaries" / "tests"
 
@@ -123,8 +123,12 @@ def test_load_firmware_volume(kind):
 
     assert isinstance(ld.main_object, UefiFirmware)
     # The drivers live in the compressed section, so reaching them is what says the whole volume was parsed
-    # rather than only recognized.
-    names = {child.user_interface_name for child in ld.main_object.child_objects}
+    # rather than only recognized. Every child a volume produces is a UEFI module, which is what carries
+    # the name the firmware gave the driver.
+    names = set()
+    for child in ld.main_object.child_objects:
+        assert isinstance(child, UefiModuleMixin)
+        names.add(child.user_interface_name)
     assert {"ArmGicDxe", "BdsDxe", "VariableRuntimeDxe"} <= names
     assert ld.main_object.arch.name == "AARCH64"
 
