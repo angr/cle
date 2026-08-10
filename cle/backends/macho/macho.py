@@ -186,15 +186,25 @@ class MachO(Backend):
             # Note that this should be customized for Apple ABI (TODO)
             self.set_arch(archinfo.arch_from_id(arch_ident, endness="lsb" if self.struct_byteorder == "<" else "msb"))
 
+            # Start reading load commands
+            lc_offset = (7 if self.arch.bits == 32 else 8) * 4
+
             # Determine the base address the binary was linked against
             # and set the values for the Backend and Loader accordingly
             if self.pic and self.filetype == MachoFiletype.MH_EXECUTE:
                 assert self.is_main_bin, "An file of type MH_EXECUTE should be the main bin, this should not happen"
                 # a Position Independent Main binary would later be loaded at 0x400000, which isn't legal for Mach-O
-                # Also, its segment vaddrs are relative to 0x100000000, so we set this as the linked base
-                # and the MachO Backend code uses the AdressTranslator to translate linked addresses to relative ones
+                # An executable is linked at the address of its __TEXT segment: that is where the mach header
+                # itself ends up, and what __mh_execute_header resolves to. ld64 puts it at 0x100000000 on 64 bit
+                # and 0x4000 on 32 bit, but that is a default and not a property of the format -- Go's linker
+                # links darwin/amd64 executables at 0x1000000 -- so read it instead of assuming it, and fall back
+                # to the ld64 default for a binary that declares no __TEXT.
+                # The MachO Backend code uses the AddressTranslator to translate linked addresses to relative ones.
                 # In theory this is the place where the slide for rebasing should be added, but this isn't supported yet
-                if self.arch.bits == 64:
+                text_vmaddr = self._text_segment_vmaddr(lc_offset)
+                if text_vmaddr:
+                    self.linked_base = self.mapped_base = text_vmaddr
+                elif self.arch.bits == 64:
                     self.linked_base = self.mapped_base = 2**32
                 elif self.arch.bits == 32:
                     self.linked_base = self.mapped_base = 0x4000
@@ -224,9 +234,6 @@ class MachO(Backend):
                     f"Unsupported Mach-O file type: {MachoFiletype(self.filetype)}. "
                     "Please open an issue if you need support for this"
                 )
-
-            # Start reading load commands
-            lc_offset = (7 if self.arch.bits == 32 else 8) * 4
 
             self._parse_load_commands(lc_offset)
 
@@ -295,6 +302,30 @@ class MachO(Backend):
     def check_compatibility(cls, spec, obj):
         # TODO: Check properly, but for now libs are just used via force load libs anyway
         return True
+
+    def _text_segment_vmaddr(self, lc_offset: int) -> int | None:
+        """
+        The address __TEXT is linked at, read straight from the load commands before they are parsed
+        properly, because the base address the rest of the parse works against depends on it.
+
+        :return: the vmaddr of the __TEXT segment, or None if the binary declares no __TEXT segment.
+        """
+        binary_file = self._binary_stream
+        count = 0
+        offset = lc_offset
+        # Bounded the same way _parse_load_commands bounds itself, so a header that lies about either
+        # ncmds or sizeofcmds cannot walk this loop off the end of the commands
+        while count < self.ncmds and (offset - lc_offset) < self.sizeofcmds:
+            count += 1
+            cmd, size = self._unpack("2I", binary_file, offset, 8)
+            if cmd in (LC.LC_SEGMENT, LC.LC_SEGMENT_64):
+                segname = self._read(binary_file, offset + 8, 16).rstrip(b"\0")
+                if segname == b"__TEXT":
+                    if cmd == LC.LC_SEGMENT_64:
+                        return self._unpack("Q", binary_file, offset + 24, 8)[0]
+                    return self._unpack("I", binary_file, offset + 24, 4)[0]
+            offset += size
+        return None
 
     def _parse_load_commands(self, lc_offset):
         # Possible optimization: Remove all unnecessary calls to seek()
