@@ -1,157 +1,89 @@
 #!/usr/bin/env python
 from __future__ import annotations
 
-import io
 import logging
 import struct
+import tempfile
+from pathlib import Path
 
 import cle
+from cle.backends.macho.macho_enums import LoadCommands as LC
 
-# Constants are spelled out here rather than imported from cle so that the expected layouts come
-# from the Apple headers and not from the table under test.
-MH_MAGIC = 0xFEEDFACE
-MH_MAGIC_64 = 0xFEEDFACF
-CPU_ARCH_ABI64 = 0x1000000
-CPU_TYPE_X86 = 0x7
-CPU_TYPE_X86_64 = CPU_TYPE_X86 | CPU_ARCH_ABI64
-CPU_TYPE_ARM = 0xC
-CPU_TYPE_ARM64 = CPU_TYPE_ARM | CPU_ARCH_ABI64
-MH_EXECUTE = 2
-MH_TWOLEVEL = 0x80
-MH_PIE = 0x200000
-LC_SEGMENT = 0x1
-LC_SEGMENT_64 = 0x19
-LC_SYMTAB = 0x2
-LC_UNIXTHREAD = 0x5
+TEST_BASE = Path(__file__).resolve().parent.parent.parent / "binaries"
 
-# thread state flavors, from mach/i386/thread_status.h and mach/arm/thread_status.h
-x86_THREAD_STATE32 = 1
-x86_THREAD_STATE64 = 4
-x86_FLOAT_STATE64 = 5
-ARM_THREAD_STATE = 1
-ARM_THREAD_STATE64 = 6
+# `terramate` out of the official Homebrew bottle for tenv 4.15.1, x86_64 macOS. Go's internal linker is
+# the toolchain still shipping LC_UNIXTHREAD instead of LC_MAIN, and it stores an x86_THREAD_STATE64
+# whose __rip is the entry point. `otool -l` puts the command at file offset 0x650, command 6 of 14.
+FIXTURE = TEST_BASE / "tests" / "x86_64" / "terramate.macho"
+UNIXTHREAD_OFFSET = 0x650
+FLAVOR_FIELD = 8
+COUNT_FIELD = 12
+ENTRY = 0x1081180
+SEGMENTS = ["__PAGEZERO", "__TEXT", "__DATA_CONST", "__DATA", "__LINKEDIT"]
 
-PAGE_SIZE = 0x1000
+# x86_FLOAT_STATE64 from mach/i386/thread_status.h. A thread state LC_UNIXTHREAD is allowed to carry,
+# but one with no program counter in it, so there is nothing for the loader to take an entry point from.
+X86_FLOAT_STATE64 = 5
 
 
-def build_unixthread_executable(cputype: int, flavor: int, thread_state: bytes, text_vaddr: int) -> bytes:
-    """
-    Assemble a minimal Mach-O executable that takes its entry point from an LC_UNIXTHREAD command.
-
-    :param cputype:         Value for the cputype field of the mach header.
-    :param flavor:          Thread state flavor the LC_UNIXTHREAD command announces.
-    :param thread_state:    The register block the command carries, laid out as ``cputype`` defines it.
-    :param text_vaddr:      Address the __TEXT segment is linked at, __PAGEZERO covers everything below it.
-    """
-    is64 = bool(cputype & CPU_ARCH_ABI64)
-
-    def segment(segname: bytes, vmaddr: int, vmsize: int, fileoff: int, filesize: int) -> bytes:
-        if is64:
-            return struct.pack("<2I16s4Q4I", LC_SEGMENT_64, 72, segname, vmaddr, vmsize, fileoff, filesize, 7, 5, 0, 0)
-        return struct.pack("<2I16s8I", LC_SEGMENT, 56, segname, vmaddr, vmsize, fileoff, filesize, 7, 5, 0, 0)
-
-    commands = b"".join(
-        [
-            segment(b"__PAGEZERO", 0, text_vaddr, 0, 0),
-            segment(b"__TEXT", text_vaddr, PAGE_SIZE, 0, PAGE_SIZE),
-            struct.pack("<6I", LC_SYMTAB, 24, 0, 0, 0, 0),
-            unixthread_command(flavor, thread_state),
-            thread_state,
-        ]
-    )
-    header = struct.pack(
-        "<8I" if is64 else "<7I",
-        MH_MAGIC_64 if is64 else MH_MAGIC,
-        cputype,
-        3,
-        MH_EXECUTE,
-        4,
-        len(commands),
-        MH_TWOLEVEL | MH_PIE,
-        *([0] if is64 else []),
-    )
-    return (header + commands).ljust(PAGE_SIZE, b"\0")
-
-
-def unixthread_command(flavor: int, thread_state: bytes) -> bytes:
-    """The 16 byte LC_UNIXTHREAD header, whose count field is the length of the thread state in 32 bit words."""
-    return struct.pack("<4I", LC_UNIXTHREAD, 16 + len(thread_state), flavor, len(thread_state) // 4)
-
-
-def load(cputype: int, flavor: int, thread_state: bytes, text_vaddr: int) -> cle.MachO:
-    return load_blob(build_unixthread_executable(cputype, flavor, thread_state, text_vaddr))
-
-
-def load_blob(blob: bytes) -> cle.MachO:
-    ld = cle.Loader(io.BytesIO(blob), main_opts={"backend": "mach-o"})
+def load(path: Path | str) -> cle.MachO:
+    ld = cle.Loader(str(path), main_opts={"backend": "mach-o"}, auto_load_libs=False)
     assert isinstance(ld.main_object, cle.MachO)
     return ld.main_object
 
 
-def test_x86_64_thread_state():
-    # _STRUCT_X86_THREAD_STATE64 keeps __rip at index 16 of its 21 64 bit fields
-    state = [0] * 21
-    state[16] = 0x100000F00
-    obj = load(CPU_TYPE_X86_64, x86_THREAD_STATE64, struct.pack("<21Q", *state), 0x100000000)
-    assert obj.entry == 0x100000F00
+def patch_unixthread(field: int, value: int) -> Path:
+    """
+    A copy of the fixture with one 32 bit field of its LC_UNIXTHREAD command overwritten.
+
+    :param field:   Offset of the field within the command.
+    :param value:   Value to write there.
+    """
+    data = bytearray(FIXTURE.read_bytes())
+    command, _cmdsize = struct.unpack_from("<2I", data, UNIXTHREAD_OFFSET)
+    assert command == LC.LC_UNIXTHREAD, "the fixture's thread command moved, update UNIXTHREAD_OFFSET"
+    struct.pack_into("<I", data, UNIXTHREAD_OFFSET + field, value)
+    handle = tempfile.NamedTemporaryFile(suffix=".macho", delete=False)
+    with handle:
+        handle.write(data)
+    return Path(handle.name)
 
 
-def test_x86_thread_state():
-    # _STRUCT_X86_THREAD_STATE32 keeps __eip at index 10 of its 16 32 bit fields and __gs last, so a
-    # reader that takes the last field it unpacks as the program counter comes back with __gs
-    state = [0] * 16
-    state[10] = 0x4F00
-    state[15] = 0xDEADBEEF
-    obj = load(CPU_TYPE_X86, x86_THREAD_STATE32, struct.pack("<16I", *state), 0x4000)
-    assert obj.entry == 0x4F00
-
-
-def test_arm64_thread_state():
-    # _STRUCT_ARM_THREAD_STATE64 keeps __pc at index 32 of its 33 64 bit fields, __cpsr and __pad follow
-    state = [0] * 33
-    state[32] = 0x100000F00
-    obj = load(CPU_TYPE_ARM64, ARM_THREAD_STATE64, struct.pack("<33Q2I", *state, 0, 0), 0x100000000)
-    assert obj.entry == 0x100000F00
-
-
-def test_arm_thread_state():
-    # _STRUCT_ARM_THREAD_STATE keeps __pc at index 15 of its 17 32 bit fields, __cpsr follows
-    state = [0] * 17
-    state[15] = 0x4F00
-    obj = load(CPU_TYPE_ARM, ARM_THREAD_STATE, struct.pack("<17I", *state), 0x4000)
-    assert obj.entry == 0x4F00
+def test_entry_point_comes_from_the_thread_state():
+    # Read as an ARM thread state this comes back with the last of the 16 words the command declares
+    # rather than __rip, and dispatching on the flavor alone used to refuse the binary outright.
+    obj = load(FIXTURE)
+    assert obj.arch.name == "AMD64"
+    assert obj.unixthread_pc == ENTRY
+    assert obj.entry == ENTRY
 
 
 def test_flavor_without_a_known_layout_still_loads():
-    # x86_FLOAT_STATE64 carries no program counter, so the binary loads without an entry point instead of failing
-    obj = load(CPU_TYPE_X86_64, x86_FLOAT_STATE64, b"\0" * 168, 0x100000000)
+    path = patch_unixthread(FLAVOR_FIELD, X86_FLOAT_STATE64)
+    try:
+        obj = load(path)
+    finally:
+        path.unlink()
+    # The entry point is all the command contributes, so the rest of the binary still loads without it
+    assert obj.unixthread_pc is None
     assert obj.entry == 0
+    assert [segment.segname for segment in obj.segments] == SEGMENTS
 
 
 def test_thread_state_shorter_than_its_flavor_still_loads():
-    # Two words is nowhere near an x86_thread_state64_t, so there is no __rip to read behind the command
-    obj = load(CPU_TYPE_X86_64, x86_THREAD_STATE64, struct.pack("<2I", 0, 0), 0x100000000)
-    assert obj.entry == 0
+    # Two words is nowhere near an x86_thread_state64_t, so reading one would run past the command
+    path = patch_unixthread(COUNT_FIELD, 2)
+    try:
+        obj = load(path)
+    finally:
+        path.unlink()
     assert obj.unixthread_pc is None
-
-
-def test_thread_state_running_past_the_end_of_the_file_still_loads():
-    state = [0] * 21
-    state[16] = 0x100000F00
-    thread_state = struct.pack("<21Q", *state)
-    blob = build_unixthread_executable(CPU_TYPE_X86_64, x86_THREAD_STATE64, thread_state, 0x100000000)
-    command = unixthread_command(x86_THREAD_STATE64, thread_state)
-    obj = load_blob(blob[: blob.index(command) + len(command) + 8])
     assert obj.entry == 0
-    assert obj.unixthread_pc is None
+    assert [segment.segname for segment in obj.segments] == SEGMENTS
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    test_x86_64_thread_state()
-    test_x86_thread_state()
-    test_arm64_thread_state()
-    test_arm_thread_state()
+    test_entry_point_comes_from_the_thread_state()
     test_flavor_without_a_known_layout_still_loads()
     test_thread_state_shorter_than_its_flavor_still_loads()
-    test_thread_state_running_past_the_end_of_the_file_still_loads()
