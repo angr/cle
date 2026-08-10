@@ -6,6 +6,7 @@ from .cartfile import CARTFile
 from .cgc import CGC, BackedCGC
 from .coff import Coff
 from .elf import ELF, ELFCore, MetaELF
+from .gopclntab import GoFunction, GoPclntab, GoSymbol
 from .ihex import Hex
 from .java.apk import Apk
 from .java.jar import Jar
@@ -60,6 +61,9 @@ __all__ = [
     "Symbol",
     "SymbolType",
     "SymbolSubType",
+    "GoFunction",
+    "GoPclntab",
+    "GoSymbol",
     "UefiFirmware",
     "TE",
     "Universal2",
