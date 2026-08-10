@@ -56,8 +56,7 @@ ARCH_MAPPING = {
 
 class TESection(Section):
     """
-    A section of a Terse Executable image. Its header is a COFF section header, so its permissions live in the
-    ``IMAGE_SCN`` bits of the characteristics field.
+    A section of a Terse Executable image.
     """
 
     def __init__(self, section_header: SectionHeaderType, linked_base: int, stripped_offset: int):
@@ -86,7 +85,7 @@ class TESection(Section):
 
     @property
     def only_contains_uninitialized_data(self):
-        # zero-filled whether or not the linker set IMAGE_SCN.CNT_UNINITIALIZED_DATA
+        # zero-filled whether or not the linker sets IMAGE_SCN.CNT_UNINITIALIZED_DATA
         return self.filesize == 0
 
 
