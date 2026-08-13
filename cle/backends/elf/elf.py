@@ -1442,6 +1442,7 @@ class ELF(MetaELF):
 
         for sec_readelf in self._reader.iter_sections():
             remap_offset = 0
+            occupies_memory = True
             if self.is_relocatable and sec_readelf.header["sh_flags"] & 2:  # alloc flag
                 # Relocatable objects' section addresses are meaningless (they are meant to be relocated anyway)
                 # We thus have to map them manually to valid virtual addresses to emulate a linker's behaviour.
@@ -1451,10 +1452,14 @@ class ELF(MetaELF):
                     new_addr = (new_addr + (align - 1)) // align * align
                 remap_offset = new_addr - sh_addr
 
-                if sec_readelf.header["sh_type"] not in _NON_ALLOCATED_SECTION_NAMES:
+                if sec_readelf.header["sh_type"] in _NON_ALLOCATED_SECTION_NAMES:
+                    # No space is reserved for these and no backer is added below, so the address just
+                    # computed belongs to whichever section comes next.
+                    occupies_memory = False
+                else:
                     new_addr += sec_readelf.header["sh_size"]
 
-            section = ELFSection(sec_readelf, remap_offset=remap_offset)
+            section = ELFSection(sec_readelf, remap_offset=remap_offset, occupies_memory=occupies_memory)
             sec_list.append((sec_readelf, section))
 
             # Register sections first, process later - this is required by relocatable objects
