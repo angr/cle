@@ -5,7 +5,7 @@ import logging
 from cle.errors import CLEError
 
 from .backend import Backend, register_backend
-from .region import Segment
+from .region import PermissionedSegment, Segment
 
 log = logging.getLogger(name=__name__)
 
@@ -19,12 +19,16 @@ class Blob(Backend):
 
     is_default = True  # Tell CLE to automatically consider using the Blob backend
 
-    def __init__(self, *args, offset=None, segments=None, **kwargs):
+    def __init__(self, *args, offset=None, segments=None, permissions=None, **kwargs):
         """
         :param arch:   (required) an :class:`archinfo.Arch` for the binary blob.
         :param offset: Skip this many bytes from the beginning of the file.
         :param segments:      List of tuples describing how to map data into memory. Tuples
                               are of ``(file_offset, mem_addr, size)``.
+        :param permissions:   Optional ``(readable, writable, executable)`` triple describing the memory this
+                              blob was taken from. A raw image records no permissions, so by default every
+                              segment reports itself readable, writable and executable; a caller extracting a
+                              blob from something that does record them - a core dump, say - passes them here.
 
         You can't specify both ``offset`` and ``segments``.
         """
@@ -32,7 +36,9 @@ class Blob(Backend):
             offset = kwargs.pop("custom_offset")
             log.critical("Deprecation warning: the custom_offset parameter has been renamed to offset")
         super().__init__(*args, **kwargs)
-        self.set_load_args(offset=offset, segments=segments)
+        self.set_load_args(offset=offset, segments=segments, permissions=permissions)
+
+        self._permissions = permissions
 
         if self._arch is None:
             raise CLEError("Must specify arch when loading blob!")
@@ -89,7 +95,10 @@ class Blob(Backend):
         string = self._binary_stream.read(size)
         if string:
             self.memory.add_backer(mem_addr - self.linked_base, string)
-        seg = Segment(file_offset, mem_addr, size, size)
+        if self._permissions is None:
+            seg = Segment(file_offset, mem_addr, size, size)
+        else:
+            seg = PermissionedSegment(file_offset, mem_addr, size, size, *self._permissions)
         self.segments.append(seg)
         self._max_addr = max(len(string) + mem_addr - 1, self._max_addr)
         self._min_addr = min(mem_addr, self._min_addr)
