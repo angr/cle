@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from cle.backends.region import Section
 
-from .macho_enums import SectionType
+from .macho_enums import SectionAttributes, SectionType
 from .segment import MachOSegment
 
 TYPE_MASK = 0x000000FF
@@ -13,6 +13,8 @@ ATTRIBUTES_MASK = 0xFFFFFF00
 ZEROFILL_SECTION_TYPES = frozenset(
     {SectionType.S_ZEROFILL, SectionType.S_GB_ZEROFILL, SectionType.S_THREAD_LOCAL_ZEROFILL}
 )
+
+INSTRUCTION_ATTRIBUTES = SectionAttributes.S_ATTR_PURE_INSTRUCTIONS | SectionAttributes.S_ATTR_SOME_INSTRUCTIONS
 
 
 class MachOSection(Section):
@@ -92,10 +94,13 @@ class MachOSection(Section):
     @property
     def is_executable(self):
         """
-        Returns the permission of the parent segment, because MachO sections simply inherit that
+        Whether this section holds machine instructions, which the section states in its own attributes.
+
+        The parent segment cannot answer this: ld64 marks the whole of __TEXT executable, so its constant pools,
+        string literals and unwind tables share the r-x mapping with the code.
         :return:
         """
-        return self.parent_segment.is_executable
+        return bool(self.attributes & INSTRUCTION_ATTRIBUTES)
 
     @property
     def only_contains_uninitialized_data(self):
