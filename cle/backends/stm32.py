@@ -37,24 +37,37 @@ class VectorTable(LittleEndianStructure):
         ("systick_handler", c_uint32),  # 0x3C: SysTick handler
     ]
 
+    # A Cortex-M NVIC drives at most 480 external interrupt lines (ARMv8-M; ARMv7-M allows 240), so
+    # the vector table holds no more IRQ vectors than this however far the image runs on past it.
+    MAX_IRQ_VECTORS = 480
+
+    #: The peripheral IRQ vectors, indexed by IRQ number. They follow the 16 system exception
+    #: vectors the fields above cover. A raw flash image does not record how many IRQ vectors its
+    #: device has, so this holds every one the image has room for, up to what an NVIC can address.
+    irq_handlers: tuple[int, ...] = ()
+
     @property
     def reset_handler_addr(self) -> int:
         """Reset handler address with Thumb bit cleared"""
         return self.reset_handler & (~1)
 
     def get_irq_handler(self, irq_num: int) -> int:
-        """Get peripheral interrupt handler address (IRQ 0+)"""
-        vector_offset = (16 + irq_num) * 4
-        if vector_offset + 4 > len(self._data):
+        """Get peripheral interrupt handler address (IRQ 0+), or 0 if the table holds no such vector"""
+        if irq_num < 0:
+            raise ValueError(f"IRQ number must not be negative: {irq_num}")
+        if irq_num >= len(self.irq_handlers):
             return 0
-        return struct.unpack_from("<I", self._data, vector_offset)[0]
+        return self.irq_handlers[irq_num]
 
     @classmethod
     def from_bytes(cls, data: bytes) -> VectorTable:
         """Create VectorTable from bytes data"""
         if len(data) < cls._size_():
             raise ValueError(f"Data too short for vector table (need at least {cls._size_()} bytes)")
-        return cls.from_buffer_copy(data[: cls._size_()])
+        table = cls.from_buffer_copy(data[: cls._size_()])
+        count = min((len(data) - cls._size_()) // 4, cls.MAX_IRQ_VECTORS)
+        table.irq_handlers = struct.unpack_from(f"<{count}I", data, cls._size_())
+        return table
 
     @classmethod
     def _size_(cls) -> int:
