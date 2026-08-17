@@ -42,6 +42,13 @@ class VectorTable(LittleEndianStructure):
         """Reset handler address with Thumb bit cleared"""
         return self.reset_handler & (~1)
 
+    def get_irq_handler(self, irq_num: int) -> int:
+        """Get peripheral interrupt handler address (IRQ 0+)"""
+        vector_offset = (16 + irq_num) * 4
+        if vector_offset + 4 > len(self._data):
+            return 0
+        return struct.unpack_from("<I", self._data, vector_offset)[0]
+
     @classmethod
     def from_bytes(cls, data: bytes) -> VectorTable:
         """Create VectorTable from bytes data"""
