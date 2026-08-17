@@ -8,7 +8,7 @@ from io import BytesIO
 
 import cle
 from cle import MachO
-from cle.backends.macho.macho_enums import LoadCommands
+from cle.backends.macho.macho_enums import LoadCommands, SectionType
 from cle.backends.macho.section import MachOSection
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
@@ -228,6 +228,22 @@ def test_describe_addr():
     assert ld.describe_addr(ld.main_object.entry) == "_main+0x0 in fauxware.macho (0x100000de0)"
 
 
+def test_zerofill_sections():
+    machofile = os.path.join(TEST_BASE, "tests", "aarch64", "dyld_ios15.macho")
+    ld = cle.Loader(machofile, auto_load_libs=False)
+    macho = ld.main_object
+    assert isinstance(macho, cle.MachO)
+
+    bss = macho.sections_map["__DATA,__bss"]
+    assert isinstance(bss, MachOSection)
+    assert bss.type == SectionType.S_ZEROFILL
+    assert bss.only_contains_uninitialized_data
+
+    assert not macho.sections_map["__TEXT,__text"].only_contains_uninitialized_data
+    assert not macho.sections_map["__DATA,__data"].only_contains_uninitialized_data
+    assert {s.name for s in macho.sections if s.only_contains_uninitialized_data} == {"__bss"}
+
+
 def test_find_symbol():
     machofile = os.path.join(TEST_BASE, "tests", "x86_64", "fauxware.macho")
     ld = cle.Loader(machofile, auto_load_libs=False)
@@ -358,5 +374,6 @@ if __name__ == "__main__":
     test_find_region_containing()
     test_describe_addr()
     test_find_symbol()
+    test_zerofill_sections()
     test_zero_vmsize_segment()
     test_filesize_larger_than_vmsize()

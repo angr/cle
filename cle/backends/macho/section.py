@@ -4,10 +4,15 @@ from __future__ import annotations
 
 from cle.backends.region import Section
 
+from .macho_enums import SectionType
 from .segment import MachOSegment
 
 TYPE_MASK = 0x000000FF
 ATTRIBUTES_MASK = 0xFFFFFF00
+
+ZEROFILL_SECTION_TYPES = frozenset(
+    {SectionType.S_ZEROFILL, SectionType.S_GB_ZEROFILL, SectionType.S_THREAD_LOCAL_ZEROFILL}
+)
 
 
 class MachOSection(Section):
@@ -95,10 +100,12 @@ class MachOSection(Section):
     @property
     def only_contains_uninitialized_data(self):
         """
-        I actually don't know if this is true, but it seems like a saner assumption than true
+        Whether this section is initialized to zero after the executable is loaded.
+
+        The section type says so: a zero-fill section has no bytes in the file at all.
         :return:
         """
-        return False
+        return self.type in ZEROFILL_SECTION_TYPES
 
     def __repr__(self):
         return "<Section: {} (part of Segment: {})| offset {:#x}, vaddr {:#x}, size {:#x}>".format(

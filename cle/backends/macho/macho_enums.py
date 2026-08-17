@@ -70,6 +70,38 @@ class LoadCommands(IntEnum):
     LC_DYLD_CHAINED_FIXUPS = 0x34 | LC_REQ_DYLD
 
 
+class SectionType(IntEnum):
+    """
+    from mach-o/loader.h
+
+    Constants for the low byte of a section's flags field, which says what the section holds.
+    """
+
+    S_REGULAR = 0x0
+    S_ZEROFILL = 0x1
+    S_CSTRING_LITERALS = 0x2
+    S_4BYTE_LITERALS = 0x3
+    S_8BYTE_LITERALS = 0x4
+    S_LITERAL_POINTERS = 0x5
+    S_NON_LAZY_SYMBOL_POINTERS = 0x6
+    S_LAZY_SYMBOL_POINTERS = 0x7
+    S_SYMBOL_STUBS = 0x8
+    S_MOD_INIT_FUNC_POINTERS = 0x9
+    S_MOD_TERM_FUNC_POINTERS = 0xA
+    S_COALESCED = 0xB
+    S_GB_ZEROFILL = 0xC
+    S_INTERPOSING = 0xD
+    S_16BYTE_LITERALS = 0xE
+    S_DTRACE_DOF = 0xF
+    S_LAZY_DYLIB_SYMBOL_POINTERS = 0x10
+    S_THREAD_LOCAL_REGULAR = 0x11
+    S_THREAD_LOCAL_ZEROFILL = 0x12
+    S_THREAD_LOCAL_VARIABLES = 0x13
+    S_THREAD_LOCAL_VARIABLE_POINTERS = 0x14
+    S_THREAD_LOCAL_INIT_FUNCTION_POINTERS = 0x15
+    S_INIT_FUNC_OFFSETS = 0x16
+
+
 class MachoFiletype(IntEnum):
     """
     from mach-o/loader.h
