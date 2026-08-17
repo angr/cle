@@ -10,6 +10,7 @@ import pytest
 
 import cle
 from cle import MachO
+from cle.backends.backend import FunctionHintSource
 from cle.backends.macho.macho_enums import LoadCommands, MachoFiletype, SectionAttributes, SectionType
 from cle.backends.macho.section import MachOSection
 
@@ -274,6 +275,20 @@ def test_instruction_sections():
     assert macho.sections_map["__TEXT,__cstring"].attributes == 0
 
 
+def test_function_starts_hints():
+    machofile = os.path.join(TEST_BASE, "tests", "aarch64", "dyld_ios15.macho")
+    ld = cle.Loader(machofile, auto_load_libs=False)
+    macho = ld.main_object
+    assert isinstance(macho, cle.MachO)
+
+    hints = [h for h in macho.function_hints if h.source == FunctionHintSource.FUNCTION_STARTS]
+    assert [h.addr for h in hints] == macho.lc_function_starts
+    assert len(hints) == 36
+
+    text = macho.sections_map["__TEXT,__text"]
+    assert all(text.vaddr <= h.addr < text.vaddr + text.memsize for h in hints)
+
+
 def test_find_symbol():
     machofile = os.path.join(TEST_BASE, "tests", "x86_64", "fauxware.macho")
     ld = cle.Loader(machofile, auto_load_libs=False)
@@ -424,6 +439,7 @@ if __name__ == "__main__":
     test_find_symbol()
     test_zerofill_sections()
     test_instruction_sections()
+    test_function_starts_hints()
     test_zero_vmsize_segment()
     test_filesize_larger_than_vmsize()
 

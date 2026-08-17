@@ -14,7 +14,7 @@ from os import SEEK_CUR, SEEK_SET
 import archinfo
 from sortedcontainers import SortedKeyList
 
-from cle.backends.backend import AT, Backend, register_backend
+from cle.backends.backend import AT, Backend, FunctionHint, FunctionHintSource, register_backend
 from cle.backends.gopclntab import register_gopclntab_symbols
 from cle.backends.macho.binding import BindingHelper, MachOPointerRelocation, MachOSymbolRelocation, read_uleb
 from cle.backends.regions import Regions
@@ -248,6 +248,7 @@ class MachO(Backend):
         self._parse_symbols(binary_file)
         log.info("Parsing module init/term function pointers")
         self._parse_mod_funcs()
+        self._register_function_start_hints()
 
         if not skip_relocations:
             if self._dyld_chained_fixups_offset:
@@ -804,6 +805,19 @@ class MachO(Backend):
             log.debug("Function start @ %#x (%#x)", uleb[0], address)
             i += uleb[1]
         log.debug("Done parsing function starts")
+
+    def _register_function_start_hints(self):
+        """
+        Turn the LC_FUNCTION_STARTS entries into function hints.
+
+        ld64 records the address of every atom it placed in an executable section, so the table names
+        every function of the image, including ones no symbol survives for. It also names the data
+        atoms a producer puts among them, which is why these are hints and not symbols.
+        """
+        if not self.lc_function_starts:
+            return
+        for address in self.lc_function_starts:
+            self.function_hints.append(FunctionHint(address, 0, FunctionHintSource.FUNCTION_STARTS))
 
     def _load_lc_main(self, f, offset):
         if self.entryoff is not None or self.unixthread_pc is not None:
