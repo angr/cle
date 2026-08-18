@@ -8,7 +8,7 @@ from io import BytesIO
 
 import cle
 from cle import MachO
-from cle.backends.macho.macho_enums import LoadCommands
+from cle.backends.macho.macho_enums import LoadCommands, SectionAttributes, SectionType
 from cle.backends.macho.section import MachOSection
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
@@ -228,6 +228,50 @@ def test_describe_addr():
     assert ld.describe_addr(ld.main_object.entry) == "_main+0x0 in fauxware.macho (0x100000de0)"
 
 
+def test_zerofill_sections():
+    machofile = os.path.join(TEST_BASE, "tests", "aarch64", "dyld_ios15.macho")
+    ld = cle.Loader(machofile, auto_load_libs=False)
+    macho = ld.main_object
+    assert isinstance(macho, cle.MachO)
+
+    bss = macho.sections_map["__DATA,__bss"]
+    assert isinstance(bss, MachOSection)
+    assert bss.type == SectionType.S_ZEROFILL
+    assert bss.only_contains_uninitialized_data
+
+    assert not macho.sections_map["__TEXT,__text"].only_contains_uninitialized_data
+    assert not macho.sections_map["__DATA,__data"].only_contains_uninitialized_data
+    assert {s.name for s in macho.sections if s.only_contains_uninitialized_data} == {"__bss"}
+
+
+def test_instruction_sections():
+    machofile = os.path.join(TEST_BASE, "tests", "x86_64", "fauxware.macho")
+    ld = cle.Loader(machofile, auto_load_libs=False)
+    macho = ld.main_object
+    assert isinstance(macho, cle.MachO)
+
+    # ld64 marks the whole of __TEXT executable, so the segment holding the code also holds the string literals
+    # and the unwind table and cannot tell them apart.
+    text = macho["__TEXT"]
+    assert text is not None
+    assert text.is_executable
+    assert {s.sectname for s in text.sections} == {
+        "__text",
+        "__stubs",
+        "__stub_helper",
+        "__cstring",
+        "__unwind_info",
+    }
+
+    assert {name for name, section in macho.sections_map.items() if section.is_executable} == {
+        "__TEXT,__text",
+        "__TEXT,__stubs",
+        "__TEXT,__stub_helper",
+    }
+    assert macho.sections_map["__TEXT,__text"].attributes & SectionAttributes.S_ATTR_PURE_INSTRUCTIONS
+    assert macho.sections_map["__TEXT,__cstring"].attributes == 0
+
+
 def test_find_symbol():
     machofile = os.path.join(TEST_BASE, "tests", "x86_64", "fauxware.macho")
     ld = cle.Loader(machofile, auto_load_libs=False)
@@ -358,5 +402,7 @@ if __name__ == "__main__":
     test_find_region_containing()
     test_describe_addr()
     test_find_symbol()
+    test_zerofill_sections()
+    test_instruction_sections()
     test_zero_vmsize_segment()
     test_filesize_larger_than_vmsize()
