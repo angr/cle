@@ -74,6 +74,25 @@ class TestCoff(unittest.TestCase):
         field_addr = section_vaddr(ld.main_object, ".text") + field_offset
         assert ld.memory.load(field_addr, 4) == struct.pack("<i", expected)
 
+    def test_uninitialized_section_gets_space_of_its_own(self):
+        # .bss states no PointerToRawData because it has no bytes in the file, and this object's
+        # is 0x1000 long -- far past the 0xb4 where .text begins. Mapped at the file offset it
+        # states, it lies over the file header and the whole of .text.
+        exe = os.path.join(TEST_BASE, "tests", "x86", "coff_bss.obj")
+        ld = cle.Loader(exe, auto_load_libs=False)
+        obj = ld.main_object
+        bss = next(section for section in obj.sections if section.name == ".bss")
+        text = next(section for section in obj.sections if section.name == ".text")
+
+        assert bss.memsize == 0x1000
+        assert bss.vaddr >= text.vaddr + text.memsize
+        assert obj.find_section_containing(text.vaddr) is text
+        # Uninitialized data reads as zero, not as whatever the file happens to hold there.
+        assert ld.memory.load(bss.vaddr, bss.memsize) == bytes(bss.memsize)
+        buffer_symbol = obj.get_symbol("_buffer")
+        assert buffer_symbol is not None
+        assert buffer_symbol.rebased_addr == bss.vaddr
+
 
 if __name__ == "__main__":
     unittest.main()
