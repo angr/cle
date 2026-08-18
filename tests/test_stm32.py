@@ -7,6 +7,7 @@ import struct
 import pytest
 
 import cle
+from cle.backends.stm32 import VectorTable
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
 # The same Nucleo-L152RE firmware as a raw flash image and as an ELF.
@@ -88,3 +89,60 @@ def test_stm32_entry_point_option_wins_over_the_reset_vector():
 def test_stm32_requested_by_name_rejects_a_truncated_image():
     with pytest.raises(cle.CLECompatibilityError):
         cle.Loader(io.BytesIO(firmware_with_vectors()[:0x20]), main_opts={"backend": "stm32"}, auto_load_libs=False)
+
+
+def test_stm32_vector_table_reads_peripheral_irq_handlers():
+    """
+    The ctypes fields cover the 16 system exception vectors only; the peripheral IRQ vectors that
+    follow them are parsed out of the rest of the image.
+    """
+    loader = cle.Loader(FIRMWARE, auto_load_libs=False)
+    elf = cle.Loader(FIRMWARE_ELF, auto_load_libs=False)
+    main_object = loader.main_object
+    assert isinstance(main_object, cle.STM32Backend)
+    vector_table = main_object.vector_table
+
+    # This firmware routes every peripheral interrupt to the startup file's shared default handler.
+    default_handler_symbol = elf.find_symbol("Default_Handler")
+    assert default_handler_symbol is not None
+    default_handler = default_handler_symbol.rebased_addr
+    for irq_num in range(12):
+        handler = vector_table.get_irq_handler(irq_num)
+        assert handler == vector_table.irq_handlers[irq_num]
+        assert handler & ~1 == default_handler
+        assert handler & 1, "a Cortex-M vector carries the Thumb bit"
+
+
+def test_stm32_vector_table_stops_at_the_nvic_limit():
+    """
+    The image runs for thousands of words past its vector table, and none of the words beyond the
+    NVIC's last interrupt line is a vector.
+    """
+    with open(FIRMWARE, "rb") as f:
+        image = f.read()
+    vector_table = VectorTable.from_bytes(image)
+
+    words_after_the_system_vectors = (len(image) - VectorTable._size_()) // 4
+    assert words_after_the_system_vectors > VectorTable.MAX_IRQ_VECTORS
+    assert len(vector_table.irq_handlers) == VectorTable.MAX_IRQ_VECTORS
+    assert vector_table.get_irq_handler(VectorTable.MAX_IRQ_VECTORS) == 0
+
+
+def test_stm32_vector_table_reports_irq_vectors_the_image_does_not_hold():
+    with open(FIRMWARE, "rb") as f:
+        system_vectors_only = f.read(64)
+
+    table = VectorTable.from_bytes(system_vectors_only)
+    assert table.irq_handlers == ()
+    assert table.get_irq_handler(0) == 0
+
+
+def test_stm32_vector_table_rejects_a_negative_irq_number():
+    """
+    Without this, IRQ -16 through -1 would silently read the system exception vectors instead.
+    """
+    with open(FIRMWARE, "rb") as f:
+        vector_table = VectorTable.from_bytes(f.read())
+
+    with pytest.raises(ValueError):
+        vector_table.get_irq_handler(-1)
