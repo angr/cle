@@ -230,7 +230,8 @@ class ELF(MetaELF):
                 if dwarf.has_EH_CFI():
                     self._load_function_hints_from_fde(dwarf, FunctionHintSource.EH_FRAME)
                     self._load_exception_handling(dwarf)
-                    self._load_line_info(dwarf)
+                # Load line information out of .debug_line
+                self._load_line_info(dwarf)
 
         if debug_symbols:
             self.__process_debug_file(debug_symbols)
@@ -240,7 +241,7 @@ class ELF(MetaELF):
                 if os.path.isfile(debug_filename):
                     self.__process_debug_file(debug_filename)
             if self.binary:
-                debug_filename = os.path.join("/usr/lib/debug", os.path.realpath(self.binary))
+                debug_filename = "/usr/lib/debug" + os.path.realpath(self.binary)
                 if os.path.isfile(debug_filename):
                     self.__process_debug_file(debug_filename)
 
