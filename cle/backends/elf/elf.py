@@ -17,7 +17,9 @@ from elftools.dwarf.descriptions import describe_attr_value, describe_form_class
 from elftools.dwarf.die import DIE
 from elftools.dwarf.dwarf_expr import DWARFExprParser
 from elftools.dwarf.dwarfinfo import DWARFInfo
+from elftools.dwarf.lineprogram import LineProgram
 from elftools.dwarf.ranges import BaseAddressEntry, RangeEntry
+from elftools.dwarf.structs import DWARFStructs
 from elftools.elf import dynamic, elffile, enums, sections
 from elftools.elf.relocation import RelocationSection, RelrRelocationSection
 from sortedcontainers import SortedDict
@@ -669,6 +671,34 @@ class ELF(MetaELF):
         except (DWARFError, ValueError):
             log.warning("An exception occurred in pyelftools when loading FDE information.", exc_info=True)
 
+    @staticmethod
+    def _line_program_for_cu(dwarf: DWARFInfo, cu: CompileUnit) -> LineProgram | None:
+        """
+        Fetch the line program a compilation unit points at, decoded in the DWARF format the line
+        program declares for itself.
+
+        Each unit chooses the 32-bit or the 64-bit DWARF format in its own initial length field, so a
+        compilation unit may reference a line program that made the other choice. pyelftools decodes
+        the line program header with the compilation unit's structures, which reads a header length of
+        the wrong width and shifts every field behind it.
+        """
+        top_die = cu.get_top_DIE()
+        if "DW_AT_stmt_list" not in top_die.attributes or dwarf.debug_line_sec is None:
+            return None
+        offset = top_die.attributes["DW_AT_stmt_list"].value
+
+        structs = cu.structs
+        dwarf.debug_line_sec.stream.seek(offset)
+        dwarf_format = 64 if dwarf.debug_line_sec.stream.read(4) == b"\xff\xff\xff\xff" else 32
+        if dwarf_format != structs.dwarf_format:
+            structs = DWARFStructs(
+                little_endian=structs.little_endian,
+                dwarf_format=dwarf_format,
+                address_size=structs.address_size,
+                dwarf_version=structs.dwarf_version,
+            )
+        return dwarf._parse_line_program_at_offset(offset, structs)  # pylint:disable=protected-access
+
     def _load_line_info(self, dwarf):
         """
         Generates addr_to_line as a mapping: addr -> (filename, lineno).
@@ -684,7 +714,7 @@ class ELF(MetaELF):
             if "DW_AT_comp_dir" in die.attributes:
                 comp_dir = die.attributes["DW_AT_comp_dir"].value.decode()
             try:
-                lineprog = dwarf.line_program_for_CU(cu)
+                lineprog = self._line_program_for_cu(dwarf, cu)
             except ELFParseError:
                 continue
             if lineprog is None:
@@ -889,7 +919,7 @@ class ELF(MetaELF):
             filename_idx = None
 
         if filename_idx is not None:
-            debug_line = dwarf.line_program_for_CU(cu)
+            debug_line = self._line_program_for_cu(dwarf, cu)
             assert debug_line is not None
             if debug_line.header.file_names is not None:
                 basename = debug_line.header.file_names[filename_idx]
