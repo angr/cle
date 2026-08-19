@@ -1296,6 +1296,16 @@ class ELF(MetaELF):
         if isinstance(symtab, sections.NullSection):
             # Oh my god Atmel please stop
             symtab = self._reader.get_section_by_name(".symtab")
+        if symtab is None and section.header.get("sh_type") != "SHT_RELR":
+            # A stripped object can still carry a relocation section whose linked symbol table was stripped away.
+            # Without the table there is nothing that can be registered.
+            # RELR sections are exempt: their entries carry no symbol index.
+            log.warning(
+                "%s: relocation section %s has no symbol table to resolve its entries against; skipping it.",
+                self.binary,
+                section.name,
+            )
+            return
         relocs = []
         for readelf_reloc in section.iter_relocations():
             # Handle packed RELR relocations specially
