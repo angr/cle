@@ -49,3 +49,17 @@ def test_thumb_object():
 if __name__ == "__main__":
     test_thumb_object()
     test_empty_segements()
+
+
+def test_stripped_relocation_section_without_symtab():
+    """
+    Test for bizarre ELves: a stripped Cortex-M firmware that still carries a relocation section.
+
+    ``strip --strip-all`` removes the symbol table but leaves the ``.rel`` section behind, so the section's sh_link
+    points at nothing. Every entry there is indexed by symbol, so there is nothing to register -- but loading the
+    binary must not blow up.
+    """
+    path = os.path.join(test_location, "armel", "fpijr_cortexm_console_stripped")
+    ld = cle.Loader(path, auto_load_libs=False)
+    # If we survive this, we're doing OK. The relocation section carries no resolvable entries.
+    assert ld.main_object is not None
