@@ -443,7 +443,13 @@ class PE(Backend):
                         self.deps.append(forwardlib)
 
     def _handle_seh(self):
-        if hasattr(self._pe, "DIRECTORY_ENTRY_EXCEPTION"):
+        assert self._pe.FILE_HEADER is not None
+        machine = self._pe.FILE_HEADER.Machine
+        if machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_ARM64"]:
+            self._handle_seh_arm(arm64=True)
+        elif machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_ARMNT"]:
+            self._handle_seh_arm(arm64=False)
+        elif hasattr(self._pe, "DIRECTORY_ENTRY_EXCEPTION"):
             for entry in self._pe.DIRECTORY_ENTRY_EXCEPTION:
                 self.function_hints.append(
                     FunctionHint(
@@ -452,6 +458,54 @@ class PE(Backend):
                         FunctionHintSource.EH_FRAME,
                     )
                 )
+
+    def _handle_seh_arm(self, arm64: bool):
+        """
+        Read the ARM64 and ARMNT exception directory, which pefile parses for x86-64 and Itanium
+        only. Each entry is two words: the function's start RVA, then either the RVA of an .xdata
+        record or unwind data packed into the word itself, distinguished by its low two bits.
+        Described in Microsoft's ARM and ARM64 exception handling references.
+        """
+        exc_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_EXCEPTION")
+        if exc_dd is None:
+            return
+        try:
+            table = self._pe.get_data(exc_dd.VirtualAddress, exc_dd.Size)
+        except pefile.PEFormatError:
+            log.warning("PE exception directory lies outside the image")
+            return
+
+        instruction_unit = 4 if arm64 else 2
+        for offset in range(0, len(table) - 7, 8):
+            begin, unwind_data = struct.unpack_from("<II", table, offset)
+            if begin == 0 and unwind_data == 0:
+                continue
+            flag = unwind_data & 3
+            if flag == 0:
+                header = self._pe.get_dword_at_rva(unwind_data)
+                if header is None:
+                    continue
+                # ARMNT marks a function fragment with bit 22 of the .xdata header. ARM64 has no
+                # such bit; there a fragment only ever appears in the packed form below.
+                if not arm64 and header & (1 << 22):
+                    continue
+                length = (header & 0x3FFFF) * instruction_unit
+            elif flag == 1:
+                length = ((unwind_data >> 2) & 0x7FF) * instruction_unit
+            else:
+                # Flag 2 describes a piece of a function that begins elsewhere, so its start
+                # address is not a function entry. Flag 3 is reserved.
+                continue
+            # Bit 0 of an ARMNT start address marks Thumb code. CLE names an ARM function by the
+            # address with that bit set, as an ELF symbol table does, because it is what selects
+            # the decoder; the function's first instruction is at the address without it.
+            self.function_hints.append(
+                FunctionHint(
+                    begin + self.linked_base,
+                    length,
+                    FunctionHintSource.EH_FRAME,
+                )
+            )
 
     def _parse_meta_regions(self):
         """
