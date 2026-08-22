@@ -28,6 +28,9 @@ __all__ = (
     "NEInternalRelocation",
     "NEName",
     "NERelocation",
+    "NEResource",
+    "NEResourceIdentifier",
+    "NEResourceType",
     "NESegment",
     "NESymbol",
 )
@@ -40,6 +43,8 @@ _MAX_MODULE_REFERENCES = 4096
 _MAX_ENTRY_POINTS = 0xFFFF
 _MAX_FIXUP_RECORDS = 0x10000
 _MAX_FIXUP_SITES = 0x40000
+_MAX_RESOURCES = 0x10000
+_MAX_RESOURCE_NAMES = 0x10000
 
 _SEGMENT_DATA = 0x0001
 _SEGMENT_ITERATED = 0x0008
@@ -74,11 +79,14 @@ class _Reader:
         except (OSError, OverflowError, ValueError) as exc:
             raise CLEInvalidBinaryError("NE input is not a seekable binary stream") from exc
 
-    def read(self, offset: int, size: int, description: str) -> bytes:
+    def ensure_range(self, offset: int, size: int, description: str) -> None:
         if offset < 0 or size < 0 or offset > self.size or size > self.size - offset:
             raise CLEInvalidBinaryError(
                 f"Truncated NE {description}: range {offset:#x}..{offset + size:#x} exceeds file size {self.size:#x}"
             )
+
+    def read(self, offset: int, size: int, description: str) -> bytes:
+        self.ensure_range(offset, size, description)
         try:
             self._stream.seek(offset)
             data = self._stream.read(size)
@@ -157,6 +165,54 @@ class NEImportedModule:
 
 
 @dataclass(frozen=True, slots=True)
+class NEResourceIdentifier:
+    """An integer or length-prefixed string identifier from an NE resource table."""
+
+    raw_value: int
+    integer_id: int | None
+    name: str | None
+    name_offset: int | None
+    name_bytes: bytes | None
+
+    @property
+    def is_integer(self) -> bool:
+        return self.integer_id is not None
+
+    @property
+    def value(self) -> int | str:
+        value = self.integer_id if self.integer_id is not None else self.name
+        assert value is not None
+        return value
+
+
+@dataclass(frozen=True, slots=True)
+class NEResource:
+    """One NE NAMEINFO record and its validated, lazily readable file range."""
+
+    index: int
+    type_identifier: NEResourceIdentifier
+    identifier: NEResourceIdentifier
+    offset_units: int
+    length_units: int
+    file_offset: int
+    size: int
+    flags: int
+    handle: int
+    usage: int
+
+
+@dataclass(frozen=True, slots=True)
+class NEResourceType:
+    """One NE TYPEINFO record and its resources in on-disk order."""
+
+    index: int
+    identifier: NEResourceIdentifier
+    resource_count: int
+    reserved: int
+    resources: tuple[NEResource, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class NEEntryPoint:
     ordinal: int
     flags: int
@@ -164,6 +220,7 @@ class NEEntryPoint:
     offset: int
     rva: int
     movable: bool
+    is_executable: bool
     names: tuple[str, ...]
 
     @property
@@ -233,6 +290,7 @@ class NESegment(Segment):
         self.sector = raw.sector
         self.flags = raw.flags
         self.initialized_size = raw.initialized_size
+        self.initialized_data = raw.data
 
     @property
     def is_iterated(self) -> bool:
@@ -292,8 +350,9 @@ class NESymbol(Symbol):
         is_export: bool,
         ordinal: int | None,
         module_name: str | None = None,
+        symbol_type: SymbolType = SymbolType.TYPE_FUNCTION,
     ):
-        super().__init__(owner, name, relative_addr, owner.arch.bytes, SymbolType.TYPE_FUNCTION)
+        super().__init__(owner, name, relative_addr, owner.arch.bytes, symbol_type)
         self.is_import = is_import
         self.is_export = is_export
         self.ordinal = ordinal
@@ -493,6 +552,9 @@ class NE(Backend):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Loader closes the backend's parsing handle after construction. Retain caller-owned streams for lazy
+        # resource reads; path-backed objects reopen their file on demand instead.
+        self._resource_stream = self._binary_stream if self.binary is None else None
         reader = _Reader(self._binary_stream)
         self.ne_header = self._parse_header(reader)
 
@@ -525,6 +587,8 @@ class NE(Backend):
         self.segments_by_number = {segment.segment_number: segment for segment in segment_list}
         self.sections_map = {segment.name: segment for segment in segment_list}
 
+        self.resource_alignment_shift, self.resource_types, self.resources = self._parse_resource_table(reader)
+
         self.resident_names = self._parse_name_table(
             reader,
             self.ne_header.offset + self.ne_header.resident_name_table_offset,
@@ -550,6 +614,7 @@ class NE(Backend):
         self.fixups: tuple[NEFixupRecord, ...]
         self.imported_procedures: tuple[NEImportedProcedure, ...]
         self._load_segments_and_fixups(reader, raw_segments)
+        self._validate_resource_payload_ranges(reader)
         self._register_exports()
 
     @property
@@ -609,6 +674,30 @@ class NE(Backend):
         if segment_number not in self.segments_by_number:
             raise ValueError(f"NE RVA {rva:#x} is outside the segment-slot address space")
         return segment_number, offset
+
+    def read_resource(self, resource: NEResource) -> bytes:
+        """Read a validated resource payload without retaining it in the loaded object."""
+        if not isinstance(resource, NEResource) or not any(item is resource for item in self.resources):
+            raise ValueError("resource does not belong to this NE object")
+        source = self.binary if self.binary is not None else self._resource_stream
+        original_offset = None
+        try:
+            if self.binary is None:
+                original_offset = source.tell()
+            with stream_or_path(source) as stream:
+                return _Reader(stream).read(
+                    resource.file_offset,
+                    resource.size,
+                    f"resource {resource.index} payload",
+                )
+        except (AttributeError, OSError, OverflowError, ValueError) as exc:
+            raise CLEOperationError(f"Cannot reopen NE resource {resource.index} payload") from exc
+        finally:
+            if original_offset is not None:
+                try:
+                    source.seek(original_offset)
+                except (AttributeError, OSError, OverflowError, ValueError):
+                    pass
 
     def get_symbol(self, name):
         if isinstance(name, str) and name.startswith("ordinal."):
@@ -810,6 +899,102 @@ class NE(Backend):
             )
         return result
 
+    def _parse_resource_table(self, reader: _Reader) -> tuple[int, tuple[NEResourceType, ...], tuple[NEResource, ...]]:
+        table_start = self.ne_header.offset + self.ne_header.resource_table_offset
+        table_end = self.ne_header.offset + self.ne_header.resident_name_table_offset
+        data = reader.read(table_start, table_end - table_start, "resource table")
+        if len(data) < 4:
+            raise CLEInvalidBinaryError("Truncated NE resource table header")
+
+        alignment_shift = struct.unpack_from("<H", data)[0]
+        if alignment_shift > 15:
+            raise CLEInvalidBinaryError(f"Invalid NE resource alignment shift {alignment_shift}")
+
+        raw_types: list[tuple[int, int, int, tuple[tuple[int, ...], ...]]] = []
+        cursor = 2
+        total_resources = 0
+        while True:
+            if cursor + 2 > len(data):
+                raise CLEInvalidBinaryError("NE resource table has no TYPEINFO terminator")
+            type_value = struct.unpack_from("<H", data, cursor)[0]
+            cursor += 2
+            if type_value == 0:
+                break
+            if cursor + 6 > len(data):
+                raise CLEInvalidBinaryError("Truncated NE resource TYPEINFO record")
+            resource_count, reserved = struct.unpack_from("<HI", data, cursor)
+            cursor += 6
+            total_resources += resource_count
+            if total_resources > _MAX_RESOURCES:
+                raise CLEInvalidBinaryError("NE resource table exceeds the resource safety limit")
+            records_size = resource_count * 12
+            if records_size > len(data) - cursor:
+                raise CLEInvalidBinaryError("Truncated NE resource NAMEINFO records")
+            records = tuple(struct.unpack_from("<6H", data, cursor + index * 12) for index in range(resource_count))
+            cursor += records_size
+            raw_types.append((type_value, resource_count, reserved, records))
+
+        names: dict[int, tuple[bytes, str]] = {}
+        while cursor < len(data):
+            if len(names) >= _MAX_RESOURCE_NAMES:
+                raise CLEInvalidBinaryError("NE resource table exceeds the resource-name safety limit")
+            name_offset = cursor
+            length = data[cursor]
+            cursor += 1
+            if length == 0:
+                raise CLEInvalidBinaryError(f"Invalid empty NE resource name at table offset {name_offset:#x}")
+            if length > len(data) - cursor:
+                raise CLEInvalidBinaryError(f"Truncated NE resource name at table offset {name_offset:#x}")
+            name_bytes = data[cursor : cursor + length]
+            name = self._decode_name(name_bytes, "resource name")
+            names[name_offset] = (name_bytes, name)
+            cursor += length
+
+        def identifier(raw_value: int, description: str) -> NEResourceIdentifier:
+            if raw_value & 0x8000:
+                return NEResourceIdentifier(raw_value, raw_value & 0x7FFF, None, None, None)
+            named = names.get(raw_value)
+            if named is None:
+                raise CLEInvalidBinaryError(
+                    f"NE {description} name offset {raw_value:#x} does not identify a resource-name entry"
+                )
+            name_bytes, name = named
+            return NEResourceIdentifier(raw_value, None, name, raw_value, name_bytes)
+
+        resource_types = []
+        resources = []
+        for type_index, (type_value, resource_count, reserved, records) in enumerate(raw_types):
+            type_identifier = identifier(type_value, f"resource type {type_index}")
+            type_resources = []
+            for record in records:
+                offset_units, length_units, flags, resource_value, handle, usage = record
+                resource = NEResource(
+                    index=len(resources),
+                    type_identifier=type_identifier,
+                    identifier=identifier(resource_value, f"resource {len(resources)} identifier"),
+                    offset_units=offset_units,
+                    length_units=length_units,
+                    file_offset=offset_units << alignment_shift,
+                    size=length_units << alignment_shift,
+                    flags=flags,
+                    handle=handle,
+                    usage=usage,
+                )
+                reader.ensure_range(resource.file_offset, resource.size, f"resource {resource.index} payload")
+                type_resources.append(resource)
+                resources.append(resource)
+            resource_types.append(
+                NEResourceType(type_index, type_identifier, resource_count, reserved, tuple(type_resources))
+            )
+
+        if self.ne_header.resource_count != len(resources):
+            log.debug(
+                "NE header resource count %d differs from the terminator-delimited table count %d",
+                self.ne_header.resource_count,
+                len(resources),
+            )
+        return alignment_shift, tuple(resource_types), tuple(resources)
+
     @staticmethod
     def _decode_name(raw: bytes, description: str) -> str:
         if not raw or b"\0" in raw:
@@ -937,13 +1122,15 @@ class NE(Backend):
                     movable = False
                 cursor += record_size
                 segment = self.segments_by_number.get(segment_number)
-                if segment is None or not segment.is_executable:
+                if segment is None:
                     raise CLEInvalidBinaryError(
-                        f"NE entry ordinal {ordinal} refers to invalid code segment {segment_number}"
+                        f"NE entry ordinal {ordinal} refers to invalid segment {segment_number}"
                     )
-                if offset >= segment.initialized_size:
+                entry_limit = segment.initialized_size if segment.is_executable else segment.memsize
+                if offset >= entry_limit:
                     raise CLEInvalidBinaryError(
-                        f"NE entry ordinal {ordinal} offset {offset:#x} is outside initialized segment {segment_number}"
+                        f"NE entry ordinal {ordinal} offset {offset:#x} is outside "
+                        f"{'initialized code' if segment.is_executable else 'mapped data'} segment {segment_number}"
                     )
                 result[ordinal] = NEEntryPoint(
                     ordinal,
@@ -952,6 +1139,7 @@ class NE(Backend):
                     offset,
                     self.segment_to_rva(segment_number, offset),
                     movable,
+                    segment.is_executable,
                     tuple(names_by_ordinal.get(ordinal, ())),
                 )
                 ordinal += 1
@@ -1208,6 +1396,7 @@ class NE(Backend):
         for (_, previous_end, previous_name), (current_start, _, current_name) in zip(disk_ranges, disk_ranges[1:]):
             if current_start < previous_end:
                 raise CLEInvalidBinaryError(f"Overlapping NE disk ranges for {previous_name} and {current_name}")
+        self._occupied_disk_ranges = tuple(disk_ranges)
 
         procedures = []
         for (module_index, name, ordinal), sites in imported_sites.items():
@@ -1227,14 +1416,45 @@ class NE(Backend):
         self.imported_procedures = tuple(procedures)
         self.jmprel = {procedure.import_key: procedure.fixup_rvas[0] for procedure in self.imported_procedures}
 
+    def _validate_resource_payload_ranges(self, reader: _Reader) -> None:
+        metadata_end = self.ne_header.offset + self.ne_header.entry_table_offset + self.ne_header.entry_table_size
+        metadata_ranges = [(0, metadata_end, "executable metadata")]
+        if self.ne_header.nonresident_name_table_size:
+            start = self.ne_header.nonresident_name_table_offset
+            metadata_ranges.append(
+                (start, start + self.ne_header.nonresident_name_table_size, "nonresident-name table")
+            )
+
+        payload_ranges = []
+        for resource in self.resources:
+            start = resource.file_offset
+            end = start + resource.size
+            reader.ensure_range(start, resource.size, f"resource {resource.index} payload")
+            if resource.size:
+                for occupied_start, occupied_end, occupied_name in (*metadata_ranges, *self._occupied_disk_ranges):
+                    if start < occupied_end and occupied_start < end:
+                        raise CLEInvalidBinaryError(f"NE resource {resource.index} payload overlaps {occupied_name}")
+                payload_ranges.append((start, end, resource.index))
+
+        payload_ranges.sort()
+        for (previous_start, previous_end, previous_index), (current_start, current_end, current_index) in zip(
+            payload_ranges, payload_ranges[1:]
+        ):
+            if current_start < previous_end and (current_start, current_end) != (previous_start, previous_end):
+                raise CLEInvalidBinaryError(
+                    f"Overlapping NE resource payload ranges for resources {previous_index} and {current_index}"
+                )
+
     def _register_exports(self):
         self._ordinal_exports = {}
         exported_names = set()
         for ordinal, entry in self.entry_points.items():
             hint_name = entry.names[0] if entry.names else (f"ordinal.{ordinal}" if entry.is_exported else None)
-            self.function_hints.append(FunctionHint(entry.rva, 0, FunctionHintSource.EXPORT_TABLE, name=hint_name))
+            if entry.is_executable:
+                self.function_hints.append(FunctionHint(entry.rva, 0, FunctionHintSource.EXPORT_TABLE, name=hint_name))
             if not entry.is_exported:
                 continue
+            symbol_type = SymbolType.TYPE_FUNCTION if entry.is_executable else SymbolType.TYPE_OBJECT
             ordinal_name = f"ordinal.{ordinal}"
             ordinal_symbol = NESymbol(
                 self,
@@ -1243,6 +1463,7 @@ class NE(Backend):
                 is_import=False,
                 is_export=True,
                 ordinal=ordinal,
+                symbol_type=symbol_type,
             )
             self.symbols.add(ordinal_symbol)
             self._ordinal_exports[ordinal] = ordinal_symbol
@@ -1258,6 +1479,7 @@ class NE(Backend):
                         is_import=False,
                         is_export=True,
                         ordinal=ordinal,
+                        symbol_type=symbol_type,
                     )
                 )
 
