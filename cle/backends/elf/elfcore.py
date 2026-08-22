@@ -10,7 +10,7 @@ import elftools
 from cle.address_translator import AT
 from cle.backends import register_backend
 from cle.backends.blob import Blob
-from cle.backends.region import Segment
+from cle.backends.region import PermissionedSegment
 from cle.errors import CLECompatibilityError, CLEError
 from cle.memory import Clemory
 
@@ -504,16 +504,20 @@ class ELFCore(ELF):
                 if base_addr <= seg.vaddr <= max_addr or seg.vaddr <= base_addr < seg.vaddr + seg.memsize:
                     remaining_segments.pop(i)
 
-                    # if there is data before the beginning of the child or after the end,
-                    # make new artificial segments for it
+                    # if there is data before the beginning of the child or after the end, make new
+                    # artificial segments for it. They are parts of the same mapping, so they have
+                    # its permissions.
+                    perms = (seg.is_readable, seg.is_writable, seg.is_executable)
                     if seg.vaddr < base_addr:
                         size = base_addr - seg.vaddr
-                        remaining_segments.insert(i, Segment(seg.offset, seg.vaddr, size, size))
+                        remaining_segments.insert(i, PermissionedSegment(seg.offset, seg.vaddr, size, size, *perms))
                         i += 1
                     if seg.max_addr > max_addr:
                         size = seg.max_addr - max_addr
                         offset = seg.memsize - size
-                        remaining_segments.insert(i, Segment(seg.offset + offset, seg.vaddr + offset, size, size))
+                        remaining_segments.insert(
+                            i, PermissionedSegment(seg.offset + offset, seg.vaddr + offset, size, size, *perms)
+                        )
                         i += 1
 
                     # ohhhh this is SUCH a confusing address space-conversation problem!
@@ -572,6 +576,7 @@ class ELFCore(ELF):
                 self.binary,
                 mem,
                 segments=[(seg.vaddr, seg.vaddr, seg.memsize)],
+                permissions=(seg.is_readable, seg.is_writable, seg.is_executable),
                 base_addr=seg.vaddr,
                 arch=self.arch,
                 entry_point=0,
