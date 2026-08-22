@@ -229,6 +229,43 @@ class MH_flags(IntEnum):
     MH_DYLIB_IN_CACHE = 0x80000000
 
 
+class CPUType(IntEnum):
+    """
+    from mach/machine.h
+
+    Values for the cputype field of the mach_header, limited to the architectures cle supports
+    """
+
+    CPU_TYPE_X86 = 0x7
+    CPU_TYPE_X86_64 = 0x1000007
+    CPU_TYPE_ARM = 0xC
+    CPU_TYPE_ARM64 = 0x100000C
+
+
+class X86ThreadFlavor(IntEnum):
+    """
+    from mach/i386/thread_status.h
+
+    Flavors of the thread state carried by LC_UNIXTHREAD on CPU_TYPE_X86 and CPU_TYPE_X86_64.
+    A flavor number only identifies a thread state together with the cputype it belongs to.
+    """
+
+    x86_THREAD_STATE32 = 1
+    x86_THREAD_STATE64 = 4
+
+
+class ARMThreadFlavor(IntEnum):
+    """
+    from mach/arm/thread_status.h
+
+    Flavors of the thread state carried by LC_UNIXTHREAD on CPU_TYPE_ARM and CPU_TYPE_ARM64.
+    A flavor number only identifies a thread state together with the cputype it belongs to.
+    """
+
+    ARM_THREAD_STATE = 1
+    ARM_THREAD_STATE64 = 6
+
+
 class RebaseType(IntEnum):
     """
     from mach-o/loader.h
