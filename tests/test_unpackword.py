@@ -3,6 +3,7 @@ from __future__ import annotations
 from io import BytesIO
 
 import archinfo
+import pytest
 
 import cle
 
@@ -70,5 +71,46 @@ def test_unpackword():
     assert ymmword == 0xFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD0F0E0D0C0B0A09080706050403020137 - 2**256
 
 
+def test_word_sizes_struct_cannot_express():
+    # struct has integer format characters for 1, 2, 4 and 8 bytes only. Every other width - the
+    # 3-byte word of a 24-bit architecture among them - is composed from its bytes.
+    clemory = cle.Clemory(archinfo.ArchX86(), root=True)
+    clemory.add_backer(0, bytes(32))
+
+    clemory.pack_word(0, 0x123456, size=3)
+    assert clemory.load(0, 4) == b"\x56\x34\x12\x00"
+    assert clemory.unpack_word(0, 3) == 0x123456
+
+    clemory.pack_word(4, 0x123456, size=3, endness=archinfo.Endness.BE)
+    assert clemory.load(4, 3) == b"\x12\x34\x56"
+    assert clemory.unpack_word(4, 3, endness=archinfo.Endness.BE) == 0x123456
+
+    clemory.pack_word(8, -2, size=3, signed=True)
+    assert clemory.load(8, 3) == b"\xfe\xff\xff"
+    assert clemory.unpack_word(8, 3, signed=True) == -2
+    assert clemory.unpack_word(8, 3) == 0xFFFFFE
+
+    # the same goes for anything wider than 8 bytes, power of two or not
+    clemory.pack_word(12, 0x0102030405060708090A, size=10)
+    assert clemory.unpack_word(12, 10) == 0x0102030405060708090A
+    clemory.pack_word(12, 0x0102030405060708090A0B0C0D0E0F10, size=16)
+    assert clemory.unpack_word(12, 16) == 0x0102030405060708090A0B0C0D0E0F10
+
+
+def test_word_off_the_end_of_a_backer():
+    clemory = cle.Clemory(archinfo.ArchX86(), root=True)
+    clemory.add_backer(0, bytes(2))
+
+    with pytest.raises(KeyError):
+        clemory.unpack_word(0, 3)
+
+    # a write that does not fit leaves memory alone rather than storing the bytes that do fit
+    with pytest.raises(KeyError):
+        clemory.pack_word(0, 0x123456, size=3)
+    assert clemory.load(0, 2) == b"\x00\x00"
+
+
 if __name__ == "__main__":
     test_unpackword()
+    test_word_sizes_struct_cannot_express()
+    test_word_off_the_end_of_a_backer()
