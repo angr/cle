@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import io
 import os
+
+import archinfo
+import pytest
 
 import cle
 
@@ -69,7 +73,58 @@ def test_rebase_granularity_is_not_a_hard_object_limit():
         assert ld.find_object_containing(obj.min_addr) is obj
 
 
+def load_narrow_blob(size):
+    """
+    Load a blob of ``size`` bytes as a z80 image. The whole 16-bit address space is smaller than a
+    single default granule, so every placement in it has to ignore the granularity.
+    """
+    pytest.importorskip("pypcode")
+    arch = archinfo.ArchPcode("z80:LE:16:default")
+    ld = cle.Loader(
+        io.BytesIO(b"\0" * size),
+        main_opts={"backend": "blob", "base_addr": 0, "entry_point": 0, "arch": arch},
+    )
+    assert (ld.main_object.min_addr, ld.main_object.max_addr) == (0, size - 1)
+    return ld
+
+
+def test_address_space_narrower_than_the_granularity():
+    """
+    Aligning to the granularity in a 16-bit address space puts the extern object past the end of
+    memory, and the load fails with "Ran out of room in address space".
+    """
+    ld = load_narrow_blob(0x1500)
+
+    extern = ld.extern_object
+    assert extern.min_addr > ld.main_object.max_addr
+    assert extern.max_addr < 2**ld.main_object.arch.bits
+    ld.memory.unpack_word(extern.min_addr)
+
+
+def test_narrow_address_space_holds_more_objects_than_granules():
+    """
+    A 16-bit address space does not contain even one default granule, so it holds no object at all
+    if the granularity is treated as a constraint.
+    """
+    ld = load_narrow_blob(0x1500)
+
+    objects = []
+    for _ in range(24):
+        obj = MockBackend(0x100, arch=ld.main_object.arch)
+        ld.dynamic_load(obj)
+        objects.append(obj)
+
+    placed = sorted(objects, key=lambda o: o.min_addr)
+    assert placed[-1].max_addr < 2**ld.main_object.arch.bits
+    for lower, upper in zip(placed, placed[1:]):
+        assert lower.max_addr < upper.min_addr
+    for obj in objects:
+        assert ld.find_object_containing(obj.min_addr) is obj
+
+
 if __name__ == "__main__":
     test_sparse_main_object()
     test_sparse_main_object_unsorted_program_headers()
     test_rebase_granularity_is_not_a_hard_object_limit()
+    test_address_space_narrower_than_the_granularity()
+    test_narrow_address_space_holds_more_objects_than_granules()
