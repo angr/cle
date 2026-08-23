@@ -1,4 +1,3 @@
-# pylint:disable=missing-class-docstring
 """Tests for the function hints cle derives from .eh_frame."""
 
 from __future__ import annotations
@@ -14,7 +13,10 @@ TESTS_BASE = os.path.join(HERE, "..", "..", "binaries", "tests")
 
 
 class TestEhFrameHints(TestCase):
-    def _hints(self, *path, **kwargs):
+    """The hints must be available without asking the loader for debug information."""
+
+    @staticmethod
+    def _hints(*path, **kwargs):
         loader = cle.Loader(os.path.join(TESTS_BASE, *path), auto_load_libs=False, **kwargs)
         return loader, loader.main_object.function_hints
 
