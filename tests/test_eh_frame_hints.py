@@ -39,6 +39,11 @@ class TestEhFrameHints(TestCase):
         _, with_debug = self._hints("x86_64", "fauxware", load_debug_info=True)
         assert len(with_debug) == len(without)
 
+    def test_hints_survive_debug_sections_that_do_not_parse(self):
+        """.eh_frame needs no DWARF relocation, so relocating .debug_* must not gate it."""
+        _, hints = self._hints("x86_64", "dir_gcc_-O0")
+        assert len(hints) == 395
+
     def test_relocatable_objects_get_no_hints(self):
         """An FDE address in ET_REL is section-relative, so a hint from it points nowhere."""
         for load_debug_info in (False, True):

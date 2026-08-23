@@ -207,12 +207,33 @@ class ELF(MetaELF):
             self._desperate_for_symbols = True
             self.symbols.update(self._symbol_cache.values())
 
-        # .eh_frame is an allocated, non-debug section: it is mapped into the process image and is
-        # present even in fully stripped binaries, unlike .debug_*. CFGFast consumes the function
-        # hints derived from its FDEs and turns them on by default, so load them whether or not
-        # debug information was requested. Everything else below stays behind _load_debug_info.
-        load_function_hints = not self.is_relocatable
-        if self.has_dwarf_info and (self.loader._load_debug_info or load_function_hints):
+        # .eh_frame is an allocated, non-debug section: mapped into the process image and present
+        # even in fully stripped binaries, unlike .debug_*. CFGFast consumes the function hints
+        # derived from its FDEs and enables them by default, so load them whether or not debug
+        # information was requested.
+        #
+        # This reads its own DWARFInfo instead of sharing the one below. Relocating the debug
+        # sections is unnecessary for .eh_frame and raises on objects that keep .rela.debug_*,
+        # which would otherwise cost those objects every hint; and a section this does not read
+        # failing to parse should not decide whether .eh_frame is read at all.
+        #
+        # Relocatable objects are skipped: an FDE address there is relative to the section holding
+        # the function, and cle maps each section independently. See angr/cle#597.
+        if not self.is_relocatable and self._reader.get_section_by_name(".eh_frame") is not None:
+            try:
+                eh_frame_dwarf = self._reader.get_dwarf_info(relocate_dwarf_sections=False)
+            except (DWARFError, ELFError, ValueError):
+                log.warning(
+                    "An exception occurred in pyelftools when reading the .eh_frame of %s. "
+                    "Continuing without function hints.",
+                    self.binary_basename,
+                    exc_info=True,
+                )
+            else:
+                if eh_frame_dwarf.has_EH_CFI():
+                    self._load_function_hints_from_fde(eh_frame_dwarf, FunctionHintSource.EH_FRAME)
+
+        if self.has_dwarf_info and self.loader._load_debug_info:
             # load DWARF information
             try:
                 dwarf = self._reader.get_dwarf_info()
@@ -227,17 +248,12 @@ class ELF(MetaELF):
                 self.has_dwarf_info = False
 
             if dwarf:
-                # Load function hints
-                if load_function_hints and dwarf.has_EH_CFI():
-                    self._load_function_hints_from_fde(dwarf, FunctionHintSource.EH_FRAME)
-
-                if self.loader._load_debug_info:
-                    # Load DIEs
-                    self._load_dies(dwarf)
-                    # Load exception handling artifacts
-                    if dwarf.has_EH_CFI():
-                        self._load_exception_handling(dwarf)
-                        self._load_line_info(dwarf)
+                # Load DIEs
+                self._load_dies(dwarf)
+                # Load exception handling artifacts
+                if dwarf.has_EH_CFI():
+                    self._load_exception_handling(dwarf)
+                    self._load_line_info(dwarf)
 
         if debug_symbols:
             self.__process_debug_file(debug_symbols)
