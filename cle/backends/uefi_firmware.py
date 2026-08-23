@@ -40,7 +40,11 @@ class UefiFirmware(Backend):
     def _to_bytes(cls, fileobj: io.IOBase):
         try:
             fileno = fileobj.fileno()
-        except io.UnsupportedOperation:
+        except (AttributeError, io.UnsupportedOperation):
+            # A stream with no file descriptor behind it either raises
+            # UnsupportedOperation, as the io classes do, or has no fileno at
+            # all. This backend is probed against every stream the loader is
+            # given, so it has to tolerate both.
             pass
         else:
             return mmap.mmap(fileno, 0, access=mmap.ACCESS_READ)
