@@ -14,6 +14,7 @@ from cle.errors import CLEError
 HERE = os.path.dirname(os.path.realpath(__file__))
 TESTS_BASE = os.path.join(HERE, "..", "..", "binaries", "tests")
 BSD_ARCHIVE = os.path.join(TESTS_BASE, "aarch64", "bsd_symdef_archive.a")
+EMPTY_FILE = os.path.join(TESTS_BASE, "i386", "packed_elf32_angr_rtdb", "angr_rtdb.pin")
 
 
 class ReadSeekOnly:
@@ -61,6 +62,11 @@ class TestBackendProbing(TestCase):
         """A BytesIO already behaves correctly; it is the control for the case above."""
         with self.assertRaises(CLEError):
             cle.Loader(io.BytesIO(_unclaimed_bytes()), auto_load_libs=False)
+
+    def test_an_empty_file_is_rejected_cleanly(self):
+        """A zero-length file has no mapping, which must not escape the probe as a ValueError."""
+        with self.assertRaises(CLEError):
+            cle.Loader(EMPTY_FILE, auto_load_libs=False)
 
     def test_an_archive_member_without_a_file_descriptor_is_rejected_cleanly(self):
         """An ar member is one instance of a stream with no file descriptor."""

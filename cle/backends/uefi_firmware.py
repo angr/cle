@@ -47,7 +47,12 @@ class UefiFirmware(Backend):
             # given, so it has to tolerate both.
             pass
         else:
-            return mmap.mmap(fileno, 0, access=mmap.ACCESS_READ)
+            try:
+                return mmap.mmap(fileno, 0, access=mmap.ACCESS_READ)
+            except ValueError:
+                # an empty file has nothing to map; fall through to the read below, which
+                # yields b"" and lets the probe answer that this is not a UEFI image
+                pass
 
         if isinstance(fileobj, io.BytesIO):
             return fileobj.getbuffer()
