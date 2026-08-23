@@ -207,7 +207,12 @@ class ELF(MetaELF):
             self._desperate_for_symbols = True
             self.symbols.update(self._symbol_cache.values())
 
-        if self.has_dwarf_info and self.loader._load_debug_info:
+        # .eh_frame is an allocated, non-debug section: it is mapped into the process image and is
+        # present even in fully stripped binaries, unlike .debug_*. CFGFast consumes the function
+        # hints derived from its FDEs and turns them on by default, so load them whether or not
+        # debug information was requested. Everything else below stays behind _load_debug_info.
+        load_function_hints = not self.is_relocatable
+        if self.has_dwarf_info and (self.loader._load_debug_info or load_function_hints):
             # load DWARF information
             try:
                 dwarf = self._reader.get_dwarf_info()
@@ -222,13 +227,17 @@ class ELF(MetaELF):
                 self.has_dwarf_info = False
 
             if dwarf:
-                # Load DIEs
-                self._load_dies(dwarf)
-                # Load function hints and exception handling artifacts
-                if dwarf.has_EH_CFI():
+                # Load function hints
+                if load_function_hints and dwarf.has_EH_CFI():
                     self._load_function_hints_from_fde(dwarf, FunctionHintSource.EH_FRAME)
-                    self._load_exception_handling(dwarf)
-                    self._load_line_info(dwarf)
+
+                if self.loader._load_debug_info:
+                    # Load DIEs
+                    self._load_dies(dwarf)
+                    # Load exception handling artifacts
+                    if dwarf.has_EH_CFI():
+                        self._load_exception_handling(dwarf)
+                        self._load_line_info(dwarf)
 
         if debug_symbols:
             self.__process_debug_file(debug_symbols)
@@ -611,6 +620,11 @@ class ELF(MetaELF):
         Load frame description entries out of the .eh_frame section. These entries include function addresses and can be
         used to improve CFG recovery.
 
+        This is not called for relocatable objects. An FDE address there is relative to the
+        section holding the function and only becomes meaningful once a linker places that
+        section; cle maps each section independently, so adding the image base delta yields
+        hints pointing into the wrong section. See angr/cle#597.
+
         :param dwarf:   The DWARF info object from pyelftools.
         :return:        None
         """
@@ -625,8 +639,19 @@ class ELF(MetaELF):
                             source,
                         )
                     )
-        except (DWARFError, ValueError):
-            log.warning("An exception occurred in pyelftools when loading FDE information.", exc_info=True)
+        # This runs for every ELF now, not only those loaded with debug information, so a CIE or FDE
+        # that pyelftools cannot read must cost the object its function hints and not its load.
+        # KeyError: a CIE's FDE_encoding comes from the optional "R" augmentation, which pyelftools
+        # reads unconditionally rather than falling back to the default pointer encoding.
+        # ELFParseError (an ELFError) wraps construct's errors, and a bogus length in a truncated
+        # section surfaces as OverflowError or trips one of pyelftools' own assertions.
+        except (DWARFError, ELFError, ValueError, KeyError, OverflowError, AssertionError):
+            log.warning(
+                "An exception occurred in pyelftools when loading FDE information for %s. "
+                "Continuing without function hints.",
+                self.binary_basename,
+                exc_info=True,
+            )
 
     def _load_exception_handling(self, dwarf):
         """
