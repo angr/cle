@@ -32,6 +32,7 @@ class Soot(Backend):
         entry_point=None,
         entry_point_params=(),
         input_format=None,
+        android_api_version=None,
         additional_jars=None,
         additional_jar_roots=None,
         jni_libs_ld_path=None,
@@ -56,6 +57,7 @@ class Soot(Backend):
             self.binary,
             input_format=input_format,
             android_sdk=android_sdk,
+            android_api_version=android_api_version,
             additional_jars=additional_jars,
             additional_jar_roots=additional_jar_roots,
         )
