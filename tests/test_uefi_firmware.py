@@ -108,6 +108,25 @@ def test_load_archive_with_a_symbol_index():
         cle.Loader(str(BSD_ARCHIVE), auto_load_libs=False)
 
 
+def test_load_a_read_seek_stream_no_backend_claims():
+    """
+    The same answer when the loader is handed the stream itself rather than a path.
+
+    ``Loader._load_object_isolated`` dispatches on ``read``/``seek``, which is a wider set than the ``BinaryIO``
+    annotation describes, so every default probe sees a stream with no file descriptor. Carrying bytes that
+    nothing claims, it has to come back as "no backend matched" rather than as whatever the probe raised on the
+    way there. From #778, which reported the bug in this end-to-end shape.
+    """
+    archive, members = _archive_members(BSD_ARCHIVE)
+    symbol_index = members[0].read()
+    archive.close()
+
+    with pytest.raises(cle.CLECompatibilityError, match="Unable to find a loader backend"):
+        # the ignore is the mismatch itself: the annotation says BinaryIO, the dispatch asks only for
+        # read and seek, and cle hands itself streams from the wider set
+        cle.Loader(MinimalStream(symbol_index), auto_load_libs=False)  # type: ignore[arg-type]
+
+
 @pytest.mark.parametrize("kind", ["path", "file", "bytesio", "stream"])
 def test_load_firmware_volume(kind):
     """
