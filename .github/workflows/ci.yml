@@ -21,28 +21,8 @@ jobs:
       - uses: actions/checkout@v6
         with:
           path: cle
-      - name: Resolve the angr/binaries ref
-        id: binaries-ref
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_BODY: ${{ github.event.pull_request.body }}
-        run: |
-          ref=master
-          number=$(printf '%s' "$PR_BODY" |
-            grep -Eo '(angr/binaries#|github\.com/angr/binaries/pull/)[0-9]+' |
-            head -n 1 |
-            grep -Eo '[0-9]+$') || true
-          if [ -n "$number" ]; then
-            state=$(gh api "repos/angr/binaries/pulls/$number" --jq .state) || state=unavailable
-            if [ "$state" = open ]; then
-              ref="refs/pull/$number/head"
-            else
-              echo "angr/binaries#$number is $state, so it is not used"
-            fi
-          fi
-          echo "Checking out angr/binaries at $ref"
-          echo "ref=$ref" >>"$GITHUB_OUTPUT"
+      - id: binaries-ref
+        uses: angr/ci-settings/actions/binaries-ref@master
       - uses: actions/checkout@v6
         with:
           repository: angr/binaries
