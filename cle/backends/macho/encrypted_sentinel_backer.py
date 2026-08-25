@@ -111,9 +111,13 @@ class CryptSentinel(Clemory):
                 continue
 
             if start < interval[0] and addr < interval[0]:
-                yield start, backer[: interval[0] - start], owner
+                yield start, self._slice_for_reading(backer, 0, interval[0] - start), owner
             if end > interval[1]:
-                yield interval[1], backer[interval[1] - start :], owner
+                yield interval[1], self._slice_for_reading(backer, interval[1] - start, len(backer)), owner
+
+    @staticmethod
+    def _slice_for_reading(backer, start: int, end: int):
+        return backer[start:end] if isinstance(backer, list) else memoryview(backer)[start:end]
 
     def _assert_read_access(self, addr: int, size: int) -> None:
         self._assert_unencrypted_access(addr, size)

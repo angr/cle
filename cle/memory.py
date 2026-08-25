@@ -49,11 +49,42 @@ class ClemoryBase:
     The base class of all Clemory classes.
     """
 
-    __slots__ = ("_arch", "_pointer", "__weakref__")
+    __slots__ = (
+        "_arch",
+        "_pointer",
+        "_public_backer_snapshot_token",
+        "_public_backer_snapshots",
+        "__weakref__",
+    )
 
     def __init__(self, arch):
         self._arch = arch
         self._pointer = 0
+        self._public_backer_snapshot_token = None
+        self._public_backer_snapshots = {}
+
+    def _reset_public_backer_snapshot_cache(self) -> None:
+        self._public_backer_snapshot_token = None
+        self._public_backer_snapshots = {}
+
+    def _snapshot_public_backer(self, start, backer):
+        if isinstance(backer, list):
+            return list(backer)
+        if isinstance(backer, bytes):
+            return backer
+
+        token = (self.semantic_token, self.layout_token)
+        if self._public_backer_snapshot_token != token:
+            self._public_backer_snapshot_token = token
+            self._public_backer_snapshots.clear()
+
+        source = backer.obj if isinstance(backer, memoryview) else backer
+        key = start, id(source), len(backer)
+        cached = self._public_backer_snapshots.get(key)
+        if cached is None or cached[0] is not source:
+            cached = source, bytes(backer)
+            self._public_backer_snapshots[key] = cached
+        return cached[1]
 
     def __getitem__(self, k):
         raise NotImplementedError
@@ -84,7 +115,7 @@ class ClemoryBase:
         """Yield private backing storage to trusted, read-only implementation code.
 
         Callers must never retain or mutate the returned objects. Public consumers must
-        use :meth:`backers`, which returns immutable snapshots.
+        use :meth:`backers`, which returns detached snapshots.
         """
         raise NotImplementedError
 
@@ -92,9 +123,9 @@ class ClemoryBase:
         """Validate a read before any bytes are returned. Subclasses may impose access policies."""
 
     def backers(self, addr=0):
-        """Iterate over immutable snapshots of the mapped backers at or after ``addr``."""
+        """Iterate over detached snapshots of the mapped backers at or after ``addr``."""
         for start, backer in self._backers_for_reading(addr):
-            yield start, tuple(backer) if isinstance(backer, list) else bytes(backer)
+            yield start, self._snapshot_public_backer(start, backer)
 
     def find(self, data, search_min=None, search_max=None) -> Iterator[int]:
         raise NotImplementedError
@@ -338,6 +369,8 @@ class Clemory(ClemoryBase):
         if not first_visit and not force_forward:
             return
         if first_visit:
+            if event.semantic or event.structural:
+                self._reset_public_backer_snapshot_cache()
             if event.semantic:
                 self._semantic_revision += 1
             if event.structural:
@@ -681,6 +714,7 @@ class Clemory(ClemoryBase):
         self._arch = s["_arch"]
         self._backers = s["_backers"]
         self._pointer = s["_pointer"]
+        self._reset_public_backer_snapshot_cache()
         self._root = s["_root"]
         self.consecutive = s["consecutive"]
         self.min_addr = s["min_addr"]
@@ -1121,7 +1155,7 @@ class ClemoryReadOnlyView(ClemoryBase):
     def __init__(self, arch, clemory: Clemory):
         super().__init__(arch)
         self._clemory = clemory
-        self._flattened_backers: list[tuple[int, bytearray]] = []
+        self._flattened_backers: list[tuple[int, bytearray | memoryview]] = []
 
         # cache
         self._last_backer_pos: int | None = None
@@ -1264,7 +1298,7 @@ class ClemoryReadOnlyView(ClemoryBase):
 
     def _flatten_backers(self):
         for start, backer in self._clemory._backers_for_reading():
-            if isinstance(backer, bytearray):
+            if isinstance(backer, bytearray | memoryview):
                 self._flattened_backers.append((start, backer))
             elif isinstance(backer, list):
                 raise TypeError("ClemoryReadOnlyView does not support list-backed clemories")

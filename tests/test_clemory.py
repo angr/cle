@@ -165,7 +165,7 @@ def test_clemory_semantic_token_tracks_public_mutations():
     assert clemory.load(2, 2) == b"34"
 
 
-def test_clemory_mutable_backer_aliases_are_detached_and_public_backers_are_immutable():
+def test_clemory_mutable_backer_aliases_and_public_backers_are_detached():
     def assert_bytes_detached(source, mutate_source):
         clemory = cle.Clemory(None, root=True)
         clemory.add_backer(0, source)
@@ -176,6 +176,7 @@ def test_clemory_mutable_backer_aliases_are_detached_and_public_backers_are_immu
 
         _, exposed = next(clemory.backers())
         assert isinstance(exposed, bytes)
+        assert next(clemory.backers())[1] is exposed
         try:
             exposed[0] = ord("z")
         except TypeError:
@@ -203,13 +204,12 @@ def test_clemory_mutable_backer_aliases_are_detached_and_public_backers_are_immu
     assert list_memory.semantic_token == token
     assert list_memory[0] == 1
     _, exposed_list = next(list_memory.backers())
-    assert exposed_list == (1, 2, 3, 4)
-    try:
-        exposed_list[0] = 9
-    except TypeError:
-        pass
-    else:
-        raise AssertionError("List-backed public memory must be immutable")
+    assert exposed_list == [1, 2, 3, 4]
+    exposed_list[0] = 9
+    assert next(list_memory.backers())[1] == [1, 2, 3, 4]
+    assert next(list_memory.backers())[1] is not exposed_list
+    assert list_memory.semantic_token == token
+    assert list_memory[0] == 1
 
     child = cle.Clemory(None)
     child.add_backer(0, b"abcd")
@@ -219,6 +219,33 @@ def test_clemory_mutable_backer_aliases_are_detached_and_public_backers_are_immu
         _, exposed = next(memory.backers())
         assert isinstance(exposed, bytes)
         assert exposed == b"abcd"
+
+
+def test_public_backer_snapshot_cache_tracks_mutations_copies_and_pickle():
+    child = cle.Clemory(None)
+    child.add_backer(0, b"a" * 32)
+    parent = cle.Clemory(None, root=True)
+    parent.add_backer(0, child)
+
+    first = next(parent.backers())[1]
+    assert next(parent.backers())[1] is first
+    child.store(0, b"b")
+    changed = next(parent.backers())[1]
+    assert changed == b"b" + b"a" * 31
+    assert changed is not first
+
+    parent.store(0, b"b")
+    assert next(parent.backers())[1] is changed
+
+    independent = copy.deepcopy(parent)
+    restored = pickle.loads(pickle.dumps(parent, -1))
+    for clone in (independent, restored):
+        snapshot = next(clone.backers())[1]
+        assert snapshot == changed
+        assert snapshot is next(clone.backers())[1]
+        clone.store(1, b"c")
+        assert next(clone.backers())[1] == b"bc" + b"a" * 30
+        assert next(parent.backers())[1] is changed
 
 
 def test_crypt_sentinel_guards_public_and_trusted_backer_iterators():
@@ -240,6 +267,11 @@ def test_crypt_sentinel_guards_public_and_trusted_backer_iterators():
                 pass
             else:
                 raise AssertionError("Encrypted memory must not be exposed through a backer iterator")
+
+    public_before = list(memory.backers(0))
+    public_after = list(memory.backers(0))
+    assert [backer for _, backer in public_before] == [b"a", b"d"]
+    assert all(left is right for (_, left), (_, right) in zip(public_before, public_after))
 
     assert memory.load(0, 1) == b"a"
     assert memory.load(3, 1) == b"d"
