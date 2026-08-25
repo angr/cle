@@ -19,6 +19,7 @@ from elftools.dwarf.dwarf_expr import DWARFExprParser
 from elftools.dwarf.dwarfinfo import DWARFInfo
 from elftools.dwarf.ranges import BaseAddressEntry, RangeEntry
 from elftools.elf import dynamic, elffile, enums, sections
+from elftools.elf.constants import E_FLAGS
 from elftools.elf.relocation import RelocationSection, RelrRelocationSection
 from sortedcontainers import SortedDict
 
@@ -347,10 +348,16 @@ class ELF(MetaELF):
                 cpu_name = arm_attrs["TAG_CPU_NAME"]
                 if "Cortex-M" in cpu_name or "-M" in cpu_name:
                     return archinfo.ArchARMCortexM("Iend_LE")
+            endness = archinfo.Endness.LE if reader.little_endian else archinfo.Endness.BE
+            # BE8 keeps instruction words little-endian while data stays big-endian. The flag is
+            # independent of the float-ABI bits below, so read it alongside them rather than after.
+            instruction_endness = archinfo.Endness.LE if reader.header.e_flags & E_FLAGS.EF_ARM_BE8 else None
             if reader.header.e_flags & 0x200:
-                return archinfo.ArchARMEL("Iend_LE" if reader.little_endian else "Iend_BE")
+                return archinfo.ArchARMEL(endness, instruction_endness=instruction_endness)
             elif reader.header.e_flags & 0x400:
-                return archinfo.ArchARMHF("Iend_LE" if reader.little_endian else "Iend_BE")
+                return archinfo.ArchARMHF(endness, instruction_endness=instruction_endness)
+            elif instruction_endness is not None:
+                return archinfo.ArchARM(endness, instruction_endness=instruction_endness)
 
         try:
             return archinfo.arch_from_id(arch_str, "le" if reader.little_endian else "be", reader.elfclass)

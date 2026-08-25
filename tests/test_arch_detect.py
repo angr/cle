@@ -30,5 +30,25 @@ class TestArchPcodeDetect(unittest.TestCase):
         assert arch.name == "68000:BE:32:default"
 
 
+class TestArmArchDetect(unittest.TestCase):
+    """
+    Test ARM architecture detection.
+    """
+
+    def test_elf_arm_be8(self):
+        binpath = os.path.join(test_location, "armeb/be8_loop")
+        arch = cle.Loader(binpath, auto_load_libs=False).main_object.arch
+        assert arch.name == "ARMHF"
+        assert arch.memory_endness == archinfo.Endness.BE
+        assert arch.instruction_endness == archinfo.Endness.LE
+
+    def test_elf_arm_be32(self):
+        binpath = os.path.join(test_location, "armeb/be32_loop")
+        arch = cle.Loader(binpath, auto_load_libs=False).main_object.arch
+        assert arch.name == "ARMHF"
+        assert arch.memory_endness == archinfo.Endness.BE
+        assert arch.instruction_endness == archinfo.Endness.BE
+
+
 if __name__ == "__main__":
     unittest.main()
