@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import bisect
+import copy
+import heapq
 import itertools
 import struct
-from collections.abc import Iterator
+import uuid
+import weakref
+from collections.abc import Iterator, Sized
+from contextlib import contextmanager
 from mmap import mmap
 from typing import Any, cast
 
@@ -11,13 +16,40 @@ import archinfo
 
 __all__ = ("ClemoryBase", "Clemory", "ClemoryView", "ClemoryTranslator", "UninitializedClemory")
 
+_UNMAPPED = object()
+
+
+def _contents_equal(left, right) -> bool:
+    try:
+        return bool(left == right)
+    except Exception:  # pylint: disable=broad-exception-caught
+        # Arbitrary list-backed memory values may have unusual equality implementations.
+        return False
+
+
+class _SemanticChangeEvent:
+    """One byte/layout mutation propagated through a Clemory ownership graph."""
+
+    __slots__ = ("_seen", "semantic", "structural")
+
+    def __init__(self, structural: bool = False, semantic: bool = True):
+        self._seen = weakref.WeakSet()
+        self.semantic = semantic
+        self.structural = structural
+
+    def visit(self, memory: Clemory) -> bool:
+        if memory in self._seen:
+            return False
+        self._seen.add(memory)
+        return True
+
 
 class ClemoryBase:
     """
     The base class of all Clemory classes.
     """
 
-    __slots__ = ("_arch", "_pointer")
+    __slots__ = ("_arch", "_pointer", "__weakref__")
 
     def __init__(self, arch):
         self._arch = arch
@@ -38,8 +70,31 @@ class ClemoryBase:
     def store(self, addr, data):
         raise NotImplementedError
 
-    def backers(self, addr=0):
+    @property
+    def semantic_token(self) -> str:
+        """A stable identity for the current byte-level semantics of this memory."""
         raise NotImplementedError
+
+    @property
+    def layout_token(self) -> str:
+        """A stable identity for the current backing layout of this memory."""
+        raise NotImplementedError
+
+    def _backers_for_reading(self, addr=0):
+        """Yield private backing storage to trusted, read-only implementation code.
+
+        Callers must never retain or mutate the returned objects. Public consumers must
+        use :meth:`backers`, which returns immutable snapshots.
+        """
+        raise NotImplementedError
+
+    def _assert_read_access(self, addr: int, size: int) -> None:
+        """Validate a read before any bytes are returned. Subclasses may impose access policies."""
+
+    def backers(self, addr=0):
+        """Iterate over immutable snapshots of the mapped backers at or after ``addr``."""
+        for start, backer in self._backers_for_reading(addr):
+            yield start, tuple(backer) if isinstance(backer, list) else bytes(backer)
 
     def find(self, data, search_min=None, search_max=None) -> Iterator[int]:
         raise NotImplementedError
@@ -49,8 +104,9 @@ class ClemoryBase:
         Use the ``struct`` module to unpack the data at address `addr` with the format `fmt`.
         """
 
+        self._assert_read_access(addr, struct.calcsize(fmt))
         try:
-            start, backer = next(self.backers(addr))
+            start, backer = next(self._backers_for_reading(addr))
         except StopIteration:
             raise KeyError(addr)  # pylint: disable=raise-missing-from
 
@@ -120,19 +176,24 @@ class ClemoryBase:
         """
 
         try:
-            start, backer = next(self.backers(addr))
+            start, backer = next(self._backers_for_reading(addr))
         except StopIteration:
             raise KeyError(addr)  # pylint: disable=raise-missing-from
 
         if start > addr:
             raise KeyError(addr)  # pylint: disable=raise-missing-from
 
-        try:
-            return struct.pack_into(fmt, backer, addr - start, *data)
-        except struct.error as e:
-            if len(backer) - (addr - start) >= struct.calcsize(fmt):
-                raise e
-            raise KeyError(addr)  # pylint: disable=raise-missing-from
+        offset = addr - start
+        size = struct.calcsize(fmt)
+        if len(backer) - offset < size:
+            raise KeyError(addr)
+        if isinstance(backer, list):
+            packed = bytearray(backer)
+            struct.pack_into(fmt, packed, offset, *data)
+            self.store(addr, packed[offset : offset + size])
+            return None
+        self.store(addr, struct.pack(fmt, *data))
+        return None
 
     def pack_word(
         self,
@@ -195,7 +256,19 @@ class Clemory(ClemoryBase):
     Accesses can be made with [index] notation.
     """
 
-    __slots__ = ("_backers", "_root", "consecutive", "min_addr", "max_addr")
+    __slots__ = (
+        "_backers",
+        "_root",
+        "consecutive",
+        "min_addr",
+        "max_addr",
+        "_semantic_epoch",
+        "_semantic_revision",
+        "_layout_epoch",
+        "_layout_revision",
+        "_semantic_observers",
+        "_semantic_suppression_depth",
+    )
 
     def __init__(self, arch: archinfo.Arch, root: bool = False):
         super().__init__(arch)
@@ -204,6 +277,208 @@ class Clemory(ClemoryBase):
         self.consecutive: bool = True
         self.min_addr: int = 0
         self.max_addr: int = 0
+        self._semantic_epoch = uuid.uuid4().hex
+        self._semantic_revision = 0
+        self._layout_epoch = uuid.uuid4().hex
+        self._layout_revision = 0
+        self._semantic_observers: dict[int, weakref.WeakMethod] = {}
+        self._semantic_suppression_depth = 0
+
+    @property
+    def semantic_token(self) -> str:
+        return f"{self._semantic_epoch}:{self._semantic_revision}"
+
+    @property
+    def layout_token(self) -> str:
+        return f"{self._layout_epoch}:{self._layout_revision}"
+
+    def __copy__(self):
+        return self
+
+    def __deepcopy__(self, memo):
+        if self.__class__ is not Clemory:
+            raise TypeError(f"Independent copies of {self.__class__.__name__} are not supported")
+        existing = memo.get(id(self))
+        if existing is not None:
+            return existing
+
+        clone = self.__class__.__new__(self.__class__)
+        memo[id(self)] = clone
+
+        cloned_backers = []
+        for start, backer in self._backers:
+            if isinstance(backer, mmap | memoryview):
+                raise TypeError("Independent copies of mmap-backed Clemory objects are not supported")
+            cloned_backer = copy.deepcopy(backer, memo)
+            cloned_backers.append((start, cloned_backer))
+
+        state = self.__getstate__()
+        state["_arch"] = self._arch
+        state["_backers"] = cloned_backers
+        state["semantic_epoch"] = uuid.uuid4().hex
+        state["semantic_revision"] = 0
+        state["layout_epoch"] = uuid.uuid4().hex
+        state["layout_revision"] = 0
+        clone.__setstate__(state)
+        return clone
+
+    def _semantic_change(
+        self, event=None, *, structural: bool = False, semantic: bool = True, force_forward: bool = False
+    ) -> None:
+        if self._semantic_suppression_depth:
+            return
+        if event is None:
+            event = _SemanticChangeEvent(structural=structural, semantic=semantic)
+        else:
+            if structural:
+                event.structural = True
+            if semantic:
+                event.semantic = True
+        first_visit = event.visit(self)
+        if not first_visit and not force_forward:
+            return
+        if first_visit:
+            if event.semantic:
+                self._semantic_revision += 1
+            if event.structural:
+                self._layout_revision += 1
+
+        stale_observers = []
+        for owner_id, observer_ref in self._semantic_observers.items():
+            observer = observer_ref()
+            if observer is None:
+                stale_observers.append(owner_id)
+            else:
+                observer(event)
+        for owner_id in stale_observers:
+            self._semantic_observers.pop(owner_id, None)
+
+    @contextmanager
+    def _suppress_semantic_changes(self):
+        self._semantic_suppression_depth += 1
+        try:
+            yield
+        finally:
+            self._semantic_suppression_depth -= 1
+
+    def _nested_semantic_change(self, event) -> None:
+        metadata_before = self.min_addr, self.max_addr, self.consecutive
+        if event.structural:
+            self._update_min_max()
+        metadata_changed = metadata_before != (self.min_addr, self.max_addr, self.consecutive)
+        self._semantic_change(event, semantic=False, force_forward=metadata_changed)
+
+    def _contains_nested_clemory(self, candidate: Clemory) -> bool:
+        if self is candidate:
+            return True
+        return any(
+            isinstance(backer, Clemory) and backer._contains_nested_clemory(candidate) for _, backer in self._backers
+        )
+
+    @staticmethod
+    def _backer_end(start, backer) -> int:
+        return start + (backer.max_addr if isinstance(backer, Clemory) else len(cast(Sized, backer)))
+
+    @staticmethod
+    def _slice_backer(backer, start: int, end: int):
+        sliced = backer[start:end]
+        return bytearray(sliced) if isinstance(backer, mmap) else sliced
+
+    def _prepare_overwrite_backers(self, start: int, data) -> tuple[list[tuple[int, Any]], tuple[Clemory, ...]]:
+        end = start + len(cast(Sized, data))
+        replacement_backers = []
+        removed_children = []
+
+        for backer_start, backer in self._backers:
+            backer_end = self._backer_end(backer_start, backer)
+            if backer_end <= start or end <= backer_start:
+                replacement_backers.append((backer_start, backer))
+                continue
+
+            if isinstance(backer, Clemory):
+                if start <= backer_start and backer_end <= end:
+                    removed_children.append(backer)
+                    continue
+                raise ValueError("Cannot partially overwrite a backer which is itself a Clemory")
+
+            if backer_start < start:
+                replacement_backers.append((backer_start, self._slice_backer(backer, 0, start - backer_start)))
+            if end < backer_end:
+                replacement_backers.append((end, self._slice_backer(backer, end - backer_start, len(backer))))
+
+        replacement_backers.append((start, data))
+        replacement_backers.sort(key=lambda item: item[0])
+        return replacement_backers, tuple(removed_children)
+
+    def _observe_nested_clemory(self, child: Clemory) -> None:
+        child._semantic_observers[id(self)] = weakref.WeakMethod(self._nested_semantic_change)
+
+    def _stop_observing_nested_clemory(self, child: Clemory) -> None:
+        if not any(backer is child for _, backer in self._backers):
+            child._semantic_observers.pop(id(self), None)
+
+    def _snapshot_range(self, start: int, size: int) -> tuple:
+        """Snapshot the visible contents and mapped shape of a range without per-address lookups."""
+        if size <= 0:
+            return ()
+
+        end = start + size
+        segments = []
+        for priority, (backer_start, backer, _) in enumerate(self._iter_all_backers_with_owners()):
+            backer_end = backer_start + len(backer)
+            visible_start = max(start, backer_start)
+            visible_end = min(end, backer_end)
+            if visible_start < visible_end:
+                segments.append((visible_start, visible_end, priority, backer_start, backer))
+
+        if not segments:
+            return ()
+
+        additions = {}
+        removals = {}
+        positions = {start, end}
+        for index, (visible_start, visible_end, _, _, _) in enumerate(segments):
+            additions.setdefault(visible_start, []).append(index)
+            removals.setdefault(visible_end, []).append(index)
+            positions.add(visible_start)
+            positions.add(visible_end)
+
+        active = set()
+        active_priorities = []
+        pieces = []
+        sorted_positions = sorted(positions)
+        for position, next_position in itertools.pairwise(sorted_positions):
+            active.difference_update(removals.get(position, ()))
+            for index in additions.get(position, ()):
+                active.add(index)
+                heapq.heappush(active_priorities, (segments[index][2], index))
+            while active_priorities and active_priorities[0][1] not in active:
+                heapq.heappop(active_priorities)
+            if not active_priorities or position == next_position:
+                continue
+
+            _, index = active_priorities[0]
+            _, _, _, backer_start, backer = segments[index]
+            offset = position - backer_start
+            length = next_position - position
+            if isinstance(backer, list):
+                pieces.append((position - start, "list", tuple(backer[offset : offset + length])))
+            else:
+                pieces.append((position - start, "bytes", bytes(memoryview(backer)[offset : offset + length])))
+
+        groups = []
+        for relative_start, kind, payload in pieces:
+            if groups and groups[-1][1] == kind and groups[-1][3] == relative_start:
+                groups[-1][2].append(payload)
+                groups[-1] = groups[-1][:3] + (relative_start + len(payload),)
+            else:
+                groups.append((relative_start, kind, [payload], relative_start + len(payload)))
+
+        snapshot = []
+        for relative_start, kind, payloads, _ in groups:
+            payload = tuple(itertools.chain.from_iterable(payloads)) if kind == "list" else b"".join(payloads)
+            snapshot.append((relative_start, kind, payload))
+        return tuple(snapshot)
 
     def add_backer(
         self, start: int, data: bytes | bytearray | memoryview | list[int] | Clemory | mmap, overwrite: bool = False
@@ -220,70 +495,104 @@ class Clemory(ClemoryBase):
         if not data:
             raise ValueError("Backer is empty!")
 
-        if not isinstance(data, bytes | bytearray | list | Clemory | mmap):
+        if not isinstance(data, bytes | bytearray | memoryview | list | Clemory | mmap):
             raise TypeError("Data must be a bytes, list, or Clemory object.")
-        if overwrite:
-            if isinstance(data, Clemory):
-                raise TypeError("Cannot perform an overwrite-add with a Clemory")
-            self.split_backer(start)
-            self.split_backer(start + len(data))
-            try:
-                self.remove_backer(start)
-            except ValueError:
-                pass
-            try:
-                existing, _ = next(self.backers(start + len(data)))
-            except StopIteration:
-                pass
-            else:
-                if existing < start + len(data):
-                    self.remove_backer(existing)
-        else:
-            try:
-                existing, _ = next(self.backers(start))
-            except StopIteration:
-                pass
-            else:
-                if existing <= start:
-                    raise ValueError(f"Address {start:#x} is already backed!")
         if isinstance(data, Clemory) and data._root:
             raise ValueError("Cannot add a root clemory as a backer!")
-        if isinstance(data, bytes):
+        if isinstance(data, Clemory) and data._contains_nested_clemory(self):
+            raise ValueError("Cannot create a cycle of nested Clemory backers")
+        if overwrite and isinstance(data, Clemory):
+            raise TypeError("Cannot perform an overwrite-add with a Clemory")
+        if isinstance(data, list):
+            data = list(data)
+        elif not isinstance(data, Clemory):
             data = bytearray(data)
-        bisect.insort(self._backers, (start, data), key=lambda x: x[0])
-        self._update_min_max()
+
+        data_size = len(cast(Sized, data)) if overwrite else 0
+        before = self._snapshot_range(start, data_size) if overwrite else None
+        layout_before = tuple((backer_start, id(backer)) for backer_start, backer in self._backers)
+        inserted = False
+        try:
+            with self._suppress_semantic_changes():
+                if overwrite:
+                    replacement_backers, removed_children = self._prepare_overwrite_backers(start, data)
+                    self._backers = replacement_backers
+                    for removed_child in removed_children:
+                        self._stop_observing_nested_clemory(removed_child)
+                    self._update_min_max()
+                    inserted = True
+                else:
+                    try:
+                        existing, _ = next(self._backers_for_reading(start))
+                    except StopIteration:
+                        pass
+                    else:
+                        if existing <= start:
+                            raise ValueError(f"Address {start:#x} is already backed!")
+                    bisect.insort(self._backers, (start, data), key=lambda x: x[0])
+                    inserted = True
+                    if isinstance(data, Clemory):
+                        self._observe_nested_clemory(data)
+                    self._update_min_max()
+        finally:
+            if overwrite:
+                after = self._snapshot_range(start, data_size)
+                layout_changed = layout_before != tuple(
+                    (backer_start, id(backer)) for backer_start, backer in self._backers
+                )
+                if layout_changed:
+                    self._semantic_change(
+                        structural=True,
+                        semantic=not _contents_equal(before, after),
+                    )
+            elif inserted:
+                self._semantic_change(structural=True)
 
     def split_backer(self, addr: int):
         """
         Ensures that ``addr`` is the start of a backer, if it is backed.
         """
-        try:
-            start_addr, backer = next(self.backers(addr))
-        except StopIteration:
-            return
-        if addr <= start_addr:
-            return
-        if isinstance(backer, ClemoryBase):
-            raise ValueError("Cannot split a backer which is itself a clemory")
-        if addr >= start_addr + len(backer):
+        for start_addr, backer in self._backers:
+            end_addr = start_addr + (backer.max_addr if isinstance(backer, Clemory) else len(backer))
+            if not start_addr < addr < end_addr:
+                continue
+            if isinstance(backer, ClemoryBase):
+                raise ValueError("Cannot split a backer which is itself a clemory")
+            break
+        else:
             return
 
-        self.remove_backer(start_addr)
-        b0, b1 = backer[: addr - start_addr], backer[addr - start_addr :]
-        self.add_backer(start_addr, b0)
-        self.add_backer(addr, b1)
+        track_semantics = self._semantic_suppression_depth == 0
+        before = self._snapshot_range(start_addr, len(backer)) if track_semantics else None
+        rewired = False
+        try:
+            with self._suppress_semantic_changes():
+                self.remove_backer(start_addr)
+                rewired = True
+                b0, b1 = backer[: addr - start_addr], backer[addr - start_addr :]
+                self.add_backer(start_addr, b0)
+                self.add_backer(addr, b1)
+        finally:
+            if track_semantics and rewired:
+                after = self._snapshot_range(start_addr, len(backer))
+                self._semantic_change(structural=True, semantic=not _contents_equal(before, after))
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} [{hex(self.min_addr)}:{hex(self.max_addr)}]>"
 
     def remove_backer(self, start):
-        backer_idx = bisect.bisect(self._backers, start, key=lambda x: x[0])
+        backer_idx = bisect.bisect_left(self._backers, start, key=lambda x: x[0])
 
         if len(self._backers) <= backer_idx or self._backers[backer_idx][0] != start:
             raise ValueError("Can't find backer to remove")
 
-        self._backers.pop(backer_idx)
-        self._update_min_max()
+        removed = self._backers.pop(backer_idx)[1]
+        try:
+            self._update_min_max()
+        finally:
+            if isinstance(removed, Clemory):
+                self._stop_observing_nested_clemory(removed)
+            self._semantic_change(structural=True)
 
     def __iter__(self):
         for start, string in self._backers:
@@ -311,8 +620,18 @@ class Clemory(ClemoryBase):
         for start, data in self._backers:
             if isinstance(data, bytearray | list):
                 if 0 <= k - start < len(data):
-                    data[k - start] = v
-                    return
+                    offset = k - start
+                    before = data[offset]
+                    try:
+                        data[offset] = v
+                        return
+                    finally:
+                        try:
+                            after = data[offset]
+                        except Exception:  # pylint: disable=broad-exception-caught
+                            after = _UNMAPPED
+                        if not _contents_equal(before, after):
+                            self._semantic_change()
             elif isinstance(data, Clemory):
                 if data.min_addr <= k - start < data.max_addr:
                     try:
@@ -350,6 +669,10 @@ class Clemory(ClemoryBase):
             "consecutive": self.consecutive,
             "min_addr": self.min_addr,
             "max_addr": self.max_addr,
+            "semantic_epoch": self._semantic_epoch,
+            "semantic_revision": self._semantic_revision,
+            "layout_epoch": self._layout_epoch,
+            "layout_revision": self._layout_revision,
         }
 
         return s
@@ -362,35 +685,81 @@ class Clemory(ClemoryBase):
         self.consecutive = s["consecutive"]
         self.min_addr = s["min_addr"]
         self.max_addr = s["max_addr"]
+        self._semantic_epoch = uuid.uuid4().hex
+        self._semantic_revision = s.get("semantic_revision", 0)
+        self._layout_epoch = uuid.uuid4().hex
+        self._layout_revision = s.get("layout_revision", 0)
+        self._semantic_observers = {}
+        self._semantic_suppression_depth = 0
+        for _, backer in self._backers:
+            if isinstance(backer, Clemory):
+                self._observe_nested_clemory(backer)
 
-    def backers(self, addr=0) -> Iterator[tuple[int, bytearray | memoryview | mmap | list[int]]]:
+    def _iter_all_backers_with_owners(
+        self,
+    ) -> Iterator[tuple[int, bytearray | memoryview | mmap | list[int], Clemory]]:
+        for start, backer in self._backers:
+            if isinstance(backer, Clemory):
+                for child_start, child_backer, owner in backer._iter_all_backers_with_owners():
+                    yield child_start + start, child_backer, owner
+            else:
+                yield start, backer, self
+
+    def _assert_read_access(self, addr: int, size: int) -> None:
+        for start, backer in self._backers:
+            if isinstance(backer, Clemory):
+                backer._assert_read_access(addr - start, size)
+
+    def _iter_all_backers_with_owners_for_reading(
+        self,
+        addr: int,
+    ) -> Iterator[tuple[int, bytes | bytearray | memoryview | mmap | list[int], Clemory]]:
+        for start, backer in self._backers:
+            if isinstance(backer, Clemory):
+                for child_start, child_backer, owner in backer._backers_with_owners_for_reading(addr - start):
+                    yield child_start + start, child_backer, owner
+            else:
+                yield start, backer, self
+
+    def _iter_all_backers_with_owners_for_writing(
+        self, addr: int, size: int
+    ) -> Iterator[tuple[int, bytearray | memoryview | mmap | list[int], Clemory]]:
+        for start, backer in self._backers:
+            if isinstance(backer, Clemory):
+                for child_start, child_backer, owner in backer._backers_with_owners_for_writing(addr - start, size):
+                    yield child_start + start, child_backer, owner
+            else:
+                yield start, backer, self
+
+    def _backers_with_owners(self, addr=0) -> Iterator[tuple[int, bytearray | memoryview | mmap | list[int], Clemory]]:
+        for start, backer, owner in self._iter_all_backers_with_owners():
+            if start + len(backer) > addr:
+                yield start, backer, owner
+
+    def _backers_with_owners_for_reading(
+        self, addr=0
+    ) -> Iterator[tuple[int, bytes | bytearray | memoryview | mmap | list[int], Clemory]]:
+        for start, backer, owner in self._iter_all_backers_with_owners_for_reading(addr):
+            if start + len(backer) > addr:
+                yield start, backer, owner
+
+    def _backers_with_owners_for_writing(
+        self, addr: int, size: int
+    ) -> Iterator[tuple[int, bytearray | memoryview | mmap | list[int], Clemory]]:
+        for start, backer, owner in self._iter_all_backers_with_owners_for_writing(addr, size):
+            if start + len(backer) > addr:
+                yield start, backer, owner
+
+    def _backers_for_reading(self, addr=0) -> Iterator[tuple[int, bytes | bytearray | memoryview | mmap | list[int]]]:
         """
-        Iterate through each backer for this clemory and all its children, yielding tuples of
-        ``(start_addr, backer)`` where each backer is a bytearray.
+        Iterate through each private backer for this clemory and all its children.
 
         :param addr:    An optional starting address - all backers before and not including this
                         address will be skipped.
         """
 
-        def calculate_end(backer: tuple[int, bytes | bytearray | memoryview | mmap | Clemory | list[int]]):
-            start, data = backer
-
-            if isinstance(data, Clemory):
-                return start + data.max_addr
-
-            return start + len(data)
-
-        if self.max_addr < addr:  # All the backers are smaller than addr
-            return
-
-        start_index = bisect.bisect(self._backers, addr, key=calculate_end)
-
-        for start, backer in itertools.islice(self._backers, start_index, None):
-            if isinstance(backer, Clemory):
-                for s, b in backer.backers(addr - start):
-                    yield s + start, b
-            else:
-                yield start, backer
+        for start, backer, _ in self._backers_with_owners_for_reading(addr):
+            yield start, backer
 
     def load(self, addr, n):
         """
@@ -399,9 +768,19 @@ class Clemory(ClemoryBase):
         Reading will stop at the beginning of the first unallocated region found, or when
         `n` bytes have been read.
         """
+        self._assert_read_access(addr, n)
+        if n == 0:
+            for start, backer, _ in self._backers_with_owners(addr):
+                if start > addr:
+                    break
+                if start <= addr < start + len(backer):
+                    if isinstance(backer, list):
+                        raise TypeError("Can't load bytes from Clemory backed by list[int]")
+                    return b""
+            raise KeyError(addr)
         views = []
 
-        for start, backer in self.backers(addr):
+        for start, backer in self._backers_for_reading(addr):
             if start > addr:
                 break
             if isinstance(backer, list):
@@ -429,21 +808,42 @@ class Clemory(ClemoryBase):
         Note: If the store runs off the end of a backer and into unbacked space, this function
         will update the backer but also raise ``KeyError``.
         """
-        for start, backer in self.backers(addr):
-            if start > addr:
+        changed_owners = set()
+        try:
+            # Materialize the policy-aware traversal before changing bytes. A nested memory can reject the write based
+            # on its own access policy, and that rejection must happen before an earlier sibling backer is modified.
+            backers = tuple(self._backers_with_owners_for_writing(addr, len(data)))
+            for start, backer, owner in backers:
+                if start > addr:
+                    raise KeyError(addr)
+                offset = addr - start
+                size = len(backer) - offset
+                write_size = min(len(data), size)
+                before = tuple(backer[offset : offset + write_size])
+                try:
+                    backer[offset : offset + len(data)] = data if len(data) <= size else data[:size]
+                finally:
+                    try:
+                        after = tuple(backer[offset : offset + write_size])
+                    except Exception:  # pylint: disable=broad-exception-caught
+                        changed_owners.add(owner)
+                    else:
+                        if not _contents_equal(before, after):
+                            changed_owners.add(owner)
+
+                addr += size
+                data = data[size:]
+
+                if not data:
+                    break
+
+            if data:
                 raise KeyError(addr)
-            offset = addr - start
-            size = len(backer) - offset
-            backer[offset : offset + len(data)] = data if len(data) <= size else data[:size]
-
-            addr += size
-            data = data[size:]
-
-            if not data:
-                break
-
-        if data:
-            raise KeyError(addr)
+        finally:
+            if changed_owners:
+                event = _SemanticChangeEvent()
+                for owner in changed_owners:
+                    owner._semantic_change(event)
 
     def find(self, data, search_min=None, search_max=None) -> Iterator[int]:
         """
@@ -481,6 +881,12 @@ class Clemory(ClemoryBase):
         """
         Update the three properties of Clemory: consecutive, min_addr, and max_addr.
         """
+
+        if not self._backers:
+            self.consecutive = True
+            self.min_addr = 0
+            self.max_addr = 0
+            return
 
         is_consecutive = True
         next_start = None
@@ -545,6 +951,14 @@ class ClemoryView(ClemoryBase):
         self._endoffset = offset + (end - start)
         self._rebase = self._start - self._offset
 
+    @property
+    def semantic_token(self) -> str:
+        return self._backer.semantic_token
+
+    @property
+    def layout_token(self) -> str:
+        return self._backer.layout_token
+
     def __getitem__(self, k):
         if not self._offset <= k < self._endoffset:
             raise KeyError(k)
@@ -553,15 +967,15 @@ class ClemoryView(ClemoryBase):
     def __setitem__(self, k, v):
         if not self._offset <= k < self._endoffset:
             raise KeyError(k)
-        return self._backer[k + self._rebase]
+        self._backer[k + self._rebase] = v
 
     def __contains__(self, k):
         if not self._offset <= k < self._endoffset:
             raise KeyError(k)
         return k + self._rebase in self._backer
 
-    def backers(self, addr=0):
-        for oaddr, backer in self._backer.backers(addr=addr + self._rebase):
+    def _backers_for_reading(self, addr=0):
+        for oaddr, backer in self._backer._backers_for_reading(addr=addr + self._rebase):
             taddr = oaddr - self._rebase
             if self._offset <= taddr < self._endoffset and self._offset <= taddr + len(backer) - 1 < self._endoffset:
                 yield taddr, backer
@@ -619,6 +1033,14 @@ class ClemoryTranslator(ClemoryBase):
         self.backer = backer
         self.func = func
 
+    @property
+    def semantic_token(self) -> str:
+        return self.backer.semantic_token
+
+    @property
+    def layout_token(self) -> str:
+        return self.backer.layout_token
+
     def __getitem__(self, k):
         return self.backer[self.func(k)]
 
@@ -634,7 +1056,10 @@ class ClemoryTranslator(ClemoryBase):
     def store(self, addr, data):
         self.backer.store(self.func(addr), data)
 
-    def backers(self, addr=0):
+    def pack(self, addr: int, fmt: str, *data):
+        return self.backer.pack(self.func(addr), fmt, *data)
+
+    def _backers_for_reading(self, addr=0):
         raise TypeError("Cannot access backers through address translation")
 
     def find(self, data, search_min=None, search_max=None) -> Iterator[int]:
@@ -662,7 +1087,7 @@ class UninitializedClemory(Clemory):
     def remove_backer(self, start):
         raise ValueError("This is an uninitialized clemory, backers cannot be removed")
 
-    def backers(self, addr=0):
+    def _backers_for_reading(self, addr=0):
         """
         Technically this object has no real backer
         We could create a fake backer on demand, but that would be a waste of memory, and code like the
@@ -700,10 +1125,28 @@ class ClemoryReadOnlyView(ClemoryBase):
 
         # cache
         self._last_backer_pos: int | None = None
+        self._layout_token = clemory.layout_token
 
         self._flatten_backers()
 
+    @property
+    def semantic_token(self) -> str:
+        return self._clemory.semantic_token
+
+    @property
+    def layout_token(self) -> str:
+        return self._clemory.layout_token
+
+    def _refresh_if_stale(self) -> None:
+        if getattr(self, "_layout_token", None) != self._clemory.layout_token:
+            self._flattened_backers.clear()
+            self._last_backer_pos = None
+            self._flatten_backers()
+            self._layout_token = self._clemory.layout_token
+
     def __getitem__(self, k) -> int:
+        self._assert_read_access(k, 1)
+        self._refresh_if_stale()
         # check cache first
         if self._last_backer_pos is not None:
             start, data = self._flattened_backers[self._last_backer_pos]
@@ -731,6 +1174,10 @@ class ClemoryReadOnlyView(ClemoryBase):
         Reading will stop at the beginning of the first unallocated region found, or when
         `n` bytes have been read.
         """
+        self._assert_read_access(addr, n)
+        if n == 0:
+            return self._clemory.load(addr, 0)
+        self._refresh_if_stale()
         # check cache first
         if self._last_backer_pos is not None:
             start, data = self._flattened_backers[self._last_backer_pos]
@@ -748,6 +1195,8 @@ class ClemoryReadOnlyView(ClemoryBase):
             if start > addr:
                 break
             offset = addr - start
+            if not 0 <= offset < len(data):
+                break
             if not views and offset + n < len(data):
                 # only cache if we do not need to read across backers
                 self._last_backer_pos = i
@@ -768,7 +1217,8 @@ class ClemoryReadOnlyView(ClemoryBase):
     def store(self, addr, data):
         raise NotImplementedError("ClemoryReadOnlyView does not support storing")
 
-    def backers(self, addr: int = 0):
+    def _backers_for_reading(self, addr: int = 0):
+        self._refresh_if_stale()
         start_pos = bisect.bisect_right(self._flattened_backers, addr, key=lambda x: x[0])
         if start_pos > 0:
             start_pos -= 1
@@ -780,6 +1230,8 @@ class ClemoryReadOnlyView(ClemoryBase):
                 yield start, data
 
     def unpack(self, addr, fmt):
+        self._assert_read_access(addr, struct.calcsize(fmt))
+        self._refresh_if_stale()
         if self._last_backer_pos is not None:
             start, data = self._flattened_backers[self._last_backer_pos]
             if 0 <= addr - start < len(data):
@@ -807,8 +1259,11 @@ class ClemoryReadOnlyView(ClemoryBase):
                 raise ex
             raise KeyError(addr) from ex
 
+    def _assert_read_access(self, addr: int, size: int) -> None:
+        self._clemory._assert_read_access(addr, size)
+
     def _flatten_backers(self):
-        for start, backer in self._clemory.backers():
+        for start, backer in self._clemory._backers_for_reading():
             if isinstance(backer, bytearray):
                 self._flattened_backers.append((start, backer))
             elif isinstance(backer, list):
