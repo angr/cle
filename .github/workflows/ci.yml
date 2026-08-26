@@ -47,9 +47,9 @@ jobs:
       - name: Sync Pyodide dependencies
         working-directory: workspace/cle
         run: |
-          uv sync --python pyodide@3.14 --group pyodide-testing --no-install-package pyvex \
+          uv sync --python pyodide@3.14 --group pyodide-testing --find-links ../wheels \
+            --no-sources-package pyvex \
             --no-build-package bitarray --no-build-package cffi --no-build-package pycryptodome
-          uv pip install --python .venv/bin/python --no-deps --force-reinstall ../wheels/pyvex*.whl
       - name: Test CLE in Pyodide
         working-directory: workspace/cle
         run: uv run --no-sync pytest tests
