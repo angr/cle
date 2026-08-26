@@ -11,6 +11,49 @@ jobs:
   ci:
     uses: angr/ci-settings/.github/workflows/angr-ci.yml@master
 
+  pyodide:
+    name: Test (Pyodide)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout CLE
+        uses: actions/checkout@v6
+        with:
+          path: workspace/cle
+      - name: Checkout PyVEX
+        uses: actions/checkout@v6
+        with:
+          repository: angr/pyvex
+          path: workspace/pyvex
+          submodules: recursive
+      - id: binaries-ref
+        uses: angr/ci-settings/actions/binaries-ref@master
+      - name: Checkout test binaries
+        uses: actions/checkout@v6
+        with:
+          repository: angr/binaries
+          path: workspace/binaries
+          ref: ${{ steps.binaries-ref.outputs.ref }}
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+      - name: Build PyVEX for Pyodide
+        uses: pypa/cibuildwheel@v4.1.0
+        with:
+          package-dir: workspace/pyvex
+          output-dir: workspace/wheels
+        env:
+          CIBW_PLATFORM: pyodide
+          CIBW_PYODIDE_VERSION: "314.0.0"
+          CIBW_TEST_COMMAND: pytest {package}/tests
+      - name: Sync Pyodide dependencies
+        working-directory: workspace/cle
+        run: |
+          uv sync --python pyodide@3.14 --group pyodide-testing --find-links ../wheels \
+            --no-sources-package pyvex \
+            --no-build-package bitarray --no-build-package cffi --no-build-package pycryptodome
+      - name: Test CLE in Pyodide
+        working-directory: workspace/cle
+        run: uv run --no-sync pytest tests
+
   test:
     name: Test ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
