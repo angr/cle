@@ -301,6 +301,7 @@ class PE(Backend):
 
         mapped_data_lst: list[bytes] = [self._pe.header]
         mapped_data_len = len(self._pe.header)
+        image_end = mapped_data_len
         for sec in self._pe.sections:
             if sec.Misc_VirtualSize == 0 and sec.SizeOfRawData == 0:
                 # skip empty sections
@@ -340,6 +341,16 @@ class PE(Backend):
             sec_data = sec.get_data()
             mapped_data_lst.append(sec_data)
             mapped_data_len += len(sec_data)
+
+            if size == sec.SizeOfRawData:
+                # a section is mapped over its whole virtual size, and the part of it the file holds no raw data for
+                # is zero. A section the file cuts short is not this case: those bytes are unknown, not zero.
+                image_end = max(image_end, va_adj + sec.Misc_VirtualSize)
+
+        if mapped_data_len < image_end:
+            # the padding that precedes a section is what backs the previous one's virtual size, so the last section
+            # of all has nothing to back its own
+            mapped_data_lst.append(b"\x00" * (image_end - mapped_data_len))
 
         return b"".join(mapped_data_lst)
 
