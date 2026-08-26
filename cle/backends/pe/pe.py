@@ -178,12 +178,14 @@ class PE(Backend):
         self.linking = "dynamic" if self.deps else "static"
         self.jmprel = self._get_jmprel()
         mapped_image = self._get_memory_mapped_image()
-        if self.max_addr - self.min_addr < len(mapped_image):
+        # max_addr is the last address the object covers, not one past it.
+        mapped_size = self.max_addr - self.min_addr + 1
+        if mapped_size < len(mapped_image):
             # we are loading more bytes than max_addr would allow (there is data at the end of the file that is not
             # covered by any sections), so we need to truncate mapped_image.
             # this is actually caused by PE.get_memory_mapped_image() not passing ignore_padding=True to
             # section.get_data().
-            mapped_image = mapped_image[: self.max_addr - self.min_addr]
+            mapped_image = mapped_image[:mapped_size]
         self.memory.add_backer(0, mapped_image)
 
         if debug_symbols or self.loader._load_debug_info:
