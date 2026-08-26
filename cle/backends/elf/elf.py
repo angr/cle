@@ -19,6 +19,7 @@ from elftools.dwarf.dwarf_expr import DWARFExprParser
 from elftools.dwarf.dwarfinfo import DWARFInfo
 from elftools.dwarf.ranges import BaseAddressEntry, RangeEntry
 from elftools.elf import dynamic, elffile, enums, sections
+from elftools.elf.constants import E_FLAGS
 from elftools.elf.relocation import RelocationSection, RelrRelocationSection
 from sortedcontainers import SortedDict
 
@@ -353,10 +354,16 @@ class ELF(MetaELF):
                 cpu_name = arm_attrs["TAG_CPU_NAME"]
                 if "Cortex-M" in cpu_name or "-M" in cpu_name:
                     return archinfo.ArchARMCortexM("Iend_LE")
+            endness = archinfo.Endness.LE if reader.little_endian else archinfo.Endness.BE
+            # EF_ARM_BE8 marks big-endian data with little-endian instruction words, the layout
+            # ARMv6 introduced. It is independent of the float-ABI bits, so read it alongside them.
+            instruction_endness = archinfo.Endness.LE if reader.header.e_flags & E_FLAGS.EF_ARM_BE8 else None
             if reader.header.e_flags & 0x200:
-                return archinfo.ArchARMEL("Iend_LE" if reader.little_endian else "Iend_BE")
-            elif reader.header.e_flags & 0x400:
-                return archinfo.ArchARMHF("Iend_LE" if reader.little_endian else "Iend_BE")
+                return archinfo.ArchARMEL(endness, instruction_endness=instruction_endness)
+            if reader.header.e_flags & 0x400:
+                return archinfo.ArchARMHF(endness, instruction_endness=instruction_endness)
+            if instruction_endness is not None:
+                return archinfo.ArchARM(endness, instruction_endness=instruction_endness)
 
         if arch_str == "EM_MIPS" and reader.elfclass == 32:
             # The n32 and O64 ABIs put a 64-bit MIPS instruction stream in an ELFCLASS32
