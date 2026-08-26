@@ -6,10 +6,14 @@ import os
 import re
 import struct
 from collections.abc import Callable
+from io import BytesIO
 from typing import Any
 
 import archinfo
 import pefile
+from elftools.common.exceptions import DWARFError, ELFParseError
+from elftools.dwarf import callframe
+from elftools.dwarf.structs import DWARFStructs
 
 try:
     import pyxdia
@@ -476,9 +480,39 @@ class PE(Backend):
                     FunctionHint(
                         entry.struct.BeginAddress + self.linked_base,
                         entry.struct.EndAddress - entry.struct.BeginAddress,
-                        FunctionHintSource.EH_FRAME,
+                        FunctionHintSource.EXCEPTION_DIRECTORY,
                     )
                 )
+
+        self._load_function_hints_from_gnu_eh_frame()
+
+    def _load_function_hints_from_gnu_eh_frame(self):
+        for section in self._pe.sections:
+            if self._get_section_name(section) != ".eh_frame":
+                continue
+
+            section_data = section.get_data()
+            section_size = min(section.Misc_VirtualSize or section.SizeOfRawData, len(section_data))
+            cfi = callframe.CallFrameInfo(
+                BytesIO(section_data),
+                section_size,
+                self.linked_base + section.VirtualAddress,
+                DWARFStructs(little_endian=True, dwarf_format=32, address_size=self.arch.bytes),
+                for_eh_frame=True,
+            )
+            try:
+                for entry in cfi.get_entries():
+                    if isinstance(entry, callframe.FDE):
+                        self.function_hints.append(
+                            FunctionHint(
+                                entry.header["initial_location"],
+                                entry.header["address_range"],
+                                FunctionHintSource.EH_FRAME,
+                            )
+                        )
+            except (DWARFError, ELFParseError, ValueError):
+                log.warning("An exception occurred while loading PE .eh_frame FDE information.", exc_info=True)
+            break
 
     def _parse_meta_regions(self):
         """
@@ -1096,19 +1130,20 @@ class PE(Backend):
         offset += self._pe.FILE_HEADER.PointerToSymbolTable + self._pe.FILE_HEADER.NumberOfSymbols * 18
         return extract_null_terminated_bytestr(self._raw_data, offset).decode(encoding)
 
+    def _get_section_name(self, pe_section) -> str:
+        name = pe_section.Name.rstrip(b"\x00").decode("latin-1")
+        str_tbl_offset_match = SECTION_NAME_STRING_TABLE_OFFSET_RE.fullmatch(name)
+        if str_tbl_offset_match:
+            return self._read_from_string_table(int(str_tbl_offset_match.group(1)))
+        return name
+
     def _register_sections(self):
         """
         Wrap self._pe.sections in PESection objects, and add them to self.sections.
         """
 
         for pe_section in self._pe.sections:
-            name = pe_section.Name.rstrip(b"\x00").decode("latin-1")
-            # Match indirect section names given by a forward slash and a
-            # decimal byte offset into the string table.
-            str_tbl_offset_match = SECTION_NAME_STRING_TABLE_OFFSET_RE.fullmatch(name)
-            if str_tbl_offset_match:
-                str_tbl_offset = int(str_tbl_offset_match.group(1))
-                name = self._read_from_string_table(str_tbl_offset)
+            name = self._get_section_name(pe_section)
             section = PESection(pe_section, remap_offset=self.linked_base, name=name)
             self.sections.append(section)
             self.sections_map[section.name] = section
