@@ -340,6 +340,30 @@ def test_symbol_is_function():
     assert not symbols["_printf"].is_function
 
 
+def test_arm_thumb_definition_carries_the_flag_in_its_address():
+    machofile = os.path.join(TEST_BASE, "tests", "armhf", "FileProtection-05.armv7.macho")
+    ld = cle.Loader(machofile, auto_load_libs=False)
+    macho = ld.main_object
+    assert isinstance(macho, cle.MachO)
+    assert macho.arch.name == "ARMEL"
+
+    symbols = {sym.name: sym for sym in macho.symbols if isinstance(sym, SymbolTableSymbol)}
+
+    # n_value is 0x83a8 and n_desc says Thumb. ELF would have stated both in st_value.
+    main = symbols["_main"]
+    assert main.is_function
+    assert main.is_thumb_definition
+    assert main.rebased_addr == 0x83A9
+
+    # The one ARM-mode definition in this image keeps the address the file gives it.
+    helpers = symbols[" stub helpers"]
+    assert helpers.is_function
+    assert not helpers.is_thumb_definition
+    assert helpers.rebased_addr == 0xA2F0
+
+    assert sum(1 for sym in symbols.values() if sym.is_function) == 74
+
+
 def test_find_symbol():
     machofile = os.path.join(TEST_BASE, "tests", "x86_64", "fauxware.macho")
     ld = cle.Loader(machofile, auto_load_libs=False)

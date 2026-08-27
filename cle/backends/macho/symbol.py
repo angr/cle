@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from archinfo.arch_arm import is_arm_arch
+
 from cle import AT
 from cle.backends.backend import Backend
 from cle.backends.symbol import Symbol, SymbolType
@@ -23,6 +25,7 @@ SYMBOL_TYPE_PBUD = 0xC
 SYMBOL_TYPE_INDIR = 0xA
 N_STAB = 0xE0  # actually a mask
 N_EXT = 0x01  # external symbol bit
+N_ARM_THUMB_DEF = 0x0008  # n_desc bit: this definition is Thumb code
 
 LIBRARY_ORDINAL_SELF = 0x0
 LIBRARY_ORDINAL_OLD_MAX = 0xFE
@@ -120,6 +123,17 @@ class SymbolTableSymbol(AbstractMachOSymbol):
         else:
             # The n_value is probably an address, but we need to convert it to a relative address
             addr = AT.from_lva(n_value, owner).to_rva()
+
+        # ARM states in n_desc that a definition is Thumb and leaves n_value even; ELF states the same thing in
+        # bit 0 of st_value, and that is where the rest of the stack reads it. Normalise to the ELF convention.
+        if (
+            (n_type & N_STAB) == 0
+            and (n_type & 0x0E) == SYMBOL_TYPE_SECT
+            and n_desc & N_ARM_THUMB_DEF
+            and is_arm_arch(owner.arch)
+            and owner.arch.bits == 32
+        ):
+            addr |= 1
 
         # now we may call super
         # however we cannot access any properties yet that would touch superclass-initialized attributes
