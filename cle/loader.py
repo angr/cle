@@ -841,6 +841,16 @@ class Loader:
 
         while self._auto_load_libs and dependencies:
             spec = dependencies.pop(0)
+            # SECURITY: dependency names originate from the input binary (e.g. DT_NEEDED
+            # strings) and must be treated as bare library names, never as paths: an
+            # absolute spec makes os.path.join() discard the search directories entirely,
+            # and '..' components escape them. Both open attacker-chosen host files.
+            if os.path.isabs(spec) or "/" in spec or "\\" in spec:
+                log.warning(
+                    "Refusing to resolve path-like dependency name %r from the input binary", spec
+                )
+                cached_failures.add(spec)
+                continue
             if spec in cached_failures:
                 log.debug("Skipping implicit dependency %s - cached failure", spec)
                 continue

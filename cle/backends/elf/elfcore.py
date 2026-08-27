@@ -56,6 +56,12 @@ class ELFCore(ELF):
         self._page_size = 0x1000  # a default page size, will be changed later by parsing notes
         self._main_object = None
 
+        # SECURITY: NT_FILE filenames are attacker-controllable strings embedded in the
+        # input file. Only honor them when the analyst has explicitly authorized a mapping.
+        self._honor_file_notes = (
+            executable is not None or remote_file_mapping is not None or remote_file_mapper is not None
+        )
+
         if remote_file_mapping is not None:
             self._remote_file_mapper = lambda x: remote_file_mapping.get(x, x)
         else:
@@ -412,6 +418,14 @@ class ELFCore(ELF):
         self.loader.page_size = self._page_size
         self.loader._perform_relocations = False
 
+        if not self._honor_file_notes:
+            log.warning(
+                "Ignoring NT_FILE mappings in core dump: filenames embedded in the input file are not trusted "
+                "as host paths. Pass executable=, remote_file_mapping= or remote_file_mapper= to enable "
+                "loading children from core notes."
+            )
+            return
+
         # hack: we are using a loader internal method in a non-kosher way which will cause our children to be
         # marked as the main binary if we are also the main binary
         # work around this by setting ourself here:
@@ -433,7 +447,9 @@ class ELFCore(ELF):
             try:
                 with open(filename, "rb") as fp:
                     obj = self.loader._load_object_isolated(fp)
-            except (FileNotFoundError, PermissionError, CLECompatibilityError) as ex:
+            except (OSError, CLEError, CLECompatibilityError) as ex:
+                # OSError covers FileNotFoundError / PermissionError / IsADirectoryError;
+                # CLEError covers backend refusals raised during partial loading
                 if isinstance(ex, FileNotFoundError):
                     log.warning(
                         "Dependency %s does not exist on the current system; this core may be incomplete.", filename
