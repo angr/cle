@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import collections
 import os
+import sys
+import unittest
 
 import cle
 from cle.backends.uefi_firmware import UefiPE, UefiTE
@@ -17,6 +19,7 @@ from cle.backends.uefi_firmware import UefiPE, UefiTE
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
 # an EDK2 ArmVirtQemu build: DXE drivers and applications as PE32, the SEC core and the PEI phase as TE
 FIRMWARE = os.path.join(TEST_BASE, "tests", "aarch64", "edk2_armvirtqemu.fd")
+requires_uefi_firmware = unittest.skipIf(sys.platform == "emscripten", "uefi-firmware is unavailable in Pyodide")
 
 
 def load():
@@ -27,6 +30,7 @@ def modules_by_name(firmware):
     return {module.user_interface_name: module for module in firmware.child_objects}
 
 
+@requires_uefi_firmware
 def test_every_module_type_loads():
     firmware = load()
 
@@ -38,6 +42,7 @@ def test_every_module_type_loads():
     }
 
 
+@requires_uefi_firmware
 def test_pei_phase_modules():
     firmware = load()
 
@@ -56,6 +61,7 @@ def test_pei_phase_modules():
     }
 
 
+@requires_uefi_firmware
 def test_dxe_core_and_applications():
     modules = modules_by_name(load())
 
@@ -64,6 +70,7 @@ def test_dxe_core_and_applications():
         assert isinstance(modules[name], UefiPE)
 
 
+@requires_uefi_firmware
 def test_real_te_image():
     firmware = load()
     module = modules_by_name(firmware)["MemoryInit"]
@@ -77,6 +84,7 @@ def test_real_te_image():
     assert firmware.loader.memory.load(module.entry, 8) == b"\xff\x43\x03\xd1\xfd\x7b\x07\xa9"
 
 
+@requires_uefi_firmware
 def test_relocatable_te_image():
     module = modules_by_name(load())["Tcg2Pei"]
 
@@ -85,6 +93,7 @@ def test_relocatable_te_image():
     assert module.pic
 
 
+@requires_uefi_firmware
 def test_execute_in_place_modules_keep_their_addresses():
     firmware = load()
 
