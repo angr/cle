@@ -78,7 +78,7 @@ cle = ["py.typed"]
 py_limited_api = "cp312"
 
 [tool.uv.sources]
-archinfo = { git = "https://github.com/angr/archinfo.git", branch = "master" }
+archinfo = { git = "https://github.com/angr/archinfo.git", branch = "be8/arch" }
 bitarray = { index = "pyodide", marker = "sys_platform == 'emscripten'" }
 cffi = { index = "pyodide", marker = "sys_platform == 'emscripten'" }
 pycryptodome = { index = "pyodide", marker = "sys_platform == 'emscripten'" }
