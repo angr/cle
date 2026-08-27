@@ -846,9 +846,7 @@ class Loader:
             # absolute spec makes os.path.join() discard the search directories entirely,
             # and '..' components escape them. Both open attacker-chosen host files.
             if os.path.isabs(spec) or "/" in spec or "\\" in spec:
-                log.warning(
-                    "Refusing to resolve path-like dependency name %r from the input binary", spec
-                )
+                log.warning("Refusing to resolve path-like dependency name %r from the input binary", spec)
                 cached_failures.add(spec)
                 continue
             if spec in cached_failures:
