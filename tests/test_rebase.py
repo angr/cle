@@ -1,8 +1,14 @@
 from __future__ import annotations
 
 import os
+import unittest
 
 import archinfo
+
+try:
+    import pypcode
+except ImportError:
+    pypcode = None
 
 import cle
 
@@ -91,6 +97,7 @@ def test_image_in_the_top_half_leaves_the_null_page_free():
     assert ld.find_object_containing(0) is None
 
 
+@unittest.skipUnless(pypcode is not None, "pypcode not installed")
 def test_narrow_address_space_leaves_the_null_page_free():
     """
     A 16-bit image at 0x4000 leaves 48 KB above it, and a z80 reaches address 0 with RST and
@@ -105,6 +112,7 @@ def test_narrow_address_space_leaves_the_null_page_free():
     ld.memory.unpack_word(extern.min_addr, size=1)
 
 
+@unittest.skipUnless(pypcode is not None, "pypcode not installed")
 def test_null_page_is_used_when_the_address_space_has_nothing_else():
     """
     Keeping the null page free is a preference, not a constraint. A 16-bit address space with
