@@ -477,7 +477,11 @@ class MachO(Backend):
                 return ">"
             else:
                 log.debug("Not a mach-o file")
-                raise CLECompatibilityError()
+                raise CLECompatibilityError(
+                    f"Not a Mach-O file: magic is {magic:#010x} on a little-endian host, expected one of "
+                    f"{MachO.MH_MAGIC:#010x}, {MachO.MH_CIGAM:#010x}, "
+                    f"{MachO.MH_MAGIC_64:#010x}, {MachO.MH_CIGAM_64:#010x}"
+                )
         else:
             if magic in [MachO.MH_MAGIC_64, MachO.MH_MAGIC]:
                 log.debug("Detected big-endian")
@@ -487,7 +491,11 @@ class MachO(Backend):
                 return "<"
             else:
                 log.debug("Not a mach-o file")
-                raise CLECompatibilityError()
+                raise CLECompatibilityError(
+                    f"Not a Mach-O file: magic is {magic:#010x} on a big-endian host, expected one of "
+                    f"{MachO.MH_MAGIC:#010x}, {MachO.MH_CIGAM:#010x}, "
+                    f"{MachO.MH_MAGIC_64:#010x}, {MachO.MH_CIGAM_64:#010x}"
+                )
 
     def do_binding(self):
         # Perform binding
@@ -767,8 +775,10 @@ class MachO(Backend):
                 break
 
         if address is None:
-            log.error("Could not determine base-address for function starts")
-            raise CLEInvalidBinaryError()
+            raise CLEInvalidBinaryError(
+                "Could not determine the base address for LC_FUNCTION_STARTS: none of the "
+                f"{len(self.segments)} segments is mapped at file offset 0 with a non-zero file size"
+            )
         log.debug("Located base-address: %#x", address)
 
         while i < end:
@@ -786,16 +796,20 @@ class MachO(Backend):
 
     def _load_lc_main(self, f, offset):
         if self.entryoff is not None or self.unixthread_pc is not None:
-            log.error("More than one entry point for main detected, abort.")
-            raise CLEInvalidBinaryError()
+            raise CLEInvalidBinaryError(
+                "More than one entry point: LC_MAIN found, but an entry point was already set "
+                f"(entryoff={self.entryoff}, unixthread_pc={self.unixthread_pc})"
+            )
 
         _, _, self.entryoff, _ = self._unpack("2I2Q", f, offset, 24)
         log.debug("LC_MAIN: entryoff=%#x", self.entryoff)
 
     def _load_lc_unixthread(self, f, offset):
         if self.entryoff is not None or self.unixthread_pc is not None:
-            log.error("More than one entry point for main detected, abort.")
-            raise CLEInvalidBinaryError()
+            raise CLEInvalidBinaryError(
+                "More than one entry point: LC_UNIXTHREAD found, but an entry point was already set "
+                f"(entryoff={self.entryoff}, unixthread_pc={self.unixthread_pc})"
+            )
 
         # parse basic structure
         # _, cmdsize, flavor, long_count

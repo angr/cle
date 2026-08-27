@@ -6,6 +6,8 @@ import os
 import struct
 from io import BytesIO
 
+import pytest
+
 import cle
 from cle import MachO
 from cle.backends.macho.macho_enums import LoadCommands, SectionAttributes, SectionType
@@ -391,6 +393,24 @@ def test_filesize_larger_than_vmsize():
     macho: MachO = ld.main_object
     assert dict(macho.memory.backers())[0x3000] == patched[:0x1000]
     assert macho.max_addr == 0x100003FFF
+
+
+def test_non_macho_magic_is_reported():
+    """
+    A file that is not Mach-O at all, pushed through the Mach-O backend, must say so. The backend used to
+    reject it with a CLECompatibilityError carrying no message, which left nothing in a log to tell that
+    rejection apart from every other reason the backend can refuse a file.
+    """
+    elffile = os.path.join(TEST_BASE, "tests", "x86_64", "fauxware")
+    with pytest.raises(cle.CLECompatibilityError) as excinfo:
+        cle.Loader(elffile, auto_load_libs=False, main_opts={"backend": "mach-o"})
+
+    # The magic that was found, and the four the backend accepts, so the message alone identifies the file
+    # and the check that rejected it.
+    message = str(excinfo.value)
+    assert "0x464c457f" in message
+    for magic in (MachO.MH_MAGIC, MachO.MH_CIGAM, MachO.MH_MAGIC_64, MachO.MH_CIGAM_64):
+        assert f"{magic:#010x}" in message
 
 
 if __name__ == "__main__":

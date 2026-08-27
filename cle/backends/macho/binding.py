@@ -113,10 +113,10 @@ class BindingState:
 
     def check_address_bounds(self):
         if self.address >= self.seg_end_address:
-            log.error(
-                "index %d: address >= seg_end_address (%#x >= %#x)", self.index, self.address, self.seg_end_address
+            raise CLEInvalidBinaryError(
+                f"Binding opcode at index {self.index} walked the address to {self.address:#x}, "
+                f"past the end of the segment being bound ({self.seg_end_address:#x})"
             )
-            raise CLEInvalidBinaryError()
 
 
 class BindingHelper:
@@ -251,10 +251,18 @@ class BindingHelper:
                     address += self.binary.arch.bytes
 
             elif opcode == RebaseOpcode.DO_REBASE_ULEB_TIMES:
+                if segment is None or address is None or reloc_type is None:
+                    raise CLEInvalidBinaryError(
+                        "REBASE_OPCODE_DO_REBASE_ULEB_TIMES before a segment, address and rebase type were set"
+                    )
                 count, index = self.read_uleb(blob, index)
+                segment_end = segment.vaddr + segment.memsize
                 for _ in range(count):
-                    if address >= segment.vaddr + segment.memsize:
-                        raise CLEInvalidBinaryError()
+                    if address >= segment_end:
+                        raise CLEInvalidBinaryError(
+                            f"REBASE_OPCODE_DO_REBASE_ULEB_TIMES: rebase address {address:#x} is past the end "
+                            f"of segment {segment.segname} ({segment_end:#x})"
+                        )
                     self.rebase_at(address, reloc_type)
                     address += self.binary.arch.bytes
 
@@ -264,11 +272,20 @@ class BindingHelper:
                 address += uleb + self.binary.arch.bytes
 
             elif opcode == RebaseOpcode.DO_REBASE_ULEB_TIMES_SKIPPING_ULEB:
+                if segment is None or address is None or reloc_type is None:
+                    raise CLEInvalidBinaryError(
+                        "REBASE_OPCODE_DO_REBASE_ULEB_TIMES_SKIPPING_ULEB before a segment, address and rebase "
+                        "type were set"
+                    )
                 count, index = self.read_uleb(blob, index)
                 skip, index = self.read_uleb(blob, index)
+                segment_end = segment.vaddr + segment.memsize
                 for _ in range(count):
-                    if address >= segment.vaddr + segment.memsize:
-                        raise CLEInvalidBinaryError()
+                    if address >= segment_end:
+                        raise CLEInvalidBinaryError(
+                            f"REBASE_OPCODE_DO_REBASE_ULEB_TIMES_SKIPPING_ULEB: rebase address {address:#x} is "
+                            f"past the end of segment {segment.segname} ({segment_end:#x})"
+                        )
                     self.rebase_at(address, reloc_type)
                     address += skip + self.binary.arch.bytes
 
@@ -440,10 +457,10 @@ def n_opcode_do_bind_add_addr_uleb(s: BindingState, b: MachO, _i: int, blob: byt
     uleb = read_uleb(blob, s.index)
     log.debug("DO_BIND_ADD_ADDR_ULEB @ %#x: %d", s.index, uleb[0])
     if s.address >= s.seg_end_address:
-        log.error(
-            "DO_BIND_ADD_ADDR_ULEB @ %#x: address >= seg_end_address (%#x>=%#x)", s.index, s.address, s.seg_end_address
+        raise CLEInvalidBinaryError(
+            f"BIND_OPCODE_DO_BIND_ADD_ADDR_ULEB at index {s.index:#x}: bind address {s.address:#x} is past the "
+            f"end of the segment being bound ({s.seg_end_address:#x})"
         )
-        raise CLEInvalidBinaryError()
     s.index += uleb[1]
     s.bind_handler(s, b)
     # this is done AFTER binding in preparation for the NEXT step
@@ -454,13 +471,10 @@ def n_opcode_do_bind_add_addr_uleb(s: BindingState, b: MachO, _i: int, blob: byt
 def n_opcode_do_bind_add_addr_imm_scaled(s: BindingState, b: MachO, i: int, _blob: bytes) -> BindingState:
     log.debug("DO_BIND_ADD_ADDR_IMM_SCALED @ %#x: %d", s.index, i)
     if s.address >= s.seg_end_address:
-        log.error(
-            "DO_BIND_ADD_ADDR_IMM_SCALED @ %#x: address >= seg_end_address (%#x>=%#x)",
-            s.index,
-            s.address,
-            s.seg_end_address,
+        raise CLEInvalidBinaryError(
+            f"BIND_OPCODE_DO_BIND_ADD_ADDR_IMM_SCALED at index {s.index:#x}: bind address {s.address:#x} is past "
+            f"the end of the segment being bound ({s.seg_end_address:#x})"
         )
-        raise CLEInvalidBinaryError()
     s.bind_handler(s, b)
     # this is done AFTER binding in preparation for the NEXT step
     s.add_address_ov(s.address, (i * s.sizeof_intptr_t) + s.sizeof_intptr_t)
@@ -475,13 +489,11 @@ def n_opcode_do_bind_uleb_times_skipping_uleb(s: BindingState, b: MachO, _i: int
     log.debug("DO_BIND_ULEB_TIMES_SKIPPING_ULEB @ %#x: %d,%d", s.index - skip[1] - count[1], count[0], skip[0])
     for _ in range(0, count[0]):
         if s.address >= s.seg_end_address:
-            log.error(
-                "DO_BIND_ADD_ADDR_IMM_SCALED @ %#x: address >= seg_end_address (%#x >= %#x)",
-                s.index - skip[1] - count[1],
-                s.address,
-                s.seg_end_address,
+            raise CLEInvalidBinaryError(
+                "BIND_OPCODE_DO_BIND_ULEB_TIMES_SKIPPING_ULEB at index "
+                f"{s.index - skip[1] - count[1]:#x}: bind address {s.address:#x} is past the end of the "
+                f"segment being bound ({s.seg_end_address:#x})"
             )
-            raise CLEInvalidBinaryError()
         s.bind_handler(s, b)
         s.add_address_ov(s.address, skip[0] + s.sizeof_intptr_t)
     return s
@@ -578,8 +590,10 @@ def default_binding_handler(state: BindingState, binary: MachO):
     # locate the symbol:
     matches = binary.symbols.get_by_name_and_ordinal(state.sym_name, state.lib_ord)
     if len(matches) > 1:
-        log.error("Cannot bind: More than one match for (%r,%d)", state.sym_name, state.lib_ord)
-        raise CLEInvalidBinaryError()
+        raise CLEInvalidBinaryError(
+            f"Cannot bind {state.sym_name!r}: {len(matches)} symbols match name and library ordinal "
+            f"{state.lib_ord}, expected exactly one"
+        )
     if len(matches) < 1:
         log.info("No match for (%r,%d), generating BindingSymbol ...", state.sym_name, state.lib_ord)
         matches = [BindingSymbol(binary, state.sym_name, state.lib_ord)]
@@ -618,5 +632,7 @@ def default_binding_handler(state: BindingState, binary: MachO):
         )
         symbol.bind_xrefs.append(location_32)
     else:
-        log.error("Unknown BIND_TYPE: %d", state.binding_type)
-        raise CLEInvalidBinaryError()
+        raise CLEInvalidBinaryError(
+            f"Unknown BIND_TYPE {state.binding_type} while binding {state.sym_name!r}, expected 1 (POINTER), "
+            "2 (TEXT_ABSOLUTE32) or 3 (TEXT_PCREL32)"
+        )
