@@ -9,6 +9,11 @@ from pathlib import Path
 import arpy
 import pytest
 
+try:
+    import uefi_firmware
+except ImportError:
+    uefi_firmware = None
+
 import cle
 from cle.backends import ALL_BACKENDS
 from cle.backends.uefi_firmware import UefiFirmware, UefiModuleMixin
@@ -127,6 +132,7 @@ def test_load_a_read_seek_stream_no_backend_claims():
         cle.Loader(MinimalStream(symbol_index), auto_load_libs=False)  # type: ignore[arg-type]
 
 
+@pytest.mark.skipif(uefi_firmware is None, reason="uefi_firmware not installed")
 @pytest.mark.parametrize("kind", ["path", "file", "bytesio", "stream"])
 def test_load_firmware_volume(kind):
     """
