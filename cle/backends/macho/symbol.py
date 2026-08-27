@@ -11,6 +11,7 @@ from cle.backends.symbol import Symbol, SymbolType
 
 if TYPE_CHECKING:
     from . import MachO
+    from .section import MachOSection
 
 log = logging.getLogger(name=__name__)
 
@@ -186,10 +187,37 @@ class SymbolTableSymbol(AbstractMachOSymbol):
         return self.is_weak_referenced
 
     @property
+    def section(self) -> MachOSection | None:
+        """
+        The section this symbol is defined in, or None if it does not define anything in this object.
+        """
+        if self.sym_type != SYMBOL_TYPE_SECT:
+            return None
+        if not 0 < self.n_sect < len(self.owner.sections_by_ordinal):
+            log.warning("Symbol %s names section ordinal %d, which the object does not have", self, self.n_sect)
+            return None
+        return self.owner.sections_by_ordinal[self.n_sect]
+
+    @property
     def is_function(self):
-        # Incompatibility to CLE
-        log.debug("It is not possible to decide wether a symbol is a function or not for MachOSymbols")
-        return False
+        """
+        Whether this symbol names code.
+
+        An ``nlist`` has no equivalent of ELF's ``STT_FUNC``: ``n_type`` says where a symbol is defined, never
+        what it defines. What the file does state is which of its sections hold machine instructions, so a
+        symbol defined in one of those sections names code and one defined anywhere else does not.
+
+        Only an ``N_SECT`` symbol defines anything here at all. An undefined, common, prebound or indirect
+        symbol names something another object defines, an ``N_ABS`` symbol names a constant, and a debug entry
+        keeps its own type in ``n_type`` -- :attr:`sym_type` returns that type unmasked, so no ``N_STAB`` entry
+        reaches the section test.
+
+        The address has to lie in the section as well. ``__mh_execute_header`` is an ``N_SECT`` symbol on the
+        first section of ``__TEXT``, but it addresses the Mach-O header in front of that section rather than
+        anything in it.
+        """
+        section = self.section
+        return section is not None and section.is_executable and section.contains_addr(self.rebased_addr)
 
     # real symbols have properties, mach-o symbols have plenty of them:
     @property
