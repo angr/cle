@@ -9,6 +9,7 @@ from .elf import ELF, ELFCore, MetaELF
 from .gopclntab import GoFunction, GoPclntab, GoSymbol
 from .ihex import Hex
 from .java.apk import Apk
+from .java.dex import Dex
 from .java.jar import Jar
 from .java.soot import Soot
 from .macho import MachO
@@ -52,6 +53,7 @@ __all__ = [
     "NamedRegion",
     "Jar",
     "Apk",
+    "Dex",
     "Soot",
     "XBE",
     "StaticArchive",
