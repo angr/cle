@@ -40,8 +40,9 @@ __all__ = ("Loader",)
 
 log = logging.getLogger(name=__name__)
 
-# The lowest page of the address space. The loader hands it out only when there is nowhere else,
-# because a null or uninitialized pointer in the target reads as an address inside it.
+# The floor for the guard region at the bottom of the address space. The loader hands it out only
+# when there is nowhere else, because a null or uninitialized pointer in the target reads as an
+# address inside it. Where the loader knows the target's page size, the guard tracks it instead.
 NULL_PAGE_SIZE = 0x1000
 
 if TYPE_CHECKING:
@@ -1082,8 +1083,9 @@ class Loader:
         if self.main_object.arch.bits < 32 or self.main_object.max_addr >= 2 ** (self.main_object.arch.bits - 1):
             # A small address space, or an image that reaches into the top half of one, may have
             # its free space underneath the image. Take that space once the space above the image
-            # is exhausted, and the null page only when there is nothing else at all.
-            starts = (above_image, NULL_PAGE_SIZE, 0)
+            # is exhausted, and the null page only when there is nothing else at all. The
+            # loader's page_size defaults to 1, which means the target's page size is unknown.
+            starts = (above_image, max(self.page_size, NULL_PAGE_SIZE), 0)
         else:
             starts = (above_image,)
 

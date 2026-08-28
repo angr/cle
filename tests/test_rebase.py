@@ -134,6 +134,29 @@ def test_null_page_is_used_when_the_address_space_has_nothing_else():
     assert last.min_addr == 0
 
 
+def test_null_guard_tracks_the_loader_page_size():
+    """
+    Where the loader is told the target's page size, the guard region at the bottom of the
+    address space is one such page rather than the conventional 4 KB.
+    """
+    path = os.path.join(TEST_BASE, "tests", "armel", "i2c_master_read-nucleol152re.bin")
+    ld = cle.Loader(
+        path,
+        auto_load_libs=False,
+        page_size=0x2000,
+        main_opts={"backend": "blob", "arch": "ARMEL", "base_addr": 0x90000000},
+    )
+    main = ld.main_object
+    arch = main.arch
+
+    above = MockBackend(2**32 - (main.max_addr + 1), arch=arch)
+    below = MockBackend(main.min_addr - 0x2000, arch=arch)
+    for obj in (above, below):
+        ld.dynamic_load(obj)
+    assert (above.min_addr, above.max_addr) == (main.max_addr + 1, 2**32 - 1)
+    assert (below.min_addr, below.max_addr) == (0x2000, main.min_addr - 1)
+
+
 if __name__ == "__main__":
     test_sparse_main_object()
     test_sparse_main_object_unsorted_program_headers()
@@ -141,3 +164,4 @@ if __name__ == "__main__":
     test_image_in_the_top_half_leaves_the_null_page_free()
     test_narrow_address_space_leaves_the_null_page_free()
     test_null_page_is_used_when_the_address_space_has_nothing_else()
+    test_null_guard_tracks_the_loader_page_size()
