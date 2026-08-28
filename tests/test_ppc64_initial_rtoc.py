@@ -41,7 +41,34 @@ def test_ppc64el_abiv1():
     assert ld.main_object.ppc64_initial_rtoc == 0x10018E80
 
 
+def load_relocatable(name):
+    ld = cle.Loader(os.path.join(test_location, "ppc64", name), auto_load_libs=False)
+    main = ld.main_object
+    assert isinstance(main, cle.ELF)
+    assert main.is_ppc64_abiv1
+    assert main.is_relocatable
+    return main
+
+
+def test_ppc64_abiv1_relocatable_mapping_nothing():
+    # e_entry is zero, which is how ELF says there is no entry point, and this object allocates
+    # nothing, so following that zero as a descriptor pointer reads memory that is not there.
+    main = load_relocatable("empty_object.o")
+    assert main.entry == main.mapped_base
+    assert main.ppc64_initial_rtoc is None
+
+
+def test_ppc64_abiv1_relocatable_mapping_code():
+    # The same zero e_entry, with .opd and .text at the start of the image, so following it reads
+    # the object's own first instructions instead of failing.
+    main = load_relocatable("simple_object.o")
+    assert main.entry == main.mapped_base
+    assert main.ppc64_initial_rtoc is None
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     test_ppc64el_abiv1()
     test_ppc64el_abiv2()
+    test_ppc64_abiv1_relocatable_mapping_nothing()
+    test_ppc64_abiv1_relocatable_mapping_code()
