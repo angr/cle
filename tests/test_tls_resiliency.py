@@ -46,11 +46,14 @@ class TestTlsResiliency(TestCase):
         thread = ld.tls.new_thread()
         assert thread is not None
 
-        # the DTV pointer is the write that fails, so read it back rather than trusting the load
+        # the DTV pointer is the write that fails, so read it back rather than trusting the load. It is
+        # relocated, so what lands in memory is the address of the DTV rather than its offset -- compare
+        # against that instead of against the offset alone, which would pin wherever the loader chose to
+        # put the thread.
         elf_tls = arch.elf_tls
         assert elf_tls is not None and elf_tls.dtv_offsets
         for offset in elf_tls.dtv_offsets:
-            assert thread.memory.unpack_word(offset + thread.tcb_offset) == thread.dtv_offset
+            assert thread.memory.unpack_word(offset + thread.tcb_offset) == thread.mapped_base + thread.dtv_offset
 
 
 if __name__ == "__main__":
