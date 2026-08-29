@@ -561,8 +561,14 @@ class PE(Backend):
         ptr_size = 8 if is_64 else 4
         return pe, base, is_64, ptr_size
 
-    def _meta_dd(self, name: str) -> pefile.Structure | None:
-        """Return a data directory entry if it has a nonzero VirtualAddress and Size, else None."""
+    def _meta_dd(self, name: str):
+        """
+        Return a data directory entry if it has a nonzero VirtualAddress and Size, else None.
+
+        The return type is inferred rather than declared: pefile fills a data directory entry in from the format
+        string it parsed, so the pefile.Structure this used to promise declares neither VirtualAddress nor Size and
+        hides both from every caller.
+        """
         idx = pefile.DIRECTORY_ENTRY[name]
         dd = self._pe.OPTIONAL_HEADER.DATA_DIRECTORY[idx]
         if dd.VirtualAddress and dd.Size:
