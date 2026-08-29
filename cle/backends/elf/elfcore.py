@@ -404,9 +404,14 @@ class ELFCore(ELF):
             self.__current_thread["segments"][index] = (base, limit, flags)
 
     def __parse_auxv(self, desc):
-        for offset in range(0, len(desc), self.arch.bytes * 2):
-            code = struct.unpack_from(self.arch.struct_fmt(), desc, offset)[0]
-            value = struct.unpack_from(self.arch.struct_fmt(), desc, offset + self.arch.bytes)[0]
+        # An entry is an Elf32_auxv_t or an Elf64_auxv_t: two words of the container's width, which is
+        # the pointer width rather than the instruction set's. The two agree for every ordinary core
+        # and not for an x32 one, whose ELFCLASS32 auxv describes a process whose registers are 64-bit.
+        word = self._reader.elfclass // 8
+        fmt = (">" if self.arch.memory_endness == "Iend_BE" else "<") + ("Q" if word == 8 else "I")
+        for offset in range(0, len(desc), word * 2):
+            code = struct.unpack_from(fmt, desc, offset)[0]
+            value = struct.unpack_from(fmt, desc, offset + word)[0]
             code_str = auxv_codes.get(code, code)
 
             if code_str == "AT_RANDOM":

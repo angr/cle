@@ -180,14 +180,21 @@ def test_linux_x86_tls_note():
 
 
 def test_prstatus_abi_mismatch():
-    # a Linux x32 core: EM_X86_64 with ELFCLASS32, so cle picks X86, but the note holds an amd64
-    # elf_prstatus with 27 eight-byte registers in 296 bytes rather than 17 four-byte ones in 144
+    # a Linux x32 core: EM_X86_64 with ELFCLASS32. Its NT_PRSTATUS is 296 bytes, which is neither the
+    # 144 of an i386 elf_prstatus nor the 332 of an amd64 one, so the thread is dropped whichever of
+    # the two cle resolves the container to. Its NT_AUXV is ELFCLASS32 and reads at four bytes either way.
     ld, core = load_core("x86_64", "elfcore_linux_x32.core")
 
     # the registers cannot be represented, but the core's memory still loads
     assert core.threads == []
     assert core.thread_registers() == {}
     assert ld.memory.load(0x400400, 8).hex() == "4883ec084883c408"
+
+    # the auxv note is an ELFCLASS32 one whatever e_machine says, so its entries are two four-byte
+    # words; read at eight the note runs out mid-entry and AT_HWCAP's CPUID word becomes nonsense
+    assert core.auxv["AT_PHENT"] == 0x20  # sizeof(Elf32_Phdr)
+    assert core.auxv["AT_HWCAP"] == 0xBFEBFBFF
+    assert core.auxv["AT_EXECFN"] == b"./a.out"
 
 
 if __name__ == "__main__":
