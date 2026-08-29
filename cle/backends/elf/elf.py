@@ -68,6 +68,41 @@ additional_e_machine_mappings: dict[int, str] = {
 }
 
 
+class _LenientELFFile(elffile.ELFFile):
+    """
+    An ELFFile that does not discard the whole section header table because one section is malformed.
+
+    pyelftools validates ``sh_link`` when it builds a section: a hash table or a version table whose link does not
+    point at a symbol table, or a symbol table whose link does not point at a string table, raises ``ELFError``.
+    Real linker output hits this. u-boot's linker scripts discard ``.dynstr``, and on some architectures
+    ``.dynsym`` too, while keeping ``.hash``; the linker then writes ``sh_link = 0`` into what is left and any walk
+    of the section table dies on the first such section.
+
+    Sections pyelftools refuses to specialise are handed back as plain sections instead. The header and the data are
+    still there; only the interpretation is missing, which is the right answer for a section whose link is broken.
+    """
+
+    def __init__(self, *args, **kwargs):
+        # Set before the base constructor: it builds sections itself.
+        self._malformed_sections: set[str] = set()
+        super().__init__(*args, **kwargs)
+
+    def _make_section(self, section_header):
+        try:
+            return super()._make_section(section_header)
+        except (ELFError, AssertionError):
+            # pyelftools reports a bad link either by raising ELFError or, when the linked section has the right
+            # sh_type but we have already downgraded it, by tripping an internal assertion. Both mean the same
+            # thing here: this section cannot be interpreted.
+            # If the name cannot be read either then the section header string table is broken too, and the table
+            # really is unusable. Let that propagate to the caller, which knows how to fall back.
+            name = self._get_section_name(section_header)
+            if name not in self._malformed_sections:
+                self._malformed_sections.add(name)
+                log.warning("Section %s is malformed; loading it without interpreting its contents.", name)
+            return sections.Section(section_header, name, self)
+
+
 class ELF(MetaELF):
     """
     The main loader class for statically loading ELF executables. Uses the pyreadelf library where useful.
@@ -100,7 +135,7 @@ class ELF(MetaELF):
         )
         patch_undo = []
         try:
-            self._reader = elffile.ELFFile(self._binary_stream)
+            self._reader = _LenientELFFile(self._binary_stream)
             list(self._reader.iter_sections())
         except Exception as e:  # pylint: disable=broad-except
             self._binary_stream.seek(4)
@@ -121,7 +156,7 @@ class ELF(MetaELF):
             log.error("PyReadELF couldn't load this file. Trying again without section headers...")
 
             try:
-                self._reader = elffile.ELFFile(self._binary_stream)
+                self._reader = _LenientELFFile(self._binary_stream)
             except Exception as e1:  # pylint: disable=broad-except
                 raise CLECompatibilityError from e1
 
@@ -1293,9 +1328,13 @@ class ELF(MetaELF):
                     return
 
         symtab = self._reader.get_section(section.header["sh_link"]) if "sh_link" in section.header else dynsym
-        if isinstance(symtab, sections.NullSection):
-            # Oh my god Atmel please stop
+        if symtab is not None and not isinstance(symtab, sections.SymbolTableSection):
+            # Oh my god Atmel please stop.
+            # sh_link can point at nothing (index 0) or at a section that is not a symbol table at all -- u-boot's
+            # .rel.dyn links to a .dynsym whose string table the linker script discarded. Use .symtab instead.
             symtab = self._reader.get_section_by_name(".symtab")
+            if not isinstance(symtab, sections.SymbolTableSection):
+                symtab = None
         if symtab is None and section.header.get("sh_type") != "SHT_RELR":
             # A stripped object can still carry a relocation section whose linked symbol table was stripped away.
             # Without the table there is nothing that can be registered.
@@ -1570,7 +1609,9 @@ class ELF(MetaELF):
     def __process_debug_file(self, filename):
         with open(filename, "rb") as fp:
             try:
-                elf = elffile.ELFFile(fp)
+                # Lenient for the same reason the main reader is: iter_sections() below is outside this guard, and
+                # one section with a dangling sh_link would take the whole debug file down with it.
+                elf = _LenientELFFile(fp)
             except ELFError:
                 log.warning("pyelftools failed to load debug file %s", filename, exc_info=True)
                 return
