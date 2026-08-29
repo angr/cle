@@ -104,7 +104,9 @@ def test_outer_object_does_not_move_rebased_objects():
         ld.dynamic_load(obj)
         return obj.mapped_base
 
-    assert rebase(wrapped) == rebase(plain) == 0
+    # Which address the loader hands out is its own placement policy and moves with it -- cle#765 takes
+    # the invented objects off the null page -- so what this test owns is that wrapping does not change it.
+    assert rebase(wrapped) == rebase(plain)
 
 
 def test_memoryless_region_still_reserves_address_space():
