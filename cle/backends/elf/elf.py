@@ -58,6 +58,11 @@ _NON_ALLOCATED_SECTION_NAMES = {  # Sections that do not occupy memory at runtim
     "SHT_MIPS_REGINFO",
 }
 
+# The SLEIGH language for ARM BE8, declared endian="big" instructionEndian="little", which Ghidra's
+# own ARM ELF opinion selects on EF_ARM_BE8. It is the v7 language because that is the one archinfo
+# already names for 32-bit ARM; Ghidra publishes no big-endian-data variant below it.
+ARM_BE8_PCODE_LANGUAGE = "ARM:LEBE:32:v7LEInstruction"
+
 
 # MIPS e_flags bits that name the ABI. binutils include/elf/mips.h.
 EF_MIPS_ABI2 = 0x20  # n32
@@ -354,16 +359,18 @@ class ELF(MetaELF):
                 cpu_name = arm_attrs["TAG_CPU_NAME"]
                 if "Cortex-M" in cpu_name or "-M" in cpu_name:
                     return archinfo.ArchARMCortexM("Iend_LE")
-            endness = archinfo.Endness.LE if reader.little_endian else archinfo.Endness.BE
-            # EF_ARM_BE8 marks big-endian data with little-endian instruction words, the layout
-            # ARMv6 introduced. It is independent of the float-ABI bits, so read it alongside them.
-            instruction_endness = archinfo.Endness.LE if reader.header.e_flags & E_FLAGS.EF_ARM_BE8 else None
+            if reader.header.e_flags & E_FLAGS.EF_ARM_BE8:
+                # EF_ARM_BE8 marks big-endian data with little-endian instruction words, the layout
+                # ARMv6 introduced. No archinfo ARM architecture describes it, because Arch carries
+                # one endness and VEX uses it both to fetch instructions and to tag the accesses it
+                # lifts; SLEIGH separates the two, so the object goes to the p-code lifter instead.
+                if pypcode is not None:
+                    return archinfo.ArchPcode(ARM_BE8_PCODE_LANGUAGE)
+                log.warning("pypcode is not installed, so an ARM BE8 object is loaded as big-endian ARM")
             if reader.header.e_flags & 0x200:
-                return archinfo.ArchARMEL(endness, instruction_endness=instruction_endness)
-            if reader.header.e_flags & 0x400:
-                return archinfo.ArchARMHF(endness, instruction_endness=instruction_endness)
-            if instruction_endness is not None:
-                return archinfo.ArchARM(endness, instruction_endness=instruction_endness)
+                return archinfo.ArchARMEL("Iend_LE" if reader.little_endian else "Iend_BE")
+            elif reader.header.e_flags & 0x400:
+                return archinfo.ArchARMHF("Iend_LE" if reader.little_endian else "Iend_BE")
 
         if arch_str == "EM_MIPS" and reader.elfclass == 32:
             # The n32 and O64 ABIs put a 64-bit MIPS instruction stream in an ELFCLASS32

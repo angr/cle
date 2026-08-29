@@ -35,12 +35,13 @@ class TestArmArchDetect(unittest.TestCase):
     Test ARM architecture detection, including the BE8 instruction/data endianness split.
     """
 
+    @unittest.skipIf(pypcode is None, "pypcode not installed")
     def test_elf_arm_be8(self):
         binpath = os.path.join(test_location, "armeb/be8_loop")
         arch = cle.Loader(binpath, auto_load_libs=False).main_object.arch
-        assert arch.name == "ARMHF"
+        assert isinstance(arch, archinfo.ArchPcode)
+        assert arch.name == "ARM:LEBE:32:v7LEInstruction"
         assert arch.memory_endness == archinfo.Endness.BE
-        assert arch.instruction_endness == archinfo.Endness.LE
 
     def test_elf_arm_be32(self):
         binpath = os.path.join(test_location, "armeb/be32_loop")
@@ -48,6 +49,18 @@ class TestArmArchDetect(unittest.TestCase):
         assert arch.name == "ARMHF"
         assert arch.memory_endness == archinfo.Endness.BE
         assert arch.instruction_endness == archinfo.Endness.BE
+
+    def test_elf_armhf_le(self):
+        binpath = os.path.join(test_location, "armhf/fauxware")
+        arch = cle.Loader(binpath, auto_load_libs=False).main_object.arch
+        assert arch.name == "ARMHF"
+        assert arch.memory_endness == archinfo.Endness.LE
+
+    def test_elf_armel_le(self):
+        binpath = os.path.join(test_location, "armel/test_arrays")
+        arch = cle.Loader(binpath, auto_load_libs=False).main_object.arch
+        assert arch.name == "ARMEL"
+        assert arch.memory_endness == archinfo.Endness.LE
 
 
 if __name__ == "__main__":
