@@ -104,6 +104,9 @@ class TE(Backend):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        # A Terse Executable only exists inside UEFI firmware; there is no other environment that loads one.
+        self.os = "uefi"
+
         self._binary_stream.seek(0)
         self.header = HeaderType(*HEADER.unpack(self._binary_stream.read(HEADER.size)))
         self.section_headers = [

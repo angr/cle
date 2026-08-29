@@ -6,6 +6,7 @@ import os
 import re
 import struct
 from collections.abc import Callable
+from typing import Any
 
 import archinfo
 import pefile
@@ -31,7 +32,32 @@ from .symbolserver import PDBInfo, SymbolResolver
 SECTION_NAME_STRING_TABLE_OFFSET_RE = re.compile(r"\/(\d+)")
 VALID_SYMBOL_NAME_RE = re.compile(r"[A-Za-z0-9_@$?]+")
 
+# The optional header subsystems that mark an image as a UEFI module rather than a Windows one.
+EFI_SUBSYSTEMS = frozenset(
+    pefile.SUBSYSTEM_TYPE[name]
+    for name in (
+        "IMAGE_SUBSYSTEM_EFI_APPLICATION",
+        "IMAGE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER",
+        "IMAGE_SUBSYSTEM_EFI_RUNTIME_DRIVER",
+        "IMAGE_SUBSYSTEM_EFI_ROM",
+    )
+)
+
 log = logging.getLogger(name=__name__)
+
+
+def image_os(optional_header: Any) -> str:
+    """
+    Name the environment that loads an image with this optional header.
+
+    A PE whose subsystem is one of the EFI ones is a UEFI module: the firmware loads it, Windows does not, and on a
+    target such as RISC-V no Windows exists to load it. Everything else is a Windows image.
+
+    pefile builds an optional header out of the field names it read, so it is typed as a bare structure and the
+    subsystem has to be reached dynamically.
+    """
+
+    return "uefi" if optional_header.Subsystem in EFI_SUBSYSTEMS else "windows"
 
 
 class PE(Backend):
@@ -78,7 +104,6 @@ class PE(Backend):
         self._search_microsoft_symserver = search_microsoft_symserver
 
         self.segments = self.sections  # in a PE, sections and segments have the same meaning
-        self.os = "windows"
         self._raw_data = self._binary_stream.read()
         if self.binary is None:
             self._pe = pefile.PE(data=self._raw_data, fast_load=True)
@@ -94,6 +119,8 @@ class PE(Backend):
 
         assert self._pe.FILE_HEADER is not None
         assert self._pe.OPTIONAL_HEADER is not None
+
+        self.os = image_os(self._pe.OPTIONAL_HEADER)
 
         if self._arch is None:
             machine_type = self._pe.FILE_HEADER.Machine

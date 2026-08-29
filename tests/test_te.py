@@ -88,6 +88,12 @@ def test_partially_backed_section():
     assert obj.loader.memory.load(data.vaddr, data.memsize) == b"\xaa" * 0x10 + b"\0" * 8
 
 
+def test_os_is_uefi():
+    # A TE image only ever runs under UEFI, so it must not be handed to the Windows environment the way a PE is.
+    assert load_te("i386").os == "uefi"
+    assert load_te("aarch64").os == "uefi"
+
+
 def test_aarch64_machine():
     obj = load_te("aarch64")
 
@@ -100,4 +106,5 @@ if __name__ == "__main__":
     test_section_permissions()
     test_section_file_offsets()
     test_partially_backed_section()
+    test_os_is_uefi()
     test_aarch64_machine()
