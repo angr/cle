@@ -315,6 +315,16 @@ class TestPEBackend(unittest.TestCase):
         assert data[:4] == b"\x8bD$\x04"
         assert data[-4:] == b"3\xdb;\xc3"
 
+    def test_uefi_image_is_not_windows(self):
+        # A UEFI module is a PE, but it runs under the UEFI boot environment rather than Windows, and it says so in
+        # the optional header. Windows has never run on RISC-V, so nothing else could have told them apart.
+        efi = os.path.join(TEST_BASE, "tests", "riscv64", "uefi", "HighMemDxe.efi")
+        ld = cle.Loader(efi, auto_load_libs=False)
+
+        assert isinstance(ld.main_object, cle.PE)
+        assert ld.main_object.arch.name == "RISCV64"
+        assert ld.main_object.os == "uefi"
+
 
 if __name__ == "__main__":
     unittest.main()
