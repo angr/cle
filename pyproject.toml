@@ -78,11 +78,11 @@ cle = ["py.typed"]
 py_limited_api = "cp312"
 
 [tool.uv.sources]
-archinfo = { git = "https://github.com/angr/archinfo.git", branch = "feature/mips-n32-arch" }
+archinfo = { git = "https://github.com/angr/archinfo.git", branch = "master" }
 bitarray = { index = "pyodide", marker = "sys_platform == 'emscripten'" }
 cffi = { index = "pyodide", marker = "sys_platform == 'emscripten'" }
 pycryptodome = { index = "pyodide", marker = "sys_platform == 'emscripten'" }
-pyvex = { git = "https://github.com/angr/pyvex.git", branch = "feature/mips-n32-lifter" }
+pyvex = { git = "https://github.com/angr/pyvex.git", branch = "master" }
 
 [[tool.uv.index]]
 name = "pyodide"
