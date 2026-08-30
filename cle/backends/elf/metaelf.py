@@ -454,7 +454,7 @@ class MetaELF(Backend):
 
         Utter bollocks, but this function should fix it.
         """
-        if self.is_ppc64_abiv1:
+        if self.is_ppc64_abiv1 and self._entry != 0:  # entry == 0 means the ELF has no entry point or rtoc
             ep_offset = self._entry
             self._entry = self.memory.unpack_word(AT.from_lva(ep_offset, self).to_rva())
             self._ppc64_abiv1_initial_rtoc = self.memory.unpack_word(AT.from_lva(ep_offset + 8, self).to_rva())

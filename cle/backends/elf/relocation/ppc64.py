@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import logging
 
+from cle.backends.symbol import SymbolType
+
 from .elfreloc import ELFReloc
 from .generic import (
     GenericAbsoluteAddendReloc,
@@ -25,6 +27,10 @@ log = logging.getLogger(name=__name__)
 
 class R_PPC64_JMP_SLOT(ELFReloc):
     __slots__ = ()
+
+    @property
+    def extern_symbol_type(self):
+        return SymbolType.TYPE_FUNCTION
 
     def relocate(self):
         if self.owner.is_ppc64_abiv1:

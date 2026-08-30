@@ -44,6 +44,12 @@ class Relocation:
 
     AUTO_HANDLE_NONE = False
 
+    @property
+    def extern_symbol_type(self) -> SymbolType:
+        """The symbol type to give the extern this relocation resolves to."""
+        assert self.symbol is not None
+        return self.symbol._type
+
     def resolve_symbol(
         self, solist: list[Any], thumb=False, extern_object=None, **kwargs
     ):  # pylint: disable=unused-argument
@@ -92,7 +98,7 @@ class Relocation:
         min_size = extern_size_hints.get(self.symbol.name, 0)
 
         new_symbol = extern_object.make_extern(  # type: ignore[union-attr]
-            self.symbol.name, size=min_size, sym_type=self.symbol._type, thumb=thumb
+            self.symbol.name, size=min_size, sym_type=self.extern_symbol_type, thumb=thumb
         )
         self.resolve(new_symbol, extern_object=extern_object)
 
