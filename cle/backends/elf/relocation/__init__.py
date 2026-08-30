@@ -22,6 +22,7 @@ ALL_RELOCATIONS = {
     "X86": relocation_table_i386,
     "MIPS32": relocation_table_mips,
     "MIPS64": relocation_table_mips,
+    "MIPSN32": relocation_table_mips,
     "PPC32": relocation_table_ppc,
     "PPC64": relocation_table_ppc64,
     "S390X": relocation_table_s390x,

@@ -58,6 +58,12 @@ _NON_ALLOCATED_SECTION_NAMES = {  # Sections that do not occupy memory at runtim
 }
 
 
+# MIPS e_flags bits that name the ABI. binutils include/elf/mips.h.
+EF_MIPS_ABI2 = 0x20  # n32
+EF_MIPS_ABI = 0x0000F000
+E_MIPS_ABI_O64 = 0x00002000
+
+
 # map 'e_machine' ELF header values (represented as `short int`s) to human-readable format (string)
 # There are mappings missing currently in `elftools`, so we provide them ourselves
 additional_e_machine_mappings: dict[int, str] = {
@@ -351,6 +357,16 @@ class ELF(MetaELF):
                 return archinfo.ArchARMEL("Iend_LE" if reader.little_endian else "Iend_BE")
             elif reader.header.e_flags & 0x400:
                 return archinfo.ArchARMHF("Iend_LE" if reader.little_endian else "Iend_BE")
+
+        if arch_str == "EM_MIPS" and reader.elfclass == 32:
+            # The n32 and O64 ABIs put a 64-bit MIPS instruction stream in an ELFCLASS32
+            # container, and say so in e_flags. Resolved by the class alone they become
+            # 32-bit MIPS and the instruction stream does not decode. The class is still
+            # right about everything else in the file -- Elf32_Rel, Elf32_Sym, 4-byte GOT
+            # slots -- so the word size must stay 32; only the instruction set is 64-bit.
+            e_flags = reader.header.e_flags
+            if e_flags & EF_MIPS_ABI2 or (e_flags & EF_MIPS_ABI) == E_MIPS_ABI_O64:
+                return archinfo.ArchMIPSN32(archinfo.Endness.LE if reader.little_endian else archinfo.Endness.BE)
 
         try:
             return archinfo.arch_from_id(arch_str, "le" if reader.little_endian else "be", reader.elfclass)

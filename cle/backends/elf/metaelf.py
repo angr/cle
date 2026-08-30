@@ -161,7 +161,7 @@ class MetaELF(Backend):
         )
 
         # ATTEMPT 1: some arches will just leave the plt stub addr in the import symbol
-        if self.arch.name in ("ARM", "ARMEL", "ARMHF", "ARMCortexM", "AARCH64", "MIPS32", "MIPS64"):
+        if self.arch.name in ("ARM", "ARMEL", "ARMHF", "ARMCortexM", "AARCH64", "MIPS32", "MIPS64", "MIPSN32"):
             for name, reloc in func_jmprel.items():
                 if not plt_secs or any(plt_sec.contains_addr(reloc.symbol.linked_addr) for plt_sec in plt_secs):
                     self._add_plt_stub(name, reloc.symbol.linked_addr, sanity_check=bool(plt_secs))
