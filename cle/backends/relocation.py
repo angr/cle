@@ -46,13 +46,7 @@ class Relocation:
 
     @property
     def extern_symbol_type(self) -> SymbolType:
-        """The symbol type to give the extern this relocation resolves to.
-
-        Defaults to whatever the object declared. A relocation whose meaning fixes the
-        type -- a jump slot always points at a function -- overrides this, because the
-        extern's layout depends on it and an object file is free to leave an imported
-        function ``STT_NOTYPE``.
-        """
+        """The symbol type to give the extern this relocation resolves to."""
         assert self.symbol is not None
         return self.symbol._type
 

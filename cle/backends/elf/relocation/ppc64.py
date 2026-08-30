@@ -30,11 +30,6 @@ class R_PPC64_JMP_SLOT(ELFReloc):
 
     @property
     def extern_symbol_type(self):
-        # A jump slot points at a function whatever the symbol table says, and on ELFv1 the
-        # extern for one needs a whole function descriptor. Left as the declared type, an
-        # imported function marked STT_NOTYPE gets a pointer-sized slot instead, and the
-        # descriptor copy below reads past it -- off the end of the extern object when the
-        # symbol is the last one allocated, and over the neighbouring symbol otherwise.
         return SymbolType.TYPE_FUNCTION
 
     def relocate(self):
