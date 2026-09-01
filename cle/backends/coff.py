@@ -436,13 +436,14 @@ _ALIGN_MASK = 0x00F00000
 _ALIGN_SHIFT = 20
 
 
-def _section_alignment(section: CoffSectionTableEntry) -> int:
+def _section_alignment(section: CoffSectionTableEntry, unstated: int = 16) -> int:
     encoded = (section.Characteristics & _ALIGN_MASK) >> _ALIGN_SHIFT
-    return 1 << (encoded - 1) if encoded else 16
+    return 1 << (encoded - 1) if encoded else unstated
 
 
 #: ``SizeOfRawData`` is 32 bits wide, and for a section with no bytes in the file nothing else in the file
-#: bounds it. This caps the zero-filled space such a section is given.
+#: bounds it. This caps the zero-filled space such a section is given, and how far past the image a section
+#: may be moved.
 MAX_IMAGE_SIZE = 0x10000000
 
 
@@ -479,24 +480,49 @@ class Coff(Backend):
 
         # Add each section
         self._section_addrs: list[int] = []
-        next_uninitialized_vaddr = len(image)
+        next_vaddr_past_image = len(image)
         for section_idx, section in enumerate(self._coff.sections):
             section_name = self._coff.get_section_name(section_idx)
+            raw_ptr = section.PointerToRawData
             vsize = section.SizeOfRawData
-            if section.PointerToRawData or not vsize or not section.Characteristics & IMAGE_SCN.CNT_UNINITIALIZED_DATA:
-                vaddr = section.PointerToRawData
+            alignment = _section_alignment(section)
+            past_image_vaddr = (next_vaddr_past_image + alignment - 1) & ~(alignment - 1)
+            # A section marked IMAGE_SCN_CNT_UNINITIALIZED_DATA has no bytes in the file and states
+            # PointerToRawData 0, which in the layout above is the file header. A section whose file offset
+            # does not satisfy the alignment its own header states holds nothing that decodes there. Either
+            # one gets space of its own past the image; every other section keeps its file offset. A header
+            # stating no alignment states no requirement, so the 16 _section_alignment returns for that case
+            # is where to put a section that has to be placed somewhere and never a reason to move one.
+            uninitialized = bool(section.Characteristics & IMAGE_SCN.CNT_UNINITIALIZED_DATA)
+            no_file_bytes = not raw_ptr and vsize != 0 and uninitialized
+            misaligned = raw_ptr != 0 and vsize != 0 and raw_ptr % _section_alignment(section, unstated=1) != 0
+            if misaligned and past_image_vaddr + vsize > MAX_IMAGE_SIZE:
+                # Its bytes are in the file and the image cannot grow far enough to hold them anywhere else.
+                # Leave it at the offset that holds them rather than at an address nothing backs.
+                log.warning(
+                    "Section %s states %#x bytes at %#x, which does not satisfy the %#x byte alignment it "
+                    "states, and moving it would take the image past %#x. Leaving it where it is.",
+                    section_name,
+                    vsize,
+                    raw_ptr,
+                    alignment,
+                    MAX_IMAGE_SIZE,
+                )
+                misaligned = False
+            if not no_file_bytes and not misaligned:
+                vaddr = raw_ptr
                 filesize = vsize
             else:
-                # A section marked IMAGE_SCN_CNT_UNINITIALIZED_DATA has no bytes in the file and states
-                # PointerToRawData 0, which in the layout above is the file header. Placing it there lays it over
-                # the header and, once it is longer than the section table, over the sections that follow: a mingw
-                # object whose .bss is 0x1300 bytes long covers the first 0x11fc bytes of its own .text. Give it
-                # zero-filled space of its own past the image instead.
-                alignment = _section_alignment(section)
-                vaddr = (next_uninitialized_vaddr + alignment - 1) & ~(alignment - 1)
-                next_uninitialized_vaddr = vaddr + vsize
-                if next_uninitialized_vaddr <= MAX_IMAGE_SIZE:
-                    image.extend(bytes(next_uninitialized_vaddr - len(image)))
+                # Placing a section with no bytes in the file at the header lays it over the header and, once
+                # it is longer than the section table, over the sections that follow: a mingw object whose
+                # .bss is 0x1300 bytes long covers the first 0x11fc bytes of its own .text.
+                vaddr = past_image_vaddr
+                next_vaddr_past_image = vaddr + vsize
+                filesize = 0 if no_file_bytes else vsize
+                if next_vaddr_past_image <= MAX_IMAGE_SIZE:
+                    image.extend(bytes(next_vaddr_past_image - len(image)))
+                    raw = self._data[raw_ptr : raw_ptr + filesize]
+                    image[vaddr : vaddr + len(raw)] = raw
                 else:
                     log.warning(
                         "Section %s states %#x bytes of uninitialized data, which would take the image past "
@@ -505,13 +531,12 @@ class Coff(Backend):
                         vsize,
                         MAX_IMAGE_SIZE,
                     )
-                filesize = 0
             self._section_addrs.append(vaddr)
-            self.segments.append(Segment(section.PointerToRawData, vaddr, filesize, vsize))
+            self.segments.append(Segment(raw_ptr, vaddr, filesize, vsize))
             self.sections.append(
                 CoffSection(
                     section_name,
-                    section.PointerToRawData,
+                    raw_ptr,
                     filesize,
                     vaddr,
                     vsize,

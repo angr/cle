@@ -119,10 +119,32 @@ class TestCoff(unittest.TestCase):
 
         assert bss.memsize == 0x20000000
         assert bss.vaddr >= text.vaddr + text.memsize
-        # The image is the file and nothing more, so it does not grow with the field.
-        assert sum(len(backer) for _, backer in obj.memory.backers()) == os.path.getsize(exe)
+        # The image is the file plus the .text its own alignment moves past the end, and nothing more, so
+        # it does not grow with the field.
+        assert sum(len(backer) for _, backer in obj.memory.backers()) == text.vaddr - obj.mapped_base + text.memsize
         with self.assertRaises(KeyError):
             ld.memory.load(bss.vaddr, 1)
+
+    def test_sections_are_placed_at_the_alignment_they_state(self):
+        # MSVC packs an object's raw data with no padding between sections, so a section's file offset
+        # is only as aligned as the packing leaves it. Every .text$mn here states IMAGE_SCN_ALIGN_16BYTES
+        # and six of the eight begin at a file offset that is not a multiple of 16.
+        exe = os.path.join(TEST_BASE, "tests", "x86", "fauxware.obj")
+        with open(exe, "rb") as f:
+            data = f.read()
+        ld = cle.Loader(exe, auto_load_libs=False, perform_relocations=False)
+        obj = ld.main_object
+
+        text_sections = [section for section in obj.sections if section.name == ".text$mn"]
+        assert len(text_sections) == 8
+        assert sum(1 for section in text_sections if section.offset % 16) == 6
+        for section in text_sections:
+            assert section.vaddr % 16 == 0
+            # The section's bytes went with it.
+            assert (
+                ld.memory.load(section.vaddr, section.filesize)
+                == data[section.offset : section.offset + section.filesize]
+            )
 
 
 if __name__ == "__main__":
