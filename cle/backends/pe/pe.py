@@ -60,6 +60,21 @@ def image_os(optional_header: Any) -> str:
     return "uefi" if optional_header.Subsystem in EFI_SUBSYSTEMS else "windows"
 
 
+LITTLE_ENDIAN_MACHINE_TYPES = frozenset(("IMAGE_FILE_MACHINE_POWERPC", "IMAGE_FILE_MACHINE_POWERPCFP"))
+
+
+def arch_from_machine_type(ident: str) -> archinfo.Arch:
+    """
+    Resolve the architecture named by a PE file header's machine type.
+
+    Windows NT on PowerPC was little-endian, so cle states that endness rather than depending on archinfo's default
+    for the architecture.
+    """
+
+    endness = archinfo.Endness.LE if ident in LITTLE_ENDIAN_MACHINE_TYPES else archinfo.Endness.ANY
+    return archinfo.arch_from_id(ident, endness=endness)
+
+
 class PE(Backend):
     """
     Representation of a PE (i.e. Windows) binary.
@@ -124,7 +139,7 @@ class PE(Backend):
 
         if self._arch is None:
             machine_type = self._pe.FILE_HEADER.Machine
-            self.set_arch(archinfo.arch_from_id(pefile.MACHINE_TYPE.get(machine_type, hex(machine_type))))
+            self.set_arch(arch_from_machine_type(pefile.MACHINE_TYPE.get(machine_type, hex(machine_type))))
 
         self.mapped_base = self.linked_base = self._pe.OPTIONAL_HEADER.ImageBase
 
@@ -226,7 +241,7 @@ class PE(Backend):
 
         assert pe.FILE_HEADER is not None
 
-        arch = archinfo.arch_from_id(pefile.MACHINE_TYPE[pe.FILE_HEADER.Machine])  # pylint:disable=no-member
+        arch = arch_from_machine_type(pefile.MACHINE_TYPE[pe.FILE_HEADER.Machine])  # pylint:disable=no-member
         return arch == obj.arch
 
     #
