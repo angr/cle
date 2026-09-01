@@ -169,6 +169,8 @@ class ELF(MetaELF):
         self.jmprel = OrderedDict()
         self.rela_type = None
         self.__parsed_reloc_tables = set()
+        # relocation types cle has no class for, mapped to the number of entries it discarded
+        self.unsupported_relocs: dict[int, int] = {}
 
         # DWARF data
         self.has_dwarf_info = bool(self._reader.has_dwarf_info())
@@ -208,6 +210,17 @@ class ELF(MetaELF):
             self.__register_segments()
         if not discard_section_headers:
             self.__register_sections()
+
+        if self.unsupported_relocs:
+            dropped = sum(self.unsupported_relocs.values())
+            log.warning(
+                "%s: dropped %d relocation%s that cle cannot apply on %s (types: %s)",
+                self.binary_basename,
+                dropped,
+                "" if dropped == 1 else "s",
+                self.arch.name,
+                ", ".join(str(r_type) for r_type in sorted(self.unsupported_relocs)),
+            )
 
         if not self.symbols:
             self._desperate_for_symbols = True
@@ -607,6 +620,11 @@ class ELF(MetaELF):
             GenericRelativeReloc if is_relr else get_relocation(self.arch.name, readelf_reloc.entry.r_info_type)
         )
         if RelocClass is None:
+            r_type = readelf_reloc.entry.r_info_type
+            # Type 0 is R_<arch>_NONE: get_relocation declines it because there is nothing to
+            # apply, not because cle is missing a handler for it.
+            if r_type != 0:
+                self.unsupported_relocs[r_type] = self.unsupported_relocs.get(r_type, 0) + 1
             return None
 
         address = AT.from_lva(readelf_reloc.entry.r_offset, self).to_rva()
