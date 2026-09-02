@@ -37,6 +37,35 @@ class TestCoff(unittest.TestCase):
         assert "rejected" in symbol_names
         assert "authenticate" in symbol_names
 
+    def test_a_section_table_longer_than_the_file_is_rejected(self):
+        # The first 512 bytes of x86/fauxware.obj. Its header declares 29 sections, whose table
+        # needs 0x49c bytes counted from the start of the file.
+        exe = os.path.join(TEST_BASE, "tests", "x86", "coff_truncated_section_table.obj")
+        with self.assertRaisesRegex(cle.CLEInvalidBinaryError, "section table"):
+            cle.Loader(exe, auto_load_libs=False)
+
+    def test_a_symbol_table_past_the_end_of_the_file_is_rejected(self):
+        # The first 2048 bytes of x86/fauxware.obj, which is long enough to hold the whole
+        # section table and not the 152 symbols at 0x31c1 or the string table after them.
+        exe = os.path.join(TEST_BASE, "tests", "x86", "coff_truncated_symbol_table.obj")
+        with self.assertRaisesRegex(cle.CLEInvalidBinaryError, "symbol table"):
+            cle.Loader(exe, auto_load_libs=False)
+
+    def test_a_relocation_table_past_the_end_of_the_file_is_rejected(self):
+        # An otherwise well-formed 108-byte object whose .text points its relocation table at
+        # 0x4000000, so everything else the parser reads is in range.
+        exe = os.path.join(TEST_BASE, "tests", "x86", "coff_reloc_table_past_file.obj")
+        with self.assertRaisesRegex(cle.CLEInvalidBinaryError, "relocation table"):
+            cle.Loader(exe, auto_load_libs=False)
+
+    def test_the_whole_object_still_loads(self):
+        # The bounds above are on what the header declares, so an object that declares only what
+        # it holds is unaffected.
+        exe = os.path.join(TEST_BASE, "tests", "x86", "fauxware.obj")
+        ld = cle.Loader(exe, auto_load_libs=False)
+        assert len(ld.main_object.sections) == 29
+        assert len(ld.main_object.relocs) == 225
+
     def test_long_section_names_come_from_the_string_table(self):
         exe = os.path.join(TEST_BASE, "tests", "x86", "coff_long_section_names.obj")
         ld = cle.Loader(exe, auto_load_libs=False)
