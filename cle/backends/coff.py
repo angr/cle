@@ -413,7 +413,7 @@ class CoffRelocationSECREL(CoffRelocation):
         return offset_to_symbol
 
 
-RELOC_CLASSES: dict[IntEnum, dict[IntEnum, type[Relocation]]] = {
+RELOC_CLASSES: dict[IntEnum, dict[IntEnum, type[CoffRelocation]]] = {
     IMAGE_FILE_MACHINE.I386: {
         IMAGE_REL_I386.REL32: CoffRelocationREL32,
         IMAGE_REL_I386.DIR32: CoffRelocationDIR32,
@@ -514,6 +514,22 @@ class Coff(Backend):
                 }:
                     reloc_class = RELOC_CLASSES[self._coff.header.Machine].get(reloc.Type, None)
                     if reloc_class is not None:
+                        patch_size = struct.calcsize(reloc_class.PACK_FORMAT)
+                        if (
+                            reloc.VirtualAddress + patch_size > section.SizeOfRawData
+                            or patch_offset + patch_size > len(self._data)
+                        ):
+                            log.warning(
+                                "Section %s has a relocation of type %#x at %#x patching %#x bytes, which is out of "
+                                "bounds for its SizeOfRawData %#x or for the file size %#x. Skipping this relocation.",
+                                self._coff.get_section_name(section_idx),
+                                reloc.Type,
+                                reloc.VirtualAddress,
+                                patch_size,
+                                section.SizeOfRawData,
+                                len(self._data),
+                            )
+                            continue
                         cle_symbol = self.get_symbol(sym_name, produce_extern_symbols=True)
                         self.relocs.append(reloc_class(self, cle_symbol, patch_offset))
                         continue

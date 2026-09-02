@@ -59,6 +59,25 @@ class TestCoff(unittest.TestCase):
         field_addr = section_vaddr(ld.main_object, ".text")
         assert ld.memory.load(field_addr, 4) == struct.pack("<I", (target_symbol.rebased_addr + addend) % 2**32)
 
+    def test_a_relocation_past_the_end_of_its_section_is_skipped(self):
+        # The object's one relocation sits at offset 0x10 of a .text section holding 0x10 bytes, so
+        # its four-byte field falls on the start of .data, which is filled with 0xaa.
+        exe = os.path.join(TEST_BASE, "tests", "x86", "coff_reloc_outside_section.obj")
+        ld = cle.Loader(exe, auto_load_libs=False, perform_relocations=True)
+        assert ld.memory.load(section_vaddr(ld.main_object, ".data"), 0x10) == b"\xaa" * 0x10
+        assert ld.main_object.relocs == []
+
+    def test_a_relocation_past_the_end_of_the_file_is_skipped(self):
+        # The object's one relocation sits at offset 0x4000000 of .text, which the whole file does
+        # not reach.
+        exe = os.path.join(TEST_BASE, "tests", "x86", "coff_reloc_outside_file.obj")
+        with open(exe, "rb") as f:
+            raw = f.read()
+
+        ld = cle.Loader(exe, auto_load_libs=False, perform_relocations=True)
+        assert ld.main_object.relocs == []
+        assert ld.main_object.memory.load(0, len(raw)) == raw
+
     def test_rel32_relocation_encodes_a_negative_displacement(self):
         # The object holds a backwards call: _callee at offset 0, and a displacement field at
         # offset 5 storing the addend -4. Both live in .text, so the result does not depend on
