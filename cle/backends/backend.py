@@ -219,7 +219,6 @@ class Backend:
         self._md5: bytes | None = None
         self._sha256: bytes | None = None
 
-        self.mapped_base_symbolic = 0
         # These are set by cle, and should not be overriden manually
         self.mapped_base = self.linked_base = 0  # not to be set manually - used by CLE
 
