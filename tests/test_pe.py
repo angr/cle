@@ -114,6 +114,34 @@ class TestPEBackend(unittest.TestCase):
         )
         assert ld.main_object.provides is None
 
+    def test_gnu_eh_frame_function_hints(self):
+        exe = os.path.join(TEST_BASE, "tests", "x86", "windows", "eh-frame-occupied-start.exe")
+        ld = cle.Loader(exe, auto_load_libs=False)
+
+        self.assertIn(".eh_frame", ld.main_object.sections_map)
+        hints = [
+            (hint.addr, hint.size)
+            for hint in ld.main_object.function_hints
+            if hint.source == cle.FunctionHintSource.EH_FRAME
+        ]
+        self.assertEqual([(0x40100A, 6)], hints)
+
+    def test_exception_directory_function_hint_source(self):
+        exe = os.path.join(
+            TEST_BASE,
+            "tests",
+            "x86_64",
+            "windows",
+            "7995a0325b446c462bdb6ae10b692eee2ecadd8e888e9d7729befe4412007afb",
+        )
+        ld = cle.Loader(exe, auto_load_libs=False)
+
+        self.assertEqual(4219, len(ld.main_object.function_hints))
+        self.assertEqual(
+            {cle.FunctionHintSource.EXCEPTION_DIRECTORY},
+            {hint.source for hint in ld.main_object.function_hints},
+        )
+
     def test_tls(self):
         exe = os.path.join(TEST_BASE, "tests", "x86", "windows", "TLS.exe")
         ld = cle.Loader(exe, auto_load_libs=False)
