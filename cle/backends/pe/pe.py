@@ -175,6 +175,7 @@ class PE(Backend):
         self._register_tls()
         # parse sections
         self._register_sections()
+        self._mark_sections_executable_without_dep()
 
         self.linking = "dynamic" if self.deps else "static"
         self.jmprel = self._get_jmprel()
@@ -1116,6 +1117,31 @@ class PE(Backend):
             section = PESection(pe_section, remap_offset=self.linked_base, name=name)
             self.sections.append(section)
             self.sections_map[section.name] = section
+
+    def _mark_sections_executable_without_dep(self):
+        """
+        Report an image's sections as executable when it marks none of them executable.
+
+        Windows enforces IMAGE_SCN_MEM_EXECUTE only through DEP, which an image opts into with
+        IMAGE_DLLCHARACTERISTICS_NX_COMPAT. Without that bit every readable page is executable, so a
+        packer can clear the flag on every section and the image still runs. One that then enters
+        inside such a section is not describing where its code is.
+        """
+        if self.supports_nx or any(section.is_executable for section in self.sections):
+            return
+        if self.find_section_containing(self._entry) is None:
+            return
+
+        log.warning(
+            "%s marks no section executable but enters at %#x. Reporting the sections that hold "
+            "content as executable, which is how the image runs without DEP.",
+            self.binary_basename,
+            self._entry,
+        )
+        for section in self.sections:
+            assert isinstance(section, PESection)
+            if not section.only_contains_uninitialized_data:
+                section.executable_without_dep = True
 
     def _find_pdb_path(self):
         """
