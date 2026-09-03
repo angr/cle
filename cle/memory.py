@@ -263,7 +263,10 @@ class Clemory(ClemoryBase):
             return
         if addr <= start_addr:
             return
-        if isinstance(backer, ClemoryBase):
+        # backers() recurses into nested clemories and yields the child's own backers, while remove_backer() below
+        # removes from self._backers, where the child itself sits.
+        idx = bisect.bisect_left(self._backers, start_addr, key=lambda x: x[0])
+        if idx >= len(self._backers) or self._backers[idx][1] is not backer:
             raise ValueError("Cannot split a backer which is itself a clemory")
         if addr >= start_addr + len(backer):
             return
