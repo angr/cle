@@ -42,9 +42,6 @@ PCLNTAB_SECTION_NAMES = frozenset({".gopclntab", "__gopclntab", ".go.pclntab", "
 # Sections a pclntab may be embedded in, searched by magic as a fallback.
 _EMBEDDING_SECTION_NAMES = frozenset({".rdata", ".rodata", "__rodata", "__const", "__DATA_CONST"})
 
-# Sections whose presence means "this was built by the Go toolchain".
-_GO_MARKER_SECTION_NAMES = frozenset({".gosymtab", ".typelink", ".itablink", ".noptrdata", ".noptrbss"})
-
 _VALID_PTR_SIZES = (4, 8)
 _VALID_MIN_LC = (1, 2, 4)
 _MAX_NAME_LEN = 4096
@@ -226,10 +223,6 @@ def _text_start_fallback(execs) -> int | None:
     return min(sec.vaddr for sec in execs)
 
 
-def _looks_like_go(backend: Backend) -> bool:
-    return any(sec.name in _GO_MARKER_SECTION_NAMES or sec.name.startswith(".go.") for sec in backend.sections)
-
-
 def _find_pclntab_data(backend: Backend, endness: str):
     """
     Yield candidate ``bytes`` objects, each starting at a possible pclntab header.
@@ -243,9 +236,9 @@ def _find_pclntab_data(backend: Backend, endness: str):
         elif section.name in _EMBEDDING_SECTION_NAMES and not section.is_executable:
             embedding.append(section)
 
-    # PE and Mach-O bury the table in a generic read-only section; find it by magic. Only worth
-    # doing when something else already says this is a Go binary.
-    if not embedding or not _looks_like_go(backend):
+    # PE and Mach-O bury the table in a generic read-only section, so find it by magic and let
+    # GoPclntab.parse decide whether what follows is really a table.
+    if not embedding:
         return
     magics = [struct.pack(endness + "I", magic) for magic in GO_PCLNTAB_MAGICS]
     for section in embedding:

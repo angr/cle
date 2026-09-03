@@ -19,6 +19,7 @@ except ImportError:
 from cle.address_translator import AT
 from cle.backends.backend import Backend, FunctionHint, FunctionHintSource, register_backend
 from cle.backends.coff import IMAGE_SYM_CLASS
+from cle.backends.gopclntab import register_gopclntab_symbols
 from cle.backends.symbol import SymbolType
 from cle.structs import DataDirectory, MemRegion, MemRegionSort, PointerArray, StringBlob, StructArray
 from cle.utils import extract_null_terminated_bytestr
@@ -190,6 +191,9 @@ class PE(Backend):
             pdb_path = debug_symbols or self._find_pdb_path()
             if pdb_path:
                 self.load_symbols_from_pdb(pdb_path)
+
+        # Go binaries keep a full function table even when stripped
+        self.gopclntab = register_gopclntab_symbols(self)
 
         self.is_dotnet = (
             self._pe.OPTIONAL_HEADER.DATA_DIRECTORY[

@@ -17,6 +17,17 @@ TEST_LOCATION = os.path.join(
 # A stripped Go binary whose pclntab magic and textStart field have been clobbered.
 DAMAGED_BINARY = os.path.join(TEST_LOCATION, "x86_64", "starling")
 
+# Cross-compiled from tests_src/language_detector/langdetect_go.go. A PE has no section for the
+# pclntab: it is embedded in .rdata and has to be found by its magic. A Mach-O does have one,
+# __gopclntab, which PCLNTAB_SECTION_NAMES already knows.
+GO_PE_BINARY = os.path.join(TEST_LOCATION, "x86_64", "windows", "langdetect_go.exe")
+GO_MACHO_BINARY = os.path.join(TEST_LOCATION, "aarch64", "langdetect_go.macho")
+
+# A Go PE from the wild, stripped: its COFF symbol table names not one Go function.
+STRIPPED_GO_PE_BINARY = os.path.join(
+    TEST_LOCATION, "x86_64", "windows", "131252a8059fdbb12d77cd4711e597c45bb48e6d4bc3ddc808697a5e0488ff2c"
+)
+
 
 def _symtab_functions(path):
     """
@@ -107,11 +118,96 @@ class TestGoPclntab(unittest.TestCase):
         assert ld.find_symbol("runtime.GOMAXPROCS") is not None
         assert obj.get_symbol("runtime.Caller").rebased_addr in by_addr
 
-    def test_non_go_binary(self):
-        path = os.path.join(TEST_LOCATION, "x86_64", "fauxware")
-        ld = cle.Loader(path, auto_load_libs=False)
-        assert ld.main_object.gopclntab is None
-        assert not [s for s in ld.main_object.symbols if isinstance(s, cle.GoSymbol)]
+    def test_pe_binary(self):
+        obj = cle.Loader(GO_PE_BINARY, auto_load_libs=False).main_object
+        tab = obj.gopclntab
+
+        assert tab is not None
+        assert ".gopclntab" not in obj.sections_map
+        assert tab.go_version == (1, 20)
+        assert tab.ptr_size == 8
+        assert tab.min_lc == 1
+        assert tab.text_start == 0x140001000
+        assert len(tab.functions) == 1898
+        assert all(f.size > 0 for f in tab.functions)
+        assert [f.addr for f in tab.functions] == sorted(f.addr for f in tab.functions)
+
+    def test_pe_binary_supplies_the_function_symbols(self):
+        obj = cle.Loader(GO_PE_BINARY, auto_load_libs=False).main_object
+        tab = obj.gopclntab
+        assert tab is not None
+        go_symbols = [s for s in obj.symbols if isinstance(s, cle.GoSymbol)]
+
+        # 23 of the pclntab's entries are assembly routines the COFF symbol table already covers
+        assert len(go_symbols) == 1875
+        assert all(s.type == cle.SymbolType.TYPE_FUNCTION for s in go_symbols)
+        assert sum(1 for s in obj.symbols if s.is_function) == 1945
+
+        by_addr = {}
+        for symbol in obj.symbols:
+            by_addr.setdefault(symbol.rebased_addr, set()).add(symbol.name)
+        assert all(func.name in by_addr[func.addr] for func in tab.functions)
+
+        assert (sym := obj.get_symbol("runtime.main")) is not None and sym.rebased_addr == 0x140047E20
+        assert (sym := obj.get_symbol("main.main")) is not None and sym.rebased_addr == 0x1400A73C0
+
+    def test_stripped_pe_binary(self):
+        obj = cle.Loader(STRIPPED_GO_PE_BINARY, auto_load_libs=False).main_object
+        tab = obj.gopclntab
+
+        assert tab is not None
+        assert tab.text_start == 0x401000
+        assert len(tab.functions) == 1821
+        # nothing in this object's symbol table lands on a Go function, so every entry is added
+        assert len([s for s in obj.symbols if isinstance(s, cle.GoSymbol)]) == 1821
+        assert sum(1 for s in obj.symbols if s.is_function) == 1861
+        assert (sym := obj.get_symbol("main.main")) is not None and sym.rebased_addr == 0x4B75C0
+
+    def test_macho_binary(self):
+        obj = cle.Loader(GO_MACHO_BINARY, auto_load_libs=False).main_object
+        tab = obj.gopclntab
+
+        assert tab is not None
+        assert "__TEXT,__gopclntab" in obj.sections_map
+        assert tab.go_version == (1, 20)
+        assert tab.ptr_size == 8
+        assert tab.min_lc == 4
+        assert tab.text_start == 0x100001000
+        assert len(tab.functions) == 1888
+        assert [f.addr for f in tab.functions] == sorted(f.addr for f in tab.functions)
+
+    def test_macho_binary_supplies_the_function_symbols(self):
+        obj = cle.Loader(GO_MACHO_BINARY, auto_load_libs=False).main_object
+        assert isinstance(obj, cle.MachO)
+        tab = obj.gopclntab
+        assert tab is not None
+        go_symbols = [s for s in obj.symbols if isinstance(s, cle.GoSymbol)]
+
+        # cle reports no Mach-O symbol as a function, so nothing here covers a pclntab address and
+        # every entry is added, next to the underscore-prefixed name the symbol table already has
+        assert len(go_symbols) == 1888
+        assert all(s.type == cle.SymbolType.TYPE_FUNCTION for s in go_symbols)
+
+        by_addr = {}
+        for symbol in obj.symbols:
+            by_addr.setdefault(symbol.rebased_addr, set()).add(symbol.name)
+        assert all(func.name in by_addr[func.addr] for func in tab.functions)
+
+        assert obj.get_symbol("runtime.main")[0].rebased_addr == 0x10003FF30
+        assert obj.get_symbol("main.main")[0].rebased_addr == 0x10009D340
+
+    def test_non_go_binaries(self):
+        # One per format, each with a read-only section the magic scan now reaches, so that a
+        # miss here means the scan ran and found nothing rather than that it never ran.
+        for path, section in (
+            (os.path.join(TEST_LOCATION, "x86_64", "fauxware"), ".rodata"),
+            (os.path.join(TEST_LOCATION, "x86_64", "windows", "fauxware.exe"), ".rdata"),
+            (os.path.join(TEST_LOCATION, "aarch64", "dyld_ios15.macho"), "__DATA_CONST,__const"),
+        ):
+            obj = cle.Loader(path, auto_load_libs=False).main_object
+            assert section in obj.sections_map
+            assert obj.gopclntab is None
+            assert not [s for s in obj.symbols if isinstance(s, cle.GoSymbol)]
 
     def test_rejects_garbage(self):
         assert GoPclntab.parse(b"") is None
