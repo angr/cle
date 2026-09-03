@@ -10,7 +10,7 @@ import pytest
 
 import cle
 from cle import MachO
-from cle.backends.macho.macho_enums import LoadCommands, SectionAttributes, SectionType
+from cle.backends.macho.macho_enums import LoadCommands, MachoFiletype, SectionAttributes, SectionType
 from cle.backends.macho.section import MachOSection
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
@@ -426,3 +426,27 @@ if __name__ == "__main__":
     test_instruction_sections()
     test_zero_vmsize_segment()
     test_filesize_larger_than_vmsize()
+
+
+def test_relocatable_object():
+    """
+    A relocatable object is linked against 0 and holds every section in one unnamed segment, so its
+    base-address situation is the same as a dylib loaded as the main object. It used to be refused
+    outright as an unsupported file type.
+    """
+    for arch, name in (("aarch64", "AARCH64"), ("x86_64", "AMD64")):
+        machofile = os.path.join(TEST_BASE, "tests", arch, "relocatable_object.macho")
+        ld = cle.Loader(machofile, auto_load_libs=False)
+        obj = ld.main_object
+        assert isinstance(obj, MachO)
+        assert obj.filetype == MachoFiletype.MH_OBJECT
+        assert obj.arch.name == name
+        assert obj.mapped_base == 0
+
+        text = next(sec for sec in obj.sections if sec.name == "__text")
+        assert text.is_executable
+        assert text.memsize > 0
+
+        # The defined symbols carry real section-relative addresses; undefined externals stay at 0.
+        defined = {sym.name for sym in obj.symbols if sym.rebased_addr}
+        assert defined, "no defined symbol carries an address"

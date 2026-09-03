@@ -206,6 +206,11 @@ class MachO(Backend):
                 # We can't set the linked base to request this, because the MachO Backend implementation
                 # uses this to recalculate the addresses
                 self._custom_base_addr = 0
+            elif self.filetype == MachoFiletype.MH_OBJECT:
+                # A relocatable object is linked against 0, and carries one unnamed segment holding every
+                # section. Nothing is bound yet, so this is the same base-address situation as a dylib
+                # loaded as the main object.
+                self._custom_base_addr = 0
             elif self.filetype == MachoFiletype.MH_DYLIB and not self.is_main_bin:
                 # A Library is loaded as a dependency, this is fine, the loader will map it to somewhere above the main
                 # binary, so we don't need to do anything
@@ -1150,7 +1155,7 @@ class MachO(Backend):
                 self._dyld_imports.append(sym)
             else:
                 raise NotImplementedError(
-                    f"Multiple symbols with name {sym_name}" f"for library {self.imported_libraries[imp.lib_ordinal]}."
+                    f"Multiple symbols with name {sym_name}for library {self.imported_libraries[imp.lib_ordinal]}."
                 )
 
     def _parse_dyld_chained_fixups(self):
