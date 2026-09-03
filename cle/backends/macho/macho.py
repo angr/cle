@@ -15,8 +15,10 @@ import archinfo
 from sortedcontainers import SortedKeyList
 
 from cle.backends.backend import AT, Backend, register_backend
+from cle.backends.gopclntab import register_gopclntab_symbols
 from cle.backends.macho.binding import BindingHelper, MachOPointerRelocation, MachOSymbolRelocation, read_uleb
 from cle.backends.regions import Regions
+from cle.backends.symbol import Symbol
 from cle.errors import CLECompatibilityError, CLEInvalidBinaryError, CLEOperationError
 
 from .encrypted_sentinel_backer import CryptSentinel
@@ -55,14 +57,15 @@ class SymbolList(SortedKeyList):
         super().__init__(**kwargs)
         self._symbol_cache = defaultdict(list)
 
-    def add(self, value: AbstractMachOSymbol):
+    def add(self, value: Symbol):
         super().add(value)
-        self._symbol_cache[
-            (
-                value.name,
-                value.library_ordinal,
-            )
-        ].append(value)
+        if isinstance(value, AbstractMachOSymbol):
+            self._symbol_cache[
+                (
+                    value.name,
+                    value.library_ordinal,
+                )
+            ].append(value)
 
     def get_by_name_and_ordinal(self, name: str, ordinal: int, include_stab=False) -> list[AbstractMachOSymbol]:
         if include_stab:
@@ -250,6 +253,9 @@ class MachO(Backend):
                 self.do_binding()
 
         self._load_stubs()
+
+        # Go binaries keep a full function table even when stripped
+        self.gopclntab = register_gopclntab_symbols(self)
 
     @property
     def stubs(self):
@@ -1236,7 +1242,11 @@ class MachO(Backend):
         sym.symbol_stubs
         """
         for sym in self.symbols:
-            if address == sym.relative_addr or address in sym.bind_xrefs or address in sym.symbol_stubs:
+            if address == sym.relative_addr:
+                return sym
+            if not isinstance(sym, AbstractMachOSymbol):
+                continue
+            if address in sym.bind_xrefs or address in sym.symbol_stubs:
                 return sym
         return None
 
@@ -1253,7 +1263,7 @@ class MachO(Backend):
         """
         result = []
         for sym in self.symbols:
-            if sym.is_stab and not include_stab:
+            if not include_stab and isinstance(sym, AbstractMachOSymbol) and sym.is_stab:
                 continue
 
             if fuzzy:

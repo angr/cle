@@ -19,7 +19,7 @@ from .relocation import Relocation
 from .symbol import Symbol
 
 if TYPE_CHECKING:
-    from cle.backends import Section, Segment
+    from cle.backends import GoPclntab, Section, Segment
     from cle.loader import Loader
     from cle.structs import MemRegion
 
@@ -127,6 +127,7 @@ class Backend:
     :ivar bool execstack:   Whether this executable has an executable stack
     :ivar str provides:     The name of the shared library dependancy that this object resolves
     :ivar list symbols:     A list of symbols provided by this object, sorted by address
+    :ivar gopclntab:        The Go runtime's function table, if this object has one, else None
     :ivar has_memory:       Whether this backend is backed by a Clemory or not. As it stands now, a backend should still
                             define `min_addr` and `max_addr` even if `has_memory` is False.
     """
@@ -253,6 +254,9 @@ class Backend:
 
         # line number mapping
         self.addr_to_line = {}
+
+        # the Go runtime's function table
+        self.gopclntab: GoPclntab | None = None
 
         # Custom options
         self._custom_entry_point = entry_point
