@@ -1053,8 +1053,11 @@ class Loader:
                     obj.binary_basename,
                 )
             base_addr = obj.linked_base
-            if not self._is_range_free(obj.linked_base, obj_size):
-                raise CLEError(f"Position-DEPENDENT object {obj.binary} cannot be loaded at {base_addr:#x}")
+            conflict = self._describe_range_conflict(obj.linked_base, obj_size)
+            if conflict is not None:
+                raise CLEError(
+                    f"Position-DEPENDENT object {obj.binary_basename} cannot be loaded at {base_addr:#x}: {conflict}"
+                )
 
         assert obj.mapped_base >= 0
 
@@ -1102,6 +1105,9 @@ class Loader:
         ``Loader.memory``.
         """
         for o in self.all_objects:  # sorted by min_addr
+            if o.is_outer:
+                # outer objects occupy no address space; see _describe_range_conflict
+                continue
             if o.max_addr < start:
                 continue
             if o.min_addr >= end:
@@ -1116,15 +1122,29 @@ class Loader:
             yield start, end
 
     def _is_range_free(self, va, size):
+        return self._describe_range_conflict(va, size) is None
+
+    def _describe_range_conflict(self, va, size) -> str | None:
+        """
+        Describe what keeps an object of ``size`` bytes from being placed at ``va``, or return None if nothing does.
+        The description is a sentence fragment about the object being placed, meant to be appended to an error message.
+        """
         # self.main_object should not be None here
-        if va < 0 or va + size > 2**self.main_object.arch.bits:
-            return False
+        bits = self.main_object.arch.bits
+        if va < 0:
+            return "the address is negative"
+        if va + size > 2**bits:
+            return f"it is {size:#x} bytes long and would run past the end of the {bits}-bit address space"
 
         for o in self.all_objects:
+            # an outer object is only a container for the objects it unpacks and backs no memory of its own, so like
+            # find_object_containing, placement does not count it as part of the address space
+            if o.is_outer:
+                continue
             if o.min_addr <= va <= o.max_addr or va <= o.min_addr < va + size:
-                return False
+                return f"it would overlap {o.binary_basename}, which is mapped at [{o.min_addr:#x}, {o.max_addr:#x}]"
 
-        return True
+        return None
 
     # Functions of the form "use some heuristic to tell me about this spec"
 
