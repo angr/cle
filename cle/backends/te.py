@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import struct
 from collections import namedtuple
+from typing import cast
 
 import archinfo
 
 from . import Backend, Section, register_backend
 from .coff import IMAGE_SCN
+from .region import Segment
+from .regions import Regions
 
 HEADER = struct.Struct("<HHBBHIIQIIII")
 SECTION_HEADER = struct.Struct("<8sIIIIIIHHI")
@@ -121,7 +124,6 @@ class TE(Backend):
         # an RVA, in the same space as the section virtual addresses below
         self._entry = self.linked_base + self.header.address_of_entry_point
 
-        has_relocs = False
         for section_header in self.section_headers:
             section = TESection(section_header, self.linked_base, stripped_offset)
             self._sections.append(section)
@@ -139,12 +141,12 @@ class TE(Backend):
             data = data.ljust(section.memsize, b"\0")
             self.memory.add_backer(section_header.virtual_address, data)
 
-            if section_header.number_of_relocations != 0:
-                has_relocs = True
+        # in a TE image, as in the PE image it was stripped from, sections and segments have the same meaning
+        self._segments = cast(Regions[Segment], self._sections)
 
-        self._segments = self._sections
-
-        self.pic = has_relocs
+        # the TE header's first data directory is the base relocation table, so an image with relocation entries
+        # can be rebased
+        self.pic = self.header.data_directory_0_size != 0
 
 
 register_backend("te", TE)
