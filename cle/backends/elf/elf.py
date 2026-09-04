@@ -1045,6 +1045,76 @@ class ELF(MetaELF):
         for seg in type_to_seg_mapping["PT_GNU_RELRO"]:
             self.__register_relro(seg)
 
+    # Tags whose value is an address. The fallback below compares them against DT_SYMTAB, so a tag
+    # holding a size or a string-table offset must not take part.
+    __DYNAMIC_POINTER_TAGS = frozenset(
+        {
+            "DT_PLTGOT",
+            "DT_HASH",
+            "DT_STRTAB",
+            "DT_SYMTAB",
+            "DT_RELA",
+            "DT_INIT",
+            "DT_FINI",
+            "DT_REL",
+            "DT_JMPREL",
+            "DT_INIT_ARRAY",
+            "DT_FINI_ARRAY",
+            "DT_PREINIT_ARRAY",
+            "DT_GNU_HASH",
+            "DT_VERSYM",
+            "DT_VERDEF",
+            "DT_VERNEED",
+            "DT_RELR",
+            "DT_MOVETAB",
+            "DT_SYMINFO",
+            "DT_CONFIG",
+            "DT_DEPAUDIT",
+            "DT_AUDIT",
+            "DT_TLSDESC_PLT",
+            "DT_TLSDESC_GOT",
+        }
+    )
+
+    def __num_dynamic_symbols(self, seg_readelf) -> int:
+        """
+        How many entries DT_SYMTAB holds.
+
+        pyelftools reads this out of DT_GNU_HASH or DT_HASH and has no answer when the table it
+        picks is malformed: a GNU hash table whose bucket array is empty makes it raise ValueError,
+        which aborts the whole load. Both tables only accelerate lookup by name, so a broken one is
+        no reason to give up on the symbol table itself. Fall back to the same bound pyelftools uses
+        when a file has neither table -- the nearest address above DT_SYMTAB -- restricted to tags
+        that really do hold addresses.
+        """
+        try:
+            return seg_readelf.num_symbols()
+        except (ELFError, ValueError) as ex:
+            log.warning("%s: hash table does not give a dynamic symbol count (%s)", self.binary, ex)
+
+        symtab = self._dynamic["DT_SYMTAB"]
+        entsize = self._dynamic["DT_SYMENT"]
+        if entsize <= 0:
+            return 0
+
+        end = None
+        for tagstr, val in self._dynamic.items():
+            if tagstr in self.__DYNAMIC_POINTER_TAGS and val > symtab and (end is None or val < end):
+                end = val
+        if end is None:
+            # No table follows it, so the symbol table runs to the end of whatever segment holds it.
+            for seg in self._reader.iter_segments():
+                if seg.header.p_type != "PT_LOAD":
+                    continue
+                start = seg.header.p_vaddr
+                if start <= symtab <= start + seg.header.p_filesz:
+                    end = start + seg.header.p_filesz
+                    break
+        if end is None:
+            log.warning("%s: cannot find the end of DT_SYMTAB; assuming it is empty", self.binary)
+            return 0
+        return (end - symtab) // entsize
+
     def __register_dyn(self, seg_readelf):
         """
         Parse the dynamic section for dynamically linked objects.
@@ -1092,7 +1162,7 @@ class ELF(MetaELF):
         # TODO: pyelftools is less bad than it used to be. how much of this can go away?
         # None of the following things make sense without a string table or a symbol table
         if "DT_STRTAB" in self._dynamic and "DT_SYMTAB" in self._dynamic and "DT_SYMENT" in self._dynamic:
-            num_symbols = seg_readelf.num_symbols()  # this is not actually reliable
+            num_symbols = self.__num_dynamic_symbols(seg_readelf)
 
             # Construct our own symbol table to hack around pyreadelf assuming section headers are around
             entsize = self._dynamic["DT_SYMENT"]
