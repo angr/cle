@@ -525,7 +525,9 @@ class ELFCore(ELF):
                     while cursor < seg.filesize:
                         child_cursor = cursor + seg.vaddr - base_addr
                         try:
-                            child_offset, child_backer = next(obj.memory.backers(child_cursor))
+                            child_offset, child_backer = next(
+                                obj.memory._backers_for_reading(child_cursor)  # pylint: disable=protected-access
+                            )
                         except StopIteration:
                             # is this right? is there any behavior we need to account for in the case that there is
                             # somehow no backer past a point mapped by the core?
