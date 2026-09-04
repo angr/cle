@@ -213,6 +213,32 @@ class ELF(MetaELF):
             self._desperate_for_symbols = True
             self.symbols.update(self._symbol_cache.values())
 
+        # .eh_frame is an allocated, non-debug section: mapped into the process image and present
+        # even in fully stripped binaries, unlike .debug_*. CFGFast consumes the function hints
+        # derived from its FDEs and enables them by default, so load them whether or not debug
+        # information was requested.
+        #
+        # This reads its own DWARFInfo instead of sharing the one below. Relocating the debug
+        # sections is unnecessary for .eh_frame and raises on objects that keep .rela.debug_*,
+        # which would otherwise cost those objects every hint; and a section this does not read
+        # failing to parse should not decide whether .eh_frame is read at all.
+        #
+        # Relocatable objects are skipped: an FDE address there is relative to the section holding
+        # the function, and cle maps each section independently. See angr/cle#597.
+        if not self.is_relocatable and self._reader.get_section_by_name(".eh_frame") is not None:
+            try:
+                eh_frame_dwarf = self._reader.get_dwarf_info(relocate_dwarf_sections=False)
+            except (DWARFError, ELFError, ValueError):
+                log.warning(
+                    "An exception occurred in pyelftools when reading the .eh_frame of %s. "
+                    "Continuing without function hints.",
+                    self.binary_basename,
+                    exc_info=True,
+                )
+            else:
+                if eh_frame_dwarf.has_EH_CFI():
+                    self._load_function_hints_from_fde(eh_frame_dwarf, FunctionHintSource.EH_FRAME)
+
         if self.has_dwarf_info and self.loader._load_debug_info:
             # load DWARF information
             try:
@@ -230,9 +256,8 @@ class ELF(MetaELF):
             if dwarf:
                 # Load DIEs
                 self._load_dies(dwarf)
-                # Load function hints and exception handling artifacts
+                # Load exception handling artifacts
                 if dwarf.has_EH_CFI():
-                    self._load_function_hints_from_fde(dwarf, FunctionHintSource.EH_FRAME)
                     self._load_exception_handling(dwarf)
                     self._load_line_info(dwarf)
 
@@ -627,6 +652,11 @@ class ELF(MetaELF):
         Load frame description entries out of the .eh_frame section. These entries include function addresses and can be
         used to improve CFG recovery.
 
+        This is not called for relocatable objects. An FDE address there is relative to the
+        section holding the function and only becomes meaningful once a linker places that
+        section; cle maps each section independently, so adding the image base delta yields
+        hints pointing into the wrong section. See angr/cle#597.
+
         :param dwarf:   The DWARF info object from pyelftools.
         :return:        None
         """
@@ -641,8 +671,19 @@ class ELF(MetaELF):
                             source,
                         )
                     )
-        except (DWARFError, ValueError):
-            log.warning("An exception occurred in pyelftools when loading FDE information.", exc_info=True)
+        # This runs for every ELF now, not only those loaded with debug information, so a CIE or FDE
+        # that pyelftools cannot read must cost the object its function hints and not its load.
+        # KeyError: a CIE's FDE_encoding comes from the optional "R" augmentation, which pyelftools
+        # reads unconditionally rather than falling back to the default pointer encoding.
+        # ELFParseError (an ELFError) wraps construct's errors, and a bogus length in a truncated
+        # section surfaces as OverflowError or trips one of pyelftools' own assertions.
+        except (DWARFError, ELFError, ValueError, KeyError, OverflowError, AssertionError):
+            log.warning(
+                "An exception occurred in pyelftools when loading FDE information for %s. "
+                "Continuing without function hints.",
+                self.binary_basename,
+                exc_info=True,
+            )
 
     def _load_exception_handling(self, dwarf):
         """
