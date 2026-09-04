@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import logging
 import mmap
+import os
 from dataclasses import dataclass
 from typing import cast
 from uuid import UUID
@@ -37,16 +38,24 @@ class UefiFirmware(Backend):
     is_default = True
 
     @classmethod
-    def _to_bytes(cls, fileobj: io.IOBase):
+    def _to_bytes(cls, fileobj) -> bytes | mmap.mmap:
+        """
+        Get the whole contents of a stream as a bytes-like object.
+
+        The loader only promises that a stream supports ``read`` and ``seek``, and ``is_compatible`` is offered
+        streams that belong to some other backend entirely, so nothing richer may be assumed here.
+        """
+        # mmap maps the whole file behind a descriptor, so it is the contents of the stream only when the stream
+        # spans that file. An archive member shares its container's descriptor and does not, and there is
+        # nothing to map in an empty file, so check both before taking the shortcut.
         try:
             fileno = fileobj.fileno()
-        except io.UnsupportedOperation:
+            size = os.fstat(fileno).st_size
+            fileobj.seek(0, io.SEEK_END)
+            if size > 0 and fileobj.tell() == size:
+                return mmap.mmap(fileno, 0, access=mmap.ACCESS_READ)
+        except (AttributeError, OSError, ValueError):
             pass
-        else:
-            return mmap.mmap(fileno, 0, access=mmap.ACCESS_READ)
-
-        if isinstance(fileobj, io.BytesIO):
-            return fileobj.getbuffer()
 
         # fuck it, we'll do it live
         fileobj.seek(0)
