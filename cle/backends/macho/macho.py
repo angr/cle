@@ -14,7 +14,7 @@ from os import SEEK_CUR, SEEK_SET
 import archinfo
 from sortedcontainers import SortedKeyList
 
-from cle.backends.backend import AT, Backend, register_backend
+from cle.backends.backend import AT, Backend, FunctionHint, FunctionHintSource, register_backend
 from cle.backends.gopclntab import register_gopclntab_symbols
 from cle.backends.macho.binding import BindingHelper, MachOPointerRelocation, MachOSymbolRelocation, read_uleb
 from cle.backends.regions import Regions
@@ -24,7 +24,7 @@ from cle.errors import CLECompatibilityError, CLEInvalidBinaryError, CLEOperatio
 from .encrypted_sentinel_backer import CryptSentinel
 from .macho_enums import LoadCommands as LC
 from .macho_enums import MachoFiletype, MH_flags
-from .section import MachOSection
+from .section import TYPE_MASK, ZEROFILL_SECTION_TYPES, MachOSection
 from .segment import MachOSegment
 from .structs import (
     DYLD_CHAINED_PTR_START_NONE,
@@ -801,6 +801,7 @@ class MachO(Backend):
             address += uleb[0]
 
             self.lc_function_starts.append(address)
+            self.function_hints.append(FunctionHint(address, 0, FunctionHintSource.MACHO_FUNCTION_STARTS))
             log.debug("Function start @ %#x (%#x)", uleb[0], address)
             i += uleb[1]
         log.debug("Done parsing function starts")
@@ -1035,12 +1036,13 @@ class MachO(Backend):
             # Clean segname and sectname
             section_sectname = section_sectname.replace(b"\0", b"")
             section_segname = section_segname.replace(b"\0", b"")
+            section_filesize = 0 if section_flags & TYPE_MASK in ZEROFILL_SECTION_TYPES else section_vsize
 
             # Create section
             sec = MachOSection(
                 section_foff,
                 section_vaddr,
-                section_vsize,
+                section_filesize,
                 section_vsize,
                 section_segname,
                 section_sectname,

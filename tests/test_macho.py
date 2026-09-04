@@ -10,6 +10,7 @@ import pytest
 
 import cle
 from cle import MachO
+from cle.backends.backend import FunctionHintSource
 from cle.backends.macho.macho_enums import LoadCommands, MachoFiletype, SectionAttributes, SectionType
 from cle.backends.macho.section import MachOSection
 
@@ -240,10 +241,39 @@ def test_zerofill_sections():
     assert isinstance(bss, MachOSection)
     assert bss.type == SectionType.S_ZEROFILL
     assert bss.only_contains_uninitialized_data
+    assert bss.filesize == 0
+    assert bss.memsize > 0
+    assert not bss.contains_offset(bss.offset)
 
-    assert not macho.sections_map["__TEXT,__text"].only_contains_uninitialized_data
-    assert not macho.sections_map["__DATA,__data"].only_contains_uninitialized_data
+    text = macho.sections_map["__TEXT,__text"]
+    data = macho.sections_map["__DATA,__data"]
+    assert not text.only_contains_uninitialized_data
+    assert not data.only_contains_uninitialized_data
+    assert text.filesize == text.memsize
+    assert data.filesize == data.memsize
     assert {s.name for s in macho.sections if s.only_contains_uninitialized_data} == {"__bss"}
+
+
+def test_function_start_hints():
+    machofile = os.path.join(TEST_BASE, "tests", "aarch64", "dyld_ios15.macho")
+    ld = cle.Loader(machofile, auto_load_libs=False)
+    macho = ld.main_object
+    assert isinstance(macho, cle.MachO)
+
+    hints = [hint for hint in macho.function_hints if hint.source == FunctionHintSource.MACHO_FUNCTION_STARTS]
+    assert [hint.addr for hint in hints] == macho.lc_function_starts
+    assert all(hint.size == 0 for hint in hints)
+
+    rebased = cle.Loader(
+        machofile, auto_load_libs=False, main_opts={"base_addr": macho.linked_base + 0x200000}
+    ).main_object
+    assert isinstance(rebased, cle.MachO)
+    assert rebased.image_base_delta is not None
+    assert rebased.lc_function_starts is not None
+    rebased_hints = [hint for hint in rebased.function_hints if hint.source == FunctionHintSource.MACHO_FUNCTION_STARTS]
+    assert [hint.addr for hint in rebased_hints] == [
+        addr + rebased.image_base_delta for addr in rebased.lc_function_starts
+    ]
 
 
 def test_instruction_sections():
