@@ -1032,14 +1032,14 @@ class Loader:
                 base_addr = obj._custom_base_addr
             elif obj.linked_base and self._is_range_free(obj.linked_base, obj_size):
                 base_addr = obj.linked_base
-            elif not obj.is_main_bin:
-                base_addr = self._find_safe_rebase_addr(obj_size)
-            else:
+            elif obj.is_main_bin and self._is_range_free(0x400000, obj_size):
                 log.debug(
                     "The main binary is a position-independent executable. "
                     "It is being loaded with a base address of 0x400000."
                 )
                 base_addr = 0x400000
+            else:
+                base_addr = self._find_safe_rebase_addr(obj_size)
 
             obj.rebase(base_addr)
         else:
