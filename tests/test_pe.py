@@ -315,6 +315,22 @@ class TestPEBackend(unittest.TestCase):
         assert data[:4] == b"\x8bD$\x04"
         assert data[-4:] == b"3\xdb;\xc3"
 
+    def test_image_that_opts_into_dep_keeps_its_section_permissions(self):
+        # A PE that marks no section executable still runs when it does not opt into DEP, so cle reports
+        # the sections that hold content as executable there. This one is a resource-only DLL: it opts
+        # into DEP and enters nowhere, so its section table is believed and nothing becomes executable.
+        dll = os.path.join(
+            TEST_BASE, "tests", "x86_64", "windows", "65e25ea21a2f873affee8034e2c3381df48ff4129d447fa288fbd92307647582"
+        )
+        ld = cle.Loader(dll, auto_load_libs=False)
+        obj = ld.main_object
+        assert isinstance(obj, cle.PE)
+
+        assert obj.supports_nx
+        assert obj.find_section_containing(obj.entry) is None
+        assert [sec.name for sec in obj.sections] == [".rdata", ".rsrc"]
+        assert not any(sec.is_executable for sec in obj.sections)
+
     def test_uefi_image_is_not_windows(self):
         # A UEFI module is a PE, but it runs under the UEFI boot environment rather than Windows, and it says so in
         # the optional header. Windows has never run on RISC-V, so nothing else could have told them apart.
