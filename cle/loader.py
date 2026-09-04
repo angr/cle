@@ -1335,8 +1335,8 @@ class Loader:
     def _backend_resolver(backend: str | type[Backend], default: T | None = None) -> type[Backend] | T | None:
         if isinstance(backend, type) and issubclass(backend, Backend):
             return backend
-        elif backend in ALL_BACKENDS:
-            return ALL_BACKENDS[backend]
+        elif isinstance(backend, str) and backend.lower() in ALL_BACKENDS:
+            return ALL_BACKENDS[backend.lower()]
         elif backend is None:
             return default
         else:
