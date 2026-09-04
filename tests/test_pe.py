@@ -325,6 +325,28 @@ class TestPEBackend(unittest.TestCase):
         assert ld.main_object.arch.name == "RISCV64"
         assert ld.main_object.os == "uefi"
 
+    def test_mapped_image_covers_max_addr(self):
+        exe = os.path.join(TEST_BASE, "tests", "i386", "simple_windows.exe")
+        ld = cle.Loader(exe, auto_load_libs=False)
+        obj = ld.main_object
+
+        mapped_size = obj.max_addr - obj.min_addr + 1
+        assert len(ld.memory.load(obj.min_addr, mapped_size)) == mapped_size
+
+    def test_mapped_image_covers_uninitialized_tail(self):
+        exe = os.path.join(TEST_BASE, "tests", "i386", "windows", "rain32.upx")
+        ld = cle.Loader(exe, auto_load_libs=False)
+        obj = ld.main_object
+
+        rsrc = ld.main_object.sections_map[".rsrc"]
+        assert rsrc.memsize == 0x1000
+        assert rsrc.filesize == 0x600
+        tail = rsrc.memsize - rsrc.filesize
+        assert ld.memory.load(rsrc.vaddr + rsrc.filesize, tail) == bytes(tail)
+
+        mapped_size = obj.max_addr - obj.min_addr + 1
+        assert len(ld.memory.load(obj.min_addr, mapped_size)) == mapped_size
+
 
 if __name__ == "__main__":
     unittest.main()
