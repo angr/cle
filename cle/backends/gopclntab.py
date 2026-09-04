@@ -289,12 +289,21 @@ def register_gopclntab_symbols(backend: Backend) -> GoPclntab | None:
     if tab is None:
         return None
 
-    covered = {sym.relative_addr for sym in backend.symbols if sym.size and sym.is_function}
+    # A symbol covers a pclntab entry only if it carries the entry's name as well as its
+    # address. The Go linker gives an assembly function an extra ".abi0" suffix in the symbol
+    # table only, and Mach-O prefixes every symbol with an underscore -- _main.main is not the
+    # name Go tooling asks for, so it does not cover main.main.
+    covered: dict[int, set[str]] = {}
+    for sym in backend.symbols:
+        if sym.size and sym.is_function:
+            covered.setdefault(sym.relative_addr, set()).add(sym.name)
+
     by_name = getattr(backend, "_symbols_by_name", None)
     added = 0
     for func in tab.functions:
         relative_addr = AT.from_lva(func.addr, backend).to_rva()
-        if relative_addr in covered:
+        names = covered.get(relative_addr)
+        if names and (not func.name or names & {func.name, f"{func.name}.abi0"}):
             continue
         symbol = GoSymbol(backend, func.name, relative_addr, func.size)
         backend.symbols.add(symbol)
