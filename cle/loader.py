@@ -40,6 +40,11 @@ __all__ = ("Loader",)
 
 log = logging.getLogger(name=__name__)
 
+# The floor for the guard region at the bottom of the address space. The loader hands it out only
+# when there is nowhere else, because a null or uninitialized pointer in the target reads as an
+# address inside it. Where the loader knows the target's page size, the guard tracks it instead.
+NULL_PAGE_SIZE = 0x1000
+
 if TYPE_CHECKING:
     from .backends import Region, Section, Segment
     from .backends.relocation import Relocation
@@ -1074,23 +1079,27 @@ class Loader:
         """
         # this assumes that self.main_object exists, which should... definitely be safe
         limit = 2**self.main_object.arch.bits
+        above_image = self.main_object.max_addr + 1
         if self.main_object.arch.bits < 32 or self.main_object.max_addr >= 2 ** (self.main_object.arch.bits - 1):
-            # HACK: On small arches, we should be more aggressive in packing stuff in. An image
-            # reaching into the top half of the address space leaves its free space underneath it.
-            start = 0
+            # A small address space, or an image that reaches into the top half of one, may have
+            # its free space underneath the image. Take that space once the space above the image
+            # is exhausted, and the null page only when there is nothing else at all. The
+            # loader's page_size defaults to 1, which means the target's page size is unknown.
+            starts = (above_image, max(self.page_size, NULL_PAGE_SIZE), 0)
         else:
-            start = self.main_object.max_addr + 1
+            starts = (above_image,)
 
         # The granularity is a preference, not a constraint: it costs up to one granule per object,
         # which a small address space runs out of long before the space itself is full.
         alignments = [self._rebase_granularity]
         alignments += [a for a in (0x1000, 1) if a < self._rebase_granularity]
 
-        for alignment in alignments:
-            for gap_start, gap_end in self._free_gaps(start, limit):
-                addr = ALIGN_UP(gap_start, alignment)
-                if addr + size <= gap_end:
-                    return addr
+        for start in starts:
+            for alignment in alignments:
+                for gap_start, gap_end in self._free_gaps(start, limit):
+                    addr = ALIGN_UP(gap_start, alignment)
+                    if addr + size <= gap_end:
+                        return addr
 
         raise CLEOperationError("Ran out of room in address space")
 
