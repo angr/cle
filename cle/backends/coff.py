@@ -11,6 +11,7 @@ from enum import IntEnum, IntFlag
 
 import archinfo
 
+from cle.errors import CLEInvalidBinaryError
 from cle.utils import extract_null_terminated_bytestr
 
 from .backend import Backend, register_backend
@@ -173,6 +174,14 @@ class CoffParser:
         self.data: bytes = data
         self._parse()
 
+    def _require_in_file(self, offset: int, size: int, what: str) -> None:
+        # A table with no entries is never read, so nothing dereferences its pointer.
+        if size and offset + size > len(self.data):
+            raise CLEInvalidBinaryError(
+                f"The {what} needs {size:#x} bytes at {offset:#x}, "
+                f"which a {len(self.data):#x} byte file does not hold"
+            )
+
     def _parse(self) -> None:
         self.header = CoffFileHeader.from_buffer_copy(self.data)
         if self.header.Machine not in {
@@ -181,8 +190,20 @@ class CoffParser:
         }:
             raise NotImplementedError("Unsupported machine type")
 
-        strings_offset = (
-            self.header.PointerToSymbolTable + ctypes.sizeof(CoffSymbolTableEntry) * self.header.NumberOfSymbols
+        self._require_in_file(
+            ctypes.sizeof(self.header),
+            ctypes.sizeof(CoffSectionTableEntry) * self.header.NumberOfSections,
+            f"section table of {self.header.NumberOfSections} entries",
+        )
+
+        symbols_size = ctypes.sizeof(CoffSymbolTableEntry) * self.header.NumberOfSymbols
+        strings_offset = self.header.PointerToSymbolTable + symbols_size
+        # The string table begins on the byte after the last symbol and opens with its own size,
+        # so bounding that size field bounds every symbol table read as well.
+        self._require_in_file(
+            self.header.PointerToSymbolTable,
+            symbols_size + 4,
+            f"symbol table of {self.header.NumberOfSymbols} entries and the string table size after it",
         )
         strings_size = struct.unpack("<I", self.data[strings_offset : strings_offset + 4])[0]
         self.strings: bytes = self.data[strings_offset : strings_offset + strings_size]
@@ -224,6 +245,11 @@ class CoffParser:
             # Relocations
             relocs = []
             offset = section.PointerToRelocations
+            self._require_in_file(
+                offset,
+                ctypes.sizeof(CoffRelocationTableEntry) * section.NumberOfRelocations,
+                f"relocation table of section {i} with {section.NumberOfRelocations} entries",
+            )
             for i in range(section.NumberOfRelocations):
                 reloc = CoffRelocationTableEntry.from_buffer_copy(self.data, offset)
                 relocs.append(reloc)
@@ -413,7 +439,7 @@ class CoffRelocationSECREL(CoffRelocation):
         return offset_to_symbol
 
 
-RELOC_CLASSES: dict[IntEnum, dict[IntEnum, type[Relocation]]] = {
+RELOC_CLASSES: dict[IntEnum, dict[IntEnum, type[CoffRelocation]]] = {
     IMAGE_FILE_MACHINE.I386: {
         IMAGE_REL_I386.REL32: CoffRelocationREL32,
         IMAGE_REL_I386.DIR32: CoffRelocationDIR32,
@@ -514,6 +540,22 @@ class Coff(Backend):
                 }:
                     reloc_class = RELOC_CLASSES[self._coff.header.Machine].get(reloc.Type, None)
                     if reloc_class is not None:
+                        patch_size = struct.calcsize(reloc_class.PACK_FORMAT)
+                        if (
+                            reloc.VirtualAddress + patch_size > section.SizeOfRawData
+                            or patch_offset + patch_size > len(self._data)
+                        ):
+                            log.warning(
+                                "Section %s has a relocation of type %#x at %#x patching %#x bytes, which is out of "
+                                "bounds for its SizeOfRawData %#x or for the file size %#x. Skipping this relocation.",
+                                self._coff.get_section_name(section_idx),
+                                reloc.Type,
+                                reloc.VirtualAddress,
+                                patch_size,
+                                section.SizeOfRawData,
+                                len(self._data),
+                            )
+                            continue
                         cle_symbol = self.get_symbol(sym_name, produce_extern_symbols=True)
                         self.relocs.append(reloc_class(self, cle_symbol, patch_offset))
                         continue
