@@ -1065,26 +1065,35 @@ class ELF(MetaELF):
                 False,
             )
 
+        # Take the string table first. pyelftools resolves a tag's string as it hands the tag back, so a
+        # dynamic segment with no string table fails on every tag rather than on the four that carry one.
+        try:
+            strtab = seg_readelf._get_stringtable()  # pylint: disable=protected-access
+        except (AssertionError, ELFError):
+            # pyelftools 0.33 asserts; older versions return None, which the check below already handles.
+            strtab = None
+
         runpath, rpath = "", ""
-        for tag in seg_readelf.iter_tags():
+        for entry in seg_readelf._iter_tags():  # pylint: disable=protected-access
             # Create a dictionary, self._dynamic, mapping DT_* strings to their values
-            tagstr = self.arch.translate_dynamic_tag(tag.entry.d_tag)
-            self._dynamic[tagstr] = tag.entry.d_val
+            tagstr = self.arch.translate_dynamic_tag(entry.d_tag)
+            self._dynamic[tagstr] = entry.d_val
             # For tags that may appear more than once, handle them here
+            if strtab is None:
+                continue
             if tagstr == "DT_NEEDED":
-                self.deps.append(maybedecode(tag.needed))
+                self.deps.append(maybedecode(strtab.get_string(entry.d_val)))
             elif tagstr == "DT_SONAME":
-                self.provides = maybedecode(tag.soname)
+                self.provides = maybedecode(strtab.get_string(entry.d_val))
             elif tagstr == "DT_RUNPATH":
-                runpath = maybedecode(tag.runpath)
+                runpath = maybedecode(strtab.get_string(entry.d_val))
             elif tagstr == "DT_RPATH":
-                rpath = maybedecode(tag.rpath)
+                rpath = maybedecode(strtab.get_string(entry.d_val))
 
         self.extra_load_path = self.__parse_rpath(runpath, rpath)
 
-        strtab = seg_readelf._get_stringtable()
         if strtab is None:
-            log.warning("Unexpected return value from pyelftools: stringtable object is None.")
+            log.warning("%s has a dynamic segment but no dynamic string table.", self.binary)
             return
         self.__neuter_streams(strtab)
 
