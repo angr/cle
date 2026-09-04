@@ -1036,7 +1036,7 @@ class MachO(Backend):
             # Clean segname and sectname
             section_sectname = section_sectname.replace(b"\0", b"")
             section_segname = section_segname.replace(b"\0", b"")
-            section_filesize = 0 if (section_flags & TYPE_MASK) in ZEROFILL_SECTION_TYPES else section_vsize
+            section_filesize = 0 if section_flags & TYPE_MASK in ZEROFILL_SECTION_TYPES else section_vsize
 
             # Create section
             sec = MachOSection(

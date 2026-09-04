@@ -267,6 +267,9 @@ def test_function_start_hints():
     rebased = cle.Loader(
         machofile, auto_load_libs=False, main_opts={"base_addr": macho.linked_base + 0x200000}
     ).main_object
+    assert isinstance(rebased, cle.MachO)
+    assert rebased.image_base_delta is not None
+    assert rebased.lc_function_starts is not None
     rebased_hints = [hint for hint in rebased.function_hints if hint.source == FunctionHintSource.MACHO_FUNCTION_STARTS]
     assert [hint.addr for hint in rebased_hints] == [
         addr + rebased.image_base_delta for addr in rebased.lc_function_starts
