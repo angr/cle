@@ -6,10 +6,13 @@ import shutil
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
+import archinfo
 import pefile
 
 import cle
+from cle.backends.pe.pe import arch_from_machine_type
 from cle.backends.pe.symbolserver import PDBInfo
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
@@ -324,6 +327,32 @@ class TestPEBackend(unittest.TestCase):
         assert isinstance(ld.main_object, cle.PE)
         assert ld.main_object.arch.name == "RISCV64"
         assert ld.main_object.os == "uefi"
+
+
+class TestPEMachineTypes(unittest.TestCase):
+    """
+    Test the architecture a PE file header's machine type resolves to.
+    """
+
+    # IMAGE_FILE_MACHINE_POWERPC and IMAGE_FILE_MACHINE_POWERPCFP
+    powerpc_machine_types = (0x1F0, 0x1F1)
+
+    def test_powerpc_is_32_bit_little_endian(self):
+        for machine_type in self.powerpc_machine_types:
+            arch = arch_from_machine_type(pefile.MACHINE_TYPE[machine_type])
+
+            assert arch.name == "PPC32"
+            assert arch.bits == 32
+            assert arch.memory_endness == archinfo.Endness.LE
+
+    def test_powerpc_endness_is_not_the_archinfo_default(self):
+        # archinfo happens to default PPC32 to little-endian as well, so this asks the question against a default
+        # that does not: cle has to state the endness for the answer to stay little-endian.
+        with mock.patch.object(archinfo.ArchPPC32, "default_endness", archinfo.Endness.BE):
+            for machine_type in self.powerpc_machine_types:
+                arch = arch_from_machine_type(pefile.MACHINE_TYPE[machine_type])
+
+                assert arch.memory_endness == archinfo.Endness.LE
 
 
 if __name__ == "__main__":
