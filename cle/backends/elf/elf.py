@@ -641,7 +641,11 @@ class ELF(MetaELF):
                             source,
                         )
                     )
-        except (DWARFError, ValueError):
+        except (DWARFError, ValueError, KeyError):
+            # KeyError: pyelftools reads a CIE's FDE_encoding unconditionally, but the "R"
+            # augmentation that defines it is optional, so a CIE without one raises rather than
+            # falling back to the default pointer encoding. Losing the unwind hints for such an
+            # object is survivable; failing its load is not.
             log.warning("An exception occurred in pyelftools when loading FDE information.", exc_info=True)
 
     def _load_exception_handling(self, dwarf):
@@ -682,7 +686,11 @@ class ELF(MetaELF):
                         )
                         self.exception_handlings.append(handling)
 
-        except (DWARFError, ValueError):
+        except (DWARFError, ValueError, KeyError):
+            # KeyError: pyelftools reads a CIE's FDE_encoding unconditionally, but the "R"
+            # augmentation that defines it is optional, so a CIE without one raises rather than
+            # falling back to the default pointer encoding. Losing the unwind hints for such an
+            # object is survivable; failing its load is not.
             log.warning("An exception occurred in pyelftools when loading FDE information.", exc_info=True)
 
     def _load_line_info(self, dwarf):
