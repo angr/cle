@@ -430,6 +430,22 @@ RELOC_CLASSES: dict[IntEnum, dict[IntEnum, type[Relocation]]] = {
     },
 }
 
+#: ``IMAGE_SCN_ALIGN_*`` is a four-bit field holding one plus the log2 of the alignment. Zero states none,
+#: for which the linker's own default is 16 bytes.
+_ALIGN_MASK = 0x00F00000
+_ALIGN_SHIFT = 20
+
+
+def _section_alignment(section: CoffSectionTableEntry) -> int:
+    encoded = (section.Characteristics & _ALIGN_MASK) >> _ALIGN_SHIFT
+    return 1 << (encoded - 1) if encoded else 16
+
+
+#: ``SizeOfRawData`` is 32 bits wide, and for a section with no bytes in the file nothing else in the file
+#: bounds it. This caps the zero-filled space such a section is given.
+MAX_IMAGE_SIZE = 0x10000000
+
+
 COFF_MACHINE_TO_ARCH_NAME = {
     IMAGE_FILE_MACHINE.I386: "x86",
     IMAGE_FILE_MACHINE.AMD64: "AMD64",
@@ -459,26 +475,52 @@ class Coff(Backend):
 
         # FIXME: Currently we just map the whole object file for convenience. Create a better memory map, discard object
         # file structure data.
-        self._image_vmem = self._data
+        image = bytearray(self._data)
 
         # Add each section
+        self._section_addrs: list[int] = []
+        next_uninitialized_vaddr = len(image)
         for section_idx, section in enumerate(self._coff.sections):
             section_name = self._coff.get_section_name(section_idx)
-            vaddr = section.PointerToRawData
             vsize = section.SizeOfRawData
-            self.segments.append(Segment(section.PointerToRawData, vaddr, section.SizeOfRawData, vsize))
+            if section.PointerToRawData or not vsize or not section.Characteristics & IMAGE_SCN.CNT_UNINITIALIZED_DATA:
+                vaddr = section.PointerToRawData
+                filesize = vsize
+            else:
+                # A section marked IMAGE_SCN_CNT_UNINITIALIZED_DATA has no bytes in the file and states
+                # PointerToRawData 0, which in the layout above is the file header. Placing it there lays it over
+                # the header and, once it is longer than the section table, over the sections that follow: a mingw
+                # object whose .bss is 0x1300 bytes long covers the first 0x11fc bytes of its own .text. Give it
+                # zero-filled space of its own past the image instead.
+                alignment = _section_alignment(section)
+                vaddr = (next_uninitialized_vaddr + alignment - 1) & ~(alignment - 1)
+                next_uninitialized_vaddr = vaddr + vsize
+                if next_uninitialized_vaddr <= MAX_IMAGE_SIZE:
+                    image.extend(bytes(next_uninitialized_vaddr - len(image)))
+                else:
+                    log.warning(
+                        "Section %s states %#x bytes of uninitialized data, which would take the image past "
+                        "%#x. Leaving it unbacked.",
+                        section_name,
+                        vsize,
+                        MAX_IMAGE_SIZE,
+                    )
+                filesize = 0
+            self._section_addrs.append(vaddr)
+            self.segments.append(Segment(section.PointerToRawData, vaddr, filesize, vsize))
             self.sections.append(
                 CoffSection(
                     section_name,
                     section.PointerToRawData,
-                    section.SizeOfRawData,
+                    filesize,
                     vaddr,
                     vsize,
                     section,
                 )
             )
 
-        self.memory.add_backer(0, bytes(self._image_vmem))
+        self._image_vmem = bytes(image)
+        self.memory.add_backer(0, self._image_vmem)
         self.mapped_base = self.linked_base = 0
         self.pic = True
         # assume windows, this can be wrong, but is more often right.
@@ -501,11 +543,11 @@ class Coff(Backend):
                 self.symbols.add(self.get_symbol(sym_name))
 
     def _add_relocs(self) -> None:
-        for section_idx, section in enumerate(self._coff.sections):
+        for section_idx in range(len(self._coff.sections)):
             for reloc in self._coff.relocations[section_idx]:
                 sym = self._coff.symbols[reloc.SymbolTableIndex]
                 sym_name = self._coff.get_symbol_name(reloc.SymbolTableIndex)
-                patch_offset = section.PointerToRawData + reloc.VirtualAddress
+                patch_offset = self._section_addrs[section_idx] + reloc.VirtualAddress
 
                 if sym.StorageClass in {
                     IMAGE_SYM_CLASS.STATIC,
@@ -542,7 +584,7 @@ class Coff(Backend):
         }:
             symbol_type = SymbolType.TYPE_FUNCTION if sym.Type == 0x20 else SymbolType.TYPE_OTHER
             if sym.SectionNumber > 0:
-                sym_addr = self._coff.sections[sym.SectionNumber - 1].PointerToRawData + sym.Value
+                sym_addr = self._section_addrs[sym.SectionNumber - 1] + sym.Value
                 return Symbol(self, name, sym_addr, 1, symbol_type)
             elif sym.SectionNumber == 0:
                 if produce_extern_symbols:
