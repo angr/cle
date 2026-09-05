@@ -187,7 +187,12 @@ class MachO(Backend):
                 # Also, its segment vaddrs are relative to 0x100000000, so we set this as the linked base
                 # and the MachO Backend code uses the AdressTranslator to translate linked addresses to relative ones
                 # In theory this is the place where the slide for rebasing should be added, but this isn't supported yet
-                if self.arch.bits == 64:
+                # the linked base is where __TEXT lands; it is 0x100000000 (a 4 GB __PAGEZERO) for the usual
+                # Apple toolchain layout, but not always (Go's darwin/amd64 executables use a 16 MB __PAGEZERO)
+                text_base = self._scan_text_base(binary_file, 32 if self.arch.bits == 64 else 28)
+                if text_base is not None:
+                    self.linked_base = self.mapped_base = text_base
+                elif self.arch.bits == 64:
                     self.linked_base = self.mapped_base = 2**32
                 elif self.arch.bits == 32:
                     self.linked_base = self.mapped_base = 0x4000
@@ -296,6 +301,22 @@ class MachO(Backend):
     def check_compatibility(cls, spec, obj):
         # TODO: Check properly, but for now libs are just used via force load libs anyway
         return True
+
+    def _scan_text_base(self, f, lc_offset: int) -> int | None:
+        """The lowest vmaddr of a segment other than __PAGEZERO, read ahead of the full load-command parse."""
+        base = None
+        offset = lc_offset
+        for _ in range(self.ncmds):
+            cmd, size = self._unpack("2I", f, offset, 8)
+            if cmd in (0x19, 0x1):  # LC_SEGMENT_64, LC_SEGMENT
+                segname = self._unpack("16s", f, offset + 8, 16)[0].rstrip(b"\0")
+                vmaddr = self._unpack("Q" if cmd == 0x19 else "I", f, offset + 24, 8 if cmd == 0x19 else 4)[0]
+                if segname != b"__PAGEZERO" and (base is None or vmaddr < base):
+                    base = vmaddr
+            if size == 0:
+                break
+            offset += size
+        return base
 
     def _parse_load_commands(self, lc_offset):
         # Possible optimization: Remove all unnecessary calls to seek()
@@ -826,9 +847,15 @@ class MachO(Backend):
         # _, cmdsize, flavor, long_count
         _, _, flavor, _ = self._unpack("4I", f, offset, 16)
 
-        # we only support 4 different types of thread state atm
-        # TODO: This is the place to add x86 and x86_64 thread states
-        if flavor == 1 and self.arch.bits != 64:  # ARM_THREAD_STATE or ARM_UNIFIED_THREAD_STATE or ARM_THREAD_STATE32
+        # the flavor numbers overlap between architectures (ARM_THREAD_STATE and x86_THREAD_STATE32 are both 1)
+        is_x86 = self.arch.name in ("X86", "AMD64")
+        if is_x86 and flavor == 4 and self.arch.bits == 64:
+            # x86_THREAD_STATE64: rax rbx rcx rdx rdi rsi rbp rsp r8-r15 rip ...
+            blob = self._unpack("17Q", f, offset + 16, 136)  # parses only until __rip
+        elif is_x86 and flavor == 1 and self.arch.bits == 32:
+            # x86_THREAD_STATE32: eax ebx ecx edx edi esi ebp esp ss eflags eip ...
+            blob = self._unpack("11I", f, offset + 16, 44)  # parses only until __eip
+        elif flavor == 1 and self.arch.bits != 64:  # ARM_THREAD_STATE or ARM_UNIFIED_THREAD_STATE or ARM_THREAD_STATE32
             blob = self._unpack("16I", f, offset + 16, 64)  # parses only until __pc
         elif flavor == 1 and self.arch.bits == 64 or flavor == 6:
             # ARM_THREAD_STATE or ARM_UNIFIED_THREAD_STATE or ARM_THREAD_STATE64
