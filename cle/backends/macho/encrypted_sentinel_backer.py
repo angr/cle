@@ -20,6 +20,19 @@ class CryptSentinel(Clemory):
         self._crypt_end = None
         self._is_encrypted: bool = False
 
+    def __getstate__(self):
+        s = super().__getstate__()
+        s["_crypt_start"] = self._crypt_start
+        s["_crypt_end"] = self._crypt_end
+        s["_is_encrypted"] = self._is_encrypted
+        return s
+
+    def __setstate__(self, s):
+        super().__setstate__(s)
+        self._crypt_start = s.get("_crypt_start")
+        self._crypt_end = s.get("_crypt_end")
+        self._is_encrypted = s.get("_is_encrypted", False)
+
     def load(self, addr, n):
         self._assert_unencrypted_access(addr, n)
         return super().load(addr, n)

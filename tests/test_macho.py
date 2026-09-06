@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import os
+import pickle
 import struct
 from io import BytesIO
 
@@ -480,3 +481,29 @@ def test_relocatable_object():
         # The defined symbols carry real section-relative addresses; undefined externals stay at 0.
         defined = {sym.name for sym in obj.symbols if sym.rebased_addr}
         assert defined, "no defined symbol carries an address"
+
+
+def test_encryption_guard_survives_pickling():
+    """
+    This binary carries an LC_ENCRYPTION_INFO_64 command with cryptid 0, so it records an encrypted
+    range and holds nothing encrypted. Its memory is a CryptSentinel all the same, and every read of
+    that range has to work. Pickling the loader used to lose the sentinel's crypt fields, so the
+    first load after unpickling raised
+    AttributeError: 'CryptSentinel' object has no attribute '_is_encrypted'.
+    """
+    machofile = os.path.join(TEST_BASE, "tests", "armhf", "FileProtection-05.arm64.macho")
+    ld = cle.Loader(machofile, auto_load_libs=False)
+    assert isinstance(ld.main_object, cle.MachO)
+    base = ld.main_object.mapped_base
+
+    # 0x4688 is the first non-zero byte in the range the load command records, [0x4000, 0x8000).
+    assert ld.memory[base + 0x4688] == 0xF6
+    assert base + 0x4688 in ld.memory
+    assert ld.memory.load(base + 0x4688, 4) == b"\xf6W\xbd\xa9"
+
+    ld = pickle.loads(pickle.dumps(ld))
+    base = ld.main_object.mapped_base
+    assert ld.memory[base + 0x4688] == 0xF6
+    assert base + 0x4688 in ld.memory
+    assert ld.memory.load(base + 0x4688, 4) == b"\xf6W\xbd\xa9"
+
