@@ -118,6 +118,27 @@ def test_clemory_contains():
     assert clemory.consecutive is True
 
 
+def test_clemory_view_find():
+    clemory = cle.Clemory(None, root=True)  # type: ignore[arg-type]
+    clemory.add_backer(0x1000, b"AAAABBBBCCCCDDDD")
+
+    view = cle.ClemoryView(clemory, 0x1000, 0x1010)
+    assert list(clemory.find(b"CCCC")) == [0x1008]
+    assert list(view.find(b"CCCC")) == [0x8]
+    assert view[0x8] == ord("C")
+    assert list(view.find(b"CCCC", search_max=0x4)) == []
+
+    offset_view = cle.ClemoryView(clemory, 0x1000, 0x1010, offset=0x20)
+    assert list(offset_view.find(b"CCCC")) == [0x28]
+    assert offset_view[0x28] == ord("C")
+
+    windowed = cle.Clemory(None, root=True)  # type: ignore[arg-type]
+    windowed.add_backer(0x1000, b"CCCCAAAACCCCAAAA")
+    inner = cle.ClemoryView(windowed, 0x1004, 0x1010)
+    assert list(windowed.find(b"CCCC")) == [0x1000, 0x1008]
+    assert list(inner.find(b"CCCC")) == [0x4]
+
+
 def main():
     g = globals()
     for func_name, func in g.items():
