@@ -12,6 +12,7 @@ import pytest
 import cle
 from cle import MachO
 from cle.backends.backend import FunctionHintSource
+from cle.backends.macho.encrypted_sentinel_backer import CryptSentinel, EncryptedDataAccessException
 from cle.backends.macho.macho_enums import LoadCommands, MachoFiletype, SectionAttributes, SectionType
 from cle.backends.macho.section import MachOSection
 
@@ -507,3 +508,74 @@ def test_encryption_guard_survives_pickling():
     assert base + 0x4688 in ld.memory
     assert ld.memory.load(base + 0x4688, 4) == b"\xf6W\xbd\xa9"
 
+
+def test_encrypted_range_refuses_every_read():
+    """
+    The same binary with cryptid set to 1, which is what a genuinely encrypted one looks like. Every
+    read touching [0x4000, 0x8000) must raise rather than hand back the bytes on disk, which are
+    ciphertext. Single-byte reads and reads through the loader's own memory used to walk past the
+    guard and return them.
+    """
+    machofile = os.path.join(TEST_BASE, "tests", "armhf", "FileProtection-05.arm64.macho")
+    ld = cle.Loader(machofile, auto_load_libs=False)
+    obj = ld.main_object
+    assert isinstance(obj, cle.MachO)
+    memory = obj.memory
+    assert isinstance(memory, CryptSentinel)
+    base = obj.mapped_base
+
+    # The range the file's own load command records, with cryptid flipped on.
+    memory.set_crypt_info(1, 0x4000, 0x4000)
+
+    with pytest.raises(EncryptedDataAccessException):
+        memory.load(0x4688, 4)
+    with pytest.raises(EncryptedDataAccessException):
+        _ = memory[0x4688]
+    with pytest.raises(EncryptedDataAccessException):
+        _ = ld.memory[base + 0x4688]
+    with pytest.raises(EncryptedDataAccessException):
+        ld.memory.load_null_terminated_bytes(base + 0x4688)
+    with pytest.raises(EncryptedDataAccessException):
+        iter(memory)
+
+    # A word read starting two bytes before the range still covers its first two bytes.
+    with pytest.raises(EncryptedDataAccessException):
+        memory.unpack_word(0x3FFE, size=4)
+    with pytest.raises(EncryptedDataAccessException):
+        memory.pack_word(0x3FFE, 0, size=4)
+
+    # A read ending exactly where the range starts does not touch it, and neither does one after it.
+    assert memory.load(0x3FFC, 4) == b"\x00" * 4
+    assert memory.unpack_word(0x3FFC, size=4) == 0
+    assert memory.load(0x8000, 4) == bytes((0xA0, 0x00, 0x10, 0x00))
+
+    # Refusing to read an address does not stop the loader knowing which object holds it.
+    assert ld.find_object_containing(base + 0x4688) is obj
+
+
+def test_encrypted_range_answers_membership_across_a_gap():
+    """
+    A Mach-O whose object memory has holes in it. Refusing to read an encrypted address must not
+    stop the loader answering which object maps it, and Clemory.__contains__ only probes
+    __getitem__ when the memory is not consecutive, so this is the file that reaches that path.
+    """
+    machofile = os.path.join(TEST_BASE, "tests", "aarch64", "langdetect_go.macho")
+    ld = cle.Loader(machofile, auto_load_libs=False)
+    obj = ld.main_object
+    assert isinstance(obj, cle.MachO)
+    memory = obj.memory
+    assert isinstance(memory, CryptSentinel)
+    assert not memory.consecutive
+
+    base = obj.mapped_base
+    # The second backer ends at 0x16b718 and the third starts at 0x16c000, so 0x16b728 is mapped by
+    # no backer at all. Declare a range covering both it and a backed address.
+    backed, unmapped = 0x4688, 0x16B728
+    memory.set_crypt_info(1, 0x4000, 0x168000)
+
+    with pytest.raises(EncryptedDataAccessException):
+        _ = memory[backed]
+    assert backed in memory
+    assert unmapped not in memory
+    assert ld.find_object_containing(base + backed) is obj
+    assert ld.find_object_containing(base + unmapped) is None

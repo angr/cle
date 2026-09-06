@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import struct
+
 from cle.memory import Clemory
 
 
@@ -19,6 +21,33 @@ class CryptSentinel(Clemory):
         self._crypt_start = None
         self._crypt_end = None
         self._is_encrypted: bool = False
+
+    def __iter__(self):
+        if self._is_encrypted:
+            raise EncryptedDataAccessException("Cannot iterate encrypted memory region", self._crypt_start)
+        return super().__iter__()
+
+    def __getitem__(self, k):
+        self._assert_unencrypted_access(k, 1)
+        return super().__getitem__(k)
+
+    def __setitem__(self, k, v):
+        self._assert_unencrypted_access(k, 1)
+        return super().__setitem__(k, v)
+
+    def __contains__(self, k):
+        try:
+            return super().__contains__(k)
+        except EncryptedDataAccessException:
+            # Clemory.__contains__ probes __getitem__ when the memory is not consecutive, and that
+            # probe goes through the guard above. Whether an address is mapped is a question about
+            # the memory map rather than about the bytes, so answer it with a read that skips the
+            # guard and discards the byte.
+            try:
+                Clemory.__getitem__(self, k)
+            except KeyError:
+                return False
+            return True
 
     def __getstate__(self):
         s = super().__getstate__()
@@ -41,6 +70,14 @@ class CryptSentinel(Clemory):
         self._assert_unencrypted_access(addr, len(data))
         return super().store(addr, data)
 
+    def unpack(self, addr, fmt):
+        self._assert_unencrypted_access(addr, struct.calcsize(fmt))
+        return super().unpack(addr, fmt)
+
+    def pack(self, addr, fmt, *data):
+        self._assert_unencrypted_access(addr, struct.calcsize(fmt))
+        return super().pack(addr, fmt, *data)
+
     def find(self, data, search_min=None, search_max=None):
         if self._is_encrypted:
             raise EncryptedDataAccessException("Cannot search encrypted memory region", self._crypt_start)
@@ -62,10 +99,8 @@ class CryptSentinel(Clemory):
         Make sure that the access does not cover encrypted memory regions
         If it does, raise an error
 
-        Cases:
-        - Access starts before encrypted region and ends after it
-        - Access starts within encrypted region
-        - Access ends within encrypted region
+        The access covers the half-open interval [addr, addr + size), so it overlaps the encrypted
+        region when it starts before the region ends and ends after the region starts.
 
         :param addr:
         :param size:
@@ -74,8 +109,7 @@ class CryptSentinel(Clemory):
         if not self._is_encrypted:
             return
 
-        encrypted_range = range(self._crypt_start, self._crypt_end)
-        if addr in encrypted_range or (addr + size) in encrypted_range or (addr < self._crypt_start < addr + size):
+        if size > 0 and addr < self._crypt_end and addr + size > self._crypt_start:
             raise EncryptedDataAccessException("Accessing encrypted memory region", addr)
 
 
