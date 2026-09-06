@@ -259,8 +259,12 @@ class ELF(MetaELF):
         if self.is_relocatable and self.imports and not self._dynamic:
             self.guess_simprocs = True
 
+        # Repair only the header bytes that were loaded. These are file offsets, and nothing requires the
+        # ELF header to be mapped: an image whose first PT_LOAD starts past it maps none of them.
         for offset, patch in patch_undo:
-            self.memory.store(AT.from_lva(self.min_addr + offset, self).to_rva(), patch)
+            for index in range(len(patch)):
+                if self.offset_to_addr(offset + index) is not None:
+                    self.memory.store(AT.from_raw(offset + index, self).to_rva(), patch[index : index + 1])
 
     #
     # Properties and Public Methods
