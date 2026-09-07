@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 
+import pytest
+
 import cle
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
@@ -69,7 +71,28 @@ def test_rebase_granularity_is_not_a_hard_object_limit():
         assert ld.find_object_containing(obj.min_addr) is obj
 
 
+def test_archive_members_fill_a_16_bit_address_space():
+    """
+    A page is a sixteenth of AVR's 64 KiB, so falling back to one costs a whole page per archive
+    member and leaves nowhere to put a member larger than what is left over.
+    """
+    pytest.importorskip("pypcode")
+    path = os.path.join(TEST_BASE, "tests", "avr", "libgcov_avr31.a")
+    ld = cle.Loader(path)
+
+    members = [obj for obj in ld.all_objects if obj.parent_object is ld.main_object]
+    assert len(members) == 28
+
+    placed = sorted(members, key=lambda o: o.min_addr)
+    assert placed[-1].max_addr < 2**ld.main_object.arch.bits
+    for lower, upper in zip(placed, placed[1:]):
+        assert lower.max_addr < upper.min_addr
+    for obj in members:
+        assert ld.find_object_containing(obj.min_addr, membership_check=False) is obj
+
+
 if __name__ == "__main__":
     test_sparse_main_object()
     test_sparse_main_object_unsorted_program_headers()
     test_rebase_granularity_is_not_a_hard_object_limit()
+    test_archive_members_fill_a_16_bit_address_space()
