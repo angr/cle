@@ -10,7 +10,7 @@ from minidump.streams import SystemInfoStream
 from cle.backends.backend import Backend, register_backend
 from cle.backends.coff import IMAGE_SCN
 from cle.backends.region import Section, Segment
-from cle.errors import CLEError, CLEInvalidBinaryError
+from cle.errors import CLEError
 
 
 class MinidumpMissingStreamError(Exception):
@@ -26,8 +26,10 @@ class DumpSection(Section):
 
     A minidump has no section table of its own; it records memory ranges and the modules that were
     mapped over them. The module's image is mapped headers and all, so the module states which of its
-    own bytes are code, and that is where these come from. A module whose headers the dump did not
-    capture is described by one section spanning it, permissive in all three.
+    own bytes are code, and that is where these come from. A module whose layout the dump does not
+    describe is covered by one section spanning it, permissive in all three. ``filesize`` says how far
+    the capture runs from the section's own base, so it is zero for a section whose base was not
+    captured even when the dump holds bytes further into it.
     """
 
     def __init__(self, name, offset, vaddr, memsize, filesize, characteristics):
@@ -49,7 +51,9 @@ class DumpSection(Section):
 
     @property
     def only_contains_uninitialized_data(self):
-        return self.characteristics & IMAGE_SCN.CNT_UNINITIALIZED_DATA != 0
+        # Either the image declares the section uninitialized, or the dump did not capture the section's own
+        # base, in which case no address in it resolves to a file offset.
+        return self.filesize == 0 or self.characteristics & IMAGE_SCN.CNT_UNINITIALIZED_DATA != 0
 
 
 class Minidump(Backend):
@@ -97,11 +101,9 @@ class Minidump(Backend):
             self.memory.add_backer(segment.start_virtual_address, data)
 
         for module in self._mdf.modules.modules:
-            for segment in segments:
-                if segment.start_virtual_address == module.baseaddress:
-                    break
-            else:
-                raise CLEInvalidBinaryError("Missing segment for loaded module: " + module.name)
+            # A dump captures only the memory ranges its writer selected, so a module's image may be present in
+            # full, in part, or not at all. A module with nothing captured still gets a section: its address range
+            # is what tells an analysis which module an address belongs to.
             for section in self._module_sections(module):
                 self.sections.append(section)
                 self.sections_map[section.name] = section
@@ -140,6 +142,10 @@ class Minidump(Backend):
                     # bytes at the module base are not a PE header after all
                     if 0 < section_count <= 96:
                         table = self.memory.load(base + pe_offset + 0x18 + optional_size, 40 * section_count)
+                        if len(table) < 40 * section_count:
+                            # Clemory.load stops at the end of the captured region, so a dump whose capture
+                            # ends inside the table tells us no more about the layout than one with no headers.
+                            table = None
         except (KeyError, struct.error):
             table = None
 
@@ -233,9 +239,14 @@ class Minidump(Backend):
         for register, position in fmt_registers.items():
             thread_registers[register] = members[position]
 
+        # The segment base lives in the thread's TEB rather than in its saved context, and a dump that captured
+        # only a few memory ranges usually does not include the TEB page. Leave the register out when it cannot be
+        # read, so that everything the context does record stays usable.
         if self.arch.name == "AMD64" or self.wow64:
-            gs_base = self.memory.unpack_word(teb + 0x30)
-            thread_registers["gs_const"] = gs_base
+            try:
+                thread_registers["gs_const"] = self.memory.unpack_word(teb + 0x30)
+            except KeyError:
+                pass
             if self.arch.name == "AMD64":
                 NUM_XMM_REGS = 16
                 xmms = struct.unpack_from("16s" * NUM_XMM_REGS, data, offset=0x1A0)
@@ -243,8 +254,10 @@ class Minidump(Backend):
                     f"xmm{i}": int.from_bytes(xmm, "little", signed=False) for i, xmm in enumerate(xmms)
                 }
         elif self.arch.name == "X86":
-            fs_base = self.memory.unpack_word(teb + 0x18)
-            thread_registers["fs"] = fs_base
+            try:
+                thread_registers["fs"] = self.memory.unpack_word(teb + 0x18)
+            except KeyError:
+                pass
 
         if self.wow64:
             register_translation = [
@@ -261,7 +274,11 @@ class Minidump(Backend):
                 ("fs", "gs_const"),  # ???
             ]
 
-            thread_registers = {ereg: thread_registers[rreg] & 0xFFFFFFFF for ereg, rreg in register_translation}
+            thread_registers = {
+                ereg: thread_registers[rreg] & 0xFFFFFFFF
+                for ereg, rreg in register_translation
+                if rreg in thread_registers
+            }
 
         return thread_registers
 
