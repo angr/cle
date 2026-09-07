@@ -1221,6 +1221,7 @@ class PE(Backend):
             return {}
 
         symbol_types: dict[int, set[SymbolType]] = {}
+        symbols: list[WinSymbol] = []
         idx = 0
         while idx < self._pe.FILE_HEADER.NumberOfSymbols:
             offset = self._pe.FILE_HEADER.PointerToSymbolTable + idx * sizeof_symbol_desc
@@ -1232,14 +1233,25 @@ class PE(Backend):
             else:
                 name = name.rstrip(b"\x00").decode("latin-1")
             if section > 0 and type_ in type_to_symbol_type and VALID_SYMBOL_NAME_RE.fullmatch(name):
+                if section > len(self._pe.sections):
+                    # A table numbered for some other section list gives no usable address for any of its
+                    # symbols, including the ones whose section number happens to be in range.
+                    log.warning(
+                        "PE symbol table names section %d of %d; not loading symbols from it",
+                        section,
+                        len(self._pe.sections),
+                    )
+                    return {}
                 rva = self._pe.sections[section - 1].VirtualAddress + value
                 symbol_type = type_to_symbol_type[type_]
                 symbol = WinSymbol(self, name, rva, False, False, None, None, symbol_type)
                 log.debug("Adding symbol %s", symbol)
-                self.symbols.add(symbol)
+                symbols.append(symbol)
                 if storage_class == IMAGE_SYM_CLASS.EXTERNAL:
                     symbol_types.setdefault(rva, set()).add(symbol_type)
             idx += 1 + num_aux_syms
+        for symbol in symbols:
+            self.symbols.add(symbol)
         return symbol_types
 
 
