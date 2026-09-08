@@ -326,5 +326,49 @@ class TestPEBackend(unittest.TestCase):
         assert ld.main_object.os == "uefi"
 
 
+# pylint: disable=no-self-use
+class TestPESectionMappedSize(unittest.TestCase):
+    """
+    A PE section is mapped over the larger of its virtual size and its raw size, and never past
+    the end of the image the optional header declares.
+    """
+
+    def test_raw_size_larger_than_virtual_size(self):
+        # .text states VirtualSize 0x7dcf and SizeOfRawData 0x7e00. The loader copies the raw
+        # bytes to the section's address, so the section is mapped over the larger of the two.
+        # .data states the reverse -- VirtualSize 0xa19 against SizeOfRawData 0x400 -- and keeps
+        # its virtual size, because the tail is zero-filled rather than read from the file.
+        exe = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "fauxware.exe")
+        ld = cle.Loader(exe, auto_load_libs=False)
+        sections = ld.main_object.sections_map
+
+        assert sections[".text"].memsize == 0x7E00
+        assert sections[".text"].filesize == 0x7E00
+        assert sections[".data"].memsize == 0xA19
+        assert sections[".data"].filesize == 0x400
+
+    def test_raw_size_past_the_end_of_the_image(self):
+        # This one appends 14 MiB to the file and counts it in .reloc's SizeOfRawData, which
+        # reaches 0xe25000 against a SizeOfImage of 0x4f02e. Windows maps SizeOfImage bytes and
+        # no more, so the section stops at the end of the image and the object does not grow.
+        exe = os.path.join(
+            TEST_BASE,
+            "tests",
+            "i386",
+            "windows",
+            "aa893de523f58ee14972b94fef7ecdbb930cbdc700d8be097eb8a6de2549ce73",
+        )
+        ld = cle.Loader(exe, auto_load_libs=False)
+        obj = ld.main_object
+        reloc = obj.sections_map[".reloc"]
+
+        # .text in the same file grows the ordinary way, from VirtualSize 0x1a55d to the raw
+        # size 0x1a600, so this covers both halves of the rule on one object.
+        assert obj.sections_map[".text"].memsize == 0x1A600
+        assert reloc.memsize == 0x202E
+        assert reloc.filesize == 0xE25000
+        assert obj.max_addr - obj.mapped_base < 0x4F02E
+
+
 if __name__ == "__main__":
     unittest.main()
