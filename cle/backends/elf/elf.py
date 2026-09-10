@@ -1134,6 +1134,11 @@ class ELF(MetaELF):
                     "sh_info": verneed_count,
                 }
                 readelf_verneed = elffile.GNUVerNeedSection(fake_verneed_header, "verneed_cle", self._reader, strtab)
+                # sh_offset above is an RVA, so the section has to read from the image and not
+                # from the file. pyelftools takes the file stream from the ELFFile we hand the
+                # constructor; swap it out the way we do for the symbol table above.
+                readelf_verneed.stream = self.memory  # type: ignore
+                readelf_verneed.elffile = None  # type: ignore
                 for _, aux in readelf_verneed.iter_versions():
                     for vaux in aux:
                         self._versions[vaux.entry.vna_other] = vaux.name
@@ -1150,6 +1155,8 @@ class ELF(MetaELF):
                     "sh_info": verdef_count,
                 }
                 readelf_verdef = elffile.GNUVerDefSection(fake_verdef_header, "verdef_cle", self._reader, strtab)
+                readelf_verdef.stream = self.memory  # type: ignore
+                readelf_verdef.elffile = None  # type: ignore
                 for ver, aux in readelf_verdef.iter_versions():
                     for vaux in aux:
                         self._versions[ver.entry.vd_ndx] = vaux.name
