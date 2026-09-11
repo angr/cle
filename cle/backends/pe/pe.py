@@ -1113,7 +1113,13 @@ class PE(Backend):
             if str_tbl_offset_match:
                 str_tbl_offset = int(str_tbl_offset_match.group(1))
                 name = self._read_from_string_table(str_tbl_offset)
-            section = PESection(pe_section, remap_offset=self.linked_base, name=name)
+            section = PESection(
+                pe_section,
+                remap_offset=self.linked_base,
+                name=name,
+                image_size=self._pe.OPTIONAL_HEADER.SizeOfImage,
+                file_size=len(self._pe.__data__),
+            )
             self.sections.append(section)
             self.sections_map[section.name] = section
 
