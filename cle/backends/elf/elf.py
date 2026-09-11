@@ -10,6 +10,7 @@ from collections import OrderedDict, defaultdict
 from typing import cast
 
 import archinfo
+from elf_tools.elf.constans.E_FLAGS import EF_ARM_BE8
 from elftools.common.exceptions import DWARFError, ELFError, ELFParseError
 from elftools.dwarf import callframe
 from elftools.dwarf.compileunit import CompileUnit
@@ -357,6 +358,8 @@ class ELF(MetaELF):
                 return archinfo.ArchARMEL("Iend_LE" if reader.little_endian else "Iend_BE")
             elif reader.header.e_flags & 0x400:
                 return archinfo.ArchARMHF("Iend_LE" if reader.little_endian else "Iend_BE")
+            elif reader.header.e_flags & EF_ARM_BE8:  # ARM-BE8 has big endian data and little endian instructions
+                return archinfo.ArchARMEL("Iend_LE")
 
         if arch_str == "EM_MIPS" and reader.elfclass == 32:
             # The n32 and O64 ABIs put a 64-bit MIPS instruction stream in an ELFCLASS32
