@@ -1650,6 +1650,36 @@ class ELF(MetaELF):
         return elf_opinions
 
     @staticmethod
+    def _pcode_secondary_matches(secondary, e_flags):
+        """
+        Test the e_flags constraint an ELF opinion states as its secondary attribute.
+
+        Ghidra writes it either as a number to compare against the whole field, or as a
+        "0b" pattern whose dots are the bits the opinion leaves free. A secondary naming
+        a compiler, such as golang or swift, constrains something the ELF header does not
+        record, so the opinion carrying it never applies here.
+        """
+        text = secondary.strip()
+        if text.startswith("0b"):
+            value = 0
+            mask = 0
+            for bit in text[2:]:
+                if bit.isspace():
+                    continue
+                if bit not in "01.":
+                    return False
+                value <<= 1
+                mask <<= 1
+                if bit != ".":
+                    mask |= 1
+                    value |= int(bit)
+            return (e_flags & mask) == value
+        try:
+            return int(text, 0) == e_flags
+        except ValueError:
+            return False
+
+    @staticmethod
     def _get_compatible_pcode_languages(reader):
         """
         Find compatible pypcode languages for this ELF file.
@@ -1669,14 +1699,8 @@ class ELF(MetaELF):
                 continue
             if e_machine not in {int(p) for p in o["primary"].split(",")}:
                 continue
-            if "secondary" in o:
-                try:
-                    value = int(o["secondary"])
-                    if value != reader.header.e_type:
-                        continue
-                except ValueError:
-                    # FIXME: Mask parsing (spaces and DC 0b .... ..1. ..0.)
-                    pass
+            if "secondary" in o and not ELF._pcode_secondary_matches(o["secondary"], reader.header.e_flags):
+                continue
             opinions.append(o)
 
         log.info("Available opinions: %s", opinions)
@@ -1684,6 +1708,8 @@ class ELF(MetaELF):
         languages = []
         for arch in pypcode.Arch.enumerate():
             for lang in arch.languages:
+                if lang.ldef.attrib["endian"] != endian:
+                    continue
                 for o in opinions:
                     if (reader.elfclass == 32 and int(lang.size) > 32) or (
                         reader.elfclass == 64 and int(lang.size) <= 32
