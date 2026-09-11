@@ -277,7 +277,9 @@ class Clemory(ClemoryBase):
         return f"<{self.__class__.__name__} [{hex(self.min_addr)}:{hex(self.max_addr)}]>"
 
     def remove_backer(self, start):
-        backer_idx = bisect.bisect(self._backers, start, key=lambda x: x[0])
+        # bisect_left, not bisect_right: the backer starting exactly at `start` is the one to remove, and bisect_right
+        # would land on the backer after it.
+        backer_idx = bisect.bisect_left(self._backers, start, key=lambda x: x[0])
 
         if len(self._backers) <= backer_idx or self._backers[backer_idx][0] != start:
             raise ValueError("Can't find backer to remove")
@@ -481,6 +483,13 @@ class Clemory(ClemoryBase):
         """
         Update the three properties of Clemory: consecutive, min_addr, and max_addr.
         """
+
+        if not self._backers:
+            # Removing the last backer leaves the same empty memory a freshly constructed Clemory has.
+            self.consecutive = True
+            self.min_addr = 0
+            self.max_addr = 0
+            return
 
         is_consecutive = True
         next_start = None
