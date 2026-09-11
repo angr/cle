@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import struct
 import sys
 import tempfile
 import unittest
@@ -324,6 +325,20 @@ class TestPEBackend(unittest.TestCase):
         assert isinstance(ld.main_object, cle.PE)
         assert ld.main_object.arch.name == "RISCV64"
         assert ld.main_object.os == "uefi"
+
+    def test_readytorun_machine_os_override(self):
+        dll = os.path.join(TEST_BASE, "tests", "x86_64", "readytorun_linux_x64.dll")
+        with open(dll, "rb") as f:
+            header = f.read(0x200)
+        machine = struct.unpack_from("<H", header, struct.unpack_from("<I", header, 0x3C)[0] + 4)[0]
+        # published for linux-x64, so the machine type is AMD64 exclusive-ored with the .NET
+        # override constant for Linux
+        assert machine == 0x8664 ^ 0x7B79
+
+        ld = cle.Loader(dll, auto_load_libs=False)
+        assert isinstance(ld.main_object, cle.PE)
+        assert ld.main_object.arch.name == "AMD64"
+        assert ld.main_object.is_dotnet
 
 
 if __name__ == "__main__":
