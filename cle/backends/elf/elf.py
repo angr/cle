@@ -57,6 +57,14 @@ _NON_ALLOCATED_SECTION_NAMES = {  # Sections that do not occupy memory at runtim
     "SHT_MIPS_REGINFO",
 }
 
+_DWARF_SIZE_TRANSPARENT_TYPE_TAGS = {
+    "DW_TAG_const_type",
+    "DW_TAG_immutable_type",
+    "DW_TAG_restrict_type",
+    "DW_TAG_typedef",
+    "DW_TAG_volatile_type",
+}
+
 
 # MIPS e_flags bits that name the ABI. binutils include/elf/mips.h.
 EF_MIPS_ABI2 = 0x20  # n32
@@ -80,7 +88,8 @@ class ELF(MetaELF):
 
     Useful backend options:
 
-    - ``debug_symbols``: Provides the path to a separate file which contains the binary's debug symbols
+    - ``debug_symbols``: Provides the path to a separate file which contains the binary's debug symbols. Supplying it
+            explicitly loads its symbol, line, and external-size information independently of ``load_debug_info``.
     - ``discard_section_headers``: Do not parse section headers. Use this if they are corrupted or malicious.
     - ``discard_program_headers``: Do not parse program headers. Use this if the binary is for a platform whose ELF
             loader only looks at section headers, but whose toolchain generates program headers anyway.
@@ -186,7 +195,7 @@ class ELF(MetaELF):
         self.is_relocatable = self._reader.header.e_type == "ET_REL"
         self.pic = self.pic or self._reader.header.e_type in ("ET_REL", "ET_DYN")
         self.tls_block_offset = None  # this is an ELF-only attribute
-        self.extern_size_hints: dict[str, int] = {}  # maps symbol name to a size based on reloc addends
+        self.extern_size_hints: dict[str, int] = {}  # maps symbol names to inferred minimum allocation sizes
         self._dynamic = {}
         self.deps = []
 
@@ -776,6 +785,69 @@ class ELF(MetaELF):
             return lowpc, None
         return lowpc + base_addr, highpc + base_addr
 
+    @staticmethod
+    def _dwarf_type_size(die: DIE, max_size: int) -> int | None:
+        """Read an explicit size through representation-preserving qualifiers without inferring arrays or pointers."""
+        seen = set()
+        while True:
+            unit_offset = getattr(die.cu, "cu_offset", getattr(die.cu, "tu_offset", id(die.cu)))
+            identity = (id(die.cu.dwarfinfo), type(die.cu), unit_offset, die.offset)
+            if identity in seen:
+                return None
+            seen.add(identity)
+
+            byte_size = die.attributes.get("DW_AT_byte_size")
+            if byte_size is not None:
+                if type(byte_size.value) is int and 0 < byte_size.value <= max_size:
+                    return byte_size.value
+                return None
+
+            if die.tag not in _DWARF_SIZE_TRANSPARENT_TYPE_TAGS or "DW_AT_type" not in die.attributes:
+                return None
+
+            try:
+                die = die.get_DIE_from_attribute("DW_AT_type")
+            except (DWARFError, KeyError, NotImplementedError):
+                return None
+
+    def _load_dwarf_extern_size_hint(self, die: DIE) -> None:
+        declaration = die.attributes.get("DW_AT_declaration")
+        if declaration is None or not declaration.value or "DW_AT_type" not in die.attributes:
+            return
+
+        name_attr = die.attributes.get("DW_AT_linkage_name") or die.attributes.get("DW_AT_MIPS_linkage_name")
+        if name_attr is None:
+            external = die.attributes.get("DW_AT_external")
+            if external is None or not external.value:
+                return
+            name_attr = die.attributes.get("DW_AT_name")
+        if name_attr is None:
+            return
+
+        name = maybedecode(name_attr.value)
+        if name not in self.imports:
+            return
+
+        try:
+            type_die = die.get_DIE_from_attribute("DW_AT_type")
+        except (DWARFError, KeyError, NotImplementedError):
+            return
+
+        from cle.backends.externs import ExternObject  # pylint: disable=import-outside-toplevel
+
+        size = self._dwarf_type_size(type_die, ExternObject.default_map_size(self.arch))
+        if size is not None:
+            self.extern_size_hints[name] = max(self.extern_size_hints.get(name, 0), size)
+
+    def _load_dwarf_extern_size_hints(self, dwarf: DWARFInfo) -> None:
+        for cu in dwarf.iter_CUs():
+            try:
+                for die in cu.iter_DIEs():
+                    if die.tag == "DW_TAG_variable":
+                        self._load_dwarf_extern_size_hint(die)
+            except (DWARFError, KeyError, NotImplementedError):
+                continue
+
     def _load_dies(self, dwarf: DWARFInfo):
         """
         Load DIEs and CUs from DWARF.
@@ -797,8 +869,10 @@ class ELF(MetaELF):
                         var_type = VariableType.read_from_die(die, self)
                         if var_type is not None:
                             type_list[die.offset] = var_type
-            except KeyError:
-                # pyelftools is not very resilient - we need to catch KeyErrors here
+                    elif die.tag == "DW_TAG_variable":
+                        self._load_dwarf_extern_size_hint(die)
+            except (DWARFError, KeyError, NotImplementedError):
+                # pyelftools is not very resilient - skip compilation units it cannot parse
                 continue
 
             top_die = cu.get_top_DIE()
@@ -1611,6 +1685,7 @@ class ELF(MetaELF):
 
                 # debug symbols don't have eh_frame ever from what I can tell
                 if dwarf:
+                    self._load_dwarf_extern_size_hints(dwarf)
                     self._load_line_info(dwarf)
 
     @staticmethod
