@@ -41,6 +41,21 @@ def test_ppc64el_abiv1():
     assert ld.main_object.ppc64_initial_rtoc == 0x10018E80
 
 
+def test_ppc64_abiv1_rebased():
+    # ABIv1 takes the entry point and the TOC out of the same entry descriptor, and both words are
+    # link-time addresses. libc.so.6 is a shared object, so the loader always rebases it.
+    lib = os.path.join(test_location, "ppc64", "libc.so.6")
+    ld = cle.Loader(lib, auto_load_libs=False, main_opts={"base_addr": 0x10100000})
+    main = ld.main_object
+    assert isinstance(main, cle.ELF)
+    assert main.is_ppc64_abiv1
+    assert main.mapped_base == 0x10100000
+    assert main.entry == 0x10147B60
+    assert main.ppc64_initial_rtoc == 0x102CC6F0
+    # the same address, taken from the mapped .got rather than from the descriptor
+    assert main.ppc64_initial_rtoc == main.sections_map[".got"].vaddr + 0x8000
+
+
 def load_relocatable(name):
     ld = cle.Loader(os.path.join(test_location, "ppc64", name), auto_load_libs=False)
     main = ld.main_object
@@ -70,5 +85,6 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     test_ppc64el_abiv1()
     test_ppc64el_abiv2()
+    test_ppc64_abiv1_rebased()
     test_ppc64_abiv1_relocatable_mapping_nothing()
     test_ppc64_abiv1_relocatable_mapping_code()
