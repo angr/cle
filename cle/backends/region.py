@@ -120,6 +120,35 @@ class Segment(Region):
     pass
 
 
+class PermissionedSegment(Segment):
+    """
+    A segment with static content whose permissions are stated rather than assumed.
+
+    :class:`Region` answers ``True`` to every permission query, because most segments are built by a
+    backend for a format that records no permissions at all. A backend that does know them - because
+    it read them out of a core dump, say - builds this instead, so that a caller asking whether the
+    range is executable gets the answer the file gives rather than the default.
+    """
+
+    def __init__(self, offset, vaddr, filesize, memsize, is_readable, is_writable, is_executable):
+        super().__init__(offset, vaddr, filesize, memsize)
+        self._is_readable = is_readable
+        self._is_writable = is_writable
+        self._is_executable = is_executable
+
+    @property
+    def is_readable(self):
+        return self._is_readable
+
+    @property
+    def is_writable(self):
+        return self._is_writable
+
+    @property
+    def is_executable(self):
+        return self._is_executable
+
+
 class EmptySegment(Segment):
     """
     A segment with no static content, and permissions
