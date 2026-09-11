@@ -152,7 +152,9 @@ class GenericRelativeReloc(ELFReloc):
     def value(self):
         if self.resolvedby is not None:
             return self.resolvedby.rebased_addr
-        return self.owner.mapped_base + self.addend
+        # B + A, where B is the load bias (mapped_base - linked_base) and A is a
+        # link-time virtual address.
+        return AT.from_lva(self.addend, self.owner).to_mva()
 
 
 class GenericAbsoluteReloc(ELFReloc):
