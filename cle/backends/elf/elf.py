@@ -1049,6 +1049,16 @@ class ELF(MetaELF):
         """
         Parse the dynamic section for dynamically linked objects.
         """
+        # A separate debug-info file, such as the output of objcopy --only-keep-debug, turns every allocated section
+        # into SHT_NOBITS and drops the file backing of the segments that carried them. Its dynamic table has no
+        # contents anywhere, so the tags below would be decoded out of zero-fill.
+        if (
+            seg_readelf.header.p_filesz == 0
+            and next(seg_readelf.elffile.address_offsets(seg_readelf.header.p_vaddr), None) is None
+        ):
+            log.warning("The dynamic table of %s has no contents. Skipping it.", self.binary)
+            return
+
         # PATHOLOGICAL CASE
         # some elf files have a dyn with filesz = 0 but actually do contain content. this is valid. apparently.
         # this is a hack. there is certainly a better way to do this
