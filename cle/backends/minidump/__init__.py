@@ -8,8 +8,9 @@ from minidump import minidumpfile
 from minidump.streams import SystemInfoStream
 
 from cle.backends.backend import Backend, register_backend
+from cle.backends.coff import IMAGE_SCN
 from cle.backends.region import Section, Segment
-from cle.errors import CLEError, CLEInvalidBinaryError
+from cle.errors import CLEError
 
 
 class MinidumpMissingStreamError(Exception):
@@ -17,6 +18,42 @@ class MinidumpMissingStreamError(Exception):
         super().__init__()
         self.message = message
         self.stream = stream
+
+
+class DumpSection(Section):
+    """
+    One section of a module that was loaded in the dumped process.
+
+    A minidump has no section table of its own; it records memory ranges and the modules that were
+    mapped over them. The module's image is mapped headers and all, so the module states which of its
+    own bytes are code, and that is where these come from. A module whose layout the dump does not
+    describe is covered by one section spanning it, permissive in all three. ``filesize`` says how far
+    the capture runs from the section's own base, so it is zero for a section whose base was not
+    captured even when the dump holds bytes further into it.
+    """
+
+    def __init__(self, name, offset, vaddr, memsize, filesize, characteristics):
+        super().__init__(name, offset, vaddr, memsize)
+        self.filesize = filesize
+        self.characteristics = characteristics
+
+    @property
+    def is_readable(self):
+        return self.characteristics & IMAGE_SCN.MEM_READ != 0
+
+    @property
+    def is_writable(self):
+        return self.characteristics & IMAGE_SCN.MEM_WRITE != 0
+
+    @property
+    def is_executable(self):
+        return self.characteristics & IMAGE_SCN.MEM_EXECUTE != 0
+
+    @property
+    def only_contains_uninitialized_data(self):
+        # Either the image declares the section uninitialized, or the dump did not capture the section's own
+        # base, in which case no address in it resolves to a file offset.
+        return self.filesize == 0 or self.characteristics & IMAGE_SCN.CNT_UNINITIALIZED_DATA != 0
 
 
 class Minidump(Backend):
@@ -64,14 +101,12 @@ class Minidump(Backend):
             self.memory.add_backer(segment.start_virtual_address, data)
 
         for module in self._mdf.modules.modules:
-            for segment in segments:
-                if segment.start_virtual_address == module.baseaddress:
-                    break
-            else:
-                raise CLEInvalidBinaryError("Missing segment for loaded module: " + module.name)
-            section = Section(module.name, segment.start_file_address, module.baseaddress, module.size)
-            self.sections.append(section)
-            self.sections_map[ntpath.basename(section.name)] = section
+            # A dump captures only the memory ranges its writer selected, so a module's image may be present in
+            # full, in part, or not at all. A module with nothing captured still gets a section: its address range
+            # is what tells an analysis which module an address belongs to.
+            for section in self._module_sections(module):
+                self.sections.append(section)
+                self.sections_map[section.name] = section
 
         self._thread_data = {}
 
@@ -82,6 +117,61 @@ class Minidump(Backend):
             data = self._binary_stream.read(thread.ThreadContext.DataSize)  # pylint: disable=undefined-loop-variable
             self._binary_stream.seek(0)
             self._thread_data[tid] = (teb, data)
+
+    def _dumped_extent(self, vaddr: int, memsize: int) -> tuple[int, int]:
+        """Where ``vaddr`` sits in the dump file, and how much of ``memsize`` the dump holds."""
+        segment = self.segments.find_region_containing(vaddr)
+        if segment is None:
+            return 0, 0
+        return segment.offset + (vaddr - segment.vaddr), min(memsize, segment.vaddr + segment.memsize - vaddr)
+
+    def _module_sections(self, module):
+        """The sections of one loaded module, read out of the image the dump mapped."""
+        base = module.baseaddress
+        table = None
+        section_count = 0
+        try:
+            dos_header = self.memory.load(base, 0x40)
+            if dos_header[:2] == b"MZ":
+                (pe_offset,) = struct.unpack_from("<I", dos_header, 0x3C)
+                coff_header = self.memory.load(base + pe_offset, 0x18)
+                if coff_header[:4] == b"PE\0\0":
+                    (section_count,) = struct.unpack_from("<H", coff_header, 6)
+                    (optional_size,) = struct.unpack_from("<H", coff_header, 0x14)
+                    # the image format allows at most this many sections; a larger count is a sign the
+                    # bytes at the module base are not a PE header after all
+                    if 0 < section_count <= 96:
+                        table = self.memory.load(base + pe_offset + 0x18 + optional_size, 40 * section_count)
+                        if len(table) < 40 * section_count:
+                            # Clemory.load stops at the end of the captured region, so a dump whose capture
+                            # ends inside the table tells us no more about the layout than one with no headers.
+                            table = None
+        except (KeyError, struct.error):
+            table = None
+
+        module_name = ntpath.basename(module.name)
+        if table is None:
+            offset, filesize = self._dumped_extent(base, module.size)
+            characteristics = IMAGE_SCN.MEM_READ | IMAGE_SCN.MEM_WRITE | IMAGE_SCN.MEM_EXECUTE
+            return [DumpSection(module_name, offset, base, module.size, filesize, characteristics)]
+
+        sections = []
+        for index in range(section_count):
+            entry = 40 * index
+            raw_name, virtual_size, rva, raw_size = struct.unpack_from("<8sIII", table, entry)
+            (characteristics,) = struct.unpack_from("<I", table, entry + 36)
+            if rva >= module.size:
+                continue
+            # some linkers leave VirtualSize zero and mean SizeOfRawData
+            memsize = min(virtual_size or raw_size, module.size - rva)
+            if not memsize:
+                continue
+            name = raw_name.rstrip(b"\0").decode("ascii", errors="replace")
+            offset, filesize = self._dumped_extent(base + rva, memsize)
+            sections.append(
+                DumpSection(f"{module_name}:{name}", offset, base + rva, memsize, filesize, characteristics)
+            )
+        return sections
 
     def close(self):
         super().close()
@@ -149,9 +239,14 @@ class Minidump(Backend):
         for register, position in fmt_registers.items():
             thread_registers[register] = members[position]
 
+        # The segment base lives in the thread's TEB rather than in its saved context, and a dump that captured
+        # only a few memory ranges usually does not include the TEB page. Leave the register out when it cannot be
+        # read, so that everything the context does record stays usable.
         if self.arch.name == "AMD64" or self.wow64:
-            gs_base = self.memory.unpack_word(teb + 0x30)
-            thread_registers["gs_const"] = gs_base
+            try:
+                thread_registers["gs_const"] = self.memory.unpack_word(teb + 0x30)
+            except KeyError:
+                pass
             if self.arch.name == "AMD64":
                 NUM_XMM_REGS = 16
                 xmms = struct.unpack_from("16s" * NUM_XMM_REGS, data, offset=0x1A0)
@@ -159,8 +254,10 @@ class Minidump(Backend):
                     f"xmm{i}": int.from_bytes(xmm, "little", signed=False) for i, xmm in enumerate(xmms)
                 }
         elif self.arch.name == "X86":
-            fs_base = self.memory.unpack_word(teb + 0x18)
-            thread_registers["fs"] = fs_base
+            try:
+                thread_registers["fs"] = self.memory.unpack_word(teb + 0x18)
+            except KeyError:
+                pass
 
         if self.wow64:
             register_translation = [
@@ -177,7 +274,11 @@ class Minidump(Backend):
                 ("fs", "gs_const"),  # ???
             ]
 
-            thread_registers = {ereg: thread_registers[rreg] & 0xFFFFFFFF for ereg, rreg in register_translation}
+            thread_registers = {
+                ereg: thread_registers[rreg] & 0xFFFFFFFF
+                for ereg, rreg in register_translation
+                if rreg in thread_registers
+            }
 
         return thread_registers
 
