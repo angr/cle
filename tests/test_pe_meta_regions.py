@@ -233,5 +233,29 @@ class TestPEMetaRegions(unittest.TestCase):
         assert flat == list(exp.sub_regions)
 
 
+class TestPEScatteredHintNameTable(unittest.TestCase):
+    """A hint/name table whose entries are scattered must not be recorded as one span."""
+
+    @classmethod
+    def setUpClass(cls):
+        # This binary's imports point at hint/name entries spread over two megabytes of the
+        # image. Recording the lowest-to-highest span as a single blob covered the entry
+        # point, and CFGFast then treats the entry as data and decodes nothing.
+        TEST_BINARY = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "Project1.vmp.exe")
+
+        cls.loader = cle.Loader(TEST_BINARY, auto_load_libs=False)
+        cls.pe_obj: cle.PE = cls.loader.main_object  # type: ignore
+        assert isinstance(cls.pe_obj, cle.PE)
+
+    def test_scattered_hint_name_entries(self):
+        imp = _find_regions(self.pe_obj, MemRegionSort.IMPORT_DIRECTORY)[0]
+        assert isinstance(imp, DataDirectory)
+        hnt = _find_sub_regions(imp, MemRegionSort.IMPORT_HINT_NAME_TABLE)
+
+        assert len(hnt) == 179
+        assert sum(r.size for r in hnt) == 3360
+        assert not any(r.vaddr <= self.pe_obj.entry < r.vaddr + r.size for r in hnt)
+
+
 if __name__ == "__main__":
     unittest.main()
