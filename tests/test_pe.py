@@ -7,9 +7,11 @@ import sys
 import tempfile
 import unittest
 
+import archinfo
 import pefile
 
 import cle
+from cle.backends.pe.pe import arch_from_machine_type
 from cle.backends.pe.symbolserver import PDBInfo
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
@@ -324,6 +326,35 @@ class TestPEBackend(unittest.TestCase):
         assert isinstance(ld.main_object, cle.PE)
         assert ld.main_object.arch.name == "RISCV64"
         assert ld.main_object.os == "uefi"
+
+
+class TestPEMachineTypes(unittest.TestCase):
+    """
+    Test the architecture a PE file header's machine type resolves to.
+    """
+
+    # IMAGE_FILE_MACHINE_POWERPC and IMAGE_FILE_MACHINE_POWERPCFP
+    powerpc_machine_types = (0x1F0, 0x1F1)
+
+    def test_powerpc_is_32_bit_little_endian(self):
+        for machine_type in self.powerpc_machine_types:
+            arch = arch_from_machine_type(pefile.MACHINE_TYPE[machine_type])
+
+            assert arch.name == "PPC32"
+            assert arch.bits == 32
+            assert arch.memory_endness == archinfo.Endness.LE
+
+    # IMAGE_FILE_MACHINE_WCEMIPSV2, IMAGE_FILE_MACHINE_MIPS16, IMAGE_FILE_MACHINE_MIPSFPU and
+    # IMAGE_FILE_MACHINE_MIPSFPU16
+    mips_machine_types = (0x169, 0x266, 0x366, 0x466)
+
+    def test_mips_is_32_bit_little_endian(self):
+        for machine_type in self.mips_machine_types:
+            arch = arch_from_machine_type(pefile.MACHINE_TYPE[machine_type])
+
+            assert arch.name == "MIPS32"
+            assert arch.bits == 32
+            assert arch.memory_endness == archinfo.Endness.LE
 
 
 if __name__ == "__main__":
