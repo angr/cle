@@ -1073,8 +1073,9 @@ class Loader:
         overlap with anything already loaded.
         """
         # this assumes that self.main_object exists, which should... definitely be safe
-        limit = 2**self.main_object.arch.bits
-        if self.main_object.arch.bits < 32 or self.main_object.max_addr >= 2 ** (self.main_object.arch.bits - 1):
+        address_bits = self.main_object.mapped_address_bits
+        limit = 2**address_bits
+        if address_bits < 32 or self.main_object.max_addr >= 2 ** (address_bits - 1):
             # HACK: On small arches, we should be more aggressive in packing stuff in. An image
             # reaching into the top half of the address space leaves its free space underneath it.
             start = 0
@@ -1117,7 +1118,7 @@ class Loader:
 
     def _is_range_free(self, va, size):
         # self.main_object should not be None here
-        if va < 0 or va + size > 2**self.main_object.arch.bits:
+        if va < 0 or va + size > 2**self.main_object.mapped_address_bits:
             return False
 
         for o in self.all_objects:
