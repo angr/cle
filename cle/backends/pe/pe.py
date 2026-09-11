@@ -195,12 +195,7 @@ class PE(Backend):
         # Go binaries keep a full function table even when stripped
         self.gopclntab = register_gopclntab_symbols(self)
 
-        self.is_dotnet = (
-            self._pe.OPTIONAL_HEADER.DATA_DIRECTORY[
-                pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR"]
-            ].VirtualAddress
-            != 0
-        )
+        self.is_dotnet = self._meta_dd("IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR") is not None
 
     _pefile_cache = {}
 
@@ -511,10 +506,22 @@ class PE(Backend):
         ptr_size = 8 if is_64 else 4
         return pe, base, is_64, ptr_size
 
-    def _meta_dd(self, name: str) -> pefile.Structure | None:
-        """Return a data directory entry if it has a nonzero VirtualAddress and Size, else None."""
+    def _meta_dd(self, name: str):
+        """
+        Return the named data directory entry if the image has one with a nonzero VirtualAddress and Size.
+
+        The return type is inferred rather than declared: pefile fills a data directory entry in from the format
+        string it parsed, so the pefile.Structure this used to promise declares neither VirtualAddress nor Size and
+        hides both from every caller.
+        """
         idx = pefile.DIRECTORY_ENTRY[name]
-        dd = self._pe.OPTIONAL_HEADER.DATA_DIRECTORY[idx]
+        data_directory = self._pe.OPTIONAL_HEADER.DATA_DIRECTORY
+        # NumberOfRvaAndSizes may be smaller than the 16 directories the format defines - EFI stub images
+        # commonly declare 6 - so pefile parses a short DATA_DIRECTORY. A directory past the end is absent,
+        # which means the same thing a zero VirtualAddress means.
+        if idx >= len(data_directory):
+            return None
+        dd = data_directory[idx]
         if dd.VirtualAddress and dd.Size:
             return dd
         return None
