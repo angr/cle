@@ -1083,9 +1083,11 @@ class Loader:
             start = self.main_object.max_addr + 1
 
         # The granularity is a preference, not a constraint: it costs up to one granule per object,
-        # which a small address space runs out of long before the space itself is full.
+        # which a small address space runs out of long before the space itself is full. The rung
+        # below it is a page, or a 4096th of an address space too small to hold many pages.
+        fallback = max(1, min(0x1000, limit >> 12))
         alignments = [self._rebase_granularity]
-        alignments += [a for a in (0x1000, 1) if a < self._rebase_granularity]
+        alignments += [min(a, fallback) for a in (0x1000, 1) if a < self._rebase_granularity]
 
         for alignment in alignments:
             for gap_start, gap_end in self._free_gaps(start, limit):
