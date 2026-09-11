@@ -368,8 +368,14 @@ class ELF(MetaELF):
             if e_flags & EF_MIPS_ABI2 or (e_flags & EF_MIPS_ABI) == E_MIPS_ABI_O64:
                 return archinfo.ArchMIPSN32(archinfo.Endness.LE if reader.little_endian else archinfo.Endness.BE)
 
+        # The class gives the pointer width and the machine gives the instruction
+        # set, and the x32 ABI is where they disagree: an ELFCLASS32 container of
+        # EM_X86_64 code. Resolving that by the class picks 32-bit X86 and none of
+        # the instruction stream decodes.
+        bits = "64" if arch_str == "EM_X86_64" else reader.elfclass
+
         try:
-            return archinfo.arch_from_id(arch_str, "le" if reader.little_endian else "be", reader.elfclass)
+            return archinfo.arch_from_id(arch_str, "le" if reader.little_endian else "be", bits)
         except archinfo.ArchNotFound:
             arch = ELF._extract_pcode_arch(reader)
             if arch:
