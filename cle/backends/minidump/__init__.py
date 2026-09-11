@@ -8,8 +8,10 @@ from minidump import minidumpfile
 from minidump.streams import SystemInfoStream
 
 from cle.backends.backend import Backend, register_backend
-from cle.backends.region import Section, Segment
-from cle.errors import CLEError, CLEInvalidBinaryError
+from cle.backends.region import Segment
+from cle.errors import CLEError
+
+from .regions import DumpSection
 
 
 class MinidumpMissingStreamError(Exception):
@@ -64,14 +66,32 @@ class Minidump(Backend):
             self.memory.add_backer(segment.start_virtual_address, data)
 
         for module in self._mdf.modules.modules:
+            # A module can span multiple segments
+            module_start = module.baseaddress
+            module_end = module.baseaddress + module.size
+
             for segment in segments:
-                if segment.start_virtual_address == module.baseaddress:
-                    break
-            else:
-                raise CLEInvalidBinaryError("Missing segment for loaded module: " + module.name)
-            section = Section(module.name, segment.start_file_address, module.baseaddress, module.size)
-            self.sections.append(section)
-            self.sections_map[ntpath.basename(section.name)] = section
+                seg_start = segment.start_virtual_address
+                seg_end = segment.start_virtual_address + segment.size
+
+                # Check for overlap
+                overlap_start = max(module_start, seg_start)
+                overlap_end = min(module_end, seg_end)
+
+                if overlap_start < overlap_end:
+                    # find protection for this overlap
+                    protect = 0
+                    if self._mdf.memory_info is not None:
+                        for info in self._mdf.memory_info.infos:
+                            if info.BaseAddress <= overlap_start < info.BaseAddress + info.RegionSize:
+                                protect = info.Protect
+                                break
+
+                    section = DumpSection(
+                        module, segment, protect, vaddr=overlap_start, size=overlap_end - overlap_start
+                    )
+                    self.sections.append(section)
+                    self.sections_map[ntpath.basename(section.name)] = section
 
         self._thread_data = {}
 
@@ -82,6 +102,9 @@ class Minidump(Backend):
             data = self._binary_stream.read(thread.ThreadContext.DataSize)  # pylint: disable=undefined-loop-variable
             self._binary_stream.seek(0)
             self._thread_data[tid] = (teb, data)
+
+        if self._mdf.exception is not None and self._mdf.exception.exception_records:
+            self._entry = self._mdf.exception.exception_records[0].ExceptionRecord.ExceptionAddress
 
     def close(self):
         super().close()
