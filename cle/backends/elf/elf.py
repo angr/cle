@@ -1480,11 +1480,21 @@ class ELF(MetaELF):
         for sec_readelf, section in sec_list:
             if isinstance(sec_readelf, sections.SymbolTableSection):
                 self.__register_section_symbols(sec_readelf)
-            if isinstance(sec_readelf, RelocationSection | RelrRelocationSection) and not (
-                "DT_REL" in self._dynamic
-                or "DT_RELA" in self._dynamic
-                or "DT_JMPREL" in self._dynamic
-                or "DT_RELR" in self._dynamic
+            if (
+                isinstance(sec_readelf, RelocationSection | RelrRelocationSection)
+                # A linked image only carries relocations that are still outstanding in sections it maps. One that
+                # is not SHF_ALLOC is link-time output kept for the record -- u-boot's .rel.text, and anything built
+                # with --emit-relocs -- and the linker has already applied every entry in it. A REL entry reads its
+                # addend out of memory, so applying it a second time computes S + (S + A) and rewrites the code. In
+                # a relocatable object nothing is applied yet and no relocation section is allocated, so they all
+                # have to run.
+                and (self.is_relocatable or sec_readelf.header["sh_flags"] & 2)  # alloc flag
+                and not (
+                    "DT_REL" in self._dynamic
+                    or "DT_RELA" in self._dynamic
+                    or "DT_JMPREL" in self._dynamic
+                    or "DT_RELR" in self._dynamic
+                )
             ):
                 self.__register_relocs(sec_readelf, dynsym=None)
 
