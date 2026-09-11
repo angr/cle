@@ -552,4 +552,4 @@ class Coff(Backend):
         raise NotImplementedError("Unsupported symbol")
 
 
-register_backend("COFF", Coff)
+register_backend("coff", Coff)

@@ -183,4 +183,4 @@ class Universal2(Backend):
         return list(self.child_objects)
 
 
-register_backend("Universal2", Universal2)
+register_backend("universal2", Universal2)
