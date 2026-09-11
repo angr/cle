@@ -19,6 +19,7 @@ from elftools.dwarf.dwarf_expr import DWARFExprParser
 from elftools.dwarf.dwarfinfo import DWARFInfo
 from elftools.dwarf.ranges import BaseAddressEntry, RangeEntry
 from elftools.elf import dynamic, elffile, enums, sections
+from elftools.elf.constants import E_FLAGS
 from elftools.elf.relocation import RelocationSection, RelrRelocationSection
 from sortedcontainers import SortedDict
 
@@ -56,6 +57,11 @@ _NON_ALLOCATED_SECTION_NAMES = {  # Sections that do not occupy memory at runtim
     "SHT_NOTE",
     "SHT_MIPS_REGINFO",
 }
+
+# The SLEIGH language for ARM BE8, declared endian="big" instructionEndian="little", which Ghidra's
+# own ARM ELF opinion selects on EF_ARM_BE8. It is the v7 language because that is the one archinfo
+# already names for 32-bit ARM; Ghidra publishes no big-endian-data variant below it.
+ARM_BE8_PCODE_LANGUAGE = "ARM:LEBE:32:v7LEInstruction"
 
 
 # MIPS e_flags bits that name the ABI. binutils include/elf/mips.h.
@@ -353,6 +359,14 @@ class ELF(MetaELF):
                 cpu_name = arm_attrs["TAG_CPU_NAME"]
                 if "Cortex-M" in cpu_name or "-M" in cpu_name:
                     return archinfo.ArchARMCortexM("Iend_LE")
+            if reader.header.e_flags & E_FLAGS.EF_ARM_BE8:
+                # EF_ARM_BE8 marks big-endian data with little-endian instruction words, the layout
+                # ARMv6 introduced. No archinfo ARM architecture describes it, because Arch carries
+                # one endness and VEX uses it both to fetch instructions and to tag the accesses it
+                # lifts; SLEIGH separates the two, so the object goes to the p-code lifter instead.
+                if pypcode is not None:
+                    return archinfo.ArchPcode(ARM_BE8_PCODE_LANGUAGE)
+                log.warning("pypcode is not installed, so an ARM BE8 object is loaded as big-endian ARM")
             if reader.header.e_flags & 0x200:
                 return archinfo.ArchARMEL("Iend_LE" if reader.little_endian else "Iend_BE")
             elif reader.header.e_flags & 0x400:
