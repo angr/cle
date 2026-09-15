@@ -31,6 +31,7 @@ from cle.patched_stream import PatchedStream
 from cle.utils import ALIGN_DOWN, ALIGN_UP, get_mmaped_data, stream_or_path
 
 from .compilation_unit import CompilationUnit
+from .eh_frame import EhFrameParseError, parse_fde_ranges
 from .hashtable import ELFHashTable, GNUHashTable
 from .lsda import LSDAExceptionTable
 from .metaelf import MetaELF, maybedecode
@@ -235,6 +236,9 @@ class ELF(MetaELF):
                     self._load_function_hints_from_fde(dwarf, FunctionHintSource.EH_FRAME)
                     self._load_exception_handling(dwarf)
                     self._load_line_info(dwarf)
+
+        if not self._has_eh_frame_function_hints():
+            self._load_function_hints_from_eh_frame_fast()
 
         if debug_symbols:
             self.__process_debug_file(debug_symbols)
@@ -621,6 +625,39 @@ class ELF(MetaELF):
         except KeyError:
             log.error("Malformed relocation: access to unmapped %#x", readelf_reloc.entry.r_offset)
             return None
+
+    def _has_eh_frame_function_hints(self) -> bool:
+        return any(hint.source == FunctionHintSource.EH_FRAME for hint in self.function_hints)
+
+    def _load_function_hints_from_eh_frame_fast(self) -> None:
+        """
+        Load FDE function hints without going through pyelftools, so that function starts are available even when
+        DWARF loading is disabled. Falls back to pyelftools if the section uses an encoding the fast walker does not
+        support.
+        """
+        if self.is_relocatable:
+            # pointers in .eh_frame are unrelocated in object files
+            return
+        section = self._reader.get_section_by_name(".eh_frame")
+        if section is None or section["sh_type"] == "SHT_NOBITS" or section.data_size == 0:
+            return
+        try:
+            fde_ranges = parse_fde_ranges(
+                section.data(), section["sh_addr"], self._reader.elfclass // 8, self._reader.little_endian
+            )
+        except EhFrameParseError as ex:
+            log.debug("Fast .eh_frame walk failed (%s); falling back to pyelftools.", ex)
+            if not self.has_dwarf_info:
+                return
+            try:
+                dwarf = self._reader.get_dwarf_info(relocate_dwarf_sections=False, follow_links=False)
+            except ELFError:
+                return
+            if dwarf.has_EH_CFI():
+                self._load_function_hints_from_fde(dwarf, FunctionHintSource.EH_FRAME)
+            return
+        for addr, size in fde_ranges:
+            self.function_hints.append(FunctionHint(addr, size, FunctionHintSource.EH_FRAME))
 
     def _load_function_hints_from_fde(self, dwarf, source):
         """
