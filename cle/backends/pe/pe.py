@@ -1068,6 +1068,17 @@ class PE(Backend):
                 self._register_tls_callbacks(tls.AddressOfCallBacks) if tls.AddressOfCallBacks != 0 else []
             )
             self.tls_block_size = self.tls_data_size + tls.SizeOfZeroFill
+            image_size = self._pe.OPTIONAL_HEADER.SizeOfImage
+            if tls.SizeOfZeroFill != 0 and self.tls_block_size > image_size:
+                # The TLS template is part of the image, so a zero fill that takes it past the end of the
+                # image is not describing this file. The bound is on the image's virtual size rather
+                # than the bytes we back, because a zero fill need not be backed by any file bytes.
+                log.warning(
+                    "TLS zero fill of %#x bytes runs past the end of the %#x-byte image. Ignoring it.",
+                    tls.SizeOfZeroFill,
+                    image_size,
+                )
+                self.tls_block_size = self.tls_data_size
 
     def _register_tls_callbacks(self, addr):
         """
