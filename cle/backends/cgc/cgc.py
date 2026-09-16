@@ -21,7 +21,11 @@ class CGC(ELF):
     def __init__(self, binary, binary_stream, *args, **kwargs):
         binary_stream = PatchedStream(binary_stream, [(0, ELF_HEADER)])
         super().__init__(binary, binary_stream, *args, **kwargs)
-        self.memory.store(AT.from_raw(0, self).to_rva(), CGC_HEADER)  # repair the CGC header
+        # Repair the header bytes the substitution above reached. Nothing requires the header to be
+        # loaded, and a binary whose first PT_LOAD starts past it maps none of these bytes.
+        for offset in range(len(CGC_HEADER)):
+            if self.offset_to_addr(offset) is not None:
+                self.memory.store(AT.from_raw(offset, self).to_rva(), CGC_HEADER[offset : offset + 1])
         self.os = "cgc"
         self.execstack = True  # the stack is always executable in CGC
 
