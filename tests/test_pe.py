@@ -300,6 +300,20 @@ class TestPEBackend(unittest.TestCase):
         assert ld.main_object.max_addr == 0x44F02D
         assert ld.all_objects[1].min_addr == 0x500000
 
+    def test_short_data_directory(self):
+        # NumberOfRvaAndSizes may be smaller than the 16 directories the format defines, and the
+        # trailing directories are then simply absent. EFI stub images commonly declare 6, which is
+        # what this one does; indexing the IAT (12) or the .NET descriptor (14) has to cope.
+        efi = os.path.join(TEST_BASE, "tests", "x86_64", "efi_short_data_directory.efi")
+        ld = cle.Loader(efi, auto_load_libs=False)
+
+        assert isinstance(ld.main_object, cle.PE)
+        assert [sec.name for sec in ld.main_object.sections] == [".text", ".data"]
+        assert ld.main_object.entry == 0x1000
+        assert not ld.main_object.deps
+        # The .NET descriptor is directory 14, past the end of this image's directories.
+        assert not ld.main_object.is_dotnet
+
     def test_loading_incomplete_pe_file(self):
         exe = os.path.join(
             TEST_BASE, "tests", "i386", "windows", "a94bbeed0ef51db3d3964bb0cc2cbed0adab0e47997d88f34daa92faa1a91e8a"
