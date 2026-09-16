@@ -96,6 +96,10 @@ class GNUHashTable:
 
         :param k:        The string to look up
         """
+        if self.nbuckets == 0:
+            # An empty bucket array hashes nothing, so no name is in this table. ELFHashTable.get
+            # already says so; without this the modulo below divides by zero.
+            return None, None
         h = self.gnu_hash(k)
         if not self._matches_bloom(h):
             return None, None
