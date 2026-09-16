@@ -47,4 +47,4 @@ class StaticArchive(Backend):
             self.loader._main_object = None
 
 
-register_backend("AR", StaticArchive)
+register_backend("ar", StaticArchive)
