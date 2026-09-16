@@ -118,8 +118,7 @@ def test_cart_find_object_containing_excludes_wrapper():
 
 def test_cart_child_is_named_after_the_wrapper():
     """
-    The unpacked object is handed to the loader as a stream and has no path of its own, so it reports the wrapper's
-    unpacked name instead of None. Error messages about the object are the only place that name shows up.
+    The unpacked object is loaded from a stream but retains the wrapper's unpacked name.
     """
     cartfile = os.path.join(
         TEST_BASE,
