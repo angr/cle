@@ -5,6 +5,7 @@ import sys
 import timeit
 import unittest
 
+import archinfo
 import cffi
 import pytest
 
@@ -123,7 +124,7 @@ def test_clemory_contains():
 def test_clemory_malformed_format():
     # a format string struct cannot parse is a format error, not an out-of-bounds access, and
     # classifying it must not raise struct.error out of the handler doing the classification
-    clemory = cle.Clemory(None, root=True)
+    clemory = cle.Clemory(archinfo.ArchX86(), root=True)
     clemory.add_backer(0, b"A" * 4)
 
     with pytest.raises(struct.error) as excinfo:
@@ -142,7 +143,7 @@ def test_clemory_malformed_format():
 
 
 def test_clemory_read_only_view_malformed_format():
-    clemory = cle.Clemory(None, root=True)
+    clemory = cle.Clemory(archinfo.ArchX86(), root=True)
     clemory.add_backer(0, b"A" * 4)
     view = cle.ClemoryReadOnlyView(None, clemory)
 
