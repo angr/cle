@@ -19,6 +19,7 @@ ALL_RELOCATIONS = {
     "AARCH64": relocation_table_arm64,
     "ARMEL": relocation_table_arm,
     "ARMHF": relocation_table_arm,
+    "ARM:LEBE:32:v7LEInstruction": relocation_table_arm,
     "X86": relocation_table_i386,
     "MIPS32": relocation_table_mips,
     "MIPS64": relocation_table_mips,
