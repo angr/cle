@@ -78,15 +78,15 @@ def test_word_sizes_struct_cannot_express():
     clemory.add_backer(0, bytes(32))
 
     clemory.pack_word(0, 0x123456, size=3)
-    assert clemory.load(0, 4) == b"\x56\x34\x12\x00"
+    assert clemory.load(0, 4).hex() == "56341200"
     assert clemory.unpack_word(0, 3) == 0x123456
 
     clemory.pack_word(4, 0x123456, size=3, endness=archinfo.Endness.BE)
-    assert clemory.load(4, 3) == b"\x12\x34\x56"
+    assert clemory.load(4, 3).hex() == "123456"
     assert clemory.unpack_word(4, 3, endness=archinfo.Endness.BE) == 0x123456
 
     clemory.pack_word(8, -2, size=3, signed=True)
-    assert clemory.load(8, 3) == b"\xfe\xff\xff"
+    assert clemory.load(8, 3).hex() == "feffff"
     assert clemory.unpack_word(8, 3, signed=True) == -2
     assert clemory.unpack_word(8, 3) == 0xFFFFFE
 
