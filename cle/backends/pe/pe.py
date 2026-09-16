@@ -656,9 +656,8 @@ class PE(Backend):
             )
         )
 
-        # Per-DLL ILT arrays and track hint/name range
-        hn_min = None
-        hn_max = None
+        # Per-DLL ILT arrays and hint/name entry extents
+        hint_name_spans: list[tuple[int, int]] = []
         for entry in entries:
             ilt_rva = entry.struct.OriginalFirstThunk
             if ilt_rva:
@@ -672,7 +671,6 @@ class PE(Backend):
                     )
                 )
 
-            # Track hint/name table extent
             for imp in entry.imports:
                 if imp.hint_name_table_rva:
                     rva = imp.hint_name_table_rva
@@ -681,18 +679,21 @@ class PE(Backend):
                     entry_size = 2 + name_len
                     if entry_size % 2:
                         entry_size += 1
-                    entry_end = rva + entry_size
-                    if hn_min is None or rva < hn_min:
-                        hn_min = rva
-                    if hn_max is None or entry_end > hn_max:
-                        hn_max = entry_end
+                    hint_name_spans.append((rva, rva + entry_size))
 
-        # Hint/Name table blob
-        if hn_min is not None and hn_max is not None:
+        # Hint/Name table. Nothing requires the entries to be contiguous or ordered, so
+        # coalesce the ones that touch and record a blob per run.
+        merged_spans: list[list[int]] = []
+        for start, end in sorted(hint_name_spans):
+            if merged_spans and start <= merged_spans[-1][1]:
+                merged_spans[-1][1] = max(merged_spans[-1][1], end)
+            else:
+                merged_spans.append([start, end])
+        for start, end in merged_spans:
             sub_regions.append(
                 StringBlob(
-                    vaddr=base + hn_min,
-                    size=hn_max - hn_min,
+                    vaddr=base + start,
+                    size=end - start,
                     sort=MemRegionSort.IMPORT_HINT_NAME_TABLE,
                 )
             )
