@@ -4,6 +4,7 @@ import io
 import logging
 import mmap
 from dataclasses import dataclass
+from enum import IntEnum
 from typing import cast
 from uuid import UUID
 
@@ -27,6 +28,29 @@ class UefiDriverLoadError(Exception):
     """
     This error is raised (and caught internally) if the data contained in the UEFI entity tree doesn't make sense.
     """
+
+
+class ModuleFileType(IntEnum):
+    """
+    The FFS file types that encapsulate an executable module image.
+
+    The UEFI Platform Initialization specification, volume 3, requires a file of each of these types to contain
+    exactly one PE32 or TE section, which is the image this backend loads. The file types left out hold data
+    (RAW, FREEFORM), padding, or a nested firmware volume, which the tree walk descends into on its own.
+    """
+
+    SECURITY_CORE = 0x03
+    PEI_CORE = 0x04
+    DXE_CORE = 0x05
+    PEIM = 0x06
+    DRIVER = 0x07
+    COMBINED_PEIM_DRIVER = 0x08
+    APPLICATION = 0x09
+    MM = 0x0A
+    COMBINED_MM_DXE = 0x0C
+    MM_CORE = 0x0D
+    MM_STANDALONE = 0x0E
+    MM_CORE_STANDALONE = 0x0F
 
 
 class UefiFirmware(Backend):
@@ -93,6 +117,10 @@ class UefiFirmware(Backend):
                 child.parent_object = self
                 self.child_objects.append(child)
 
+        # a module with no base relocations can only be mapped where it was linked, so let those claim their
+        # addresses before the relocatable ones are packed around them
+        self.child_objects.sort(key=lambda child: child.pic)
+
         if self.child_objects:
             self._arch = self.child_objects[0].arch
         else:
@@ -113,7 +141,7 @@ class UefiFirmware(Backend):
         is_firmware_file = isinstance(uefi_obj, uefi_firmware.uefi.FirmwareFile)
         old_uuid = self._current_file
         if is_firmware_file:
-            if uefi_obj.type == 7:  # driver
+            if uefi_obj.type in ModuleFileType:
                 uuid = UUID(bytes=uefi_obj.guid)
                 self._drivers_pending[uuid] = UefiModulePending()
                 self._current_file = uuid
