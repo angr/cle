@@ -724,6 +724,13 @@ class ClemoryReadOnlyView(ClemoryBase):
     def __setitem__(self, k, v):
         raise NotImplementedError("ClemoryReadOnlyView does not support item assignment")
 
+    def __contains__(self, k) -> bool:
+        try:
+            self[k]
+        except KeyError:
+            return False
+        return True
+
     def load(self, addr: int, n: int) -> bytes:
         """
         Read up to `n` bytes at address `addr` in memory and return a bytes object.
