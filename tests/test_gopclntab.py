@@ -76,7 +76,8 @@ class TestGoPclntab(unittest.TestCase):
         assert exact + abi0 == len(tab.functions)
 
     def test_clean_binary_does_not_duplicate_symbols(self):
-        # The symbol table already covers every Go function here, so nothing should be added.
+        # The symbol table already names every Go function here at its own address -- 115 of them
+        # under the ".abi0" spelling checked above -- so nothing should be added.
         path = os.path.join(TEST_LOCATION, "x86_64", "langdetect_go")
         ld = cle.Loader(path, auto_load_libs=False)
         assert not [s for s in ld.main_object.symbols if isinstance(s, cle.GoSymbol)]
@@ -183,10 +184,17 @@ class TestGoPclntab(unittest.TestCase):
         assert tab is not None
         go_symbols = [s for s in obj.symbols if isinstance(s, cle.GoSymbol)]
 
-        # cle reports no Mach-O symbol as a function, so nothing here covers a pclntab address and
-        # every entry is added, next to the underscore-prefixed name the symbol table already has
+        # Every one of these addresses already carries a function symbol, but under Mach-O's
+        # leading underscore, which is not the name Go tooling asks for. The dedupe compares
+        # names as well as addresses, so each entry is added next to the prefixed one.
         assert len(go_symbols) == 1888
         assert all(s.type == cle.SymbolType.TYPE_FUNCTION for s in go_symbols)
+
+        symtab = {}
+        for symbol in obj.symbols:
+            if not isinstance(symbol, cle.GoSymbol) and symbol.is_function:
+                symtab.setdefault(symbol.rebased_addr, set()).add(symbol.name)
+        assert all(symtab[func.addr] & {"_" + func.name, "_" + func.name + ".abi0"} for func in tab.functions)
 
         by_addr = {}
         for symbol in obj.symbols:
