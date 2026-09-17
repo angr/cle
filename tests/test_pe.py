@@ -11,6 +11,7 @@ import pefile
 
 import cle
 from cle.backends.pe.symbolserver import PDBInfo
+from cle.structs import MemRegionSort
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
 requires_pyxdia = unittest.skipIf(sys.platform == "emscripten", "pyxdia is unavailable in Pyodide")
@@ -314,6 +315,29 @@ class TestPEBackend(unittest.TestCase):
         assert len(data) == 5025
         assert data[:4] == b"\x8bD$\x04"
         assert data[-4:] == b"3\xdb;\xc3"
+
+    def test_truncated_data_directory(self):
+        # https://github.com/angr/cle/issues/840
+        # This VB6 binary declares NumberOfRvaAndSizes == 3, so pefile parses only the export, import and resource
+        # directories. Every directory cle looks up past those is simply absent.
+        exe = os.path.join(
+            TEST_BASE, "tests", "i386", "windows", "316b4a35389bc13c80b0ea67d122b35a2a28cecaf26e694b2afe4ae5a293ebbe"
+        )
+        pe = pefile.PE(exe, fast_load=True)
+        assert pe.OPTIONAL_HEADER.NumberOfRvaAndSizes == 3
+        assert len(pe.OPTIONAL_HEADER.DATA_DIRECTORY) == 3
+        pe.close()
+
+        ld = cle.Loader(exe, auto_load_libs=False)
+
+        assert isinstance(ld.main_object, cle.PE)
+        assert ld.main_object.entry == 0x401164
+        assert not ld.main_object.is_dotnet
+        # The IAT (directory 12) is out of range, so it must not show up; the two nonempty directories must.
+        assert {mr.sort for mr in ld.main_object.meta_regions} == {
+            MemRegionSort.IMPORT_DIRECTORY,
+            MemRegionSort.RESOURCE_DIRECTORY,
+        }
 
     def test_uefi_image_is_not_windows(self):
         # A UEFI module is a PE, but it runs under the UEFI boot environment rather than Windows, and it says so in
