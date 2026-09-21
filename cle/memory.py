@@ -601,11 +601,12 @@ class ClemoryView(ClemoryBase):
         self._backer.store(addr + self._rebase, data)
 
     def find(self, data, search_min=None, search_max=None) -> Iterator[int]:
-        if search_min is None or search_min < self._start:
-            search_min = self._start
-        if search_max is None or search_max > self._end:
-            search_max = self._end
-        return self._backer.find(data, search_min=search_min + self._rebase, search_max=search_max + self._rebase)
+        if search_min is None or search_min < self._offset:
+            search_min = self._offset
+        if search_max is None or search_max > self._endoffset:
+            search_max = self._endoffset
+        for addr in self._backer.find(data, search_min=search_min + self._rebase, search_max=search_max + self._rebase):
+            yield addr - self._rebase
 
 
 class ClemoryTranslator(ClemoryBase):
