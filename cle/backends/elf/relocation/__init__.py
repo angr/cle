@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import logging
-
 from .amd64 import relocation_table_amd64
 from .arm import relocation_table_arm
 from .arm64 import relocation_table_arm64
@@ -30,17 +28,10 @@ ALL_RELOCATIONS = {
 }
 
 
-log = logging.getLogger(name=__name__)
-complaint_log = set()
-
-
 def get_relocation(arch, r_type):
     if r_type == 0:
         return None
     try:
         return ALL_RELOCATIONS[arch][r_type]
     except KeyError:
-        if (arch, r_type) not in complaint_log:
-            complaint_log.add((arch, r_type))
-            log.warning("Unknown reloc %d on %s", r_type, arch)
         return None
