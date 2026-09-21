@@ -613,7 +613,7 @@ class Loader:
                     continue
                 sym = so.get_symbol(thing)
                 if isinstance(sym, list):
-                    sym = sym[0]
+                    sym = sym[0] if sym else None
                 if sym is None:
                     continue
 
