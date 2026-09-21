@@ -7,8 +7,6 @@ from __future__ import annotations
 
 import logging
 
-from cle.errors import CLEOperationError
-
 from .elfreloc import ELFReloc
 from .generic import (
     GenericAbsoluteAddendReloc,
@@ -284,6 +282,10 @@ class R_ARM_THM_CALL(ELFReloc):
         https://github.com/angr/vex/blob/6d1252c7ce8fe8376318b8f8bb8034058454c841/priv/guest_arm_toIR.c#L19219 )
 
       - Implementation appears correct with the bits placed into offset[23:22]
+
+      - The encoded displacement is offset[24:1] sign extended, so the branch reaches +- 16 MiB.
+        CLE does not synthesize veneers, so a wider displacement is encoded truncated and warned
+        about.
     """
 
     __slots__ = ("_insn_bytes",)
@@ -336,24 +338,25 @@ class R_ARM_THM_CALL(ELFReloc):
             A |= J1 << 23  # A[23] = J1
             A |= J2 << 22  # A[22] = J2
 
-            A &= 0x7FFFFF
-
             if sign_bit:
-                A |= 0xFF800000
+                A |= 0xFF000000  # A[24:1] is a signed 25-bit displacement; sign extend to 32 bits
 
         # Compute X, the new offset, from the symbol addr, S, the addend, A,
         #  the thumb flag, T, and PC, P.
 
         x = (((S + A) | T) - P) & 0xFFFFFFFF  # Also mask to 32 bits
 
-        # Ensure jump is in range
+        # Ensure jump is in range. The encoding below writes x[24:1] with x[24] as the sign, so
+        # x[31:25] must match x[24] for the displacement to survive the round trip.
 
-        if x & 0xFF800000 != 0 and x & 0xFF800000 != 0xFF800000:
-            raise CLEOperationError(
-                "Jump target out of range for reloc R_ARM_THM_CALL (+- 2^23). "
-                "This may be due to SimProcedures being allocated outside the jump range. "
-                "If you believe this is the case, set 'rebase_granularity'=0x1000 in the "
-                "load options."
+        if x & 0xFF000000 not in (0, 0xFF000000):
+            log.warning(
+                "%s at %#x: branch target %#x is out of range (+- 16 MiB) and will be encoded "
+                "truncated. If it is an extern stub or a SimProcedure placed out of reach, pass a "
+                "smaller 'rebase_granularity' to cle.Loader.",
+                type(self).__name__,
+                P,
+                S,
             )
 
         # Rebuild the instruction, first clearing out any previously set offset bits
