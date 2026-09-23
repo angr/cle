@@ -480,3 +480,32 @@ def test_relocatable_object():
         # The defined symbols carry real section-relative addresses; undefined externals stay at 0.
         defined = {sym.name for sym in obj.symbols if sym.rebased_addr}
         assert defined, "no defined symbol carries an address"
+
+
+def test_relocatable_object_is_not_reported_as_flat_namespace(caplog):
+    """
+    A relocatable object has no dependent libraries, so the MH_TWOLEVEL flag never applies to it and
+    its absence is not worth a word. An image that lists libraries and still clears the flag is.
+    """
+    logger = "cle.backends.macho.macho"
+
+    for arch in ("aarch64", "x86_64"):
+        machofile = os.path.join(TEST_BASE, "tests", arch, "relocatable_object.macho")
+        with caplog.at_level(logging.ERROR, logger=logger):
+            caplog.clear()
+            obj = cle.Loader(machofile, auto_load_libs=False).main_object
+        assert isinstance(obj, MachO)
+        assert obj.filetype == MachoFiletype.MH_OBJECT
+        assert not obj.deps
+        assert [record.getMessage() for record in caplog.records if "MH_TWOLEVEL" in record.getMessage()] == []
+
+    # The Go toolchain's own linker emits a flat-namespace executable, which does list libraries to
+    # bind against, so that one is still reported.
+    machofile = os.path.join(TEST_BASE, "tests", "aarch64", "langdetect_go.macho")
+    with caplog.at_level(logging.ERROR, logger=logger):
+        caplog.clear()
+        obj = cle.Loader(machofile, auto_load_libs=False).main_object
+    assert isinstance(obj, MachO)
+    assert obj.filetype == MachoFiletype.MH_EXECUTE
+    assert obj.deps
+    assert [record.getMessage() for record in caplog.records if "MH_TWOLEVEL" in record.getMessage()] != []

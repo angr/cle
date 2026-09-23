@@ -163,7 +163,11 @@ class MachO(Backend):
             # Libraries are always implicitly PIC
             self.pic = bool(self.flags & MH_flags.MH_PIE) or bool(self.filetype & MachoFiletype.MH_DYLIB)
 
-            if not bool(self.flags & MH_flags.MH_TWOLEVEL):  # ensure MH_TWOLEVEL
+            # MH_TWOLEVEL says a linked image binds its undefined symbols against the specific
+            # libraries it lists, rather than looking them up in a flat namespace. A relocatable
+            # object is the static linker's input: it lists no libraries and binds nothing, so no
+            # toolchain sets the flag on one and its absence says nothing about the load.
+            if self.filetype != MachoFiletype.MH_OBJECT and not bool(self.flags & MH_flags.MH_TWOLEVEL):
                 log.error(
                     "Binary is not using MH_TWOLEVEL namespacing."
                     "This isn't properly implemented yet and will degrade results in unpredictable ways."
