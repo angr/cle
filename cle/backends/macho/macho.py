@@ -129,7 +129,7 @@ class MachO(Backend):
         self.weak_binding_blob: bytes | None = None  # weak binidng information
         self.rebase_blob: bytes | None = None  # rebasing information
         self.symtab_offset = None  # offset to the symtab
-        self.symtab_nsyms = None  # number of symbols in the symtab
+        self.symtab_nsyms: int = 0  # number of symbols in the symtab; LC_SYMTAB is optional
         self.binding_done = False  # if true binding was already done and do_bind will be a no-op
         self.strtab: bytes | None = None
         self._indexed_strtab: dict[int, bytes] | None = None
