@@ -1148,12 +1148,10 @@ class ELF(MetaELF):
             # the hash table lets you get any symbol given its name
             if "DT_GNU_HASH" in self._dynamic:
                 self.hashtable = GNUHashTable(
-                    dynsym, self.memory, AT.from_lva(self._dynamic["DT_GNU_HASH"], self).to_rva(), self.arch
+                    dynsym, self.memory, AT.from_lva(self._dynamic["DT_GNU_HASH"], self).to_rva()
                 )
             elif "DT_HASH" in self._dynamic:
-                self.hashtable = ELFHashTable(
-                    dynsym, self.memory, AT.from_lva(self._dynamic["DT_HASH"], self).to_rva(), self.arch
-                )
+                self.hashtable = ELFHashTable(dynsym, self.memory, AT.from_lva(self._dynamic["DT_HASH"], self).to_rva())
             else:
                 log.warning("No hash table available in %s", self.binary)
 
@@ -1587,7 +1585,9 @@ class ELF(MetaELF):
         got_local_num = self._dynamic["DT_MIPS_LOCAL_GOTNO"]  # number of local GOT entries
         # a.k.a the index of the first global GOT entry
         symtab_got_idx = self._dynamic["DT_MIPS_GOTSYM"]  # index of first symbol w/ GOT entry
-        symbol_count = self._dynamic["DT_MIPS_SYMTABNO"]
+        # DT_MIPS_SYMTABNO is the file's word for how many symbols there are, and it can claim more
+        # than the symbol table holds.
+        symbol_count = min(self._dynamic["DT_MIPS_SYMTABNO"], symtab.num_symbols())
         gotaddr = AT.from_lva(self._dynamic["DT_PLTGOT"], self).to_rva()
         wordsize = self.arch.bytes
         for i in range(2, got_local_num):
