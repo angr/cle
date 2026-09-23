@@ -3,21 +3,16 @@ from __future__ import annotations
 
 import logging
 import os
-import struct
-from io import BytesIO
 
 import pytest
 
 import cle
 from cle import MachO
 from cle.backends.backend import FunctionHintSource
-from cle.backends.macho.macho_enums import LoadCommands, MachoFiletype, SectionAttributes, SectionType
+from cle.backends.macho.macho_enums import MachoFiletype, SectionAttributes, SectionType
 from cle.backends.macho.section import MachOSection
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
-
-SEGMENT_COMMAND_64 = "<2I16s4Q4I"
-SEGMENT_COMMAND_64_SIZE = struct.calcsize(SEGMENT_COMMAND_64)
 
 
 def test_fauxware():
@@ -321,108 +316,61 @@ def test_find_symbol():
     assert sym.rebased_addr == 0x100100028
 
 
-def _find_segment_command(image: bytes, segname: bytes) -> int:
-    """
-    Offset of the LC_SEGMENT_64 command for the given segment
-    """
-    ncmds = struct.unpack_from("<I", image, 16)[0]
-    offset = 32
-    for _ in range(ncmds):
-        cmd, cmdsize = struct.unpack_from("<2I", image, offset)
-        if (
-            cmd == LoadCommands.LC_SEGMENT_64
-            and struct.unpack_from("<16s", image, offset + 8)[0].rstrip(b"\0") == segname
-        ):
-            return offset
-        offset += cmdsize
-    raise AssertionError(f"No {segname!r} segment")
-
-
-def _insert_segment_command(
-    image: bytes, offset: int, segname: bytes, vmaddr: int, vmsize: int, fileoff: int, filesize: int
-) -> bytes:
-    """
-    Splice a sectionless LC_SEGMENT_64 into a 64 bit Mach-O image at the given load command offset. The command takes
-    the place of padding that follows the load commands, so the image keeps its length and every file offset in it
-    stays valid.
-    """
-    ncmds, sizeofcmds = struct.unpack_from("<2I", image, 16)
-    command = struct.pack(
-        SEGMENT_COMMAND_64,
-        LoadCommands.LC_SEGMENT_64,
-        SEGMENT_COMMAND_64_SIZE,
-        segname,
-        vmaddr,
-        vmsize,
-        fileoff,
-        filesize,
-        7,  # maxprot: rwx
-        1,  # initprot: r
-        0,  # nsects
-        0,  # flags
-    )
-    padding = 32 + sizeofcmds
-    assert set(image[padding : padding + SEGMENT_COMMAND_64_SIZE]) == {0}, "not enough padding to hold a segment"
-
-    patched = bytearray(image)
-    patched[offset:offset] = command
-    del patched[padding + SEGMENT_COMMAND_64_SIZE : padding + 2 * SEGMENT_COMMAND_64_SIZE]
-    struct.pack_into("<2I", patched, 16, ncmds + 1, sizeofcmds + SEGMENT_COMMAND_64_SIZE)
-    return bytes(patched)
-
-
 def test_zero_vmsize_segment():
     """
     A segment with vmsize 0 occupies no memory, so the linker gives the segment that follows it the same vmaddr. This
     is how debug info that stays in the executable is emitted: __DWARF has vmsize 0 and the full debug info as its file
     content, directly in front of __LINKEDIT. Backing such a segment with its file content maps it over __LINKEDIT.
     """
-    with open(os.path.join(TEST_BASE, "tests", "x86_64", "fauxware.macho"), "rb") as fp:
+    machofile = os.path.join(TEST_BASE, "tests", "aarch64", "langdetect_go.macho")
+    with open(machofile, "rb") as fp:
         image = fp.read()
 
-    patched = _insert_segment_command(
-        image,
-        _find_segment_command(image, b"__LINKEDIT"),
-        b"__DWARF",
-        vmaddr=0x100002000,  # the address of __LINKEDIT
-        vmsize=0,
-        fileoff=0xCC0,  # the file range of __text, standing in for debug info
-        filesize=0x340,
-    )
-
-    ld = cle.Loader(BytesIO(patched), auto_load_libs=False, main_opts={"backend": "mach-o"})
+    ld = cle.Loader(machofile, auto_load_libs=False)
     assert isinstance(ld.main_object, cle.MachO)
     macho: MachO = ld.main_object
-    assert [seg.segname for seg in macho.segments] == ["__PAGEZERO", "__TEXT", "__DATA", "__DWARF", "__LINKEDIT"]
+    segments = {seg.segname: seg for seg in macho.segments}
+    dwarf, linkedit = segments["__DWARF"], segments["__LINKEDIT"]
 
-    # __DWARF contributed nothing, so __LINKEDIT is intact and the backers are the ones the unpatched binary has
-    backers = [(start, len(backer)) for start, backer in macho.memory.backers()]
-    assert backers == [(0, 0x1000), (0x1000, 0x1000), (0x2000, 0x1000)]
-    assert ld.memory.load(0x100002000, 16) == image[0x2000:0x2010]
+    # The shape under test: no address space, a lot of file content, and the next segment starts at the same address.
+    assert (dwarf.memsize, dwarf.filesize) == (0, 0xB18C9)
+    assert dwarf.vaddr == linkedit.vaddr == 0x1001A4000
+
+    # __DWARF got no backer, so the address it shares with __LINKEDIT holds __LINKEDIT's file content rather than
+    # the debug info that precedes it.
+    backers = dict(macho.memory.backers())
+    assert sorted(backers) == [0x0, 0x148000, 0x16C000, 0x1A4000]
+    assert len(backers[0x1A4000]) == linkedit.memsize
+    assert ld.memory.load(linkedit.vaddr, 64) == image[linkedit.offset : linkedit.offset + 64]
+    assert ld.memory.load(linkedit.vaddr, 64) != image[dwarf.offset : dwarf.offset + 64]
 
 
 def test_filesize_larger_than_vmsize():
     """
     A segment maps vmsize bytes, so anything its file range holds beyond that is not part of the mapping.
+
+    At angr/binaries 213d9d4 none of the 116 LC_SEGMENT(_64) commands in the 28 Mach-O files it tracked had
+    0 < vmsize < filesize, so the fixture is fauxware.macho with the one byte that makes __DATA claim filesize
+    0x2000 while it still maps vmsize 0x1000. tests_src/macho_oversized_segment/build.sh in angr/binaries records
+    the edit and reproduces it byte for byte.
     """
-    with open(os.path.join(TEST_BASE, "tests", "x86_64", "fauxware.macho"), "rb") as fp:
-        image = fp.read()
+    machofile = os.path.join(TEST_BASE, "tests", "x86_64", "fauxware_oversized_segment.macho")
 
-    patched = _insert_segment_command(
-        image,
-        _find_segment_command(image, b"__LINKEDIT"),
-        b"__OVERSIZED",
-        vmaddr=0x100003000,  # past the end of the binary
-        vmsize=0x1000,
-        fileoff=0,
-        filesize=0x2000,
-    )
-
-    ld = cle.Loader(BytesIO(patched), auto_load_libs=False, main_opts={"backend": "mach-o"})
+    ld = cle.Loader(machofile, auto_load_libs=False)
     assert isinstance(ld.main_object, cle.MachO)
     macho: MachO = ld.main_object
-    assert dict(macho.memory.backers())[0x3000] == patched[:0x1000]
-    assert macho.max_addr == 0x100003FFF
+    data = {seg.segname: seg for seg in macho.segments}["__DATA"]
+    assert (data.memsize, data.filesize) == (0x1000, 0x2000)
+
+    # __DATA is backed with the 0x1000 bytes it maps rather than the 0x2000 it claims, so it stops short of
+    # __LINKEDIT instead of running over it. The backers are compared by length: this file is 0x22cc bytes, so an
+    # unclamped read would give __DATA a 0x12cc-byte backer reaching into __LINKEDIT's address, and __LINKEDIT's own
+    # add_backer would then fail.
+    backers = dict(macho.memory.backers())
+    assert sorted(backers) == [0x0, 0x1000, 0x2000]
+    assert len(backers[0x1000]) == data.memsize == 0x1000
+    assert len(backers[0x2000]) == 0x1000
+    assert macho.max_addr == 0x100002FFF
 
 
 def test_non_macho_magic_is_reported():
