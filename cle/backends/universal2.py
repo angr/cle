@@ -6,7 +6,7 @@ from io import BytesIO
 
 import archinfo
 
-from cle.errors import CLEError
+from cle.errors import CLECompatibilityError, CLEError
 
 from .backend import Backend, register_backend
 
@@ -132,6 +132,13 @@ class Universal2(Backend):
                     f"Architecture {arch!r} not found in universal binary. Available architectures: {available}"
                 )
             slices = filtered
+        else:
+            slices = [entry for entry in slices if _cputype_to_arch(entry[0]) is not None]
+            if not slices:
+                available = [CPU_TYPE_NAMES.get(s[0], f"unknown(0x{s[0]:X})") for s in self._fat_arches]
+                raise CLECompatibilityError(
+                    f"No supported architecture in universal binary. Available architectures: {available}"
+                )
 
         # Load each slice using _load_object_isolated.
         # Unlike StaticArchive (where children are .o files), universal binary slices
