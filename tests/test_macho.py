@@ -480,3 +480,25 @@ def test_relocatable_object():
         # The defined symbols carry real section-relative addresses; undefined externals stay at 0.
         defined = {sym.name for sym in obj.symbols if sym.rebased_addr}
         assert defined, "no defined symbol carries an address"
+
+
+def test_relocatable_object_no_symtab():
+    """
+    LC_SYMTAB is optional, and a relocatable object whose translation unit defines no symbols does
+    not carry one. Treating the symbol count as unknown rather than zero used to raise TypeError out
+    of _parse_symbols and lose the whole load.
+    """
+    machofile = os.path.join(TEST_BASE, "tests", "x86_64", "relocatable_object_no_symtab.macho")
+    ld = cle.Loader(machofile, auto_load_libs=False)
+    obj = ld.main_object
+    assert isinstance(obj, MachO)
+    assert obj.filetype == MachoFiletype.MH_OBJECT
+
+    # _load_symtab sets both of these, so their absence is what makes this fixture the input here.
+    assert obj.symtab_offset is None
+    assert obj.symtab_nsyms == 0
+    assert not list(obj.symbols)
+
+    # The rest of the object still loads: one unnamed segment holding __text and the DWARF sections.
+    assert len(obj.segments) == 1
+    assert {"__text", "__apple_names", "__apple_types"} <= {sec.name for sec in obj.sections}
