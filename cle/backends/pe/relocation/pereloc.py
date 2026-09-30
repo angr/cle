@@ -5,6 +5,7 @@ import logging
 from cle.backends.relocation import Relocation
 
 log = logging.getLogger(name=__name__)
+unimplemented_log = set()
 
 
 # Reference: https://msdn.microsoft.com/en-us/library/ms809762.aspx
@@ -43,7 +44,7 @@ class PEReloc(Relocation):
         if self.symbol is None:  # relocation described in the DIRECTORY_ENTRY_BASERELOC table
             value = self.value
             if value is None:
-                log.debug("Unresolved relocation with no symbol.")
+                log.debug("%s at %#x was not applied", type(self).__name__, self.relative_addr)
                 return
             self.owner.memory.store(self.relative_addr, value)
         else:
@@ -51,8 +52,18 @@ class PEReloc(Relocation):
 
     @property
     def value(self):
+        if self.symbol is None:
+            # A base relocation rewrites the bytes at the fixup site, which only a subclass that
+            # knows the encoding can do. Reaching here means the type is recognized but has no
+            # implementation, so the fixup stays as the linker wrote it.
+            name = type(self).__name__
+            if name not in unimplemented_log:
+                unimplemented_log.add(name)
+                log.warning("%s is not implemented, so base relocations of this type are not applied", name)
+            return None
         if self.resolved:
             return self.resolvedby.rebased_addr
+        return None
 
     @property
     def is_base_reloc(self):
