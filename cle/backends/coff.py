@@ -288,6 +288,23 @@ class CoffSection(Section):
         return (self._coff_sec.Characteristics & IMAGE_SCN.CNT_UNINITIALIZED_DATA) != 0
 
 
+class CoffSymbol(Symbol):
+    """
+    Symbol of a COFF object.
+    """
+
+    def __init__(self, owner, name, relative_addr, size, sym_type, is_import=False):
+        super().__init__(owner, name, relative_addr, size, sym_type)
+        self._is_import = is_import
+
+    @property
+    def is_import(self):
+        """
+        Whether this symbol is defined elsewhere. A COFF object states that with section number zero.
+        """
+        return self._is_import
+
+
 class CoffRelocation(Relocation):
     """
     Relocation for a COFF object.
@@ -488,8 +505,6 @@ class Coff(Backend):
         self._add_defined_symbols()
         self._add_relocs()
 
-        # FIXME: Expose __imp_* symbols through self.imports
-
     def _add_defined_symbols(self) -> None:
         for sym_name, sym_idx in self._coff.symbol_name_to_idx.items():
             sym = self._coff.symbols[sym_idx]
@@ -532,7 +547,7 @@ class Coff(Backend):
             return None
 
         if name == "__ImageBase":
-            return Symbol(self, name, 0, 0, SymbolType.TYPE_OTHER)
+            return CoffSymbol(self, name, 0, 0, SymbolType.TYPE_OTHER)
 
         sym = self._coff.symbols[self._coff.symbol_name_to_idx[name]]
         if sym.StorageClass in {
@@ -540,13 +555,16 @@ class Coff(Backend):
             IMAGE_SYM_CLASS.LABEL,
             IMAGE_SYM_CLASS.EXTERNAL,
         }:
-            symbol_type = SymbolType.TYPE_FUNCTION if sym.Type == 0x20 else SymbolType.TYPE_OTHER
+            # A COFF symbol's Type field states a function with 0x20 and states nothing at all with 0,
+            # which is what every GCC-family toolchain emits. TYPE_NONE is how CLE spells "the file did
+            # not say", and it is what a relocatable ELF's STT_NOTYPE symbols already become.
+            symbol_type = SymbolType.TYPE_FUNCTION if sym.Type == 0x20 else SymbolType.TYPE_NONE
             if sym.SectionNumber > 0:
                 sym_addr = self._coff.sections[sym.SectionNumber - 1].PointerToRawData + sym.Value
-                return Symbol(self, name, sym_addr, 1, symbol_type)
+                return CoffSymbol(self, name, sym_addr, 1, symbol_type)
             elif sym.SectionNumber == 0:
                 if produce_extern_symbols:
-                    return Symbol(self, name, 0, sym.Value, symbol_type)
+                    return CoffSymbol(self, name, 0, sym.Value, symbol_type, is_import=True)
                 return None
 
         raise NotImplementedError("Unsupported symbol")
