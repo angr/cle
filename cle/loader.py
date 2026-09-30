@@ -1075,23 +1075,27 @@ class Loader:
         # this assumes that self.main_object exists, which should... definitely be safe
         address_bits = self.main_object.mapped_address_bits
         limit = 2**address_bits
+        above_image = self.main_object.max_addr + 1
         if address_bits < 32 or self.main_object.max_addr >= 2 ** (address_bits - 1):
-            # HACK: On small arches, we should be more aggressive in packing stuff in. An image
-            # reaching into the top half of the address space leaves its free space underneath it.
-            start = 0
+            # A small address space, or an image that reaches into the top half of one, may have
+            # its free space underneath the image. Take that space once the space above the image
+            # is exhausted, and the null page only when there is nothing else at all.
+            guard = self.page_size
+            starts = (max(above_image, guard), guard, 0)
         else:
-            start = self.main_object.max_addr + 1
+            starts = (above_image,)
 
         # The granularity is a preference, not a constraint: it costs up to one granule per object,
         # which a small address space runs out of long before the space itself is full.
         alignments = [self._rebase_granularity]
         alignments += [a for a in (0x1000, 1) if a < self._rebase_granularity]
 
-        for alignment in alignments:
-            for gap_start, gap_end in self._free_gaps(start, limit):
-                addr = ALIGN_UP(gap_start, alignment)
-                if addr + size <= gap_end:
-                    return addr
+        for start in starts:
+            for alignment in alignments:
+                for gap_start, gap_end in self._free_gaps(start, limit):
+                    addr = ALIGN_UP(gap_start, alignment)
+                    if addr + size <= gap_end:
+                        return addr
 
         raise CLEOperationError("Ran out of room in address space")
 
