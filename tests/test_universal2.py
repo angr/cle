@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import os
+from unittest.mock import patch
 
 import archinfo
 import pytest
 
 import cle
 from cle import MachO, Universal2
+from cle.errors import CLECompatibilityError
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
 FATBIN = os.path.join(TEST_BASE, "tests", "multi_arch", "fauxware_macho_multiarch")
@@ -68,6 +70,27 @@ def test_universal2_load_single_arch():
     assert isinstance(main, Universal2)
     assert len(main.child_objects) == 1
     assert main.child_objects[0].arch.name == "AARCH64"
+
+
+def test_universal2_skips_unsupported_architectures():
+    """Test that an unsupported slice does not prevent supported slices from loading."""
+    with patch("cle.backends.universal2._CPUTYPE_TO_ARCH_IDENT", {0x100000C: "aarch64"}):
+        ld = cle.Loader(FATBIN, auto_load_libs=False)
+
+    main = ld.main_object
+    assert isinstance(main, Universal2)
+    assert len(main.child_objects) == 1
+    assert main.child_objects[0].arch.name == "AARCH64"
+    assert set(main.available_arches) == {"AMD64", "AARCH64"}
+
+
+def test_universal2_rejects_if_no_architecture_is_supported():
+    """Test that a universal binary without a supported slice is rejected cleanly."""
+    with (
+        patch("cle.backends.universal2._CPUTYPE_TO_ARCH_IDENT", {}),
+        pytest.raises(CLECompatibilityError, match="No supported architecture in universal binary"),
+    ):
+        cle.Loader(FATBIN, auto_load_libs=False)
 
 
 def test_universal2_invalid_arch():
