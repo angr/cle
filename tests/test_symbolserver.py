@@ -49,9 +49,9 @@ class TestPDBInfo(unittest.TestCase):
         mock_entry.entry.Signature_Data1 = 0x12345678
         mock_entry.entry.Signature_Data2 = 0xABCD
         mock_entry.entry.Signature_Data3 = 0xEF01
-        mock_entry.entry.Signature_Data4 = 0x1122
-        mock_entry.entry.Signature_Data5 = 0x3344
-        mock_entry.entry.Signature_Data6_value = 0x55667788
+        mock_entry.entry.Signature_Data4 = 0x11
+        mock_entry.entry.Signature_Data5 = 0x22
+        mock_entry.entry.Signature_Data6_value = 0x334455667788
         mock_entry.entry.Age = 1
         mock_entry.entry.PdbFileName = b"C:\\path\\to\\test.pdb\x00"
         mock_pe.DIRECTORY_ENTRY_DEBUG = [mock_entry]
@@ -63,6 +63,29 @@ class TestPDBInfo(unittest.TestCase):
         assert result.guid == "12345678ABCDEF011122334455667788"
         assert result.age == 1
         assert result.signature_id == "12345678ABCDEF0111223344556677881"
+
+    def test_from_pe_rsds_data6_leading_zeros(self):
+        """Data6 is 6 bytes wide; its leading zeros must be kept (notepad.exe, D4FF223D-E1C9-6DB9-B3A8-0FBB46DEDEA2)."""
+        mock_pe = MagicMock()
+        mock_entry = MagicMock()
+        mock_entry.struct.Type = 2
+        mock_entry.entry.name = "CV_INFO_PDB70"
+        mock_entry.entry.CvSignature = b"RSDS"
+        mock_entry.entry.Signature_Data1 = 0xD4FF223D
+        mock_entry.entry.Signature_Data2 = 0xE1C9
+        mock_entry.entry.Signature_Data3 = 0x6DB9
+        mock_entry.entry.Signature_Data4 = 0xB3
+        mock_entry.entry.Signature_Data5 = 0xA8
+        mock_entry.entry.Signature_Data6_value = 0x0FBB46DEDEA2
+        mock_entry.entry.Age = 1
+        mock_entry.entry.PdbFileName = b"notepad.pdb\x00"
+        mock_pe.DIRECTORY_ENTRY_DEBUG = [mock_entry]
+
+        result = PDBInfo.from_pe(mock_pe)
+
+        assert result is not None
+        assert result.guid == "D4FF223DE1C96DB9B3A80FBB46DEDEA2"
+        assert result.signature_id == "D4FF223DE1C96DB9B3A80FBB46DEDEA21"
 
     def test_from_pe_nb10_format(self):
         """Test parsing NB10 (PDB 2.0) debug info."""

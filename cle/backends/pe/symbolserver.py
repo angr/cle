@@ -63,9 +63,9 @@ class PDBInfo:
             else:
                 return None
 
-            # Build GUID: Data1 (4 bytes) + Data2 (2 bytes) + Data3 (2 bytes) + Data4 (2 bytes) + Data5 (2 bytes) +
-            # Data6 (4 bytes)
-            guid = f"{data1:08X}{data2:04X}{data3:04X}{data4:02X}{data5:02X}{data6:04X}"
+            # Build GUID: Data1 (4 bytes) + Data2 (2 bytes) + Data3 (2 bytes) + Data4 (1 byte) + Data5 (1 byte) +
+            # Data6 (6 bytes)
+            guid = f"{data1:08X}{data2:04X}{data3:04X}{data4:02X}{data5:02X}{data6:012X}"
 
             age = entry.Age
             pdb_name = entry.PdbFileName.rstrip(b"\x00").decode("utf-8", errors="replace")
