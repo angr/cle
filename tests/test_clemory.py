@@ -118,6 +118,23 @@ def test_clemory_contains():
     assert clemory.consecutive is True
 
 
+def test_clemory_view_contains():
+    clemory = cle.Clemory(None, root=True)  # type: ignore[arg-type]
+    clemory.add_backer(0x1000, b"AAAABBBBCCCCDDDD")
+    view = cle.ClemoryView(clemory, 0x1000, 0x1010)
+
+    assert 0 in view
+    assert 0xF in view
+    assert 0x10 not in view
+    assert -1 not in view
+
+    offset_view = cle.ClemoryView(clemory, 0x1000, 0x1010, offset=0x20)
+    assert 0x20 in offset_view
+    assert 0x2F in offset_view
+    assert 0x30 not in offset_view
+    assert 0x1F not in offset_view
+
+
 def main():
     g = globals()
     for func_name, func in g.items():
