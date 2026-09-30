@@ -11,6 +11,7 @@ from enum import IntEnum, IntFlag
 
 import archinfo
 
+from cle.errors import CLECompatibilityError, CLEOperationError
 from cle.utils import extract_null_terminated_bytestr
 
 from .backend import Backend, register_backend
@@ -27,7 +28,17 @@ class IMAGE_FILE_MACHINE(IntEnum):
     """
 
     I386 = 0x14C
+    ARMNT = 0x1C4
     AMD64 = 0x8664
+    ARM64 = 0xAA64
+
+
+COFF_MACHINE_TO_ARCH_NAME = {
+    IMAGE_FILE_MACHINE.I386: "x86",
+    IMAGE_FILE_MACHINE.ARMNT: "ARMEL",
+    IMAGE_FILE_MACHINE.AMD64: "AMD64",
+    IMAGE_FILE_MACHINE.ARM64: "AARCH64",
+}
 
 
 class CoffFileHeader(ctypes.LittleEndianStructure):
@@ -133,6 +144,37 @@ class IMAGE_REL_AMD64(IntEnum):
     SECREL = 0x000B
 
 
+class IMAGE_REL_ARM(IntEnum):
+    """
+    ARM Relocation Types
+    """
+
+    ADDR32 = 0x0001
+    ADDR32NB = 0x0002
+    REL32 = 0x000A
+    SECTION = 0x000E
+    SECREL = 0x000F
+    MOV32T = 0x0011
+    BRANCH24T = 0x0014
+
+
+class IMAGE_REL_ARM64(IntEnum):
+    """
+    ARM64 Relocation Types
+    """
+
+    ADDR32 = 0x0001
+    ADDR32NB = 0x0002
+    BRANCH26 = 0x0003
+    PAGEBASE_REL21 = 0x0004
+    PAGEOFFSET_12A = 0x0006
+    PAGEOFFSET_12L = 0x0007
+    SECREL = 0x0008
+    SECTION = 0x000D
+    ADDR64 = 0x000E
+    REL32 = 0x0011
+
+
 class CoffRelocationTableEntry(ctypes.LittleEndianStructure):
     """
     COFF Relocations
@@ -175,11 +217,8 @@ class CoffParser:
 
     def _parse(self) -> None:
         self.header = CoffFileHeader.from_buffer_copy(self.data)
-        if self.header.Machine not in {
-            IMAGE_FILE_MACHINE.I386,
-            IMAGE_FILE_MACHINE.AMD64,
-        }:
-            raise NotImplementedError("Unsupported machine type")
+        if self.header.Machine not in COFF_MACHINE_TO_ARCH_NAME:
+            raise CLECompatibilityError(f"Unsupported machine type {self.header.Machine:#06x}")
 
         strings_offset = (
             self.header.PointerToSymbolTable + ctypes.sizeof(CoffSymbolTableEntry) * self.header.NumberOfSymbols
@@ -357,7 +396,7 @@ class CoffRelocationDIR32NB(CoffRelocation):
 
 class CoffRelocationADDR32NB(CoffRelocation):
     """
-    Relocation for IMAGE_REL_AMD64_ADDR32NB
+    Relocation for IMAGE_REL_*_ADDR32NB
     """
 
     __slots__ = ()
@@ -365,12 +404,14 @@ class CoffRelocationADDR32NB(CoffRelocation):
     @property
     def value(self) -> int:
         assert self.resolvedby is not None
-        return self.resolvedby.relative_addr
+        org_bytes = self.owner.memory.load(self.relative_addr, 4)
+        org_value = struct.unpack("<I", org_bytes)[0]
+        return org_value + self.resolvedby.relative_addr
 
 
 class CoffRelocationADDR64(CoffRelocation):
     """
-    Relocation for IMAGE_REL_AMD64_ADDR64
+    Relocation for IMAGE_REL_*_ADDR64
     """
 
     __slots__ = ()
@@ -380,7 +421,9 @@ class CoffRelocationADDR64(CoffRelocation):
     @property
     def value(self):
         assert self.resolvedby is not None
-        return self.resolvedby.rebased_addr
+        org_bytes = self.owner.memory.load(self.relative_addr, 8)
+        org_value = struct.unpack("<Q", org_bytes)[0]
+        return org_value + self.resolvedby.rebased_addr
 
 
 class CoffRelocationSECTION(CoffRelocation):
@@ -413,6 +456,212 @@ class CoffRelocationSECREL(CoffRelocation):
         return offset_to_symbol
 
 
+def _sign_extend(value: int, bits: int) -> int:
+    """
+    Interpret the low `bits` bits of `value` as a two's complement signed integer.
+    """
+    sign_bit = 1 << (bits - 1)
+    return (value & (sign_bit - 1)) - (value & sign_bit)
+
+
+class CoffRelocationARM64(CoffRelocation):
+    """
+    Base class for ARM64 relocations that patch an immediate field of a single instruction. `value` is the whole
+    patched instruction word.
+    """
+
+    __slots__ = ()
+
+    PACK_FORMAT = "<I"
+
+    @property
+    def instruction(self) -> int:
+        return struct.unpack("<I", self.owner.memory.load(self.relative_addr, 4))[0]
+
+
+class CoffRelocationARM64BRANCH26(CoffRelocationARM64):
+    """
+    Relocation for IMAGE_REL_ARM64_BRANCH26, the imm26 displacement of a B or BL instruction.
+    """
+
+    __slots__ = ()
+
+    @property
+    def value(self):
+        assert self.resolvedby is not None
+        instruction = self.instruction
+        addend = _sign_extend(instruction, 26) * 4
+        offset = self.resolvedby.rebased_addr + addend - self.rebased_addr
+        return (instruction & 0xFC000000) | ((offset >> 2) & 0x03FFFFFF)
+
+
+class CoffRelocationARM64PAGEBASE_REL21(CoffRelocationARM64):
+    """
+    Relocation for IMAGE_REL_ARM64_PAGEBASE_REL21, the 4KiB page displacement of an ADRP instruction. Its immediate
+    is split into immlo, bits 30:29, and immhi, bits 23:5.
+    """
+
+    __slots__ = ()
+
+    IMMEDIATE_MASK = 0x60FFFFE0
+
+    @property
+    def value(self):
+        assert self.resolvedby is not None
+        instruction = self.instruction
+        addend = _sign_extend(((instruction >> 29) & 0x3) | ((instruction >> 3) & 0x1FFFFC), 21)
+        pages = ((self.resolvedby.rebased_addr + addend) >> 12) - (self.rebased_addr >> 12)
+        return (instruction & ~self.IMMEDIATE_MASK) | ((pages & 0x3) << 29) | ((pages & 0x1FFFFC) << 3)
+
+
+class CoffRelocationARM64PAGEOFFSET_12A(CoffRelocationARM64):
+    """
+    Relocation for IMAGE_REL_ARM64_PAGEOFFSET_12A, the target's offset within its 4KiB page, in the imm12 field of
+    an ADD or ADDS instruction.
+    """
+
+    __slots__ = ()
+
+    @property
+    def value(self):
+        assert self.resolvedby is not None
+        instruction = self.instruction
+        addend = (instruction >> 10) & 0xFFF
+        offset = (self.resolvedby.rebased_addr & 0xFFF) + addend
+        return (instruction & ~(0xFFF << 10)) | ((offset & 0xFFF) << 10)
+
+
+class CoffRelocationARM64PAGEOFFSET_12L(CoffRelocationARM64):
+    """
+    Relocation for IMAGE_REL_ARM64_PAGEOFFSET_12L, the target's offset within its 4KiB page, in the imm12 field of a
+    load or store with an unsigned immediate offset. That field is scaled by the access size.
+    """
+
+    __slots__ = ()
+
+    @property
+    def value(self):
+        assert self.resolvedby is not None
+        instruction = self.instruction
+        scale = instruction >> 30
+        if scale == 0 and (instruction & 0x04800000) == 0x04800000:
+            # 128 bit vector accesses encode size 0 with the high opc bit set.
+            scale = 4
+        addend = (instruction >> 10) & 0xFFF
+        offset = ((self.resolvedby.rebased_addr & 0xFFF) >> scale) + addend
+        return (instruction & ~(0xFFF << 10)) | ((offset & 0xFFF) << 10)
+
+
+class CoffRelocationARMAbsolute(CoffRelocation):
+    """
+    Base class for ARMNT relocations that write the absolute address of their target. ARMNT code is Thumb-2 only, so
+    a target typed as a function is Thumb code and its address carries the Thumb bit.
+    """
+
+    __slots__ = ()
+
+    def resolve_symbol(self, solist, thumb=False, extern_object=None, **kwargs):
+        if self.symbol is not None and self.symbol.type == SymbolType.TYPE_FUNCTION:
+            thumb = True
+        super().resolve_symbol(solist, thumb=thumb, extern_object=extern_object, **kwargs)
+
+
+class CoffRelocationARMADDR32(CoffRelocationARMAbsolute, CoffRelocationDIR32):
+    """
+    Relocation for IMAGE_REL_ARM_ADDR32.
+    """
+
+    __slots__ = ()
+
+
+class CoffRelocationARMBRANCH24T(CoffRelocation):
+    """
+    Relocation for IMAGE_REL_ARM_BRANCH24T, the displacement of a Thumb-2 B.W or BL instruction. `value` is both
+    halfwords, each little-endian, so packing them as one little-endian word writes them back in order.
+    """
+
+    __slots__ = ()
+
+    PACK_FORMAT = "<I"
+
+    def resolve_symbol(self, solist, thumb=False, extern_object=None, **kwargs):  # pylint: disable=unused-argument
+        # The target is always Thumb code, whatever the caller assumed.
+        super().resolve_symbol(solist, thumb=True, extern_object=extern_object, **kwargs)
+
+    @property
+    def value(self):
+        assert self.resolvedby is not None
+        hw0, hw1 = struct.unpack("<HH", self.owner.memory.load(self.relative_addr, 4))
+
+        # imm25 is S:I1:I2:imm10:imm11:0, where I1 is NOT(J1 EOR S) and I2 is NOT(J2 EOR S).
+        sign = (hw0 >> 10) & 1
+        addend = _sign_extend(
+            (sign << 24)
+            | ((((hw1 >> 13) & 1) ^ sign ^ 1) << 23)
+            | ((((hw1 >> 11) & 1) ^ sign ^ 1) << 22)
+            | ((hw0 & 0x3FF) << 12)
+            | ((hw1 & 0x7FF) << 1),
+            25,
+        )
+
+        # The Thumb program counter reads four bytes ahead.
+        offset = self.resolvedby.rebased_addr + addend - (self.rebased_addr + 4)
+        if not -(1 << 24) <= offset < (1 << 24):
+            raise CLEOperationError(
+                f"Jump target out of range for relocation IMAGE_REL_ARM_BRANCH24T (+- 2^24) at "
+                f"{self.rebased_addr:#x}. This may be due to the extern object being allocated outside the jump "
+                f"range. If you believe this is the case, set 'rebase_granularity'=0x1000 in the load options."
+            )
+
+        sign = (offset >> 24) & 1
+        hw0 = (hw0 & 0xF800) | (sign << 10) | ((offset >> 12) & 0x3FF)
+        hw1 = (
+            (hw1 & 0xD000)
+            | ((((offset >> 23) & 1) ^ sign ^ 1) << 13)
+            | ((((offset >> 22) & 1) ^ sign ^ 1) << 11)
+            | ((offset >> 1) & 0x7FF)
+        )
+        return hw0 | (hw1 << 16)
+
+
+def _read_thumb_mov_imm16(hw0: int, hw1: int) -> int:
+    """
+    Extract the 16 bit immediate imm4:i:imm3:imm8 of a Thumb-2 MOVW or MOVT instruction from its two halfwords.
+    """
+    return ((hw0 & 0xF) << 12) | ((hw0 & 0x400) << 1) | ((hw1 & 0x7000) >> 4) | (hw1 & 0xFF)
+
+
+def _write_thumb_mov_imm16(hw0: int, hw1: int, imm: int) -> tuple[int, int]:
+    """
+    Replace the 16 bit immediate of a Thumb-2 MOVW or MOVT instruction, returning its two patched halfwords.
+    """
+    return (
+        (hw0 & 0xFBF0) | ((imm & 0x800) >> 1) | ((imm >> 12) & 0xF),
+        (hw1 & 0x8F00) | ((imm & 0x700) << 4) | (imm & 0xFF),
+    )
+
+
+class CoffRelocationARMMOV32T(CoffRelocationARMAbsolute):
+    """
+    Relocation for IMAGE_REL_ARM_MOV32T, the 32 bit address of the target split across a consecutive Thumb-2 MOVW
+    and MOVT pair.
+    """
+
+    __slots__ = ()
+
+    PACK_FORMAT = "<Q"
+
+    @property
+    def value(self):
+        assert self.resolvedby is not None
+        movw_hw0, movw_hw1, movt_hw0, movt_hw1 = struct.unpack("<HHHH", self.owner.memory.load(self.relative_addr, 8))
+        addend = _read_thumb_mov_imm16(movw_hw0, movw_hw1) | (_read_thumb_mov_imm16(movt_hw0, movt_hw1) << 16)
+        target = (self.resolvedby.rebased_addr + addend) & 0xFFFFFFFF
+        movw_hw0, movw_hw1 = _write_thumb_mov_imm16(movw_hw0, movw_hw1, target & 0xFFFF)
+        movt_hw0, movt_hw1 = _write_thumb_mov_imm16(movt_hw0, movt_hw1, target >> 16)
+        return movw_hw0 | (movw_hw1 << 16) | (movt_hw0 << 32) | (movt_hw1 << 48)
+
+
 RELOC_CLASSES: dict[IntEnum, dict[IntEnum, type[Relocation]]] = {
     IMAGE_FILE_MACHINE.I386: {
         IMAGE_REL_I386.REL32: CoffRelocationREL32,
@@ -428,11 +677,27 @@ RELOC_CLASSES: dict[IntEnum, dict[IntEnum, type[Relocation]]] = {
         IMAGE_REL_AMD64.SECTION: CoffRelocationSECTION,
         IMAGE_REL_AMD64.SECREL: CoffRelocationSECREL,
     },
-}
-
-COFF_MACHINE_TO_ARCH_NAME = {
-    IMAGE_FILE_MACHINE.I386: "x86",
-    IMAGE_FILE_MACHINE.AMD64: "AMD64",
+    IMAGE_FILE_MACHINE.ARMNT: {
+        IMAGE_REL_ARM.ADDR32: CoffRelocationARMADDR32,
+        IMAGE_REL_ARM.ADDR32NB: CoffRelocationADDR32NB,
+        IMAGE_REL_ARM.REL32: CoffRelocationREL32,
+        IMAGE_REL_ARM.SECTION: CoffRelocationSECTION,
+        IMAGE_REL_ARM.SECREL: CoffRelocationSECREL,
+        IMAGE_REL_ARM.MOV32T: CoffRelocationARMMOV32T,
+        IMAGE_REL_ARM.BRANCH24T: CoffRelocationARMBRANCH24T,
+    },
+    IMAGE_FILE_MACHINE.ARM64: {
+        IMAGE_REL_ARM64.ADDR32: CoffRelocationDIR32,
+        IMAGE_REL_ARM64.ADDR32NB: CoffRelocationADDR32NB,
+        IMAGE_REL_ARM64.BRANCH26: CoffRelocationARM64BRANCH26,
+        IMAGE_REL_ARM64.PAGEBASE_REL21: CoffRelocationARM64PAGEBASE_REL21,
+        IMAGE_REL_ARM64.PAGEOFFSET_12A: CoffRelocationARM64PAGEOFFSET_12A,
+        IMAGE_REL_ARM64.PAGEOFFSET_12L: CoffRelocationARM64PAGEOFFSET_12L,
+        IMAGE_REL_ARM64.SECREL: CoffRelocationSECREL,
+        IMAGE_REL_ARM64.SECTION: CoffRelocationSECTION,
+        IMAGE_REL_ARM64.ADDR64: CoffRelocationADDR64,
+        IMAGE_REL_ARM64.REL32: CoffRelocationREL32,
+    },
 }
 
 
@@ -525,7 +790,7 @@ class Coff(Backend):
         stream.seek(0)
         identstring = stream.read(2)
         stream.seek(0)
-        return int.from_bytes(identstring, "little") in (IMAGE_FILE_MACHINE.I386, IMAGE_FILE_MACHINE.AMD64)
+        return int.from_bytes(identstring, "little") in COFF_MACHINE_TO_ARCH_NAME
 
     def get_symbol(self, name: str, produce_extern_symbols: bool = False) -> Symbol | None:
         if name not in self._coff.symbol_name_to_idx:
@@ -543,6 +808,9 @@ class Coff(Backend):
             symbol_type = SymbolType.TYPE_FUNCTION if sym.Type == 0x20 else SymbolType.TYPE_OTHER
             if sym.SectionNumber > 0:
                 sym_addr = self._coff.sections[sym.SectionNumber - 1].PointerToRawData + sym.Value
+                if symbol_type == SymbolType.TYPE_FUNCTION and self._coff.header.Machine == IMAGE_FILE_MACHINE.ARMNT:
+                    # ARMNT code is always Thumb-2.
+                    sym_addr |= 1
                 return Symbol(self, name, sym_addr, 1, symbol_type)
             elif sym.SectionNumber == 0:
                 if produce_extern_symbols:
