@@ -36,6 +36,29 @@ def test_cart_elf():
     assert ld.main_object.os == "UNIX - System V"
 
 
+def test_cart_macho():
+    """A Mach-O MH_EXECUTE inside a CaRT container is loaded as the main object.
+
+    The container registers itself as the loader's main object while the child loads, so the child
+    sees ``is_main_bin=False`` and used to trip an assertion in the MachO backend before the loader
+    could promote it through ``force_main_object``.
+    """
+    cartfile = os.path.join(
+        TEST_BASE,
+        "tests",
+        "x86_64",
+        "fauxware.macho.cart",
+    )
+    ld = cle.Loader(
+        cartfile, auto_load_libs=False, main_opts={"arc4_key": b"\x02\xf53asdf\x00\x00\x00\x00\x00\x00\x00\x00\x00"}
+    )
+    assert isinstance(ld.main_object, cle.MachO)
+    assert ld.main_object.os == "macos"
+    # same placement and entry point as the direct load in test_macho.py::test_fauxware
+    assert ld.main_object.mapped_base == 0x100000000
+    assert ld.main_object.entry == 0x100000DE0
+
+
 def test_cart_elf_with_load_options():
     cartfile = os.path.join(
         TEST_BASE,
@@ -119,6 +142,7 @@ def test_cart_find_object_containing_excludes_wrapper():
 if __name__ == "__main__":
     test_cart_pe()
     test_cart_elf()
+    test_cart_macho()
     test_cart_elf_with_load_options()
     test_cart_blob_with_load_options()
     test_cart_find_object_containing_excludes_wrapper()
