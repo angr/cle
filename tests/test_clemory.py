@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 import timeit
 import unittest
@@ -7,6 +8,8 @@ import unittest
 import cffi
 
 import cle
+
+TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "binaries", "tests")
 
 
 @unittest.skipIf(sys.platform == "emscripten", "runtime CFFI compilation is unavailable in Pyodide")
@@ -116,6 +119,24 @@ def test_clemory_contains():
     assert clemory.min_addr == 0
     assert clemory.max_addr == 70
     assert clemory.consecutive is True
+
+
+def test_clemory_read_only_view_backers_match_the_clemory():
+    loader = cle.Loader(os.path.join(TEST_BASE, "x86_64", "fauxware"), auto_load_libs=False)
+    loader.gen_ro_memview()
+    view = loader.memory_ro_view
+    assert view is not None
+
+    def listing(backers):
+        return [(start, bytes(backer)) for start, backer in backers]
+
+    expected = listing(loader.memory.backers())
+    assert len(expected) > 1
+    assert listing(view.backers()) == expected
+
+    for start, backer in expected:
+        for addr in (start - 1, start, start + 1, start + len(backer) - 1, start + len(backer)):
+            assert listing(view.backers(addr)) == listing(loader.memory.backers(addr))
 
 
 def main():
