@@ -35,6 +35,7 @@ class FunctionHintSource:
     EXTERNAL_EH_FRAME = 1
     EXPORT_TABLE = 2
     MACHO_FUNCTION_STARTS = 3
+    EXCEPTION_DIRECTORY = 4
 
 
 class FunctionHint:
