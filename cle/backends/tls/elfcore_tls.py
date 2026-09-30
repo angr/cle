@@ -31,7 +31,10 @@ class ELFCoreThread:
         self.arch = arch
         self._threadinfo = threadinfo
         if arch.name == "AMD64":
-            self.thread_pointer = threadinfo["registers"]["fs_base"]
+            if "fs_base" not in threadinfo["registers"]:
+                # only Linux records it in the register note; the BSDs put it somewhere else
+                log.warning("This core dump does not contain fs_base. TLS information will be wrong.")
+            self.thread_pointer = threadinfo["registers"].get("fs_base", 0)
         elif arch.name == "X86":
             gs = threadinfo["registers"]["gs"]
             if gs == 0:
