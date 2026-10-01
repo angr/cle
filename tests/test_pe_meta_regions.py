@@ -233,5 +233,47 @@ class TestPEMetaRegions(unittest.TestCase):
         assert flat == list(exp.sub_regions)
 
 
+class TestPEMetaRegionsHeldToTheImage(unittest.TestCase):
+    """A metadata region may not describe bytes the image does not have.
+
+    A data directory's address and size are whatever the file says, and a packed or truncated image says
+    things the Windows loader would never honour. One junk directory then costs a consumer the whole binary
+    rather than the directory: angr's CFGFast marks every metadata region as data in its segment list, so a
+    region spanning the image leaves no address code and the CFG comes back with nothing in it.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        # PE32, ImageBase 0x400000, four sections, the last of which ends at RVA 0x9fff. The resource
+        # directory declares 29,696 bytes at RVA 0x9000, where the image has 4,096 left.
+        TEST_BINARY = os.path.join(
+            TEST_BASE,
+            "tests",
+            "i386",
+            "windows",
+            "9f2ef84bde1e4ef445708cc5a605a09226363d502b1f5b5bf4a1cfc6dd5fc41e",
+        )
+
+        cls.loader = cle.Loader(TEST_BINARY, auto_load_libs=False)
+        cls.pe_obj: cle.PE = cls.loader.main_object  # type: ignore
+        assert isinstance(cls.pe_obj, cle.PE)
+
+    def test_no_region_leaves_the_image(self):
+        """Every region and sub-region starts inside the object and ends inside it."""
+        pe = self.pe_obj
+        for region in pe.meta_regions:
+            for each in [region, *getattr(region, "sub_regions", [])]:
+                assert pe.min_addr <= each.vaddr <= pe.max_addr, each
+                assert each.vaddr + each.size - 1 <= pe.max_addr, each
+
+    def test_the_resource_directory_is_shortened_not_dropped(self):
+        """The part of the directory the image has is kept; only the tail that is not there goes."""
+        assert self.pe_obj.max_addr == self.pe_obj.linked_base + 0x9FFF
+        resources = _find_regions(self.pe_obj, MemRegionSort.RESOURCE_DIRECTORY)
+        assert len(resources) == 1
+        assert resources[0].vaddr == self.pe_obj.linked_base + 0x9000
+        assert resources[0].size == 0x1000
+
+
 if __name__ == "__main__":
     unittest.main()
