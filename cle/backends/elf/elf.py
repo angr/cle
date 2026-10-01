@@ -438,6 +438,11 @@ class ELF(MetaELF):
                 return self._nullsymbol
             if symbol_table is None:
                 raise TypeError("Must specify the symbol table to look up symbols by index")
+            # pyelftools does not bounds-check indices for section-backed symbol tables. The synthetic table built
+            # from PT_DYNAMIC has no section type and its inferred size is not reliable.
+            symbol_table_type = symbol_table.header.get("sh_type")
+            if symid < 0 or (symbol_table_type in ("SHT_SYMTAB", "SHT_DYNSYM") and symid >= symbol_table.num_symbols()):
+                return None
             try:
                 re_sym = symbol_table.get_symbol(symid)
             except Exception:  # pylint: disable=broad-except
@@ -476,7 +481,7 @@ class ELF(MetaELF):
         symbol = ELFSymbol(self, re_sym)
         if version is not None and self._versions is not None:
             version = enums.ENUM_VERSYM.get(version, version) & 0x7FFF
-            symbol.version = self._versions[version]
+            symbol.version = self._versions.get(version)
         self._symbol_cache[cache_key] = symbol
         self._cache_symbol_name(symbol)
         return symbol
