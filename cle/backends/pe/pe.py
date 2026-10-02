@@ -24,7 +24,7 @@ from cle.backends.symbol import SymbolType
 from cle.structs import DataDirectory, MemRegion, MemRegionSort, PointerArray, StringBlob, StructArray
 from cle.utils import extract_null_terminated_bytestr
 
-from .regions import PESection
+from .regions import PEHeaderSection, PESection
 from .relocation import get_relocation
 from .relocation.generic import IMAGE_REL_BASED_ABSOLUTE, IMAGE_REL_BASED_HIGHADJ, DllImport
 from .symbol import WinSymbol
@@ -1139,6 +1139,54 @@ class PE(Backend):
             )
             self.sections.append(section)
             self.sections_map[section.name] = section
+
+        header = self._header_section()
+        if header is not None:
+            self.sections.append(header)
+            # A section table may name anything, including this. The region still has to be in
+            # self.sections for an address inside it to resolve; losing the name lookup to a real
+            # section of the same name is the harmless half.
+            self.sections_map.setdefault(header.name, header)
+
+    def _header_section(self) -> PEHeaderSection | None:
+        """
+        The mapped image headers, for an image that enters inside them.
+
+        The Windows loader maps the first SizeOfHeaders bytes of the file at the image base. No
+        section header describes that mapping, so cle reported no region over it, and an image whose
+        AddressOfEntryPoint points in there -- which is where a packer that keeps its loader stub in
+        the header slack puts it -- entered an address in no region at all. Anything that derives
+        executable memory from the section table then has nothing to scan.
+
+        Reported only for an image the mapping can run on. Windows enforces the headers'
+        permissions through DEP, which an image opts into with
+        IMAGE_DLLCHARACTERISTICS_NX_COMPAT; without that bit no page is non-executable and the
+        stub runs. An image that opts in and still enters there faults, and one whose
+        AddressOfEntryPoint is zero -- a resource-only DLL leaves it alone -- enters nowhere.
+        """
+        if self.supports_nx:
+            return None
+        entry_rva = self._pe.OPTIONAL_HEADER.AddressOfEntryPoint
+        if entry_rva == 0 or self.find_section_containing(self._entry) is not None:
+            return None
+
+        size = min(self._pe.OPTIONAL_HEADER.SizeOfHeaders, len(self._pe.__data__))
+        for section in self.sections:
+            # Regions assumes its members do not overlap, and SizeOfHeaders is as untrusted as
+            # every other field a packer rewrites.
+            size = min(size, section.vaddr - self.linked_base)
+        if entry_rva >= size:
+            return None
+
+        log.warning(
+            "%s enters at %#x, inside the %#x bytes of headers the loader maps and outside every "
+            "section. Reporting that mapping as an executable region, which is how the image runs "
+            "without DEP.",
+            self.binary_basename,
+            self._entry,
+            size,
+        )
+        return PEHeaderSection(self.linked_base, size)
 
     def _find_pdb_path(self):
         """
