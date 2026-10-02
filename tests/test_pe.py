@@ -393,6 +393,39 @@ class TestPESectionMappedSize(unittest.TestCase):
         assert reloc.filesize == 0xE25000
         assert obj.max_addr - obj.mapped_base < 0x4F02E
 
+    def test_image_without_dep_that_enters_a_section_gains_no_header_region(self):
+        # cle reports the mapped image headers as a region for an image that enters inside them,
+        # which is the shape a packer with its loader stub in the header slack has. This one does
+        # not opt into DEP either, so the only thing between it and that region is where it enters:
+        # AddressOfEntryPoint 0x1000, inside the one section it has.
+        exe = os.path.join(TEST_BASE, "tests", "x86_64", "test_rol.exe")
+        ld = cle.Loader(exe, auto_load_libs=False)
+        obj = ld.main_object
+        assert isinstance(obj, cle.PE)
+
+        assert not obj.supports_nx
+        entry_section = obj.find_section_containing(obj.entry)
+        assert entry_section is not None
+        assert entry_section.name == ".text"
+        assert [sec.name for sec in obj.sections] == [".text"]
+
+    def test_image_that_enters_nowhere_gains_no_header_region(self):
+        # A resource-only DLL: AddressOfEntryPoint is zero, so it enters nowhere, and it opts into
+        # DEP, so Windows would enforce the headers' permissions if it did. Either of those on its
+        # own is enough to leave its section table alone. No input this suite tracks has the zero
+        # entry point without the DEP bit, so the two cannot be separated here.
+        dll = os.path.join(
+            TEST_BASE, "tests", "x86_64", "windows", "65e25ea21a2f873affee8034e2c3381df48ff4129d447fa288fbd92307647582"
+        )
+        ld = cle.Loader(dll, auto_load_libs=False)
+        obj = ld.main_object
+        assert isinstance(obj, cle.PE)
+
+        assert obj.supports_nx
+        assert obj.entry == obj.mapped_base
+        assert obj.find_section_containing(obj.entry) is None
+        assert [sec.name for sec in obj.sections] == [".rdata", ".rsrc"]
+
 
 if __name__ == "__main__":
     unittest.main()
