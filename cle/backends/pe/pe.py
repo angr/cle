@@ -452,7 +452,7 @@ class PE(Backend):
             symbols = self._pe.DIRECTORY_ENTRY_EXPORT.symbols
             for exp in symbols:
                 name = exp.name.decode() if exp.name is not None else None
-                forwarder = exp.forwarder.decode() if exp.forwarder is not None else None
+                forwarder = exp.forwarder.decode("latin-1") if exp.forwarder is not None else None
                 matching_types = coff_symbol_types.get(exp.address, set())
                 symbol_type = (
                     next(iter(matching_types))
