@@ -319,8 +319,6 @@ class MZ(Backend):
             relocation_end = header.relocation_table_offset + header.relocation_count * 4
             if relocation_end > header.header_size:
                 raise CLEInvalidBinaryError("MZ relocation table extends past the executable header")
-        if header.overlay_number != 0:
-            raise CLEInvalidBinaryError(f"MZ overlay {header.overlay_number} is not an ordinary primary executable")
         if header.minimum_allocation_size > _REAL_MODE_ADDRESS_SPACE:
             raise CLEInvalidBinaryError("MZ minimum allocation exceeds the 20-bit real-mode address space")
         if header.entry_rva is None:
