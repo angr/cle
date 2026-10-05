@@ -7,7 +7,15 @@ import unittest
 from elftools.elf.elffile import ELFFile
 
 import cle
-from cle.backends.gopclntab import GO_FUNC_FLAG_ASM, GO_FUNC_FLAG_SP_WRITE, GO_FUNC_FLAG_TOP_FRAME, GoPclntab
+from cle.backends.gopclntab import (
+    _LAYOUT_GO110,
+    _LAYOUT_GO112,
+    GO_FUNC_FLAG_ASM,
+    GO_FUNC_FLAG_SP_WRITE,
+    GO_FUNC_FLAG_TOP_FRAME,
+    GoPclntab,
+    _infer_packing,
+)
 
 TEST_LOCATION = os.path.join(
     os.path.dirname(os.path.realpath(__file__)),
@@ -34,6 +42,22 @@ BASICS_1225 = os.path.join(GO_TESTS, "go1.22.5", "basics")
 BASICS_1225_STRIPPED = os.path.join(GO_TESTS, "go1.22.5", "basics_stripped")
 BASICS_1271 = os.path.join(GO_TESTS, "go1.27.1", "basics")
 LANGDETECT = os.path.join(TEST_LOCATION, "x86_64", "langdetect_go")
+
+# the same two programs built by the toolchains with the older table layouts (tests_src/go/build.sh
+# LEGACY_VERSIONS and tests_src/language_detector/build_go_cross.sh)
+
+
+def _basics(version, stripped=False):
+    return os.path.join(GO_TESTS, version, "basics_stripped" if stripped else "basics")
+
+
+def _langdetect(arch, version, fmt="elf"):
+    name = f"langdetect_go_{version}"
+    if fmt == "pe":
+        return os.path.join(TEST_LOCATION, arch, "windows", name + ".exe")
+    if fmt == "macho":
+        return os.path.join(TEST_LOCATION, arch, name + ".macho")
+    return os.path.join(TEST_LOCATION, arch, name)
 
 
 def _symtab_functions(path):
@@ -505,6 +529,649 @@ class TestGoPclntabFuncInfo(unittest.TestCase):
         assert GoPclntab(0, 1, 8, 0, [], data=junk, pctab_off=0, pcln_off=len(junk)).pcvalue(1) == []
         cut = table[:5]
         assert GoPclntab(0, 1, 8, 0, [], data=cut, pctab_off=0, pcln_off=len(cut)).pcvalue(1) == [(0, 0), (7, 8)]
+
+
+def _pcvalue(pairs):
+    """
+    Encode ``(pc delta, value)`` pairs the way the Go linker does (min_lc 1).
+    """
+    out = bytearray()
+    val = -1
+    for pc_delta, value in pairs:
+        delta = value - val
+        out += bytes([(delta << 1) & 0xFF if delta >= 0 else ((~delta << 1) | 1) & 0xFF, pc_delta])
+        val = value
+    return bytes(out + b"\0")
+
+
+def _synthetic_pre116_table(tail="int32", ptr_size=8, magic=0xFFFFFFFB, slot4=(0, 0, 1)):
+    """
+    A well-formed 0xfffffffb table of three functions laid out like the Go 1.2 - 1.15 linkers do it:
+    each _func is followed by its pcdata offsets, pointer-aligned funcdata, its name and then its
+    pc-value tables. ``tail`` picks the 1.2 - 1.11 ``nfuncdata int32`` tail or the 1.12 - 1.15
+    ``funcID u8, pad[2], nfuncdata u8`` one; ``slot4`` the values of the frame/funcID/deferreturn word.
+    """
+    ptr = "Q" if ptr_size == 8 else "I"
+    funcs = [("main.main", 0x401000, 0, 2), ("main.fib", 0x401040, 16, 1), ("runtime.goexit", 0x401080, 0, 0)]
+    nfunc = len(funcs)
+    header = 8 + ptr_size
+    functab_off = header
+    filetab_ptr_off = functab_off + (2 * nfunc + 1) * ptr_size
+    data = bytearray(filetab_ptr_off + 4)
+    struct.pack_into("<IHBB", data, 0, magic, 0, 1, ptr_size)
+    struct.pack_into(f"<{ptr}", data, 8, nfunc)
+
+    def align():
+        while len(data) % ptr_size:
+            data.append(0)
+
+    func_offs = []
+    for (name, entry, args, nfuncdata), value in zip(funcs, slot4):
+        align()
+        func_offs.append(len(data))
+        rec = struct.pack(f"<{ptr}", entry)
+        fixed = len(rec) + 8 * 4
+        end = func_offs[-1] + fixed + 4  # one pcdata offset
+        if nfuncdata:
+            end = (end + ptr_size - 1) & ~(ptr_size - 1)
+            end += ptr_size * nfuncdata
+        name_off = end
+        pcsp_off = name_off + len(name) + 1
+        pcsp = _pcvalue([(7, 0), (10, 8)])
+        pcfile_off = pcsp_off + len(pcsp)
+        pcfile = _pcvalue([(20, 1)])
+        pcln_off = pcfile_off + len(pcfile)
+        pcln = _pcvalue([(20, 10)])
+        pcdata_off = pcln_off + len(pcln)
+        pcdata = _pcvalue([(20, 3)])
+        rec += struct.pack("<iiIIIII", name_off, args, value, pcsp_off, pcfile_off, pcln_off, 1)
+        rec += struct.pack("<I", nfuncdata) if tail == "int32" else struct.pack("<BxxB", value, nfuncdata)
+        rec += struct.pack("<I", pcdata_off)
+        data += rec
+        if nfuncdata:
+            align()
+            data += b"\0" * (ptr_size * nfuncdata)
+        assert len(data) == end
+        data += name.encode() + b"\0" + pcsp + pcfile + pcln + pcdata
+    align()
+    filetab_off = len(data)
+    data += struct.pack("<II", 2, filetab_off + 8) + b"a.go\0"
+    struct.pack_into("<I", data, filetab_ptr_off, filetab_off)
+    entries = [entry for _, entry, _, _ in funcs] + [0x4010C0]
+    for i, entry in enumerate(entries):
+        struct.pack_into(f"<{ptr}", data, functab_off + 2 * i * ptr_size, entry)
+    for i, off in enumerate(func_offs):
+        struct.pack_into(f"<{ptr}", data, functab_off + (2 * i + 1) * ptr_size, off)
+    return bytes(data)
+
+
+class TestGo12Layout(unittest.TestCase):
+    """
+    The 0xfffffffb table of Go 1.2 - 1.9: the fourth _func word is the frame size (1.2 - 1.4) or the
+    0x1234567 sentinel (1.5 - 1.9) and the record ends with ``nfuncdata int32``. There is no funcID,
+    deferreturn, cuOffset or startLine; names, pc-value offsets and the filetab are relative to the
+    table start. go1.4.3 and go1.9.7 builds of basics.go, cross-checked with debug/gosym.
+    """
+
+    def test_go143(self):
+        path = _basics("go1.4.3")
+        tab = _load(path)
+        assert tab.magic == 0xFFFFFFFB
+        assert tab.go_version == (1, 2)
+        assert tab.layout_version == (1, 2)
+        assert (tab.ptr_size, tab.min_lc, tab.text_start, len(tab.functions)) == (8, 1, 0x400C00, 1096)
+        assert tab.text_start == tab.functions[0].addr
+        symtab = _symtab_functions(path)
+        assert sum(1 for func in tab.functions if func.name in symtab.get(func.addr, ())) == 1083
+        assert all(func.size > 0 for func in tab.functions)
+        assert all(func.cu_offset is None and func.start_line is None for func in tab.functions)
+        assert all(func.func_id == 0 and func.flag == 0 and func.deferreturn == 0 for func in tab.functions)
+
+        f = _by_name(tab)
+        main = f["main.main"]
+        assert (main.addr, main.size, main.args, main.npcdata, main.nfuncdata) == (0x400F30, 0x2F0, 0, 1, 2)
+        assert tab.pcsp(main) == [(0, 0), (34, 224), (726, 0), (727, 224)]
+        assert tab.pcfile(main) == [(0, "/workspace/binaries/tests_src/go/basics.go")]
+        assert tab.pcln(main)[:3] == [(0, 96), (34, 97), (43, 98)]
+        fib = f["main.fib"]
+        assert (fib.addr, fib.args) == (0x400C20, 16)  # stack ABI: n int plus the int result
+        assert tab.pcsp(fib) == [(0, 0), (26, 24), (46, 0), (47, 24), (112, 0)]
+        assert tab.pcln(fib) == [(0, 26), (31, 27), (37, 28), (47, 30)]
+        assert tab.pcdata(fib, 0) == [(0, -1), (57, 0)]
+        assert (f["main.add"].args, f["main.divmod"].args, f["main.parse"].args) == (24, 32, 40)
+        assert (f["runtime.gopanic"].args, f["runtime.memmove"].args) == (16, 24)
+        assert tab.pcfile(f["runtime.goexit"]) == [(0, "/usr/local/go/src/runtime/asm_amd64.s")]
+        assert sum(1 for func in tab.functions if func.args < 0) == 25
+        assert sum(func.nfuncdata for func in tab.functions) == 1417
+
+    def test_go197(self):
+        tab = _load(_basics("go1.9.7"))
+        assert (tab.go_version, tab.layout_version) == ((1, 2), (1, 2))
+        assert (tab.ptr_size, tab.min_lc, tab.text_start, len(tab.functions)) == (8, 1, 0x401000, 1095)
+        f = _by_name(tab)
+        main = f["main.main"]
+        assert (main.addr, main.size, main.args, main.npcdata, main.nfuncdata) == (0x45A770, 0x2C0, 0, 1, 2)
+        assert tab.pcsp(main) == [(0, 0), (31, 192), (639, 0), (640, 192), (691, 0)]
+        assert tab.pcln(main)[:2] == [(0, 96), (47, 98)]
+        assert tab.pcfile(main) == [(0, "/workspace/binaries/tests_src/go/basics.go")]
+        assert (f["main.fib"].addr, f["main.fib"].args) == (0x45A4B0, 16)
+        assert tab.pcsp(f["main.fib"]) == [(0, 0), (19, 32), (54, 0), (55, 32), (120, 0)]
+        assert tab.pcdata(f["main.fib"], 0) == [(0, -1), (63, 0), (121, -1)]
+        assert tab.pcln(f["runtime.goexit"]) == [(0, 2337), (1, 2338), (6, 2340)]
+        assert all(func.func_id == 0 and func.deferreturn == 0 for func in tab.functions)
+        assert sum(func.npcdata for func in tab.functions) == 1279
+
+    def test_stripped(self):
+        for version, count in (("go1.4.3", 1096), ("go1.9.7", 1095)):
+            ld = cle.Loader(_basics(version, stripped=True), auto_load_libs=False)
+            tab = ld.main_object.gopclntab
+            assert tab.functions == _load(_basics(version)).functions
+            assert len([s for s in ld.main_object.symbols if isinstance(s, cle.GoSymbol)]) == count
+            assert ld.find_symbol("main.fib") is not None
+
+
+class TestGo110Layout(unittest.TestCase):
+    """
+    Go 1.10 - 1.11: still the 0xfffffffb table with the ``nfuncdata int32`` tail, but the retired
+    frame word now carries funcID (a uint32). go1.10.8 builds; debug/gosym agrees on every field.
+    """
+
+    def test_basics(self):
+        path = _basics("go1.10.8")
+        tab = _load(path)
+        assert tab.magic == 0xFFFFFFFB
+        assert (tab.go_version, tab.layout_version) == ((1, 10), (1, 10))
+        assert (tab.ptr_size, tab.min_lc, tab.text_start, len(tab.functions)) == (8, 1, 0x401000, 1335)
+        symtab = _symtab_functions(path)
+        assert all(func.name in symtab.get(func.addr, ()) for func in tab.functions)
+        assert len(symtab) == 1336  # plus one non-Go symbol
+        assert all(func.cu_offset is None and func.start_line is None for func in tab.functions)
+        assert all(func.deferreturn == 0 and func.flag == 0 for func in tab.functions)
+
+        f = _by_name(tab)
+        main = f["main.main"]
+        assert (main.addr, main.size, main.args, main.npcdata, main.nfuncdata, main.func_id) == (
+            0x45C5B0,
+            0x2C0,
+            0,
+            1,
+            2,
+            0,
+        )
+        assert tab.pcsp(main) == [(0, 0), (31, 192), (639, 0), (640, 192), (691, 0)]
+        assert tab.pcfile(main) == [(0, "/workspace/binaries/tests_src/go/basics.go")]
+        assert tab.pcln(main)[:3] == [(0, 96), (47, 98), (76, 103)]
+        fib = f["main.fib"]
+        assert (fib.addr, fib.args) == (0x45C310, 16)
+        assert tab.pcsp(fib) == [(0, 0), (19, 32), (54, 0), (55, 32), (120, 0)]
+        assert tab.pcln(fib) == [(0, 26), (34, 27), (40, 28), (55, 30), (121, 26)]
+        assert tab.pcdata(fib, 0) == [(0, -1), (63, 0), (121, -1)]
+        assert (f["main.add"].args, f["main.divmod"].args, f["main.parse"].args) == (24, 32, 40)
+        assert tab.pcsp(f["main.parse"]) == [(0, 0), (23, 48), (124, 0), (125, 48), (147, 0), (148, 48), (176, 0)]
+
+        # objabi.FuncID of go1.10: goexit=1, morestack=4; gopanic has none yet
+        assert (f["runtime.goexit"].func_id, f["runtime.morestack"].func_id, f["runtime.gopanic"].func_id) == (1, 4, 0)
+        assert f["runtime.main"].func_id == 0
+        assert max(func.func_id for func in tab.functions) == 17
+        assert tab.pcln(f["runtime.goexit"]) == [(0, 2361), (1, 2362), (6, 2364)]
+        assert (f["runtime.memmove"].args, f["runtime.memmove"].nfuncdata) == (24, 0)
+        assert sum(1 for func in tab.functions if func.args < 0) == 31
+        assert (sum(func.npcdata for func in tab.functions), sum(func.nfuncdata for func in tab.functions)) == (
+            1062,
+            2511,
+        )
+
+    def test_stripped(self):
+        ld = cle.Loader(_basics("go1.10.8", stripped=True), auto_load_libs=False)
+        tab = ld.main_object.gopclntab
+        assert tab.functions == _load(_basics("go1.10.8")).functions
+        assert len([s for s in ld.main_object.symbols if isinstance(s, cle.GoSymbol)]) == 1335
+        assert ld.find_symbol("main.parse").rebased_addr == 0x45C450
+
+    def test_arm64(self):
+        path = _langdetect("aarch64", "go1.10.8")
+        tab = _load(path)
+        assert (tab.layout_version, tab.ptr_size, tab.min_lc, tab.text_start, len(tab.functions)) == (
+            (1, 10),
+            8,
+            4,
+            0x11000,
+            1756,
+        )
+        symtab = _symtab_functions(path)
+        assert all(func.name in symtab.get(func.addr, ()) for func in tab.functions)
+        f = _by_name(tab)
+        main = f["main.main"]
+        assert (main.addr, main.size, main.args, main.nfuncdata) == (0x8D8B0, 0x110, 0, 2)
+        assert tab.pcsp(main) == [(0, 0), (20, 128), (212, 0), (216, 128), (256, 0)]  # pc deltas scaled by min_lc
+        assert tab.pcln(f["main.fibonacci"])[:2] == [(0, 10), (24, 11)]
+        assert (f["runtime.goexit"].func_id, f["runtime.morestack"].func_id) == (1, 4)
+        assert tab.pcfile(f["runtime.goexit"]) == [(0, "/home/node/sdk/go1.10.8/src/runtime/asm_arm64.s")]
+
+    def test_arm(self):
+        tab = _load(_langdetect("armel", "go1.10.8"))
+        assert (tab.layout_version, tab.ptr_size, tab.min_lc, len(tab.functions)) == ((1, 10), 4, 4, 1809)
+        f = _by_name(tab)
+        assert (f["main.main"].addr, f["main.main"].size, f["main.main"].args) == (0x94814, 0x10C, 0)
+        assert tab.pcsp(f["main.main"]) == [(0, 0), (16, 60), (236, 0), (248, 60)]
+        assert (f["main.fibonacci"].args, f["runtime.gopanic"].args, f["runtime.memmove"].args) == (8, 8, 12)
+        assert tab.pcsp(f["main.fibonacci"]) == [(0, 0), (16, 16), (92, 0)]
+        assert (f["runtime.goexit"].func_id, f["runtime.morestack"].func_id) == (1, 4)
+
+    def test_pe_in_text(self):
+        # Go linkers before 1.12 give a PE no .rdata: the table sits in .text, where the magic scan
+        # has to look when there is no read-only data section at all
+        for arch, ptr_size, count, main_addr, main_size, rt_main in (
+            ("i386", 4, 1793, 0x47E1B0, 0x120, 0x425DC0),
+            ("x86_64", 8, 1804, 0x48E640, 0x150, 0x429A00),
+        ):
+            ld = cle.Loader(_langdetect(arch, "go1.10.8", "pe"), auto_load_libs=False)
+            obj = ld.main_object
+            tab = obj.gopclntab
+            assert tab is not None
+            assert ".rdata" not in obj.sections_map
+            assert (tab.layout_version, tab.ptr_size, tab.min_lc, len(tab.functions)) == ((1, 10), ptr_size, 1, count)
+            assert tab.text_start == 0x401000
+            f = _by_name(tab)
+            assert (f["main.main"].addr, f["main.main"].size, f["main.main"].args) == (main_addr, main_size, 0)
+            assert tab.pcfile(f["main.main"])[0] == (
+                0,
+                "/workspace/binaries/tests_src/language_detector/langdetect_go.go",
+            )
+            assert tab.pcln(f["main.main"])[0] == (0, 17)
+            assert (f["runtime.goexit"].func_id, f["runtime.morestack"].func_id) == (1, 4)
+            # the COFF symbols of these PEs are not functions, so every entry becomes a symbol
+            assert len([s for s in obj.symbols if isinstance(s, cle.GoSymbol)]) == count
+            assert ld.find_symbol("runtime.main").rebased_addr == rt_main
+
+    def test_tail_inference(self):
+        # same magic and header as 1.12 - 1.15: the record tail is told apart by where the name lands
+        with open(_basics("go1.10.8"), "rb") as fp:
+            data = ELFFile(fp).get_section_by_name(".gopclntab").data()
+        n = struct.unpack_from("<Q", data, 8)[0]
+        func_offs = struct.unpack_from(f"<{2 * n + 1}Q", data, 16)[1::2]
+        assert _infer_packing(data, "<", 8, 0, func_offs, (_LAYOUT_GO112, _LAYOUT_GO110)) is _LAYOUT_GO110
+        assert _infer_packing(data, "<", 8, 0, func_offs, (_LAYOUT_GO110, _LAYOUT_GO112)) is _LAYOUT_GO110
+
+        with open(_basics("go1.15.15"), "rb") as fp:
+            data = ELFFile(fp).get_section_by_name(".gopclntab").data()
+        n = struct.unpack_from("<Q", data, 8)[0]
+        func_offs = struct.unpack_from(f"<{2 * n + 1}Q", data, 16)[1::2]
+        assert _infer_packing(data, "<", 8, 0, func_offs, (_LAYOUT_GO110, _LAYOUT_GO112)) is _LAYOUT_GO112
+
+        # the go1.2 - 1.9 tail reads like the 1.10 one; the frame sentinel in slot 4 tells them apart
+        with open(_basics("go1.9.7"), "rb") as fp:
+            data = ELFFile(fp).get_section_by_name(".gopclntab").data()
+        n = struct.unpack_from("<Q", data, 8)[0]
+        func_offs = struct.unpack_from(f"<{2 * n + 1}Q", data, 16)[1::2]
+        assert _infer_packing(data, "<", 8, 0, func_offs, (_LAYOUT_GO112, _LAYOUT_GO110)) is _LAYOUT_GO110
+        assert struct.unpack_from("<I", data, func_offs[0] + 16)[0] == 0x1234567
+        assert GoPclntab.parse(data).layout_version == (1, 2)
+
+    def test_clobbered_magic(self):
+        # the 1.2-style header is the last reading tried for an unknown magic
+        with open(_basics("go1.10.8"), "rb") as fp:
+            data = ELFFile(fp).get_section_by_name(".gopclntab").data()
+        clobbered = b"\x12\x34\x56\x78" + data[4:]
+        tab = GoPclntab.parse(clobbered, is_text_addr=lambda addr: 0x401000 <= addr < 0x480000)
+        assert tab is not None
+        assert tab.go_version is None
+        assert tab.layout_version == (1, 10)
+        assert tab.functions == GoPclntab.parse(data).functions
+
+
+class TestGo112Layout(unittest.TestCase):
+    """
+    Go 1.12 - 1.15: the 0xfffffffb table with ``deferreturn`` in the fourth word and the
+    ``funcID u8, pad[2], nfuncdata u8`` tail. go1.15.15 builds for ELF (amd64, 386), PE and Mach-O.
+    """
+
+    def test_basics(self):
+        path = _basics("go1.15.15")
+        tab = _load(path)
+        assert tab.magic == 0xFFFFFFFB
+        assert (tab.go_version, tab.layout_version) == ((1, 12), (1, 12))
+        assert (tab.ptr_size, tab.min_lc, tab.text_start, len(tab.functions)) == (8, 1, 0x401000, 1599)
+        symtab = _symtab_functions(path)
+        assert all(func.name in symtab.get(func.addr, ()) for func in tab.functions)
+        assert all(func.cu_offset is None and func.start_line is None and func.flag == 0 for func in tab.functions)
+
+        f = _by_name(tab)
+        main = f["main.main"]
+        assert (main.addr, main.size, main.args, main.npcdata, main.nfuncdata) == (0x475200, 0x300, 0, 2, 2)
+        assert tab.pcsp(main) == [(0, 0), (31, 192), (679, 0), (680, 192), (727, 0)]
+        assert tab.pcfile(main) == [(0, "/workspace/binaries/tests_src/go/basics.go")]
+        assert tab.pcln(main)[:3] == [(0, 96), (47, 98), (75, 103)]
+        fib = f["main.fib"]
+        assert (fib.addr, fib.args) == (0x474F00, 16)
+        assert tab.pcsp(fib) == [(0, 0), (19, 32), (54, 0), (55, 32), (125, 0)]
+        assert tab.pcln(fib) == [(0, 26), (29, 27), (40, 28), (55, 30), (126, 26)]
+        assert tab.pcdata(fib, 0) == [(0, -1), (13, -2), (15, -1), (126, -2), (133, -1)]
+        assert tab.pcdata(fib, 1) == [(0, -1), (63, 0), (126, -1)]
+        assert (f["main.add"].args, f["main.divmod"].args, f["main.parse"].args) == (24, 32, 40)
+
+        # objabi.FuncID of go1.15: runtime_main=1, goexit=2, morestack=5, gopanic=18, wrapper=22
+        assert (f["runtime.goexit"].func_id, f["runtime.morestack"].func_id, f["runtime.gopanic"].func_id) == (2, 5, 18)
+        assert (f["runtime.main"].func_id, f["runtime.main"].deferreturn) == (1, 785)
+        assert f["sync.(*Once).doSlow"].deferreturn == 256
+        assert max(func.func_id for func in tab.functions) == 22
+        assert sum(1 for func in tab.functions if func.deferreturn) == 4
+        assert (sum(func.npcdata for func in tab.functions), sum(func.nfuncdata for func in tab.functions)) == (
+            2652,
+            3227,
+        )
+        assert sum(1 for func in tab.functions if func.args < 0) == 38
+
+    def test_stripped(self):
+        ld = cle.Loader(_basics("go1.15.15", stripped=True), auto_load_libs=False)
+        tab = ld.main_object.gopclntab
+        assert tab.functions == _load(_basics("go1.15.15")).functions
+        assert len([s for s in ld.main_object.symbols if isinstance(s, cle.GoSymbol)]) == 1599
+
+    def test_386(self):
+        path = _langdetect("i386", "go1.15.15")
+        tab = _load(path)
+        assert (tab.layout_version, tab.ptr_size, tab.min_lc, tab.text_start, len(tab.functions)) == (
+            (1, 12),
+            4,
+            1,
+            0x8049000,
+            1809,
+        )
+        symtab = _symtab_functions(path)
+        assert all(func.name in symtab.get(func.addr, ()) for func in tab.functions)
+        f = _by_name(tab)
+        main = f["main.main"]
+        assert (main.addr, main.size, main.args, main.npcdata, main.nfuncdata) == (0x80CF5D0, 0x120, 0, 3, 5)
+        assert tab.pcsp(main) == [(0, 0), (25, 68), (232, 0), (233, 68), (277, 0)]
+        # an inlined fmt call switches the file in the middle of main
+        assert [file for _, file in tab.pcfile(main)] == [
+            "/workspace/binaries/tests_src/language_detector/langdetect_go.go",
+            "/home/node/sdk/go1.15.15/src/fmt/print.go",
+            "/workspace/binaries/tests_src/language_detector/langdetect_go.go",
+        ]
+        assert (f["main.fibonacci"].args, f["runtime.gopanic"].args, f["runtime.memmove"].args) == (8, 8, 12)
+        assert (f["runtime.main"].func_id, f["runtime.main"].deferreturn) == (1, 841)
+        assert f["sync.(*Once).doSlow"].deferreturn == 225
+
+    def test_pe(self):
+        ld = cle.Loader(_langdetect("x86_64", "go1.15.15", "pe"), auto_load_libs=False)
+        obj = ld.main_object
+        tab = obj.gopclntab
+        assert tab is not None
+        assert ".rdata" in obj.sections_map and ".gopclntab" not in obj.sections_map
+        assert (tab.layout_version, tab.ptr_size, tab.min_lc, tab.text_start, len(tab.functions)) == (
+            (1, 12),
+            8,
+            1,
+            0x401000,
+            1799,
+        )
+        f = _by_name(tab)
+        assert (f["main.main"].addr, f["main.main"].size, f["main.main"].args) == (0x4A8B80, 0x160, 0)
+        assert tab.pcsp(f["main.main"]) == [(0, 0), (38, 144), (287, 0), (289, 144), (336, 0)]
+        assert (f["runtime.goexit"].func_id, f["runtime.main"].deferreturn, f["sync.(*Once).doSlow"].deferreturn) == (
+            2,
+            800,
+            293,
+        )
+        assert len([s for s in obj.symbols if isinstance(s, cle.GoSymbol)]) == 1799
+        assert ld.find_symbol("runtime.main").rebased_addr == 0x437FA0
+
+    def test_macho(self):
+        ld = cle.Loader(_langdetect("x86_64", "go1.15.15", "macho"), auto_load_libs=False)
+        obj = ld.main_object
+        assert isinstance(obj, cle.MachO)
+        tab = obj.gopclntab
+        assert tab is not None
+        assert "__TEXT,__gopclntab" in obj.sections_map
+        assert (tab.layout_version, tab.ptr_size, tab.min_lc, tab.text_start, len(tab.functions)) == (
+            (1, 12),
+            8,
+            1,
+            0x1001000,
+            1919,
+        )
+        f = _by_name(tab)
+        assert (f["main.main"].addr, f["main.main"].size, f["main.main"].args) == (0x10AA480, 0x160, 0)
+        assert tab.pcsp(f["main.main"]) == [(0, 0), (31, 144), (282, 0), (283, 144), (330, 0)]
+        assert tab.pcln(f["main.fibonacci"])[:2] == [(0, 10), (29, 11)]
+        assert (f["runtime.goexit"].func_id, f["runtime.morestack"].func_id, f["runtime.main"].deferreturn) == (
+            2,
+            5,
+            849,
+        )
+        assert len([s for s in obj.symbols if isinstance(s, cle.GoSymbol)]) == 1919
+        assert obj.get_symbol("runtime.main")[0].rebased_addr == 0x1033FA0
+
+    def test_synthetic_table(self):
+        tab = GoPclntab.parse(_synthetic_pre116_table("bytes", slot4=(0, 0, 2)))
+        assert tab is not None
+        assert (tab.go_version, tab.layout_version, tab.ptr_size, tab.text_start) == ((1, 12), (1, 12), 8, 0x401000)
+        assert [(f.name, f.addr, f.size, f.args, f.nfuncdata, f.func_id) for f in tab.functions] == [
+            ("main.main", 0x401000, 0x40, 0, 2, 0),
+            ("main.fib", 0x401040, 0x40, 16, 1, 0),
+            ("runtime.goexit", 0x401080, 0x40, 0, 0, 2),
+        ]
+        for func in tab.functions:
+            assert tab.pcsp(func) == [(0, 0), (7, 8)]
+            assert tab.pcfile(func) == [(0, "a.go")]
+            assert tab.pcln(func) == [(0, 10)]
+            assert tab.pcdata(func, 0) == [(0, 3)]
+            assert tab.pcdata(func, 1) == []
+
+        # with the int32 tail the same values mean funcID in slot 4 (go1.10 - 1.11)
+        tab = GoPclntab.parse(_synthetic_pre116_table("int32", slot4=(0, 0, 2)))
+        assert (tab.go_version, tab.layout_version) == ((1, 10), (1, 10))
+        assert [(f.name, f.nfuncdata, f.func_id, f.deferreturn) for f in tab.functions] == [
+            ("main.main", 2, 0, 0),
+            ("main.fib", 1, 0, 0),
+            ("runtime.goexit", 0, 2, 0),
+        ]
+        # and frame sizes there mean go1.2 - 1.9 (no funcID at all)
+        tab = GoPclntab.parse(_synthetic_pre116_table("int32", slot4=(0x100, 0x20, 0)))
+        assert (tab.go_version, tab.layout_version) == ((1, 2), (1, 2))
+        assert all(func.func_id == 0 for func in tab.functions)
+        tab = GoPclntab.parse(_synthetic_pre116_table("int32", slot4=(0x1234567, 0x1234567, 0x1234567)))
+        assert tab.layout_version == (1, 2)
+
+        # 32-bit pointers
+        tab = GoPclntab.parse(_synthetic_pre116_table("bytes", ptr_size=4, slot4=(0, 0, 2)))
+        assert (tab.layout_version, tab.ptr_size) == ((1, 12), 4)
+        assert [f.addr for f in tab.functions] == [0x401000, 0x401040, 0x401080]
+        assert tab.pcsp(tab.functions[1]) == [(0, 0), (7, 8)]
+
+    def test_synthetic_table_rejects_bad_header_fields(self):
+        data = _synthetic_pre116_table("bytes", slot4=(0, 0, 2))
+        assert GoPclntab.parse(data) is not None
+
+        def mutate(offset, value, fmt="<Q"):
+            return data[:offset] + struct.pack(fmt, value) + data[offset + struct.calcsize(fmt) :]
+
+        assert GoPclntab.parse(mutate(7, 2, "<B")) is None  # ptrSize
+        assert GoPclntab.parse(mutate(6, 3, "<B")) is None  # minLC
+        assert GoPclntab.parse(mutate(4, 1, "<H")) is None  # padding
+        assert GoPclntab.parse(mutate(8, 0)) is None  # nfunc
+        assert GoPclntab.parse(mutate(8, 1 << 40)) is None  # nfunc
+        assert GoPclntab.parse(mutate(8, 1000)) is None  # functab past the end
+        assert GoPclntab.parse(mutate(16 + 2 * 8, 0x401000)) is None  # non-monotonic entries
+        assert GoPclntab.parse(mutate(16 + 7 * 8, 0)) is None  # filetab offset before the functab
+        assert GoPclntab.parse(mutate(16 + 7 * 8, len(data), "<I")) is None  # filetab past the end
+        assert GoPclntab.parse(mutate(16 + 7 * 8, 16 + 7 * 8 + 4, "<I")) is None  # nfiles (reads a _func)
+        assert GoPclntab.parse(mutate(16 + 3 * 8, len(data))) is None  # funcoff past the end
+        assert GoPclntab.parse(mutate(16 + 3 * 8 + 8, 1 << 20, "<i")) is None  # nameoff past the end
+
+        # a clobbered magic still parses through the structural checks
+        tab = GoPclntab.parse(mutate(0, 0xDEADBEEF, "<I"), is_text_addr=lambda addr: addr >= 0x401000)
+        assert tab is not None and tab.go_version is None and tab.layout_version == (1, 12)
+        assert GoPclntab.parse(mutate(0, 0xDEADBEEF, "<I"), is_text_addr=lambda addr: False) is None
+
+    def test_rejects_non_tables_with_the_magic(self):
+        # what the data-section scan has to turn down: the magic bytes followed by anything else
+        header = b"\xfb\xff\xff\xff\0\0\x01\x08"
+        assert GoPclntab.parse(header) is None
+        assert GoPclntab.parse(header + b"\0" * 4096) is None
+        assert GoPclntab.parse(header + b"\xff" * 4096) is None
+        assert GoPclntab.parse(header + os.urandom(4096)) is None
+        assert GoPclntab.parse(header + struct.pack("<Q", 1) + os.urandom(4096)) is None
+        assert GoPclntab.parse(header + struct.pack("<QQQQI", 2, 0x1000, 32, 0x2000, 100) + b"\0" * 4096) is None
+
+
+class TestGo116Layout(unittest.TestCase):
+    """
+    The real Go 1.16 table (0xfffffffa, cutab/filetab/pctab sub-tables, pointer-sized functab
+    entries, no flag byte: the byte 1.17 turns into ``flag`` is still padding). go1.16.15 builds;
+    the existing go1.17.13 fixtures cover the 1.17 flavour of the same layout.
+    """
+
+    def test_basics(self):
+        path = _basics("go1.16.15")
+        tab = _load(path)
+        assert tab.magic == 0xFFFFFFFA
+        assert (tab.go_version, tab.layout_version) == ((1, 16), (1, 16))
+        assert (tab.ptr_size, tab.min_lc, tab.text_start, len(tab.functions)) == (8, 1, 0x401000, 1610)
+        symtab = _symtab_functions(path)
+        assert all(func.name in symtab.get(func.addr, ()) for func in tab.functions)
+        assert all(func.start_line is None for func in tab.functions)
+        assert all(func.flag == 0 for func in tab.functions)  # no FuncFlag before 1.17
+        assert all(func.cu_offset is not None for func in tab.functions)
+
+        f = _by_name(tab)
+        main = f["main.main"]
+        assert (main.addr, main.size, main.args, main.npcdata, main.nfuncdata, main.cu_offset) == (
+            0x476400,
+            0x300,
+            0,
+            2,
+            2,
+            307,
+        )
+        assert tab.pcsp(main) == [(0, 0), (31, 192), (679, 0), (680, 192), (727, 0)]
+        assert tab.pcfile(main) == [(0, "/workspace/binaries/tests_src/go/basics.go")]
+        assert tab.pcln(main)[:3] == [(0, 96), (47, 98), (75, 103)]
+        fib = f["main.fib"]
+        assert (fib.addr, fib.args) == (0x476100, 16)
+        assert tab.pcsp(fib) == [(0, 0), (19, 32), (54, 0), (55, 32), (125, 0)]
+        assert tab.pcdata(fib, 1) == [(0, -1), (63, 0), (126, -1)]
+        assert (f["main.add"].args, f["main.divmod"].args, f["main.parse"].args) == (24, 32, 40)
+        assert tab.pcsp(f["main.parse"]) == [(0, 0), (23, 48), (127, 0), (129, 48), (151, 0), (152, 48), (180, 0)]
+        assert (f["runtime.goexit"].func_id, f["runtime.morestack"].func_id, f["runtime.gopanic"].func_id) == (2, 5, 18)
+        assert (f["runtime.main"].func_id, f["runtime.main"].deferreturn) == (1, 864)
+        assert f["sync.(*Once).doSlow"].deferreturn == 256
+        assert tab.pcfile(f["runtime.goexit"]) == [(0, "/home/node/sdk/go1.16.15/src/runtime/asm_amd64.s")]
+        assert sum(1 for func in tab.functions if func.deferreturn) == 4
+        assert (sum(func.npcdata for func in tab.functions), sum(func.nfuncdata for func in tab.functions)) == (
+            2678,
+            3138,
+        )
+
+    def test_stripped(self):
+        ld = cle.Loader(_basics("go1.16.15", stripped=True), auto_load_libs=False)
+        assert ld.main_object.gopclntab.functions == _load(_basics("go1.16.15")).functions
+        assert len([s for s in ld.main_object.symbols if isinstance(s, cle.GoSymbol)]) == 1610
+
+    def test_arm64(self):
+        path = _langdetect("aarch64", "go1.16.15")
+        tab = _load(path)
+        assert (tab.layout_version, tab.ptr_size, tab.min_lc, tab.text_start, len(tab.functions)) == (
+            (1, 16),
+            8,
+            4,
+            0x11000,
+            1442,
+        )
+        symtab = _symtab_functions(path)
+        assert all(func.name in symtab.get(func.addr, ()) for func in tab.functions)
+        f = _by_name(tab)
+        assert (f["main.main"].addr, f["main.main"].size, f["main.main"].cu_offset) == (0x9ECC0, 0x130, 424)
+        assert tab.pcsp(f["main.main"]) == [(0, 0), (20, 160), (236, 0), (240, 160), (284, 0)]
+        assert tab.pcsp(f["main.fibonacci"]) == [(0, 0), (20, 48), (52, 0), (56, 48), (116, 0)]
+        assert (f["runtime.main"].func_id, f["runtime.main"].deferreturn) == (1, 972)
+        assert tab.pcfile(f["runtime.goexit"]) == [(0, "/home/node/sdk/go1.16.15/src/runtime/asm_arm64.s")]
+
+    def test_pe(self):
+        for arch, ptr_size, count, main_addr, main_size, cu, rt_main in (
+            ("i386", 4, 1532, 0x492620, 0x120, 410, 0x4322E0),
+            ("x86_64", 8, 1489, 0x4AA960, 0x160, 438, 0x4385A0),
+        ):
+            ld = cle.Loader(_langdetect(arch, "go1.16.15", "pe"), auto_load_libs=False)
+            obj = ld.main_object
+            tab = obj.gopclntab
+            assert tab is not None
+            assert ".rdata" in obj.sections_map
+            assert (tab.layout_version, tab.ptr_size, tab.min_lc, tab.text_start, len(tab.functions)) == (
+                (1, 16),
+                ptr_size,
+                1,
+                0x401000,
+                count,
+            )
+            f = _by_name(tab)
+            assert (f["main.main"].addr, f["main.main"].size, f["main.main"].cu_offset) == (main_addr, main_size, cu)
+            assert tab.pcfile(f["main.main"])[0] == (
+                0,
+                "/workspace/binaries/tests_src/language_detector/langdetect_go.go",
+            )
+            assert (f["runtime.goexit"].func_id, f["runtime.goexit"].flag) == (2, 0)
+            assert len([s for s in obj.symbols if isinstance(s, cle.GoSymbol)]) == count
+            assert ld.find_symbol("runtime.main").rebased_addr == rt_main
+
+
+class TestGo117AndGo118PE(unittest.TestCase):
+    """
+    The 1.16-layout (go1.17.13) and 1.18-layout PE fixtures, found by magic in .rdata.
+    """
+
+    def test_go117_pe(self):
+        for arch, ptr_size, min_lc, count, text, main_addr, main_size, rt_main in (
+            ("i386", 4, 1, 1429, 0x401000, 0x488100, 0x114, 0x433640),
+            ("aarch64", 8, 4, 1337, 0x100001000, 0x100096A50, 0x130, 0x100036430),
+        ):
+            ld = cle.Loader(_langdetect(arch, "go1.17.13", "pe"), auto_load_libs=False)
+            obj = ld.main_object
+            tab = obj.gopclntab
+            assert tab is not None
+            assert (tab.go_version, tab.layout_version) == ((1, 16), (1, 16))
+            assert (tab.ptr_size, tab.min_lc, tab.text_start, len(tab.functions)) == (ptr_size, min_lc, text, count)
+            assert tab.text_start == tab.functions[0].addr
+            f = _by_name(tab)
+            assert (f["main.main"].addr, f["main.main"].size, f["main.main"].args) == (main_addr, main_size, 0)
+            assert tab.pcln(f["main.main"])[0] == (0, 17)
+            assert (f["runtime.goexit"].func_id, f["runtime.goexit"].flag) == (7, GO_FUNC_FLAG_TOP_FRAME)
+            assert (f["runtime.morestack"].func_id, f["runtime.morestack"].flag) == (13, GO_FUNC_FLAG_SP_WRITE)
+            assert (f["runtime.main"].func_id, f["runtime.gopanic"].func_id) == (18, 9)
+            assert {func.flag for func in tab.functions} == {0, 1, 2, 3}
+            assert all(func.start_line is None for func in tab.functions)
+            assert len([s for s in obj.symbols if isinstance(s, cle.GoSymbol)]) == count
+            assert ld.find_symbol("runtime.main").rebased_addr == rt_main
+
+    def test_go118_pe(self):
+        for arch, ptr_size, min_lc, count, text, main_addr, main_size, pcsp, rt_main in (
+            ("i386", 4, 1, 1450, 0x401000, 0x489630, 0x112, [(0, 0), (25, 64), (263, 0)], 0x434530),
+            ("aarch64", 8, 4, 1413, 0x100001000, 0x10008EEA0, 0xF0, [(0, 0), (20, 128), (220, 0)], 0x1000341C0),
+        ):
+            ld = cle.Loader(_langdetect(arch, "go1.18.10", "pe"), auto_load_libs=False)
+            obj = ld.main_object
+            tab = obj.gopclntab
+            assert tab is not None
+            assert (tab.go_version, tab.layout_version) == ((1, 18), (1, 18))
+            assert (tab.ptr_size, tab.min_lc, tab.text_start, len(tab.functions)) == (ptr_size, min_lc, text, count)
+            f = _by_name(tab)
+            assert (f["main.main"].addr, f["main.main"].size, f["main.main"].args) == (main_addr, main_size, 0)
+            assert tab.pcsp(f["main.main"]) == pcsp
+            assert (f["runtime.goexit"].func_id, f["runtime.goexit"].flag) == (
+                7,
+                GO_FUNC_FLAG_TOP_FRAME | GO_FUNC_FLAG_ASM,
+            )
+            assert (f["runtime.morestack"].func_id, f["runtime.morestack"].flag) == (
+                12,
+                GO_FUNC_FLAG_SP_WRITE | GO_FUNC_FLAG_ASM,
+            )
+            assert f["runtime.memmove"].flag == GO_FUNC_FLAG_ASM
+            assert (f["runtime.main"].func_id, f["runtime.gopanic"].func_id) == (17, 9)
+            assert all(func.start_line is None for func in tab.functions)
+            assert len([s for s in obj.symbols if isinstance(s, cle.GoSymbol)]) == count
+            assert ld.find_symbol("runtime.main").rebased_addr == rt_main
 
 
 if __name__ == "__main__":
