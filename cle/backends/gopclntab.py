@@ -2,16 +2,43 @@
 Recovery of Go function symbols from the Go runtime's ``pclntab``.
 
 Every binary produced by the Go linker carries this table (``.gopclntab`` on ELF,
-``__gopclntab`` on Mach-O, embedded in ``.rdata`` on PE). It lists the entry point and the
-name of every function in the image, which makes it the only reliable source of function
-starts for stripped Go binaries. Each entry (a ``_func`` record of the runtime) also carries
-the size of the function's argument area and the offsets of its pc-value tables, from which
-stack pointer deltas and line numbers are decoded on demand.
+``__gopclntab`` on Mach-O, embedded in ``.rdata`` or ``.text`` on PE). It lists the entry point
+and the name of every function in the image, which makes it the only reliable source of
+function starts for stripped Go binaries. Each entry (a ``_func`` record of the runtime) also
+carries the size of the function's argument area and the offsets of its pc-value tables, from
+which stack pointer deltas and line numbers are decoded on demand.
 
-The Go 1.16 (magic ``0xfffffffa``), 1.18 (``0xfffffff0``) and 1.20 (``0xfffffff1``) layouts
-are supported. The header magic and the ``textStart`` field are deliberately not trusted:
-obfuscated binaries clobber them, so the table is instead accepted or rejected on structural
-grounds and the record layout is inferred from how the records pack.
+Every layout the Go linker has emitted since Go 1.2 is supported. They are described by the
+``_Layout`` descriptors below (``_LAYOUT_GO12`` ... ``_LAYOUT_GO120``); in summary:
+
+=========== ============ ============== ========== ==================== ===================== =================
+layout      Go versions  magic          header     functab entry        ``_func`` after entry offsets relative
+=========== ============ ============== ========== ==================== ===================== =================
+go1.2       1.2 - 1.9    ``0xfffffffb`` nfunc only ``(uintptr, uintptr)`` 8 x int32, slot 4 is   table start
+                                                                        ``frame`` (unused from
+                                                                        1.5, ``0x1234567``)
+go1.10      1.10 - 1.11  ``0xfffffffb`` nfunc only ``(uintptr, uintptr)`` 8 x int32, slot 4 is   table start
+                                                                        ``funcID`` (uint32)
+go1.12      1.12 - 1.15  ``0xfffffffb`` nfunc only ``(uintptr, uintptr)`` ``deferreturn`` in     table start
+                                                                        slot 4, tail
+                                                                        ``funcID u8, pad[2],
+                                                                        nfuncdata u8``
+go1.16      1.16 - 1.17  ``0xfffffffa`` 7 words    ``(uintptr, uintptr)`` + ``cuOffset``; 1.17   sub-tables
+                                                                        turns a pad byte into
+                                                                        ``flag``
+go1.18      1.18 - 1.19  ``0xfffffff0`` 8 words    ``(uint32, uint32)``   ``entryoff`` from      sub-tables
+                                                                        ``textStart``
+go1.20      1.20 - 1.27  ``0xfffffff1`` 8 words    ``(uint32, uint32)``   + ``startLine``        sub-tables
+=========== ============ ============== ========== ==================== ===================== =================
+
+The three ``0xfffffffb`` layouts share one magic: the tail is told apart by how the records pack
+(a ``funcID/pad/nfuncdata`` tail read as an ``int32`` yields an absurd ``nfuncdata``), and the
+meaning of slot 4 by its values (``funcID`` numbers are small; ``frame`` sizes are not).
+
+The header magic and the ``textStart`` field are deliberately not trusted: obfuscated binaries
+clobber them, so the table is instead accepted or rejected on structural grounds and the record
+layout is inferred from how the records pack. The pc-value encoding (zigzag varint value deltas,
+pc deltas in units of ``minLC``) has not changed since Go 1.2.
 """
 
 from __future__ import annotations
@@ -48,6 +75,7 @@ GO_PCLNTAB_MAGICS = {
     0xFFFFFFF1: (1, 20),
     0xFFFFFFF0: (1, 18),
     0xFFFFFFFA: (1, 16),
+    0xFFFFFFFB: (1, 2),
 }
 
 # ``_func.flag`` bits, from internal/abi.FuncFlag (stable since Go 1.17)
@@ -65,6 +93,10 @@ _VALID_PTR_SIZES = (4, 8)
 _VALID_MIN_LC = (1, 2, 4)
 _MAX_NAME_LEN = 4096
 _NO_FUNCDATA = 0xFFFFFFFF
+# what the Go 1.5 - 1.9 linkers wrote into the retired ``frame`` slot
+_FRAME_SENTINEL = 0x1234567
+# ``funcID`` is a small enumeration; a ``frame`` size above this cannot be one
+_MAX_FUNC_ID = 0x40
 
 
 class GoFunction(NamedTuple):
@@ -78,15 +110,18 @@ class GoFunction(NamedTuple):
                         register-ABI functions this is the spill area of the register arguments. It is
                         ``-0x80000000`` (``ArgsSizeUnknown``) for assembly functions without a Go declaration.
     :ivar deferreturn:  Offset from ``addr`` of the call to ``runtime.deferreturn``, or 0 if there is none.
+                        Always 0 before Go 1.12, which has no such field.
     :ivar pcsp:         Offset in pctab of the stack pointer delta table, or 0. See :meth:`GoPclntab.pcsp`.
     :ivar pcfile:       Offset in pctab of the file index table, or 0. See :meth:`GoPclntab.pcfile`.
     :ivar pcln:         Offset in pctab of the line number table, or 0. See :meth:`GoPclntab.pcln`.
     :ivar npcdata:      Number of additional pcdata tables. See :meth:`GoPclntab.pcdata`.
-    :ivar cu_offset:    Offset of the function's compilation unit in cutab.
+    :ivar cu_offset:    Offset of the function's compilation unit in cutab. None before Go 1.16, which has
+                        no compilation units: ``pcfile`` values index the file table directly.
     :ivar start_line:   Line number of the ``func`` keyword. None for binaries older than Go 1.20.
     :ivar func_id:      ``funcID`` marking special runtime functions; 0 for ordinary ones. The numbering is
-                        that of ``internal/abi.FuncID`` of the Go version that built the binary.
-    :ivar flag:         ``GO_FUNC_FLAG_*`` bits.
+                        that of ``internal/abi.FuncID`` (``cmd/internal/objabi.FuncID`` before 1.18) of
+                        the Go version that built the binary. Always 0 before Go 1.10, which has no such field.
+    :ivar flag:         ``GO_FUNC_FLAG_*`` bits. Always 0 before Go 1.17.
     :ivar nfuncdata:    Number of funcdata entries.
     :ivar func_off:     Offset of the ``_func`` record within the table.
     """
@@ -100,7 +135,7 @@ class GoFunction(NamedTuple):
     pcfile: int
     pcln: int
     npcdata: int
-    cu_offset: int
+    cu_offset: int | None
     start_line: int | None
     func_id: int
     flag: int
@@ -117,38 +152,173 @@ class GoSymbol(Symbol):
         super().__init__(owner, name, relative_addr, size, SymbolType.TYPE_FUNCTION)
 
 
-class _FuncLayout(NamedTuple):
+class _Layout(NamedTuple):
     """
-    The fixed part of a ``_func`` record. It is followed by ``npcdata`` uint32 pctab offsets and
-    ``nfuncdata`` funcdata references (uint32 offsets since 1.18, pointers before).
+    How one generation of the Go linker lays the table out. See the module docstring for the summary
+    and each ``_LAYOUT_*`` constant for the Go versions it covers.
+
+    :ivar name:             Short name, e.g. ``"go1.12"``.
+    :ivar version:          The ``layout_version`` tuple exposed by :class:`GoPclntab`.
+    :ivar header_words:     Pointer-sized words after the 8-byte magic/pad/minLC/ptrSize header: 1 (nfunc
+                            only), 7 (+ nfiles and five sub-table offsets) or 8 (+ textStart).
+    :ivar entry_is_offset:  Function entries (in functab and ``_func``) are uint32 offsets from textStart
+                            rather than absolute uintptrs.
+    :ivar fields:           Names of the ``_func`` words after ``entry``, in order; ``_`` is ignored.
+    :ivar fmt:              ``struct`` format of those words.
+    :ivar table_relative:   Name, funcoff and pc-value offsets are relative to the table start and there
+                            are no sub-tables (no funcnametab/cutab/filetab/pctab).
+    :ivar funcdata_is_ptr:  funcdata entries after the pcdata offsets are pointer-sized and pointer-aligned
+                            rather than uint32 offsets.
     """
 
+    name: str
+    version: tuple[int, int]
+    header_words: int
+    entry_is_offset: bool
+    fields: tuple[str, ...]
     fmt: str
-    size: int
-    has_start_line: bool
+    table_relative: bool
+    funcdata_is_ptr: bool
 
 
-def _func_layout(version: tuple[int, int], ptr_size: int) -> _FuncLayout:
-    # entry is a uintptr in 1.16/1.17 and a uint32 offset from textStart since 1.18; then
-    # nameOff args deferreturn pcsp pcfile pcln npcdata cuOffset [startLine] funcID flag pad nfuncdata
-    entry = ("Q" if ptr_size == 8 else "I") if version < (1, 18) else "I"
-    has_start_line = version >= (1, 20)
-    fmt = entry + "iiIIIIII" + ("i" if has_start_line else "") + "BBxB"
-    return _FuncLayout(fmt, struct.calcsize("<" + fmt), has_start_line)
+# Go 1.2 - 1.9. Introduced by the Go 1.2 pclntab redesign (golang.org/s/go12symtab); the runtime
+# side is runtime/symtab.go (symtab.c in 1.2 - 1.3) and debug/gosym's go12 reader.
+#   magic 0xfffffffb, then nfunc (uintptr) and the functab of nfunc (entry, funcoff) uintptr pairs
+#   plus the end sentinel entry; a uint32 after it gives the filetab offset. The filetab starts with
+#   nfiles, followed by nfiles uint32 name offsets (index 0 is unused: pcfile values start at 1).
+#   funcoff, nameoff, pcsp/pcfile/pcln, the pcdata offsets and the filetab name offsets are all
+#   relative to the table start; there is no pctab, funcnametab or cutab.
+#   _func: entry uintptr; nameoff, args, frame, pcsp, pcfile, pcln, npcdata, nfuncdata int32. ``frame``
+#   is the local frame size in 1.2 - 1.4 and the 0x1234567 sentinel from 1.5 (cmd/link's "This has
+#   been removed"). funcdata follow the npcdata uint32s, pointer-aligned, as pointers.
+_LAYOUT_GO12 = _Layout(
+    "go1.2",
+    (1, 2),
+    1,
+    False,
+    ("name_off", "args", "_", "pcsp", "pcfile", "pcln", "npcdata", "nfuncdata"),
+    "iiIIIIII",
+    True,
+    True,
+)
+
+# Go 1.10 - 1.11. Same table as go1.2; the retired ``frame`` slot now holds funcID (a uint32
+# cmd/internal/objabi.FuncID, runtime/runtime2.go ``_func.funcID``). The tail is still ``nfuncdata int32``.
+_LAYOUT_GO110 = _LAYOUT_GO12._replace(
+    name="go1.10",
+    version=(1, 10),
+    fields=("name_off", "args", "func_id", "pcsp", "pcfile", "pcln", "npcdata", "nfuncdata"),
+)
+
+# Go 1.12 - 1.15. Same table as go1.2; slot 4 is now ``deferreturn uint32`` and the last word packs
+# ``funcID uint8, _ [2]int8, nfuncdata uint8`` (runtime/runtime2.go of 1.12, ``funcID`` became a uint8).
+_LAYOUT_GO112 = _Layout(
+    "go1.12",
+    (1, 12),
+    1,
+    False,
+    ("name_off", "args", "deferreturn", "pcsp", "pcfile", "pcln", "npcdata", "func_id", "nfuncdata"),
+    "iiIIIIIBxxB",
+    True,
+    True,
+)
+
+# Go 1.16 - 1.17. The Go 1.16 pclntab split (runtime/symtab.go ``pcHeader``): magic 0xfffffffa, then
+#   nfunc, nfiles, funcnameOffset, cuOffset, filetabOffset, pctabOffset, pclnOffset (uintptrs). functab
+#   entries are still (entry uintptr, funcoff uintptr) pairs, funcoff relative to the pcln sub-table;
+#   nameoff is relative to funcnametab and the pc-value offsets to pctab. File names go through the
+#   per-compilation-unit cutab: cutab[cuOffset + fileno] is an offset into filetab.
+#   _func: entry uintptr; nameoff, args int32; deferreturn, pcsp, pcfile, pcln, npcdata, cuOffset
+#   uint32; funcID uint8; then ``_ [2]byte, nfuncdata uint8`` in 1.16 and ``flag uint8, _ [1]byte,
+#   nfuncdata uint8`` in 1.17 (the pad byte reads as flag 0 on 1.16). funcdata are pointers.
+_LAYOUT_GO116 = _Layout(
+    "go1.16",
+    (1, 16),
+    7,
+    False,
+    (
+        "name_off",
+        "args",
+        "deferreturn",
+        "pcsp",
+        "pcfile",
+        "pcln",
+        "npcdata",
+        "cu_offset",
+        "func_id",
+        "flag",
+        "nfuncdata",
+    ),
+    "iiIIIIIIBBxB",
+    False,
+    True,
+)
+
+# Go 1.18 - 1.19. Magic 0xfffffff0; the header gains textStart after nfiles and function entries become
+#   uint32 offsets from it, in the functab (uint32 pairs) and in ``_func.entryoff``. funcdata are uint32
+#   offsets into the go:func.* symbol instead of pointers. Everything else is as in go1.16/1.17.
+_LAYOUT_GO118 = _LAYOUT_GO116._replace(
+    name="go1.18", version=(1, 18), header_words=8, entry_is_offset=True, funcdata_is_ptr=False
+)
+
+# Go 1.20 and later, verified through 1.27. Magic 0xfffffff1; ``startLine int32`` is inserted before
+#   funcID (runtime/symtab.go ``_func``, mirrored by internal/abi.Func).
+_LAYOUT_GO120 = _LAYOUT_GO118._replace(
+    name="go1.20",
+    version=(1, 20),
+    fields=(
+        "name_off",
+        "args",
+        "deferreturn",
+        "pcsp",
+        "pcfile",
+        "pcln",
+        "npcdata",
+        "cu_offset",
+        "start_line",
+        "func_id",
+        "flag",
+        "nfuncdata",
+    ),
+    fmt="iiIIIIIIiBBxB",
+)
+
+_LAYOUTS = {
+    layout.version: layout
+    for layout in (_LAYOUT_GO12, _LAYOUT_GO110, _LAYOUT_GO112, _LAYOUT_GO116, _LAYOUT_GO118, _LAYOUT_GO120)
+}
+
+# Header readings to try per magic. The 0xfffffffb layouts share a header; the record tail picks
+# between go1.12 and go1.10, and slot 4's values between go1.10 and go1.2.
+_MAGIC_LAYOUTS = {
+    0xFFFFFFF1: (_LAYOUT_GO120,),
+    0xFFFFFFF0: (_LAYOUT_GO118,),
+    0xFFFFFFFA: (_LAYOUT_GO116,),
+    0xFFFFFFFB: (_LAYOUT_GO112,),
+}
+# with the magic clobbered, every header shape is tried
+_UNKNOWN_MAGIC_LAYOUTS = (_LAYOUT_GO120, _LAYOUT_GO116, _LAYOUT_GO112)
+
+
+def _record_fmt(layout: _Layout, ptr_size: int) -> str:
+    entry = "I" if layout.entry_is_offset or ptr_size == 4 else "Q"
+    return entry + layout.fmt
 
 
 class _Header(NamedTuple):
     magic: int
     min_lc: int
     ptr_size: int
-    version: tuple[int, int]
+    layout: _Layout
     nfunc: int
-    text_start: int  # 0 for 1.16 headers, which have no such field
+    text_start: int  # 0 for layouts without the field
+    functab_off: int  # where the (entry, funcoff) pairs start
+    func_base: int  # what funcoff is relative to
     funcname_off: int
     cutab_off: int
     filetab_off: int
     pctab_off: int
-    pcln_off: int
+    pctab_end: int
 
 
 class GoPclntab:
@@ -160,7 +330,8 @@ class GoPclntab:
     :ivar ptr_size:         Pointer size, in bytes.
     :ivar text_start:       The base the function entry offsets are relative to, after recovery.
     :ivar functions:        The function table, sorted by address.
-    :ivar layout_version:   The Go version whose table layout was used: (1, 16), (1, 18) or (1, 20).
+    :ivar layout_version:   The Go version whose table layout was used: (1, 2), (1, 10), (1, 12), (1, 16),
+                            (1, 18) or (1, 20). See the module docstring for the version each covers.
     """
 
     __slots__ = (
@@ -176,6 +347,7 @@ class GoPclntab:
         "_cutab_off",
         "_filetab_off",
         "_func_size",
+        "_table_relative",
         "_addrs",
     )
 
@@ -205,7 +377,9 @@ class GoPclntab:
         self._pctab = memoryview(data)[pctab_off:pcln_off]
         self._cutab_off = cutab_off
         self._filetab_off = filetab_off
-        self._func_size = _func_layout(layout_version, ptr_size).size
+        layout = _LAYOUTS[layout_version]
+        self._func_size = struct.calcsize("<" + _record_fmt(layout, ptr_size))
+        self._table_relative = layout.table_relative
         self._addrs: list[int] | None = None
 
     def __repr__(self):
@@ -213,7 +387,10 @@ class GoPclntab:
 
     @property
     def go_version(self) -> tuple[int, int] | None:
-        return GO_PCLNTAB_MAGICS.get(self.magic)
+        """
+        The oldest Go version that emits this table layout, or None if the magic is not a known one.
+        """
+        return self.layout_version if self.magic in GO_PCLNTAB_MAGICS else None
 
     @classmethod
     def parse(
@@ -248,12 +425,11 @@ class GoPclntab:
         text_start_fallback: int | None,
         is_text_addr: Callable[[int], bool] | None,
     ) -> GoPclntab | None:
-        version = header.version
-        nfunc, pcln_off, ptr_size = header.nfunc, header.pcln_off, header.ptr_size
+        layout = header.layout
+        nfunc, ptr_size = header.nfunc, header.ptr_size
 
         # nfunc pairs of (entry, funcoff), then one final entry marking the end of the last function.
-        # Entries are absolute pointers in 1.16/1.17 and uint32 offsets from textStart since 1.18.
-        if version >= (1, 18):
+        if layout.entry_is_offset:
             text_start = header.text_start
             if text_start == 0 or (is_text_addr is not None and not is_text_addr(text_start)):
                 if text_start_fallback is None:
@@ -261,34 +437,53 @@ class GoPclntab:
                     return None
                 log.debug("gopclntab: textStart %#x is not code, using %#x instead", text_start, text_start_fallback)
                 text_start = text_start_fallback
-            entries = struct.unpack_from(f"{endness}{2 * nfunc + 1}I", data, pcln_off)
+            entries = struct.unpack_from(f"{endness}{2 * nfunc + 1}I", data, header.functab_off)
         else:
-            entries = struct.unpack_from(f"{endness}{2 * nfunc + 1}{'Q' if ptr_size == 8 else 'I'}", data, pcln_off)
+            entries = struct.unpack_from(
+                f"{endness}{2 * nfunc + 1}{'Q' if ptr_size == 8 else 'I'}", data, header.functab_off
+            )
             text_start = 0
         entry_offs = entries[0::2]
         func_offs = entries[1::2]
         if any(a >= b for a, b in zip(entry_offs, entry_offs[1:])):
             log.debug("gopclntab: function entry offsets are not monotonically increasing")
             return None
-        if version < (1, 18):
+        if not layout.entry_is_offset:
             if is_text_addr is not None and not is_text_addr(entry_offs[0]):
                 log.debug("gopclntab: first function entry %#x is not code", entry_offs[0])
                 return None
             text_start = entry_offs[0]
-        elif header.magic not in GO_PCLNTAB_MAGICS:
-            version = _infer_layout_version(data, endness, ptr_size, pcln_off, func_offs)
 
-        layout = _func_layout(version, ptr_size)
-        fmt = endness + layout.fmt
-        base = text_start if version >= (1, 18) else 0
-        functions = []
+        known = header.magic in GO_PCLNTAB_MAGICS
+        if layout.header_words == 1:
+            # same header for three record shapes: go1.12 (funcID/pad/nfuncdata tail) or go1.10 (int32 tail)
+            layout = _infer_packing(
+                data, endness, ptr_size, header.func_base, func_offs, (_LAYOUT_GO112, _LAYOUT_GO110)
+            )
+            if layout is None:
+                if not known:
+                    return None
+                log.debug("gopclntab: cannot infer the _func tail from the record sizes, assuming Go 1.12")
+                layout = _LAYOUT_GO112
+        elif not known and layout.header_words == 8:
+            layout = _infer_packing(
+                data, endness, ptr_size, header.func_base, func_offs, (_LAYOUT_GO120, _LAYOUT_GO118)
+            )
+            if layout is None:
+                log.debug("gopclntab: cannot infer the _func layout from the record sizes, assuming Go 1.20")
+                layout = _LAYOUT_GO120
+
+        fmt = endness + _record_fmt(layout, ptr_size)
+        size = struct.calcsize(fmt)
+        base = text_start if layout.entry_is_offset else 0
+        records = []
         for i, func_off in enumerate(func_offs):
-            rec_off = pcln_off + func_off
-            if rec_off + layout.size > len(data):
+            rec_off = header.func_base + func_off
+            if rec_off + size > len(data):
                 log.debug("gopclntab: _func %d lies outside the table", i)
                 return None
-            fields = struct.unpack_from(fmt, data, rec_off)
-            name_off = header.funcname_off + fields[1]
+            fields = dict(zip(layout.fields, struct.unpack_from(fmt, data, rec_off)[1:]))
+            name_off = header.funcname_off + fields["name_off"]
             if not header.funcname_off <= name_off < len(data):
                 log.debug("gopclntab: name of function %d lies outside the table", i)
                 return None
@@ -297,45 +492,36 @@ class GoPclntab:
                 log.debug("gopclntab: name of function %d is unterminated", i)
                 return None
             name = data[name_off:end].decode("utf-8", "replace")
-            if layout.has_start_line:
-                (
-                    _,
-                    _,
-                    args,
-                    deferreturn,
-                    pcsp,
-                    pcfile,
-                    pcln,
-                    npcdata,
-                    cu_offset,
-                    start_line,
-                    func_id,
-                    flag,
-                    nfuncdata,
-                ) = fields
-            else:
-                _, _, args, deferreturn, pcsp, pcfile, pcln, npcdata, cu_offset, func_id, flag, nfuncdata = fields
-                start_line = None
-            addr, size = base + entry_offs[i], entry_offs[i + 1] - entry_offs[i]
-            functions.append(
-                GoFunction(
-                    addr,
-                    size,
-                    name,
-                    args,
-                    deferreturn,
-                    pcsp,
-                    pcfile,
-                    pcln,
-                    npcdata,
-                    cu_offset,
-                    start_line,
-                    func_id,
-                    flag,
-                    nfuncdata,
-                    rec_off,
-                )
+            records.append((base + entry_offs[i], entry_offs[i + 1] - entry_offs[i], name, fields, rec_off))
+
+        if layout is _LAYOUT_GO110:
+            # slot 4 holds funcIDs from 1.10 on, the frame size or the 0x1234567 sentinel before
+            values = {fields["func_id"] for _, _, _, fields, _ in records}
+            if _FRAME_SENTINEL in values or max(values, default=0) > _MAX_FUNC_ID:
+                layout = _LAYOUT_GO12
+                for _, _, _, fields, _ in records:
+                    fields["func_id"] = 0
+
+        functions = [
+            GoFunction(
+                addr,
+                size,
+                name,
+                fields["args"],
+                fields.get("deferreturn", 0),
+                fields["pcsp"],
+                fields["pcfile"],
+                fields["pcln"],
+                fields["npcdata"],
+                fields.get("cu_offset"),
+                fields.get("start_line"),
+                fields.get("func_id", 0),
+                fields.get("flag", 0),
+                fields["nfuncdata"],
+                rec_off,
             )
+            for addr, size, name, fields, rec_off in records
+        ]
 
         return cls(
             header.magic,
@@ -343,11 +529,11 @@ class GoPclntab:
             ptr_size,
             text_start,
             functions,
-            layout_version=version,
+            layout_version=layout.version,
             data=data,
             endness=endness,
             pctab_off=header.pctab_off,
-            pcln_off=pcln_off,
+            pcln_off=header.pctab_end,
             cutab_off=header.cutab_off,
             filetab_off=header.filetab_off,
         )
@@ -444,18 +630,24 @@ class GoPclntab:
             return []
         return self.pcvalue(struct.unpack_from(self._endness + "I", self._data, pos)[0])
 
-    def _file_name(self, cu_offset: int, idx: int) -> str | None:
-        # cutab maps (compilation unit, file index) to an offset into filetab
+    def _file_name(self, cu_offset: int | None, idx: int) -> str | None:
         if idx < 0:
             return None
         data = self._data
-        pos = self._cutab_off + 4 * (cu_offset + idx)
+        if self._table_relative:
+            # filetab: nfiles, then table-relative name offsets indexed by the file number itself
+            pos = self._filetab_off + 4 * idx
+            start = 0
+        else:
+            # cutab maps (compilation unit, file index) to an offset into filetab
+            pos = self._cutab_off + 4 * ((cu_offset or 0) + idx)
+            start = self._filetab_off
         if pos + 4 > len(data):
             return None
         name_off = struct.unpack_from(self._endness + "I", data, pos)[0]
         if name_off == _NO_FUNCDATA:
             return None
-        start = self._filetab_off + name_off
+        start += name_off
         end = data.find(b"\0", start, start + _MAX_NAME_LEN)
         if end == -1:
             return None
@@ -477,75 +669,134 @@ def _read_varint(data, pos: int) -> tuple[int, int]:
 
 def _parse_headers(data: bytes, endness: str) -> Iterator[_Header]:
     """
-    Yield every structurally valid reading of the header. A known magic fixes the layout; an unknown
-    one tries the 1.18+ header (8 words, with textStart) before the 1.16 one (7 words).
+    Yield every structurally valid reading of the header. A known magic fixes the header shape; an
+    unknown one tries the 1.18+ header (8 words, with textStart), then the 1.16 one (7 words), then
+    the 1.2 one (nfunc only).
     """
     if len(data) < 16:
         return
     magic, _pad, min_lc, ptr_size = struct.unpack_from(endness + "IHBB", data, 0)
     if ptr_size not in _VALID_PTR_SIZES or min_lc not in _VALID_MIN_LC or _pad != 0:
         return
-    known = GO_PCLNTAB_MAGICS.get(magic)
-    for version in (known,) if known is not None else ((1, 18), (1, 16)):
-        header = _parse_header_words(data, endness, magic, min_lc, ptr_size, version)
+    for layout in _MAGIC_LAYOUTS.get(magic, _UNKNOWN_MAGIC_LAYOUTS):
+        header = _parse_header_words(data, endness, magic, min_lc, ptr_size, layout)
         if header is not None:
             yield header
 
 
 def _parse_header_words(
-    data: bytes, endness: str, magic: int, min_lc: int, ptr_size: int, version: tuple[int, int]
+    data: bytes, endness: str, magic: int, min_lc: int, ptr_size: int, layout: _Layout
 ) -> _Header | None:
-    nwords = 8 if version >= (1, 18) else 7
+    nwords = layout.header_words
     header_size = 8 + nwords * ptr_size
     if len(data) < header_size:
         return None
+    size = len(data)
     words = struct.unpack_from(f"{endness}{nwords}{'Q' if ptr_size == 8 else 'I'}", data, 8)
-    if version >= (1, 18):
+
+    if nwords == 1:
+        # nfunc, the functab, then a uint32 filetab offset; the filetab starts with nfiles
+        (nfunc,) = words
+        functab_end = header_size + (2 * nfunc + 1) * ptr_size
+        if nfunc <= 0 or functab_end + 4 > size:
+            return None
+        filetab_off = struct.unpack_from(endness + "I", data, functab_end)[0]
+        if not functab_end + 4 <= filetab_off <= size - 4:
+            return None
+        # nfiles counts its own word: file numbers start at 1
+        nfiles = struct.unpack_from(endness + "I", data, filetab_off)[0]
+        if nfiles == 0 or filetab_off + 4 * nfiles > size:
+            return None
+        return _Header(magic, min_lc, ptr_size, layout, nfunc, 0, header_size, 0, 0, 0, filetab_off, 0, size)
+
+    if nwords == 8:
         nfunc, nfiles, text_start, *offsets = words
     else:
         nfunc, nfiles, *offsets = words
         text_start = 0
 
-    size = len(data)
     # the five sub-tables follow the header in a fixed order and all live inside the table
     if offsets[0] < header_size or offsets[-1] >= size:
         return None
     if any(a > b for a, b in zip(offsets, offsets[1:])):
         return None
     # a function costs one functab pair plus a _func struct, a file name at least 2 bytes
-    entry_size = 4 if version >= (1, 18) else ptr_size
+    entry_size = 4 if layout.entry_is_offset else ptr_size
     if nfunc <= 0 or offsets[-1] + (2 * nfunc + 1) * entry_size > size:
         return None
     if nfiles * 2 > size:
         return None
 
-    return _Header(magic, min_lc, ptr_size, version, nfunc, text_start, *offsets)
+    funcname_off, cutab_off, filetab_off, pctab_off, pcln_off = offsets
+    return _Header(
+        magic,
+        min_lc,
+        ptr_size,
+        layout,
+        nfunc,
+        text_start,
+        pcln_off,
+        pcln_off,
+        funcname_off,
+        cutab_off,
+        filetab_off,
+        pctab_off,
+        pcln_off,
+    )
 
 
-def _infer_layout_version(
-    data: bytes, endness: str, ptr_size: int, pcln_off: int, func_offs: tuple[int, ...]
-) -> tuple[int, int]:
+def _infer_packing(
+    data: bytes,
+    endness: str,
+    ptr_size: int,
+    func_base: int,
+    func_offs: tuple[int, ...],
+    candidates: tuple[_Layout, ...],
+) -> _Layout | None:
     """
-    Tell the 1.18 and 1.20 record layouts apart when the magic is unusable: with the right layout, a
-    record plus its pcdata and funcdata arrays, rounded up to the pointer size, ends exactly where the
-    next record starts.
+    Pick the record layout under which the first records pack: with the right ``nfuncdata`` a record
+    plus its pcdata and funcdata arrays ends where the linker put the next thing. Since Go 1.16 that
+    is the next record (after rounding up to the pointer size). Before 1.16 the records are interleaved
+    with the name strings and pc-value tables, and the function's name is appended first (unless an
+    earlier function already shares it), so ``nameoff`` points at the end instead. Returns the first
+    candidate under which every sampled record fits (1.16+), or the one that fits most records (older
+    layouts, where shared names are skipped), or None.
     """
-    n = min(len(func_offs) - 1, 16)
-    for version in ((1, 20), (1, 18)):
-        layout = _func_layout(version, ptr_size)
-        fmt = endness + layout.fmt
+    n = min(len(func_offs) - 1, 32)
+    best, best_score = None, 0
+    for layout in candidates:
+        fmt = endness + _record_fmt(layout, ptr_size)
+        size = struct.calcsize(fmt)
+        name_at, npcdata_at, nfuncdata_at = (layout.fields.index(f) + 1 for f in ("name_off", "npcdata", "nfuncdata"))
+        score = 0
         for i in range(n):
-            rec_off = pcln_off + func_offs[i]
-            if rec_off + layout.size > len(data):
+            rec_off = func_base + func_offs[i]
+            if rec_off + size > len(data):
                 break
             fields = struct.unpack_from(fmt, data, rec_off)
-            end = func_offs[i] + layout.size + 4 * (fields[7] + fields[-1])
-            if (end + ptr_size - 1) & ~(ptr_size - 1) != func_offs[i + 1]:
+            end = func_offs[i] + size + 4 * fields[npcdata_at]
+            nfuncdata = fields[nfuncdata_at]
+            if layout.funcdata_is_ptr:
+                if nfuncdata:
+                    end = _align(end, ptr_size) + ptr_size * nfuncdata
+            else:
+                end += 4 * nfuncdata
+            if layout.table_relative:
+                score += fields[name_at] == end
+            elif _align(end, ptr_size) == func_offs[i + 1]:
+                score += 1
+            else:
                 break
         else:
-            return version
-    log.debug("gopclntab: cannot infer the _func layout from the record sizes, assuming Go 1.20")
-    return (1, 20)
+            if not layout.table_relative:
+                return layout
+        if layout.table_relative and score > best_score:
+            best, best_score = layout, score
+    return best
+
+
+def _align(value: int, alignment: int) -> int:
+    return (value + alignment - 1) & ~(alignment - 1)
 
 
 #
@@ -592,7 +843,10 @@ def _find_pclntab_data(backend: Backend, endness: str):
             embedding.append(section)
 
     # PE and Mach-O bury the table in a generic read-only section, so find it by magic and let
-    # GoPclntab.parse decide whether what follows is really a table.
+    # GoPclntab.parse decide whether what follows is really a table. PEs from Go linkers before 1.12
+    # have no .rdata at all and keep the table in .text.
+    if not embedding:
+        embedding = [sec for sec in backend.sections if sec.name == ".text"]
     if not embedding:
         return
     magics = [struct.pack(endness + "I", magic) for magic in GO_PCLNTAB_MAGICS]
