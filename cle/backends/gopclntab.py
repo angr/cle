@@ -297,10 +297,45 @@ class GoPclntab:
                 log.debug("gopclntab: name of function %d is unterminated", i)
                 return None
             name = data[name_off:end].decode("utf-8", "replace")
-            if not layout.has_start_line:
-                fields = fields[:9] + (None,) + fields[9:]
+            if layout.has_start_line:
+                (
+                    _,
+                    _,
+                    args,
+                    deferreturn,
+                    pcsp,
+                    pcfile,
+                    pcln,
+                    npcdata,
+                    cu_offset,
+                    start_line,
+                    func_id,
+                    flag,
+                    nfuncdata,
+                ) = fields
+            else:
+                _, _, args, deferreturn, pcsp, pcfile, pcln, npcdata, cu_offset, func_id, flag, nfuncdata = fields
+                start_line = None
             addr, size = base + entry_offs[i], entry_offs[i + 1] - entry_offs[i]
-            functions.append(GoFunction(addr, size, name, *fields[2:], rec_off))
+            functions.append(
+                GoFunction(
+                    addr,
+                    size,
+                    name,
+                    args,
+                    deferreturn,
+                    pcsp,
+                    pcfile,
+                    pcln,
+                    npcdata,
+                    cu_offset,
+                    start_line,
+                    func_id,
+                    flag,
+                    nfuncdata,
+                    rec_off,
+                )
+            )
 
         return cls(
             header.magic,
