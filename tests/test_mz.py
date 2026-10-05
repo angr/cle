@@ -10,8 +10,8 @@ tests_src/dos/dos_mz_tiny.asm builds hello_tiny.exe with fasm in the .COM memory
 header CS and SS are the sixteen paragraphs below the load module where the Program Segment
 Prefix sits:
 e_cs and e_ss are both 0xfff0, which only means -16 paragraphs once the wrap is undone. Its SP is
-0x0100, which puts the unwrapped reading of SS:SP exactly on the 1 MiB ceiling, so an inclusive
-upper bound would accept both readings and have nothing to choose between them.
+0x0100, which puts the unwrapped reading of SS:SP exactly on the 1 MiB ceiling, so it is the file
+that says the reduction has to take that ceiling to zero rather than leave it where it is.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ except ImportError:
     pypcode = None
 
 import cle
-from cle.backends.mz import MZ, MZRelocation
+from cle.backends.mz import MZ, MZRelocation, _resolve_relative
 
 # the backend takes its architecture from the p-code real-mode language, so without pypcode
 # there is no MZ object to assert anything about
@@ -154,3 +154,56 @@ def test_a_wrapped_segment_still_names_the_psp_after_a_rebase():
     # DOS adds the load segment in 16-bit arithmetic, so both land on the PSP, sixteen paragraphs down
     assert obj.initial_cs_value == 0x0FF0
     assert obj.initial_ss_value == 0x0FF0
+
+
+def test_the_whole_allocation_is_backed():
+    # The segment has always declared minimum_allocation_size, the memory DOS must find before it
+    # will start the program, while only the load module was backed. hello_tiny.exe claims the rest
+    # of its 64 KB segment, so all but 128 bytes of it is the program's own uninitialised data.
+    obj = load(HELLO_TINY)
+    header = obj.mz_header
+    allocation = header.minimum_allocation_size
+    assert (header.image_size, allocation) == (TINY_IMAGE_SIZE, 0xFF00)
+
+    (segment,) = obj.segments
+    assert (segment.filesize, segment.memsize) == (header.image_size, allocation)
+    assert obj.max_addr == obj.mapped_base + allocation - 1
+
+    uninitialised = allocation - header.image_size
+    tail = obj.loader.memory.load(obj.mapped_base + header.image_size, uninitialised)
+    assert tail == bytes(uninitialised)
+
+
+def test_the_paragraph_rounding_of_the_allocation_is_backed():
+    # The common case, with no extra paragraphs asked for at all: the allocation is still the image
+    # rounded up to a paragraph, and those few bytes are part of the segment too.
+    obj = load()
+    header = obj.mz_header
+    assert header.minimum_extra_paragraphs == 0
+    assert header.minimum_allocation_size == 736
+    assert header.image_size == IMAGE_SIZE == 730
+
+    (segment,) = obj.segments
+    assert segment.memsize == 736
+    assert obj.loader.memory.load(obj.mapped_base + IMAGE_SIZE, 6) == bytes(6)
+
+
+def test_a_relative_segment_offset_is_read_in_real_mode_arithmetic():
+    # DOS computes CS:IP and SS:SP by adding the load segment in 16-bit arithmetic, which is the
+    # same wrap an 8086 applies to its 20-bit bus, so the pair reduces modulo the address space.
+    # Nothing narrower bounds it, because DOS checks neither pair against the load module or
+    # against the memory it reserved: 0000:2000 and 032a:0000 are an entry at the end of a load
+    # module and a stack above the allocation its header asks for, both of which DOS runs.
+    header = load().mz_header
+    assert (header.entry_rva, header.stack_rva) == (ENTRY_RVA, INITIAL_SS * 16 + INITIAL_SP)
+
+    tiny = load(HELLO_TINY).mz_header
+    assert (tiny.entry_rva, tiny.stack_rva) == (0, 0)
+
+    assert _resolve_relative(0x0000, 0x0000) == 0
+    assert _resolve_relative(0x0000, 0x2000) == 0x2000
+    assert _resolve_relative(0x032A, 0x0000) == 0x32A0
+    # 0xfff0:0x0100 is 1 MiB exactly: the top of real mode, which wraps to its bottom
+    assert _resolve_relative(0xFFF0, 0x0100) == 0
+    # and the largest pair two 16-bit words can name is still one reduction away
+    assert _resolve_relative(0xFFFF, 0xFFFF) == 0xFFEF
