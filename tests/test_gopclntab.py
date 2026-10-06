@@ -5,6 +5,7 @@ import os
 import struct
 import unittest
 
+import pefile
 from elftools.elf.elffile import ELFFile
 
 import cle
@@ -216,6 +217,47 @@ class TestGoPclntab(unittest.TestCase):
             assert tab is not None and tab.magic == 0x6C0A988B and tab.go_version is None
             assert (tab.layout_version, tab.functions) == (ref.gopclntab.layout_version, ref.gopclntab.functions)
             assert _go_symbols(obj) == _go_symbols(ref)
+
+    def test_pe_binary_renamed_sections(self):
+        # Sections renamed to look UPX-packed while still holding the program, merged so that the
+        # table straddles a boundary: .text -> UPX0, .rdata split inside the table into UPX1 + UPX2.
+        with open(GO_PE_BINARY, "rb") as fp:
+            data = bytearray(fp.read())
+        pe = pefile.PE(data=bytes(data), fast_load=True)
+        table = pe.OPTIONAL_HEADER.ImageBase + pe.get_rva_from_offset(data.find(b"\xf1\xff\xff\xff\0\0\x01\x08"))
+        text, rdata = pe.sections[0], pe.sections[1]
+        assert (text.Name, rdata.Name) == (b".text\0\0\0", b".rdata\0\0")
+        split = 0x18000  # page-aligned offset into .rdata, inside the table
+        assert rdata.VirtualAddress < table - pe.OPTIONAL_HEADER.ImageBase < rdata.VirtualAddress + split
+
+        hdr = rdata.get_file_offset()
+        end = pe.sections[-1].get_file_offset() + 40
+        upx2 = struct.pack(
+            "<8sIIII12xI",
+            b"UPX2",
+            rdata.Misc_VirtualSize - split,
+            rdata.VirtualAddress + split,
+            rdata.SizeOfRawData - split,
+            rdata.PointerToRawData + split,
+            rdata.Characteristics,
+        )
+        data[hdr + 40 : end + 40] = upx2 + data[hdr + 40 : end]
+        struct.pack_into("<8sII", data, hdr, b"UPX1", split, rdata.VirtualAddress)
+        struct.pack_into("<I", data, hdr + 16, split)
+        struct.pack_into("<8s", data, text.get_file_offset(), b"UPX0")
+        struct.pack_into("<H", data, pe.FILE_HEADER.get_file_offset() + 2, pe.FILE_HEADER.NumberOfSections + 1)
+
+        ref = cle.Loader(GO_PE_BINARY, auto_load_libs=False).main_object
+        obj = cle.Loader(io.BytesIO(bytes(data)), auto_load_libs=False).main_object
+        assert {"UPX0", "UPX1", "UPX2"} <= set(obj.sections_map) and ".rdata" not in obj.sections_map
+        assert obj.gopclntab is not None and obj.gopclntab.functions == ref.gopclntab.functions
+        assert _go_symbols(obj) == _go_symbols(ref)
+
+        # without moduledata's pointer to it, the table could be another binary's, embedded as data
+        pointer = struct.pack("<Q", table)
+        assert data.count(pointer) == 1
+        obj = cle.Loader(io.BytesIO(bytes(data).replace(pointer, b"\0" * 8)), auto_load_libs=False).main_object
+        assert obj.gopclntab is None
 
     def test_pe_binary_supplies_the_function_symbols(self):
         obj = cle.Loader(GO_PE_BINARY, auto_load_libs=False).main_object

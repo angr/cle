@@ -838,11 +838,14 @@ def _align(value: int, alignment: int) -> int:
 #
 
 
-def _read_section(backend: Backend, section) -> bytes | None:
+def _read_section(backend: Backend, section, file_backed: bool = False) -> bytes | None:
     try:
         if section.memsize == 0 or section.only_contains_uninitialized_data:
             return None
-        return backend.memory.load(AT.from_mva(section.vaddr, backend).to_rva(), section.memsize)
+        size = section.memsize
+        if file_backed and 0 < section.filesize < size:
+            size = section.filesize  # the zero fill past the file contents cannot hold a table
+        return backend.memory.load(AT.from_mva(section.vaddr, backend).to_rva(), size)
     except Exception:  # pylint: disable=broad-except
         return None
 
@@ -872,6 +875,69 @@ def _embedding_sections(backend: Backend) -> list:
     return embedding or [sec for sec in backend.sections if sec.name == ".text"]
 
 
+def _other_sections(backend: Backend) -> list:
+    """
+    The remaining sections with content, searched last and only strictly: binaries whose sections were
+    renamed (e.g. to UPX0/UPX1 without being packed) keep the table in one of these.
+    """
+    skip = {id(sec) for sec in _embedding_sections(backend)}
+    return [
+        sec
+        for sec in backend.sections
+        if id(sec) not in skip and sec.name not in PCLNTAB_SECTION_NAMES and getattr(sec, "occupies_memory", True)
+    ]
+
+
+def _section_runs(backend: Backend, sections) -> list[tuple[int, bytes | bytearray]]:
+    """
+    The contents of runs of adjacent sections, as ``(vaddr, bytes)``: where sections were renamed and
+    merged, the table can straddle a section boundary. Only file-backed contents are read; gaps up to
+    the next page are zero-filled.
+    """
+    runs: list[tuple[int, bytes | bytearray]] = []
+    for sec in sorted(sections, key=lambda sec: sec.vaddr):
+        data = _read_section(backend, sec, file_backed=True)
+        if data is None:
+            continue
+        if runs:
+            start, blob = runs[-1]
+            end = start + len(blob)
+            if end <= sec.vaddr <= _align(end, 0x1000):
+                if not isinstance(blob, bytearray):
+                    blob = bytearray(blob)
+                blob += bytes(sec.vaddr - end)
+                blob += data
+                runs[-1] = (start, blob)
+                continue
+        runs.append((sec.vaddr, data))
+    return runs
+
+
+def _scan(blobs, endness: str, needles, back: int, strict: bool):
+    """
+    Yield ``(vaddr, data)`` from ``back`` bytes before every occurrence of one of ``needles`` in the
+    ``(vaddr, bytes)`` blobs, at 4-aligned addresses only when ``strict``. Strict candidates must also
+    pass the header checks up front (which includes the zero pad), so that only plausible ones are
+    copied.
+    """
+    for vaddr, data in blobs:
+        view = memoryview(data)
+        for needle in needles:
+            pos = data.find(needle, back)
+            while pos != -1:
+                start = pos - back
+                if not strict or (
+                    (vaddr + start) % 4 == 0
+                    and any(h.nfunc >= _MIN_STRICT_NFUNC for h in _parse_headers(view[start:], endness))
+                ):
+                    yield vaddr + start, bytes(view[start:])
+                pos = data.find(needle, pos + 1)
+
+
+def _magic_bytes(endness: str) -> list[bytes]:
+    return [struct.pack(endness + "I", magic) for magic in GO_PCLNTAB_MAGICS]
+
+
 def _find_pclntab_data(backend: Backend, endness: str):
     """
     Yield candidate ``bytes`` objects, each starting at a possible pclntab header: dedicated sections,
@@ -882,40 +948,42 @@ def _find_pclntab_data(backend: Backend, endness: str):
             data = _read_section(backend, section)
             if data is not None:
                 yield data
-
-    magics = [struct.pack(endness + "I", magic) for magic in GO_PCLNTAB_MAGICS]
-    for section in _embedding_sections(backend):
-        data = _read_section(backend, section)
-        if data is None:
-            continue
-        for magic in magics:
-            pos = data.find(magic)
-            while pos != -1:
-                yield data[pos:]
-                pos = data.find(magic, pos + 4)
+    blobs = (
+        (sec.vaddr, data) for sec in _embedding_sections(backend) if (data := _read_section(backend, sec)) is not None
+    )
+    for _, data in _scan(blobs, endness, _magic_bytes(endness), 0, False):
+        yield data
 
 
-def _find_pclntab_data_by_shape(backend: Backend, endness: str, ptr_size: int):
+def _find_pclntab_data_strict(backend: Backend, endness: str, ptr_size: int):
     """
-    Like :func:`_find_pclntab_data`, for tables whose magic has been overwritten: yield every 4-aligned
-    position of the embedding sections where the rest of the header (zero pad, minLC, ptrSize) and its
-    counts and offsets are plausible. Meant for ``GoPclntab.parse(..., strict=True)``.
+    Candidates for ``GoPclntab.parse(..., strict=True)``, as ``(vaddr, bytes)``: every magic in all
+    searched sections (the embedding ones were only tried leniently so far), then, for tables whose magic
+    has been overwritten, every position where the rest of the header (zero pad, minLC, ptrSize) and its
+    counts and offsets are plausible.
     """
-    for section in _embedding_sections(backend):
-        data = _read_section(backend, section)
-        if data is None:
+    runs = _section_runs(backend, _embedding_sections(backend) + _other_sections(backend))
+    yield from _scan(runs, endness, _magic_bytes(endness), 0, True)
+    # minLC and ptrSize alone: a needle starting with the zero pad crawls through zero-filled memory
+    yield from _scan(runs, endness, [bytes((min_lc, ptr_size)) for min_lc in _VALID_MIN_LC], 6, True)
+
+
+def _is_referenced(backend: Backend, addr: int, ptr_size: int, endness: str) -> bool:
+    """
+    Whether an aligned pointer to ``addr`` exists in the object, as moduledata holds one to its own table
+    (``pcHeader`` since Go 1.16, ``pclntable`` before). Tells the table apart from those of Go binaries
+    embedded as data, whose addresses refer to their own images.
+    """
+    needle = struct.pack(endness + ("Q" if ptr_size == 8 else "I"), addr)
+    for sec in backend.sections:
+        if not getattr(sec, "occupies_memory", True) or (data := _read_section(backend, sec)) is None:
             continue
-        view = memoryview(data)
-        for min_lc in _VALID_MIN_LC:
-            tail = bytes((0, 0, min_lc, ptr_size))
-            pos = data.find(tail, 4)
-            while pos != -1:
-                start = pos - 4
-                if (section.vaddr + start) % 4 == 0 and any(
-                    h.nfunc >= _MIN_STRICT_NFUNC for h in _parse_headers(view[start:], endness)
-                ):
-                    yield data[start:]
-                pos = data.find(tail, pos + 1)
+        pos = data.find(needle)
+        while pos != -1:
+            if (sec.vaddr + pos) % ptr_size == 0:
+                return True
+            pos = data.find(needle, pos + 1)
+    return False
 
 
 def load_gopclntab(backend: Backend) -> GoPclntab | None:
@@ -934,20 +1002,26 @@ def load_gopclntab(backend: Backend) -> GoPclntab | None:
         return any(sec.contains_addr(addr) for sec in execs)
 
     def candidates():
-        yield from ((data, False) for data in _find_pclntab_data(backend, endness))
-        # anti-analysis tools overwrite the magic; the rest of the table has to stay intact for the runtime
+        yield from ((None, data) for data in _find_pclntab_data(backend, endness))
+        # renamed sections, and anti-analysis tools that overwrite the magic: the rest of the table
+        # has to stay intact for the runtime
         if backend.arch is not None:
-            yield from ((data, True) for data in _find_pclntab_data_by_shape(backend, endness, backend.arch.bytes))
+            yield from _find_pclntab_data_strict(backend, endness, backend.arch.bytes)
 
-    for data, strict in candidates():
+    for vaddr, data in candidates():
         if execs is None:
             execs = _executable_sections(backend)
             fallback = _text_start_fallback(execs)
+        strict = vaddr is not None
         tab = GoPclntab.parse(data, endness, text_start_fallback=fallback, is_text_addr=is_text_addr, strict=strict)
-        if tab is not None:
-            if strict:
-                log.info("gopclntab: found a table with magic %#x by its structure", tab.magic)
-            return tab
+        if tab is None:
+            continue
+        if strict:
+            if not _is_referenced(backend, vaddr, tab.ptr_size, endness):
+                log.debug("gopclntab: nothing points to the table at %#x", vaddr)
+                continue
+            log.info("gopclntab: found a table with magic %#x at %#x by searching", tab.magic, vaddr)
+        return tab
     return None
 
 
