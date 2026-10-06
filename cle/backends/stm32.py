@@ -124,12 +124,15 @@ class STM32Backend(Backend):
         - at least 64 bytes for full vector table
         - word0 looks like RAM (RAM_LOW..RAM_HIGH)
         - word1 has Thumb bit set (LSB == 1)
+        - word1 points into the image, at either address this backend maps it to
         """
         # Loader._static_backend probes every registered backend with the same stream and never
         # rewinds it in between, so read from the start rather than from wherever the previously
         # probed backend happened to stop. Every other backend follows the same convention.
         stream.seek(0)
         data = stream.read(64)  # Read enough for full vector table
+        stream.seek(0, io.SEEK_END)
+        size = stream.tell()
         stream.seek(0)
 
         if len(data) < 64:
@@ -146,6 +149,21 @@ class STM32Backend(Backend):
 
         # Check if reset handler has Thumb bit set
         if (vector_table.reset_handler & 1) != 1:
+            return False
+
+        # The two checks above constrain 13 bits of the first eight bytes, so roughly one
+        # arbitrary file in eight thousand satisfies them -- and this backend is probed for every
+        # file the other backends decline. Text reaches them: bytes 0-3 of '/', '*', newline,
+        # space are 0x200A2A2F little-endian, inside the RAM window, and the Thumb bit then only
+        # needs byte 4 to be odd. So require the reset vector to address code this backend
+        # actually maps: __init__ maps the image at DEFAULT_LOAD_ADDR and at ALIAS_LOAD_ADDR and
+        # nowhere else, so a reset vector outside both windows is an entry point into unmapped
+        # memory, which no firmware image this backend can load has.
+        reset_handler = vector_table.reset_handler_addr
+        if not (
+            cls.DEFAULT_LOAD_ADDR <= reset_handler < cls.DEFAULT_LOAD_ADDR + size
+            or cls.ALIAS_LOAD_ADDR <= reset_handler < cls.ALIAS_LOAD_ADDR + size
+        ):
             return False
 
         return True
