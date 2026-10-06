@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import os
 import struct
 import unittest
@@ -63,6 +64,10 @@ def _langdetect(arch, version, fmt="elf"):
     if fmt == "macho":
         return os.path.join(TEST_LOCATION, arch, name + ".macho")
     return os.path.join(TEST_LOCATION, arch, name)
+
+
+def _go_symbols(obj):
+    return sorted((s.relative_addr, s.name) for s in obj.symbols if isinstance(s, cle.GoSymbol))
 
 
 def _symtab_functions(path):
@@ -191,6 +196,26 @@ class TestGoPclntab(unittest.TestCase):
         assert len(tab.functions) == 1898
         assert all(f.size > 0 for f in tab.functions)
         assert [f.addr for f in tab.functions] == sorted(f.addr for f in tab.functions)
+
+    def test_pe_binary_overwritten_magic(self):
+        # anti-analysis tools overwrite the magic; the table is then found by its header shape
+        for path, magic in (
+            (GO_PE_BINARY, 0xFFFFFFF1),
+            (_langdetect("i386", "go1.20.14", "pe"), 0xFFFFFFF1),  # textStart unrelocated (0)
+            (_langdetect("i386", "go1.10.8", "pe"), 0xFFFFFFFB),  # no .rdata: the table is in .text
+        ):
+            with open(path, "rb") as fp:
+                data = fp.read()
+            header = struct.pack("<I", magic) + b"\0\0\x01"
+            assert data.count(header) == 1
+            ref = cle.Loader(path, auto_load_libs=False).main_object
+            obj = cle.Loader(
+                io.BytesIO(data.replace(header, b"\x8b\x98\x0a\x6c\0\0\x01")), auto_load_libs=False
+            ).main_object
+            tab = obj.gopclntab
+            assert tab is not None and tab.magic == 0x6C0A988B and tab.go_version is None
+            assert (tab.layout_version, tab.functions) == (ref.gopclntab.layout_version, ref.gopclntab.functions)
+            assert _go_symbols(obj) == _go_symbols(ref)
 
     def test_pe_binary_supplies_the_function_symbols(self):
         obj = cle.Loader(GO_PE_BINARY, auto_load_libs=False).main_object
@@ -1053,6 +1078,9 @@ class TestGo112Layout(unittest.TestCase):
         tab = GoPclntab.parse(mutate(0, 0xDEADBEEF, "<I"), is_text_addr=lambda addr: addr >= 0x401000)
         assert tab is not None and tab.go_version is None and tab.layout_version == (1, 12)
         assert GoPclntab.parse(mutate(0, 0xDEADBEEF, "<I"), is_text_addr=lambda addr: False) is None
+        # too small to be accepted without its magic
+        clobbered = mutate(0, 0xDEADBEEF, "<I")
+        assert GoPclntab.parse(clobbered, is_text_addr=lambda addr: addr >= 0x401000, strict=True) is None
 
     def test_rejects_non_tables_with_the_magic(self):
         # what the data-section scan has to turn down: the magic bytes followed by anything else
