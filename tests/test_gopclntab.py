@@ -15,6 +15,7 @@ from cle.backends.gopclntab import (
     GO_FUNC_FLAG_TOP_FRAME,
     GoPclntab,
     _infer_packing,
+    load_gopclntab,
 )
 
 TEST_LOCATION = os.path.join(
@@ -49,6 +50,10 @@ LANGDETECT = os.path.join(TEST_LOCATION, "x86_64", "langdetect_go")
 
 def _basics(version, stripped=False):
     return os.path.join(GO_TESTS, version, "basics_stripped" if stripped else "basics")
+
+
+def _basics_pie(extld=False):
+    return os.path.join(GO_TESTS, "go1.16.15", "basics_pie_extld_stripped" if extld else "basics_pie_stripped")
 
 
 def _langdetect(arch, version, fmt="elf"):
@@ -119,6 +124,30 @@ class TestGoPclntab(unittest.TestCase):
         assert len(tab.functions) == 1574
         # textStart is runtime.text, which is past the start of .text
         assert tab.text_start == 0x4023E0
+
+    def test_pie_relro_table(self):
+        # Before Go 1.18 a PIE keeps the table (absolute functab entries) in relro: the internal
+        # linker names it .data.rel.ro.gopclntab, an external linker merges it into .data.rel.ro.
+        names = {f.name for f in _load(_basics("go1.16.15")).functions}
+        obj = cle.Loader(_basics_pie(), auto_load_libs=False).main_object
+        tab = obj.gopclntab
+        assert ".data.rel.ro.gopclntab" in obj.sections_map
+        assert (tab.layout_version, len(tab.functions)) == ((1, 16), 1610)
+        assert {f.name for f in tab.functions} == names
+        assert len([s for s in obj.symbols if isinstance(s, cle.GoSymbol)]) == 1610
+
+        ld = cle.Loader(_basics_pie(extld=True), auto_load_libs=False, main_opts={"base_addr": 0x7F0000000000})
+        obj = ld.main_object
+        tab = obj.gopclntab
+        assert obj.linked_base == 0 and not any("gopclntab" in s.name for s in obj.sections)
+        assert (tab.layout_version, len(tab.functions), tab.text_start) == ((1, 16), 1618, 0x423A0)
+        assert {"main.main", "main.fib", "_cgo_panic"} <= {f.name for f in tab.functions}
+        assert len([s for s in obj.symbols if isinstance(s, cle.GoSymbol)]) == 1614
+        assert ld.find_symbol("main.main").rebased_addr == 0x7F00000B87C0
+
+        # section vaddrs are rebased by now; the relocated entries come out rebased too
+        again = load_gopclntab(obj)
+        assert [f.addr for f in again.functions] == [f.addr + 0x7F0000000000 for f in tab.functions]
 
     def test_damaged_header(self):
         ld = cle.Loader(DAMAGED_BINARY, auto_load_libs=False)

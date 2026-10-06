@@ -83,11 +83,15 @@ GO_FUNC_FLAG_TOP_FRAME = 1  # traceback stops here (goexit, mstart, ...)
 GO_FUNC_FLAG_SP_WRITE = 2  # writes SP arbitrarily; the pcsp table cannot describe it
 GO_FUNC_FLAG_ASM = 4  # implemented in assembly
 
-# Section names that hold nothing but a pclntab.
-PCLNTAB_SECTION_NAMES = frozenset({".gopclntab", "__gopclntab", ".go.pclntab", "__go_pclntab"})
+# Section names that hold nothing but a pclntab. Before Go 1.18 the functab holds absolute addresses,
+# so a PIE moves the table into relro: ``.data.rel.ro.gopclntab`` when Go links internally.
+PCLNTAB_SECTION_NAMES = frozenset(
+    {".gopclntab", "__gopclntab", ".go.pclntab", "__go_pclntab", ".data.rel.ro.gopclntab"}
+)
 
-# Sections a pclntab may be embedded in, searched by magic as a fallback.
-_EMBEDDING_SECTION_NAMES = frozenset({".rdata", ".rodata", "__rodata", "__const", "__DATA_CONST"})
+# Sections a pclntab may be embedded in, searched by magic as a fallback. An external linker merges
+# a PIE's ``.data.rel.ro.gopclntab`` into ``.data.rel.ro``.
+_EMBEDDING_SECTION_NAMES = frozenset({".rdata", ".rodata", "__rodata", "__const", "__DATA_CONST", ".data.rel.ro"})
 
 _VALID_PTR_SIZES = (4, 8)
 _VALID_MIN_LC = (1, 2, 4)
@@ -808,7 +812,7 @@ def _read_section(backend: Backend, section) -> bytes | None:
     try:
         if section.memsize == 0 or section.only_contains_uninitialized_data:
             return None
-        return backend.memory.load(AT.from_lva(section.vaddr, backend).to_rva(), section.memsize)
+        return backend.memory.load(AT.from_mva(section.vaddr, backend).to_rva(), section.memsize)
     except Exception:  # pylint: disable=broad-except
         return None
 
@@ -863,7 +867,8 @@ def _find_pclntab_data(backend: Backend, endness: str):
 
 def load_gopclntab(backend: Backend) -> GoPclntab | None:
     """
-    Find and parse the Go pclntab of an already-loaded object. Returns None if there is none.
+    Find and parse the Go pclntab of an already-loaded object. Returns None if there is none. Addresses
+    are read as the object's memory holds them, so after relocation a PIE's come out rebased.
     """
     if not backend.sections:
         return None
