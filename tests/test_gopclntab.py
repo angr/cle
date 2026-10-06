@@ -690,6 +690,25 @@ class TestGo12Layout(unittest.TestCase):
         assert all(func.func_id == 0 and func.deferreturn == 0 for func in tab.functions)
         assert sum(func.npcdata for func in tab.functions) == 1279
 
+    def test_zero_size_last_function(self):
+        # externally linked (cgo) binaries can end the table with a host object function the linker
+        # sized 0 (crosscall_amd64), so the end entry equals the last start
+        with open(_basics("go1.9.7"), "rb") as fp:
+            data = ELFFile(fp).get_section_by_name(".gopclntab").data()
+        n = struct.unpack_from("<Q", data, 8)[0]
+        end_at = 16 + 2 * n * 8
+        last = struct.unpack_from("<Q", data, end_at - 16)[0]
+
+        def with_end(value):
+            return data[:end_at] + struct.pack("<Q", value) + data[end_at + 8 :]
+
+        ref = GoPclntab.parse(data).functions
+        tab = GoPclntab.parse(with_end(last))
+        assert tab.layout_version == (1, 2)
+        assert tab.functions[:-1] == ref[:-1]
+        assert tab.functions[-1] == ref[-1]._replace(size=0)
+        assert GoPclntab.parse(with_end(last - 1)) is None
+
     def test_stripped(self):
         for version, count in (("go1.4.3", 1096), ("go1.9.7", 1095)):
             ld = cle.Loader(_basics(version, stripped=True), auto_load_libs=False)

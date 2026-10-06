@@ -449,7 +449,9 @@ class GoPclntab:
             text_start = 0
         entry_offs = entries[0::2]
         func_offs = entries[1::2]
-        if any(a >= b for a, b in zip(entry_offs, entry_offs[1:])):
+        # The end entry may equal the last start: the linker sizes a host object function pulled in
+        # by external linking (e.g. cgo's crosscall_amd64) as 0.
+        if any(a >= b for a, b in zip(entry_offs, entry_offs[1:-1])) or entry_offs[-1] < entry_offs[-2]:
             log.debug("gopclntab: function entry offsets are not monotonically increasing")
             return None
         if not layout.entry_is_offset:
