@@ -175,6 +175,7 @@ class PE(Backend):
         self._register_tls()
         # parse sections
         self._register_sections()
+        self._mark_sections_executable_without_dep()
 
         self.linking = "dynamic" if self.deps else "static"
         self.jmprel = self._get_jmprel()
@@ -1139,6 +1140,49 @@ class PE(Backend):
             )
             self.sections.append(section)
             self.sections_map[section.name] = section
+
+    def _mark_sections_executable_without_dep(self):
+        """
+        Report the sections that hold content as executable, when a 32-bit Windows image enters one
+        it marks non-executable.
+
+        For a 32-bit Windows process, IMAGE_SCN_MEM_EXECUTE is enforced only through DEP, which an
+        image opts into with IMAGE_DLLCHARACTERISTICS_NX_COMPAT. Without that bit no page is
+        non-executable, so a packer can clear the flag on the section holding its entry and the
+        image still runs. One that does enter such a section is not describing where its code is,
+        and anything that derives executable memory from the section table is left with the
+        sections that happen to carry the flag -- which on these images is a packer tail or a
+        section with no raw data at all.
+
+        Nothing outside that case is touched, because nothing outside it has the same premise. A
+        64-bit Windows process gets no-execute unconditionally and cannot opt out of it, so a
+        cleared NX_COMPAT there says nothing; a UEFI module is loaded by the firmware, which has no
+        DEP to opt into.
+
+        A section whose raw data is empty keeps its flags: nothing was loaded into it to run.
+
+        An image whose ``AddressOfEntryPoint`` is zero enters nowhere, so it says nothing about
+        where its code is either. That is ordinarily a resource-only DLL, whose entry resolves to
+        the image base and lands in no section at all; the test is explicit because a section
+        table that declares a section at RVA 0 would otherwise make it land in one.
+        """
+        if self.os != "windows" or self.arch.bits != 32:
+            return
+        if self.supports_nx or self._pe.OPTIONAL_HEADER.AddressOfEntryPoint == 0:
+            return
+        entry_section = self.find_section_containing(self._entry)
+        if entry_section is None or entry_section.is_executable:
+            return
+
+        log.warning(
+            "%s enters at %#x, in a section it does not mark executable. Reporting the sections "
+            "that hold content as executable, which is how the image runs without DEP.",
+            self.binary_basename,
+            self._entry,
+        )
+        for section in self.sections:
+            if isinstance(section, PESection) and not section.only_contains_uninitialized_data:
+                section.executable_without_dep = True
 
     def _find_pdb_path(self):
         """

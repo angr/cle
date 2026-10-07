@@ -6,6 +6,10 @@ from cle.backends.region import Section
 class PESection(Section):
     """
     Represents a section for the PE format.
+
+    :ivar executable_without_dep: Set by the backend on an image whose cleared execute flag the
+                                  Windows loader would not have enforced. Read it through
+                                  ``is_executable``.
     """
 
     def __init__(
@@ -25,6 +29,7 @@ class PESection(Section):
 
         self.characteristics = pe_section.Characteristics
         self.filesize = pe_section.SizeOfRawData
+        self.executable_without_dep = False
 
     #
     # Public properties
@@ -40,7 +45,7 @@ class PESection(Section):
 
     @property
     def is_executable(self):
-        return self.characteristics & 0x20000000 != 0
+        return self.characteristics & 0x20000000 != 0 or self.executable_without_dep
 
     @property
     def only_contains_uninitialized_data(self):
