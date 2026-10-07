@@ -24,7 +24,7 @@ from cle.backends.symbol import SymbolType
 from cle.structs import DataDirectory, MemRegion, MemRegionSort, PointerArray, StringBlob, StructArray
 from cle.utils import extract_null_terminated_bytestr
 
-from .regions import PESection
+from .regions import PESection, _mapped_size
 from .relocation import get_relocation
 from .relocation.generic import IMAGE_REL_BASED_ABSOLUTE, IMAGE_REL_BASED_HIGHADJ, DllImport
 from .symbol import WinSymbol
@@ -778,10 +778,20 @@ class PE(Backend):
         res_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_RESOURCE")
         if res_dd is None:
             return
+        resource_rva = res_dd.VirtualAddress
+        resource_size = res_dd.Size
+        for section in pe.sections:
+            section_size = _mapped_size(section, pe.OPTIONAL_HEADER.SizeOfImage, len(self._raw_data))
+            if section.VirtualAddress <= resource_rva < section.VirtualAddress + section_size:
+                resource_size = min(
+                    resource_size,
+                    section.VirtualAddress + section_size - resource_rva,
+                )
+                break
         self.meta_regions.append(
             DataDirectory(
-                vaddr=base + res_dd.VirtualAddress,
-                size=res_dd.Size,
+                vaddr=base + resource_rva,
+                size=resource_size,
                 sort=MemRegionSort.RESOURCE_DIRECTORY,
             )
         )

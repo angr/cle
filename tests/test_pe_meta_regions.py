@@ -233,5 +233,22 @@ class TestPEMetaRegions(unittest.TestCase):
         assert flat == list(exp.sub_regions)
 
 
+def test_resource_directory_is_bounded_by_its_section():
+    """A resource directory cannot describe bytes in later sections."""
+    test_binary = os.path.join(
+        TEST_BASE, "tests", "i386", "windows", "9f2ef84bde1e4ef445708cc5a605a09226363d502b1f5b5bf4a1cfc6dd5fc41e"
+    )
+    pe_obj = cle.Loader(test_binary, auto_load_libs=False).main_object
+    assert isinstance(pe_obj, cle.PE)
+
+    resources = _find_regions(pe_obj, MemRegionSort.RESOURCE_DIRECTORY)
+    assert len(resources) == 1
+    resource = resources[0]
+    section = pe_obj.find_section_containing(resource.vaddr)
+    assert section is not None
+    assert resource.vaddr + resource.size == section.vaddr + section.memsize
+    assert resource.size == 0x1000
+
+
 if __name__ == "__main__":
     unittest.main()
