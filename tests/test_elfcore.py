@@ -208,3 +208,13 @@ if __name__ == "__main__":
     test_netbsd_registers_aarch64()
     test_linux_x86_tls_note()
     test_prstatus_abi_mismatch()
+
+
+def test_core_without_main_object_has_nonnegative_entry():
+    # the core has no identifiable main object, so it stays the loader's main object; its entry must not be negative
+    ld, core = load_core("aarch64", "elfcore_freebsd_aarch64.core")
+
+    assert ld.main_object is core
+    assert core.mapped_base == 0
+    assert core.linked_base == 0
+    assert core.entry == 0
