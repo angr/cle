@@ -1,9 +1,12 @@
+# pylint:disable=no-self-use,missing-class-docstring
 from __future__ import annotations
 
+import io
 import os
 import struct
 import unittest
 
+import pefile
 from elftools.elf.elffile import ELFFile
 
 import cle
@@ -15,6 +18,7 @@ from cle.backends.gopclntab import (
     GO_FUNC_FLAG_TOP_FRAME,
     GoPclntab,
     _infer_packing,
+    load_gopclntab,
 )
 
 TEST_LOCATION = os.path.join(
@@ -51,6 +55,10 @@ def _basics(version, stripped=False):
     return os.path.join(GO_TESTS, version, "basics_stripped" if stripped else "basics")
 
 
+def _basics_pie(extld=False):
+    return os.path.join(GO_TESTS, "go1.16.15", "basics_pie_extld_stripped" if extld else "basics_pie_stripped")
+
+
 def _langdetect(arch, version, fmt="elf"):
     name = f"langdetect_go_{version}"
     if fmt == "pe":
@@ -58,6 +66,10 @@ def _langdetect(arch, version, fmt="elf"):
     if fmt == "macho":
         return os.path.join(TEST_LOCATION, arch, name + ".macho")
     return os.path.join(TEST_LOCATION, arch, name)
+
+
+def _go_symbols(obj):
+    return sorted((s.relative_addr, s.name) for s in obj.symbols if isinstance(s, cle.GoSymbol))
 
 
 def _symtab_functions(path):
@@ -93,6 +105,7 @@ class TestGoPclntab(unittest.TestCase):
         # assembly functions under an extra ".abi0" suffix in the symbol table only.
         path = os.path.join(TEST_LOCATION, "x86_64", "langdetect_go")
         tab = cle.Loader(path, auto_load_libs=False).main_object.gopclntab
+        assert tab is not None
         symtab = _symtab_functions(path)
 
         exact = abi0 = 0
@@ -119,6 +132,32 @@ class TestGoPclntab(unittest.TestCase):
         assert len(tab.functions) == 1574
         # textStart is runtime.text, which is past the start of .text
         assert tab.text_start == 0x4023E0
+
+    def test_pie_relro_table(self):
+        # Before Go 1.18 a PIE keeps the table (absolute functab entries) in relro: the internal
+        # linker names it .data.rel.ro.gopclntab, an external linker merges it into .data.rel.ro.
+        names = {f.name for f in _load(_basics("go1.16.15")).functions}
+        obj = cle.Loader(_basics_pie(), auto_load_libs=False).main_object
+        tab = obj.gopclntab
+        assert tab is not None
+        assert ".data.rel.ro.gopclntab" in obj.sections_map
+        assert (tab.layout_version, len(tab.functions)) == ((1, 16), 1610)
+        assert {f.name for f in tab.functions} == names
+        assert len([s for s in obj.symbols if isinstance(s, cle.GoSymbol)]) == 1610
+
+        ld = cle.Loader(_basics_pie(extld=True), auto_load_libs=False, main_opts={"base_addr": 0x7F0000000000})
+        obj = ld.main_object
+        tab = obj.gopclntab
+        assert tab is not None
+        assert obj.linked_base == 0 and not any("gopclntab" in s.name for s in obj.sections)
+        assert (tab.layout_version, len(tab.functions), tab.text_start) == ((1, 16), 1618, 0x423A0)
+        assert {"main.main", "main.fib", "_cgo_panic"} <= {f.name for f in tab.functions}
+        assert len([s for s in obj.symbols if isinstance(s, cle.GoSymbol)]) == 1614
+        assert ld.find_symbol("main.main").rebased_addr == 0x7F00000B87C0
+
+        # section vaddrs are rebased by now; the relocated entries come out rebased too
+        again = load_gopclntab(obj)
+        assert [f.addr for f in again.functions] == [f.addr + 0x7F0000000000 for f in tab.functions]
 
     def test_damaged_header(self):
         ld = cle.Loader(DAMAGED_BINARY, auto_load_libs=False)
@@ -162,6 +201,67 @@ class TestGoPclntab(unittest.TestCase):
         assert len(tab.functions) == 1898
         assert all(f.size > 0 for f in tab.functions)
         assert [f.addr for f in tab.functions] == sorted(f.addr for f in tab.functions)
+
+    def test_pe_binary_overwritten_magic(self):
+        # anti-analysis tools overwrite the magic; the table is then found by its header shape
+        for path, magic in (
+            (GO_PE_BINARY, 0xFFFFFFF1),
+            (_langdetect("i386", "go1.20.14", "pe"), 0xFFFFFFF1),  # textStart unrelocated (0)
+            (_langdetect("i386", "go1.10.8", "pe"), 0xFFFFFFFB),  # no .rdata: the table is in .text
+        ):
+            with open(path, "rb") as fp:
+                data = fp.read()
+            header = struct.pack("<I", magic) + b"\0\0\x01"
+            assert data.count(header) == 1
+            ref = cle.Loader(path, auto_load_libs=False).main_object
+            obj = cle.Loader(
+                io.BytesIO(data.replace(header, b"\x8b\x98\x0a\x6c\0\0\x01")), auto_load_libs=False
+            ).main_object
+            tab = obj.gopclntab
+            assert tab is not None and tab.magic == 0x6C0A988B and tab.go_version is None
+            assert (tab.layout_version, tab.functions) == (ref.gopclntab.layout_version, ref.gopclntab.functions)
+            assert _go_symbols(obj) == _go_symbols(ref)
+
+    def test_pe_binary_renamed_sections(self):
+        # Sections renamed to look UPX-packed while still holding the program, merged so that the
+        # table straddles a boundary: .text -> UPX0, .rdata split inside the table into UPX1 + UPX2.
+        with open(GO_PE_BINARY, "rb") as fp:
+            data = bytearray(fp.read())
+        pe = pefile.PE(data=bytes(data), fast_load=True)
+        table = pe.OPTIONAL_HEADER.ImageBase + pe.get_rva_from_offset(data.find(b"\xf1\xff\xff\xff\0\0\x01\x08"))
+        text, rdata = pe.sections[0], pe.sections[1]
+        assert (text.Name, rdata.Name) == (b".text\0\0\0", b".rdata\0\0")
+        split = 0x18000  # page-aligned offset into .rdata, inside the table
+        assert rdata.VirtualAddress < table - pe.OPTIONAL_HEADER.ImageBase < rdata.VirtualAddress + split
+
+        hdr = rdata.get_file_offset()
+        end = pe.sections[-1].get_file_offset() + 40
+        upx2 = struct.pack(
+            "<8sIIII12xI",
+            b"UPX2",
+            rdata.Misc_VirtualSize - split,
+            rdata.VirtualAddress + split,
+            rdata.SizeOfRawData - split,
+            rdata.PointerToRawData + split,
+            rdata.Characteristics,
+        )
+        data[hdr + 40 : end + 40] = upx2 + data[hdr + 40 : end]
+        struct.pack_into("<8sII", data, hdr, b"UPX1", split, rdata.VirtualAddress)
+        struct.pack_into("<I", data, hdr + 16, split)
+        struct.pack_into("<8s", data, text.get_file_offset(), b"UPX0")
+        struct.pack_into("<H", data, pe.FILE_HEADER.get_file_offset() + 2, pe.FILE_HEADER.NumberOfSections + 1)
+
+        ref = cle.Loader(GO_PE_BINARY, auto_load_libs=False).main_object
+        obj = cle.Loader(io.BytesIO(bytes(data)), auto_load_libs=False).main_object
+        assert {"UPX0", "UPX1", "UPX2"} <= set(obj.sections_map) and ".rdata" not in obj.sections_map
+        assert obj.gopclntab is not None and obj.gopclntab.functions == ref.gopclntab.functions
+        assert _go_symbols(obj) == _go_symbols(ref)
+
+        # without moduledata's pointer to it, the table could be another binary's, embedded as data
+        pointer = struct.pack("<Q", table)
+        assert data.count(pointer) == 1
+        obj = cle.Loader(io.BytesIO(bytes(data).replace(pointer, b"\0" * 8)), auto_load_libs=False).main_object
+        assert obj.gopclntab is None
 
     def test_pe_binary_supplies_the_function_symbols(self):
         obj = cle.Loader(GO_PE_BINARY, auto_load_libs=False).main_object
@@ -275,7 +375,9 @@ class TestGoPclntab(unittest.TestCase):
 
 
 def _load(path):
-    return cle.Loader(path, auto_load_libs=False).main_object.gopclntab
+    tab = cle.Loader(path, auto_load_libs=False).main_object.gopclntab
+    assert tab is not None
+    return tab
 
 
 def _by_name(tab):
@@ -303,6 +405,7 @@ class TestGoPclntabFuncInfo(unittest.TestCase):
     def test_basics_func_fields(self):
         for path, (parse_addr, fib_addr, main_addr, runtime_main, do_slow_defer, wrapper_id) in self.BASICS.items():
             tab = _load(path)
+            assert tab is not None
             assert tab.go_version == (1, 20)
             assert tab.layout_version == (1, 20)
             f = _by_name(tab)
@@ -661,6 +764,25 @@ class TestGo12Layout(unittest.TestCase):
         assert all(func.func_id == 0 and func.deferreturn == 0 for func in tab.functions)
         assert sum(func.npcdata for func in tab.functions) == 1279
 
+    def test_zero_size_last_function(self):
+        # externally linked (cgo) binaries can end the table with a host object function the linker
+        # sized 0 (crosscall_amd64), so the end entry equals the last start
+        with open(_basics("go1.9.7"), "rb") as fp:
+            data = ELFFile(fp).get_section_by_name(".gopclntab").data()
+        n = struct.unpack_from("<Q", data, 8)[0]
+        end_at = 16 + 2 * n * 8
+        last = struct.unpack_from("<Q", data, end_at - 16)[0]
+
+        def with_end(value):
+            return data[:end_at] + struct.pack("<Q", value) + data[end_at + 8 :]
+
+        ref = GoPclntab.parse(data).functions
+        tab = GoPclntab.parse(with_end(last))
+        assert tab.layout_version == (1, 2)
+        assert tab.functions[:-1] == ref[:-1]
+        assert tab.functions[-1] == ref[-1]._replace(size=0)
+        assert GoPclntab.parse(with_end(last - 1)) is None
+
     def test_stripped(self):
         for version, count in (("go1.4.3", 1096), ("go1.9.7", 1095)):
             ld = cle.Loader(_basics(version, stripped=True), auto_load_libs=False)
@@ -679,6 +801,7 @@ class TestGo110Layout(unittest.TestCase):
     def test_basics(self):
         path = _basics("go1.10.8")
         tab = _load(path)
+        assert tab is not None
         assert tab.magic == 0xFFFFFFFB
         assert (tab.go_version, tab.layout_version) == ((1, 10), (1, 10))
         assert (tab.ptr_size, tab.min_lc, tab.text_start, len(tab.functions)) == (8, 1, 0x401000, 1335)
@@ -724,6 +847,7 @@ class TestGo110Layout(unittest.TestCase):
     def test_stripped(self):
         ld = cle.Loader(_basics("go1.10.8", stripped=True), auto_load_libs=False)
         tab = ld.main_object.gopclntab
+        assert tab is not None
         assert tab.functions == _load(_basics("go1.10.8")).functions
         assert len([s for s in ld.main_object.symbols if isinstance(s, cle.GoSymbol)]) == 1335
         assert ld.find_symbol("main.parse").rebased_addr == 0x45C450
@@ -731,6 +855,7 @@ class TestGo110Layout(unittest.TestCase):
     def test_arm64(self):
         path = _langdetect("aarch64", "go1.10.8")
         tab = _load(path)
+        assert tab is not None
         assert (tab.layout_version, tab.ptr_size, tab.min_lc, tab.text_start, len(tab.functions)) == (
             (1, 10),
             8,
@@ -1005,6 +1130,9 @@ class TestGo112Layout(unittest.TestCase):
         tab = GoPclntab.parse(mutate(0, 0xDEADBEEF, "<I"), is_text_addr=lambda addr: addr >= 0x401000)
         assert tab is not None and tab.go_version is None and tab.layout_version == (1, 12)
         assert GoPclntab.parse(mutate(0, 0xDEADBEEF, "<I"), is_text_addr=lambda addr: False) is None
+        # too small to be accepted without its magic
+        clobbered = mutate(0, 0xDEADBEEF, "<I")
+        assert GoPclntab.parse(clobbered, is_text_addr=lambda addr: addr >= 0x401000, strict=True) is None
 
     def test_rejects_non_tables_with_the_magic(self):
         # what the data-section scan has to turn down: the magic bytes followed by anything else
@@ -1027,6 +1155,7 @@ class TestGo116Layout(unittest.TestCase):
     def test_basics(self):
         path = _basics("go1.16.15")
         tab = _load(path)
+        assert tab is not None
         assert tab.magic == 0xFFFFFFFA
         assert (tab.go_version, tab.layout_version) == ((1, 16), (1, 16))
         assert (tab.ptr_size, tab.min_lc, tab.text_start, len(tab.functions)) == (8, 1, 0x401000, 1610)

@@ -37,8 +37,10 @@ meaning of slot 4 by its values (``funcID`` numbers are small; ``frame`` sizes a
 
 The header magic and the ``textStart`` field are deliberately not trusted: obfuscated binaries
 clobber them, so the table is instead accepted or rejected on structural grounds and the record
-layout is inferred from how the records pack. The pc-value encoding (zigzag varint value deltas,
-pc deltas in units of ``minLC``) has not changed since Go 1.2.
+layout is inferred from how the records pack. Where the table can only be found by searching, one
+whose magic is gone is found by the shape of the rest of its header and accepted only under stricter
+checks (``GoPclntab.parse(..., strict=True)``). The pc-value encoding (zigzag varint value deltas, pc
+deltas in units of ``minLC``) has not changed since Go 1.2.
 """
 
 from __future__ import annotations
@@ -83,11 +85,15 @@ GO_FUNC_FLAG_TOP_FRAME = 1  # traceback stops here (goexit, mstart, ...)
 GO_FUNC_FLAG_SP_WRITE = 2  # writes SP arbitrarily; the pcsp table cannot describe it
 GO_FUNC_FLAG_ASM = 4  # implemented in assembly
 
-# Section names that hold nothing but a pclntab.
-PCLNTAB_SECTION_NAMES = frozenset({".gopclntab", "__gopclntab", ".go.pclntab", "__go_pclntab"})
+# Section names that hold nothing but a pclntab. Before Go 1.18 the functab holds absolute addresses,
+# so a PIE moves the table into relro: ``.data.rel.ro.gopclntab`` when Go links internally.
+PCLNTAB_SECTION_NAMES = frozenset(
+    {".gopclntab", "__gopclntab", ".go.pclntab", "__go_pclntab", ".data.rel.ro.gopclntab"}
+)
 
-# Sections a pclntab may be embedded in, searched by magic as a fallback.
-_EMBEDDING_SECTION_NAMES = frozenset({".rdata", ".rodata", "__rodata", "__const", "__DATA_CONST"})
+# Sections a pclntab may be embedded in, searched by magic as a fallback. An external linker merges
+# a PIE's ``.data.rel.ro.gopclntab`` into ``.data.rel.ro``.
+_EMBEDDING_SECTION_NAMES = frozenset({".rdata", ".rodata", "__rodata", "__const", "__DATA_CONST", ".data.rel.ro"})
 
 _VALID_PTR_SIZES = (4, 8)
 _VALID_MIN_LC = (1, 2, 4)
@@ -97,6 +103,8 @@ _NO_FUNCDATA = 0xFFFFFFFF
 _FRAME_SENTINEL = 0x1234567
 # ``funcID`` is a small enumeration; a ``frame`` size above this cannot be one
 _MAX_FUNC_ID = 0x40
+# A table found without its magic must be at least this big; the Go runtime alone has ~1000 functions.
+_MIN_STRICT_NFUNC = 100
 
 
 class GoFunction(NamedTuple):
@@ -399,6 +407,7 @@ class GoPclntab:
         endness: str = "<",
         text_start_fallback: int | None = None,
         is_text_addr: Callable[[int], bool] | None = None,
+        strict: bool = False,
     ) -> GoPclntab | None:
         """
         Parse a pclntab out of ``data``, which must start at the table header.
@@ -409,9 +418,18 @@ class GoPclntab:
         :param endness:             ``<`` or ``>``.
         :param text_start_fallback: Address to use when the header's ``textStart`` is unusable.
         :param is_text_addr:        Predicate deciding whether an address points at code.
+        :param strict:              For candidates found without a magic: additionally require
+                                    ``is_text_addr``, at least ``_MIN_STRICT_NFUNC`` functions, a
+                                    ``textStart`` that is code or zero, an end entry in code, and ``_func`` records in
+                                    function order after the functab. ``_func.entry`` is not checked:
+                                    obfuscators scramble it along with the magic.
         """
+        if strict and is_text_addr is None:
+            raise ValueError("strict parsing needs is_text_addr")
         for header in _parse_headers(data, endness):
-            tab = cls._parse_table(data, endness, header, text_start_fallback, is_text_addr)
+            if strict and header.nfunc < _MIN_STRICT_NFUNC:
+                continue
+            tab = cls._parse_table(data, endness, header, text_start_fallback, is_text_addr, strict)
             if tab is not None:
                 return tab
         return None
@@ -424,6 +442,7 @@ class GoPclntab:
         header: _Header,
         text_start_fallback: int | None,
         is_text_addr: Callable[[int], bool] | None,
+        strict: bool = False,
     ) -> GoPclntab | None:
         layout = header.layout
         nfunc, ptr_size = header.nfunc, header.ptr_size
@@ -432,8 +451,11 @@ class GoPclntab:
         if layout.entry_is_offset:
             text_start = header.text_start
             if text_start == 0 or (is_text_addr is not None and not is_text_addr(text_start)):
-                if text_start_fallback is None:
-                    log.warning("gopclntab: textStart %#x is not code and there is no fallback", text_start)
+                # strict: only an unrelocated (zero) field, as in 386 PEs, may fall back
+                if text_start_fallback is None or (strict and text_start != 0):
+                    (log.debug if strict else log.warning)(
+                        "gopclntab: textStart %#x is not code and there is no fallback", text_start
+                    )
                     return None
                 log.debug("gopclntab: textStart %#x is not code, using %#x instead", text_start, text_start_fallback)
                 text_start = text_start_fallback
@@ -445,7 +467,9 @@ class GoPclntab:
             text_start = 0
         entry_offs = entries[0::2]
         func_offs = entries[1::2]
-        if any(a >= b for a, b in zip(entry_offs, entry_offs[1:])):
+        # The end entry may equal the last start: the linker sizes a host object function pulled in
+        # by external linking (e.g. cgo's crosscall_amd64) as 0.
+        if any(a >= b for a, b in zip(entry_offs, entry_offs[1:-1])) or entry_offs[-1] < entry_offs[-2]:
             log.debug("gopclntab: function entry offsets are not monotonically increasing")
             return None
         if not layout.entry_is_offset:
@@ -453,6 +477,17 @@ class GoPclntab:
                 log.debug("gopclntab: first function entry %#x is not code", entry_offs[0])
                 return None
             text_start = entry_offs[0]
+        base = text_start if layout.entry_is_offset else 0
+        if strict:
+            if is_text_addr is not None and not is_text_addr(base + entry_offs[-1] - 1):
+                log.debug("gopclntab: the end of the last function is not code")
+                return None
+            # the linker lays the records out in function order after the functab
+            entry_size = 4 if layout.entry_is_offset else ptr_size
+            functab_end = header.functab_off - header.func_base + len(entries) * entry_size
+            if func_offs[0] < functab_end or any(a >= b for a, b in zip(func_offs, func_offs[1:])):
+                log.debug("gopclntab: _func records are not laid out in order after the functab")
+                return None
 
         known = header.magic in GO_PCLNTAB_MAGICS
         if layout.header_words == 1:
@@ -475,7 +510,6 @@ class GoPclntab:
 
         fmt = endness + _record_fmt(layout, ptr_size)
         size = struct.calcsize(fmt)
-        base = text_start if layout.entry_is_offset else 0
         records = []
         for i, func_off in enumerate(func_offs):
             rec_off = header.func_base + func_off
@@ -804,11 +838,14 @@ def _align(value: int, alignment: int) -> int:
 #
 
 
-def _read_section(backend: Backend, section) -> bytes | None:
+def _read_section(backend: Backend, section, file_backed: bool = False) -> bytes | None:
     try:
         if section.memsize == 0 or section.only_contains_uninitialized_data:
             return None
-        return backend.memory.load(AT.from_lva(section.vaddr, backend).to_rva(), section.memsize)
+        size = section.memsize
+        if file_backed and 0 < section.filesize < size:
+            size = section.filesize  # the zero fill past the file contents cannot hold a table
+        return backend.memory.load(AT.from_mva(section.vaddr, backend).to_rva(), size)
     except Exception:  # pylint: disable=broad-except
         return None
 
@@ -829,59 +866,162 @@ def _text_start_fallback(execs) -> int | None:
     return min(sec.vaddr for sec in execs)
 
 
+def _embedding_sections(backend: Backend) -> list:
+    """
+    Sections that may have a pclntab buried in them. PE and Mach-O put the table in a generic read-only
+    section; PEs from Go linkers before 1.12 have no .rdata at all and keep it in .text.
+    """
+    embedding = [sec for sec in backend.sections if sec.name in _EMBEDDING_SECTION_NAMES and not sec.is_executable]
+    return embedding or [sec for sec in backend.sections if sec.name == ".text"]
+
+
+def _other_sections(backend: Backend) -> list:
+    """
+    The remaining sections with content, searched last and only strictly: binaries whose sections were
+    renamed (e.g. to UPX0/UPX1 without being packed) keep the table in one of these.
+    """
+    skip = {id(sec) for sec in _embedding_sections(backend)}
+    return [
+        sec
+        for sec in backend.sections
+        if id(sec) not in skip and sec.name not in PCLNTAB_SECTION_NAMES and getattr(sec, "occupies_memory", True)
+    ]
+
+
+def _section_runs(backend: Backend, sections) -> list[tuple[int, bytes | bytearray]]:
+    """
+    The contents of runs of adjacent sections, as ``(vaddr, bytes)``: where sections were renamed and
+    merged, the table can straddle a section boundary. Only file-backed contents are read; gaps up to
+    the next page are zero-filled.
+    """
+    runs: list[tuple[int, bytes | bytearray]] = []
+    for sec in sorted(sections, key=lambda sec: sec.vaddr):
+        data = _read_section(backend, sec, file_backed=True)
+        if data is None:
+            continue
+        if runs:
+            start, blob = runs[-1]
+            end = start + len(blob)
+            if end <= sec.vaddr <= _align(end, 0x1000):
+                if not isinstance(blob, bytearray):
+                    blob = bytearray(blob)
+                blob += bytes(sec.vaddr - end)
+                blob += data
+                runs[-1] = (start, blob)
+                continue
+        runs.append((sec.vaddr, data))
+    return runs
+
+
+def _scan(blobs, endness: str, needles, back: int, strict: bool):
+    """
+    Yield ``(vaddr, data)`` from ``back`` bytes before every occurrence of one of ``needles`` in the
+    ``(vaddr, bytes)`` blobs, at 4-aligned addresses only when ``strict``. Strict candidates must also
+    pass the header checks up front (which includes the zero pad), so that only plausible ones are
+    copied.
+    """
+    for vaddr, data in blobs:
+        view = memoryview(data)
+        for needle in needles:
+            pos = data.find(needle, back)
+            while pos != -1:
+                start = pos - back
+                if not strict or (
+                    (vaddr + start) % 4 == 0
+                    and any(h.nfunc >= _MIN_STRICT_NFUNC for h in _parse_headers(bytes(view[start:]), endness))
+                ):
+                    yield vaddr + start, bytes(view[start:])
+                pos = data.find(needle, pos + 1)
+
+
+def _magic_bytes(endness: str) -> list[bytes]:
+    return [struct.pack(endness + "I", magic) for magic in GO_PCLNTAB_MAGICS]
+
+
 def _find_pclntab_data(backend: Backend, endness: str):
     """
-    Yield candidate ``bytes`` objects, each starting at a possible pclntab header.
+    Yield candidate ``bytes`` objects, each starting at a possible pclntab header: dedicated sections,
+    then every magic in the embedding sections, for GoPclntab.parse to accept or reject.
     """
-    embedding = []
     for section in backend.sections:
         if section.name in PCLNTAB_SECTION_NAMES:
             data = _read_section(backend, section)
             if data is not None:
                 yield data
-        elif section.name in _EMBEDDING_SECTION_NAMES and not section.is_executable:
-            embedding.append(section)
+    blobs = (
+        (sec.vaddr, data) for sec in _embedding_sections(backend) if (data := _read_section(backend, sec)) is not None
+    )
+    for _, data in _scan(blobs, endness, _magic_bytes(endness), 0, False):
+        yield data
 
-    # PE and Mach-O bury the table in a generic read-only section, so find it by magic and let
-    # GoPclntab.parse decide whether what follows is really a table. PEs from Go linkers before 1.12
-    # have no .rdata at all and keep the table in .text.
-    if not embedding:
-        embedding = [sec for sec in backend.sections if sec.name == ".text"]
-    if not embedding:
-        return
-    magics = [struct.pack(endness + "I", magic) for magic in GO_PCLNTAB_MAGICS]
-    for section in embedding:
-        data = _read_section(backend, section)
-        if data is None:
+
+def _find_pclntab_data_strict(backend: Backend, endness: str, ptr_size: int):
+    """
+    Candidates for ``GoPclntab.parse(..., strict=True)``, as ``(vaddr, bytes)``: every magic in all
+    searched sections (the embedding ones were only tried leniently so far), then, for tables whose magic
+    has been overwritten, every position where the rest of the header (zero pad, minLC, ptrSize) and its
+    counts and offsets are plausible.
+    """
+    runs = _section_runs(backend, _embedding_sections(backend) + _other_sections(backend))
+    yield from _scan(runs, endness, _magic_bytes(endness), 0, True)
+    # minLC and ptrSize alone: a needle starting with the zero pad crawls through zero-filled memory
+    yield from _scan(runs, endness, [bytes((min_lc, ptr_size)) for min_lc in _VALID_MIN_LC], 6, True)
+
+
+def _is_referenced(backend: Backend, addr: int, ptr_size: int, endness: str) -> bool:
+    """
+    Whether an aligned pointer to ``addr`` exists in the object, as moduledata holds one to its own table
+    (``pcHeader`` since Go 1.16, ``pclntable`` before). Tells the table apart from those of Go binaries
+    embedded as data, whose addresses refer to their own images.
+    """
+    needle = struct.pack(endness + ("Q" if ptr_size == 8 else "I"), addr)
+    for sec in backend.sections:
+        if not getattr(sec, "occupies_memory", True) or (data := _read_section(backend, sec)) is None:
             continue
-        for magic in magics:
-            pos = data.find(magic)
-            while pos != -1:
-                yield data[pos:]
-                pos = data.find(magic, pos + 4)
+        pos = data.find(needle)
+        while pos != -1:
+            if (sec.vaddr + pos) % ptr_size == 0:
+                return True
+            pos = data.find(needle, pos + 1)
+    return False
 
 
 def load_gopclntab(backend: Backend) -> GoPclntab | None:
     """
-    Find and parse the Go pclntab of an already-loaded object. Returns None if there is none.
+    Find and parse the Go pclntab of an already-loaded object. Returns None if there is none. Addresses
+    are read as the object's memory holds them, so after relocation a PIE's come out rebased.
     """
     if not backend.sections:
         return None
     endness = ">" if backend.arch is not None and backend.arch.memory_endness == "Iend_BE" else "<"
 
-    execs: list = []
+    execs: list | None = None
+    fallback = None
 
     def is_text_addr(addr: int) -> bool:
-        return any(sec.contains_addr(addr) for sec in execs)
+        return execs is not None and any(sec.contains_addr(addr) for sec in execs)
 
-    fallback = None
-    for i, data in enumerate(_find_pclntab_data(backend, endness)):
-        if i == 0:
+    def candidates():
+        yield from ((None, data) for data in _find_pclntab_data(backend, endness))
+        # renamed sections, and anti-analysis tools that overwrite the magic: the rest of the table
+        # has to stay intact for the runtime
+        if backend.arch is not None:
+            yield from _find_pclntab_data_strict(backend, endness, backend.arch.bytes)
+
+    for vaddr, data in candidates():
+        if execs is None:
             execs = _executable_sections(backend)
             fallback = _text_start_fallback(execs)
-        tab = GoPclntab.parse(data, endness, text_start_fallback=fallback, is_text_addr=is_text_addr)
-        if tab is not None:
-            return tab
+        strict = vaddr is not None
+        tab = GoPclntab.parse(data, endness, text_start_fallback=fallback, is_text_addr=is_text_addr, strict=strict)
+        if tab is None:
+            continue
+        if strict:
+            if not _is_referenced(backend, vaddr, tab.ptr_size, endness):
+                log.debug("gopclntab: nothing points to the table at %#x", vaddr)
+                continue
+            log.info("gopclntab: found a table with magic %#x at %#x by searching", tab.magic, vaddr)
+        return tab
     return None
 
 
