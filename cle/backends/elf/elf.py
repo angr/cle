@@ -1134,7 +1134,7 @@ class ELF(MetaELF):
             # Construct our own symbol table to hack around pyreadelf assuming section headers are around
             entsize = self._dynamic["DT_SYMENT"]
             fakesymtabheader = {
-                "sh_offset": AT.from_lva(self._dynamic["DT_SYMTAB"], self).to_rva(),
+                "sh_offset": AT.from_lva(self._dynamic["DT_SYMTAB"], self).to_raw(),
                 "sh_entsize": entsize,
                 "sh_size": entsize * num_symbols,
                 "sh_flags": 0,
@@ -1163,7 +1163,7 @@ class ELF(MetaELF):
                 verneed_count = self._dynamic["DT_VERNEEDNUM"]
                 verneed_entsize = self._reader.structs.Elf_Verneed.sizeof()
                 fake_verneed_header = {
-                    "sh_offset": AT.from_lva(self._dynamic["DT_VERNEED"], self).to_rva(),
+                    "sh_offset": AT.from_lva(self._dynamic["DT_VERNEED"], self).to_raw(),
                     "sh_entsize": verneed_entsize,
                     "sh_size": verneed_entsize * verneed_count,
                     "sh_flags": 0,
@@ -1179,7 +1179,7 @@ class ELF(MetaELF):
                 verdef_count = self._dynamic["DT_VERDEFNUM"]
                 verdef_entsize = self._reader.structs.Elf_Verdef.sizeof()
                 fake_verdef_header = {
-                    "sh_offset": AT.from_lva(self._dynamic["DT_VERDEF"], self).to_rva(),
+                    "sh_offset": AT.from_lva(self._dynamic["DT_VERDEF"], self).to_raw(),
                     "sh_entsize": verdef_entsize,
                     "sh_size": verdef_entsize * verdef_count,
                     "sh_flags": 0,
@@ -1195,7 +1195,7 @@ class ELF(MetaELF):
             if "DT_VERSYM" in self._dynamic:
                 versym_entsize = self._reader.structs.Elf_Versym.sizeof()
                 fake_versym_header = {
-                    "sh_offset": AT.from_lva(self._dynamic["DT_VERSYM"], self).to_rva(),
+                    "sh_offset": AT.from_lva(self._dynamic["DT_VERSYM"], self).to_raw(),
                     "sh_entsize": versym_entsize,
                     "sh_size": versym_entsize * num_symbols,
                     "sh_flags": 0,
@@ -1234,7 +1234,7 @@ class ELF(MetaELF):
             rela_tag = "DT_" + self.rela_type
             relsz_tag = rela_tag + "SZ"
             if rela_tag in self._dynamic:
-                reloffset = AT.from_lva(self._dynamic[rela_tag], self).to_rva()
+                reloffset = AT.from_lva(self._dynamic[rela_tag], self).to_raw()
                 if relsz_tag not in self._dynamic:
                     raise CLEInvalidBinaryError(f"Dynamic section contains {rela_tag} but not {relsz_tag}")
                 relsz = self._dynamic[relsz_tag]
@@ -1255,7 +1255,7 @@ class ELF(MetaELF):
 
             # try to parse relocations out of a table of type DT_JMPREL
             if "DT_JMPREL" in self._dynamic:
-                jmpreloffset = AT.from_lva(self._dynamic["DT_JMPREL"], self).to_rva()
+                jmpreloffset = AT.from_lva(self._dynamic["DT_JMPREL"], self).to_raw()
                 if "DT_PLTRELSZ" not in self._dynamic:
                     raise CLEInvalidBinaryError("Dynamic section contains DT_JMPREL but not DT_PLTRELSZ")
                 jmprelsz = self._dynamic["DT_PLTRELSZ"]
@@ -1276,7 +1276,7 @@ class ELF(MetaELF):
 
             # try to parse relocations out of a table of type DT_RELR
             if "DT_RELR" in self._dynamic:
-                reloffset = AT.from_lva(self._dynamic["DT_RELR"], self).to_rva()
+                reloffset = AT.from_lva(self._dynamic["DT_RELR"], self).to_raw()
                 if "DT_RELRSZ" not in self._dynamic:
                     raise CLEInvalidBinaryError("Dynamic section contains DT_RELR but not DT_RELRSZ")
                 relsz = self._dynamic["DT_RELRSZ"]
@@ -1604,7 +1604,7 @@ class ELF(MetaELF):
     def __neuter_streams(self, obj):
         if isinstance(obj, dynamic._DynamicStringTable):
             obj._stream = self.memory
-            obj._table_offset = self._offset_to_rva(obj._table_offset)
+            obj._table_offset = self._offset_to_raw(obj._table_offset)
         elif isinstance(obj, sections.Section):
             if obj.header.sh_type == "SHT_NOBITS":
                 obj.stream = None
@@ -1613,12 +1613,12 @@ class ELF(MetaELF):
             else:
                 obj.stream = self.memory
                 obj.elffile = None
-                obj.header.sh_offset = self._offset_to_rva(obj.header.sh_offset)
+                obj.header.sh_offset = self._offset_to_raw(obj.header.sh_offset)
         else:
             raise TypeError(f"Can't convert {type(obj)!r}")
 
-    def _offset_to_rva(self, offset):
-        return AT.from_mva(self.offset_to_addr(offset), self).to_rva()
+    def _offset_to_raw(self, offset):
+        return AT.from_mva(self.offset_to_addr(offset), self).to_raw()
 
     def __process_debug_file(self, filename):
         with open(filename, "rb") as fp:
