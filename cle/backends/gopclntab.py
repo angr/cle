@@ -479,7 +479,7 @@ class GoPclntab:
             text_start = entry_offs[0]
         base = text_start if layout.entry_is_offset else 0
         if strict:
-            if not is_text_addr(base + entry_offs[-1] - 1):
+            if is_text_addr is not None and not is_text_addr(base + entry_offs[-1] - 1):
                 log.debug("gopclntab: the end of the last function is not code")
                 return None
             # the linker lays the records out in function order after the functab
@@ -928,7 +928,7 @@ def _scan(blobs, endness: str, needles, back: int, strict: bool):
                 start = pos - back
                 if not strict or (
                     (vaddr + start) % 4 == 0
-                    and any(h.nfunc >= _MIN_STRICT_NFUNC for h in _parse_headers(view[start:], endness))
+                    and any(h.nfunc >= _MIN_STRICT_NFUNC for h in _parse_headers(bytes(view[start:]), endness))
                 ):
                     yield vaddr + start, bytes(view[start:])
                 pos = data.find(needle, pos + 1)
@@ -999,7 +999,7 @@ def load_gopclntab(backend: Backend) -> GoPclntab | None:
     fallback = None
 
     def is_text_addr(addr: int) -> bool:
-        return any(sec.contains_addr(addr) for sec in execs)
+        return execs is not None and any(sec.contains_addr(addr) for sec in execs)
 
     def candidates():
         yield from ((None, data) for data in _find_pclntab_data(backend, endness))

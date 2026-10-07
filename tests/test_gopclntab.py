@@ -1,3 +1,4 @@
+# pylint:disable=no-self-use,missing-class-docstring
 from __future__ import annotations
 
 import io
@@ -104,6 +105,7 @@ class TestGoPclntab(unittest.TestCase):
         # assembly functions under an extra ".abi0" suffix in the symbol table only.
         path = os.path.join(TEST_LOCATION, "x86_64", "langdetect_go")
         tab = cle.Loader(path, auto_load_libs=False).main_object.gopclntab
+        assert tab is not None
         symtab = _symtab_functions(path)
 
         exact = abi0 = 0
@@ -137,6 +139,7 @@ class TestGoPclntab(unittest.TestCase):
         names = {f.name for f in _load(_basics("go1.16.15")).functions}
         obj = cle.Loader(_basics_pie(), auto_load_libs=False).main_object
         tab = obj.gopclntab
+        assert tab is not None
         assert ".data.rel.ro.gopclntab" in obj.sections_map
         assert (tab.layout_version, len(tab.functions)) == ((1, 16), 1610)
         assert {f.name for f in tab.functions} == names
@@ -145,6 +148,7 @@ class TestGoPclntab(unittest.TestCase):
         ld = cle.Loader(_basics_pie(extld=True), auto_load_libs=False, main_opts={"base_addr": 0x7F0000000000})
         obj = ld.main_object
         tab = obj.gopclntab
+        assert tab is not None
         assert obj.linked_base == 0 and not any("gopclntab" in s.name for s in obj.sections)
         assert (tab.layout_version, len(tab.functions), tab.text_start) == ((1, 16), 1618, 0x423A0)
         assert {"main.main", "main.fib", "_cgo_panic"} <= {f.name for f in tab.functions}
@@ -371,7 +375,9 @@ class TestGoPclntab(unittest.TestCase):
 
 
 def _load(path):
-    return cle.Loader(path, auto_load_libs=False).main_object.gopclntab
+    tab = cle.Loader(path, auto_load_libs=False).main_object.gopclntab
+    assert tab is not None
+    return tab
 
 
 def _by_name(tab):
@@ -399,6 +405,7 @@ class TestGoPclntabFuncInfo(unittest.TestCase):
     def test_basics_func_fields(self):
         for path, (parse_addr, fib_addr, main_addr, runtime_main, do_slow_defer, wrapper_id) in self.BASICS.items():
             tab = _load(path)
+            assert tab is not None
             assert tab.go_version == (1, 20)
             assert tab.layout_version == (1, 20)
             f = _by_name(tab)
@@ -794,6 +801,7 @@ class TestGo110Layout(unittest.TestCase):
     def test_basics(self):
         path = _basics("go1.10.8")
         tab = _load(path)
+        assert tab is not None
         assert tab.magic == 0xFFFFFFFB
         assert (tab.go_version, tab.layout_version) == ((1, 10), (1, 10))
         assert (tab.ptr_size, tab.min_lc, tab.text_start, len(tab.functions)) == (8, 1, 0x401000, 1335)
@@ -839,6 +847,7 @@ class TestGo110Layout(unittest.TestCase):
     def test_stripped(self):
         ld = cle.Loader(_basics("go1.10.8", stripped=True), auto_load_libs=False)
         tab = ld.main_object.gopclntab
+        assert tab is not None
         assert tab.functions == _load(_basics("go1.10.8")).functions
         assert len([s for s in ld.main_object.symbols if isinstance(s, cle.GoSymbol)]) == 1335
         assert ld.find_symbol("main.parse").rebased_addr == 0x45C450
@@ -846,6 +855,7 @@ class TestGo110Layout(unittest.TestCase):
     def test_arm64(self):
         path = _langdetect("aarch64", "go1.10.8")
         tab = _load(path)
+        assert tab is not None
         assert (tab.layout_version, tab.ptr_size, tab.min_lc, tab.text_start, len(tab.functions)) == (
             (1, 10),
             8,
@@ -1145,6 +1155,7 @@ class TestGo116Layout(unittest.TestCase):
     def test_basics(self):
         path = _basics("go1.16.15")
         tab = _load(path)
+        assert tab is not None
         assert tab.magic == 0xFFFFFFFA
         assert (tab.go_version, tab.layout_version) == ((1, 16), (1, 16))
         assert (tab.ptr_size, tab.min_lc, tab.text_start, len(tab.functions)) == (8, 1, 0x401000, 1610)
