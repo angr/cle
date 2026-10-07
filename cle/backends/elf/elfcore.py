@@ -600,7 +600,9 @@ class ELFCore(ELF):
             )
             self.child_objects.append(obj)
 
+        # all mappings now live in child objects; keep both bases at 0 so entry stays non-negative
         self.mapped_base = 0
+        self.linked_base = 0
         self._max_addr = 0
         self.has_memory = False
         if self.loader._main_object is self:
