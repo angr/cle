@@ -1171,6 +1171,8 @@ class ELF(MetaELF):
                     "sh_info": verneed_count,
                 }
                 readelf_verneed = elffile.GNUVerNeedSection(fake_verneed_header, "verneed_cle", self._reader, strtab)
+                readelf_verneed.stream = self.memory
+                readelf_verneed.elffile = None
                 for _, aux in readelf_verneed.iter_versions():
                     for vaux in aux:
                         self._versions[vaux.entry.vna_other] = vaux.name
@@ -1187,6 +1189,8 @@ class ELF(MetaELF):
                     "sh_info": verdef_count,
                 }
                 readelf_verdef = elffile.GNUVerDefSection(fake_verdef_header, "verdef_cle", self._reader, strtab)
+                readelf_verdef.stream = self.memory
+                readelf_verdef.elffile = None
                 for ver, aux in readelf_verdef.iter_versions():
                     for vaux in aux:
                         self._versions[ver.entry.vd_ndx] = vaux.name
