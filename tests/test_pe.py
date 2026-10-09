@@ -349,6 +349,49 @@ class TestPEBackend(unittest.TestCase):
         assert ld.main_object.arch.name == "RISCV64"
         assert ld.main_object.os == "uefi"
 
+    def test_no_dep_image_that_marks_its_entry_section_executable_is_believed(self):
+        # A 32-bit Windows process enforces section permissions only through DEP, so one that does
+        # not opt into it runs whatever page it enters. This UPX-packed image is 32-bit, does not
+        # opt in, and still marks the section it enters executable, so its section table is
+        # believed and nothing is reported executable that does not say it is. UPX2 is the case
+        # that separates this from a rule keyed on the DEP bit alone: it holds 512 bytes of content
+        # and stays non-executable.
+        exe = os.path.join(TEST_BASE, "tests", "x86", "windows", "packed_pe32.exe")
+        ld = cle.Loader(exe, auto_load_libs=False)
+        obj = ld.main_object
+        assert isinstance(obj, cle.PE)
+
+        assert not obj.supports_nx
+        entry_section = obj.find_section_containing(obj.entry)
+        assert entry_section is not None
+        assert entry_section.name == "UPX1"
+        assert entry_section.is_executable
+
+        assert [section.name for section in obj.sections if section.is_executable] == ["UPX0", "UPX1"]
+        assert obj.sections_map["UPX2"].filesize == 512
+        assert not obj.sections_map["UPX2"].is_executable
+
+    def test_image_that_opts_into_dep_keeps_its_section_permissions(self):
+        # A resource-only DLL. It opts into DEP, so Windows does enforce the flags it declares, and
+        # its AddressOfEntryPoint is zero, so it enters nowhere at all. Each of those declines it on
+        # its own, and neither of its two non-executable sections is reported executable.
+        dll = os.path.join(
+            TEST_BASE,
+            "tests",
+            "x86_64",
+            "windows",
+            "65e25ea21a2f873affee8034e2c3381df48ff4129d447fa288fbd92307647582",
+        )
+        ld = cle.Loader(dll, auto_load_libs=False)
+        obj = ld.main_object
+        assert isinstance(obj, cle.PE)
+
+        assert obj.supports_nx
+        assert obj.entry == obj.mapped_base
+        assert obj.find_section_containing(obj.entry) is None
+        assert [section.name for section in obj.sections] == [".rdata", ".rsrc"]
+        assert not any(section.is_executable for section in obj.sections)
+
 
 # pylint: disable=no-self-use
 class TestPESectionMappedSize(unittest.TestCase):
