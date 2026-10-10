@@ -26,11 +26,16 @@ N_EXT = 0x01  # external symbol bit
 LIBRARY_ORDINAL_SELF = 0x0
 LIBRARY_ORDINAL_OLD_MAX = 0xFE
 LIBRARY_ORDINAL_DYN_LOOKUP = 0xFE
+LIBRARY_ORDINAL_EXECUTABLE = 0xFF
 
 BIND_SPECIAL_DYLIB_SELF = 0x0
 BIND_SPECIAL_DYLIB_WEAK_LOOKUP = 0xFD
 BIND_SPECIAL_DYLIB_FLAT_LOOKUP = 0xFE
 BIND_SPECIAL_DYLIB_MAIN_EXECUTABLE = 0xFF  # technically -1
+
+# LC_DYLD_INFO bind opcodes sign-extend these special ordinals.
+BIND_OPCODE_DYLIB_MAIN_EXECUTABLE = -1
+BIND_OPCODE_DYLIB_FLAT_LOOKUP = -2
 
 
 class AbstractMachOSymbol(Symbol):
@@ -145,6 +150,11 @@ class SymbolTableSymbol(AbstractMachOSymbol):
         if self.is_import:
             if LIBRARY_ORDINAL_DYN_LOOKUP == self.library_ordinal:
                 log.warning("LIBRARY_ORDINAL_DYN_LOOKUP found, cannot handle")
+                return None
+            elif LIBRARY_ORDINAL_EXECUTABLE == self.library_ordinal:
+                # Bundles are dlopen-ed by an executable and bind against it, so the defining image is
+                # whatever loaded them at runtime rather than one of the libraries they import
+                log.warning("LIBRARY_ORDINAL_EXECUTABLE found, cannot handle")
                 return None
             else:
                 return self.owner.imported_libraries[self.library_ordinal]
@@ -349,8 +359,10 @@ class BindingSymbol(AbstractMachOSymbol):
 
     @property
     def library_name(self) -> str | None:
-        if LIBRARY_ORDINAL_DYN_LOOKUP == self.lib_ordinal:
-            log.warning("LIBRARY_ORDINAL_DYN_LOOKUP found, cannot handle")
+        if self.lib_ordinal == BIND_OPCODE_DYLIB_MAIN_EXECUTABLE:
+            return None
+        if self.lib_ordinal == BIND_OPCODE_DYLIB_FLAT_LOOKUP:
+            log.warning("BIND_OPCODE_DYLIB_FLAT_LOOKUP found, cannot handle")
             return None
 
         return self.owner.imported_libraries[self.lib_ordinal]
