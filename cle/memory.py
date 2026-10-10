@@ -570,17 +570,9 @@ class ClemoryView(ClemoryBase):
             else:
                 # clamp it via a memoryview
                 view = memoryview(backer)
-                if taddr + len(backer) - 1 >= self._endoffset:
-                    clamp_end = len(backer) - self._endoffset + taddr
-                else:
-                    clamp_end = len(backer)
-
-                if taddr < self._offset:
-                    clamp_start = self._offset - taddr
-                else:
-                    clamp_start = 0
-
-                yield taddr, view[clamp_start:clamp_end]
+                clamp_start = max(0, self._offset - taddr)
+                clamp_end = min(len(backer), self._endoffset - taddr)
+                yield taddr + clamp_start, view[clamp_start:clamp_end]
 
     def load(self, addr, n):
         if n == 0:
