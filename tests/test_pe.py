@@ -392,6 +392,24 @@ class TestPEBackend(unittest.TestCase):
         assert [section.name for section in obj.sections] == [".rdata", ".rsrc"]
         assert not any(section.is_executable for section in obj.sections)
 
+    def test_image_without_dep_that_enters_a_section_gains_no_header_region(self):
+        # cle reports the mapped image headers as a region for an image that enters inside them,
+        # which is the shape a packer with its loader stub in the header slack has. Three facts
+        # decline this one, in the order the code reads them and any one of them enough: it is a
+        # 64-bit image, where Windows enforces no-execute whatever the DEP bit says; its entry
+        # lands in .text; and its AddressOfEntryPoint 0x1000 is above the 0x200 of headers the
+        # loader maps.
+        exe = os.path.join(TEST_BASE, "tests", "x86_64", "test_rol.exe")
+        ld = cle.Loader(exe, auto_load_libs=False)
+        obj = ld.main_object
+        assert isinstance(obj, cle.PE)
+
+        assert not obj.supports_nx
+        entry_section = obj.find_section_containing(obj.entry)
+        assert entry_section is not None
+        assert entry_section.name == ".text"
+        assert [sec.name for sec in obj.sections] == [".text"]
+
 
 # pylint: disable=no-self-use
 class TestPESectionMappedSize(unittest.TestCase):
