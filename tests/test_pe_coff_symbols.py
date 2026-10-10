@@ -59,6 +59,20 @@ def test_coff_symbol_type_hints_only_include_external_definitions():
     assert {symbol.name for symbol in pe.symbols} == {"function", "object", "static"}
 
 
+def test_coff_symbols_are_dropped_when_a_section_number_is_out_of_range():
+    raw_data = b"".join(
+        [
+            _coff_symbol(b"early", 0x10, 1, 0x20, IMAGE_SYM_CLASS.EXTERNAL),
+            _coff_symbol(b"stale", 0x20, 2, 0x20, IMAGE_SYM_CLASS.EXTERNAL),
+            _coff_symbol(b"late", 0x30, 1, 0x20, IMAGE_SYM_CLASS.EXTERNAL),
+        ]
+    )
+    pe = _make_pe(raw_data + b"\0\0\0\0")
+
+    assert not pe._load_symbols_from_coff_header()
+    assert not list(pe.symbols)
+
+
 def test_exports_inherit_only_unambiguous_coff_symbol_types():
     exports = [
         SimpleNamespace(name=b"data", address=0x1010, forwarder=None, ordinal=1),
