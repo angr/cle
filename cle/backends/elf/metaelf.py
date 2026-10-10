@@ -7,6 +7,7 @@ from enum import Enum
 
 import elftools
 import pyvex
+from elftools.common.exceptions import ELFError
 from elftools.elf.descriptions import describe_ei_osabi
 from elftools.elf.dynamic import DynamicSection
 from elftools.elf.enums import ENUM_DT_FLAGS
@@ -63,7 +64,18 @@ class MetaELF(Backend):
         tmp_reader = elftools.elf.elffile.ELFFile(self._binary_stream)
         self.os = describe_ei_osabi(tmp_reader.header.e_ident.EI_OSABI)
         self.elfflags = tmp_reader.header.e_flags
-        self.relro = _get_relro(tmp_reader)
+        try:
+            self.relro = _get_relro(tmp_reader)
+        except ELFError:
+            # pyelftools reads the section header table to answer this, and ELF.__init__ already
+            # recovers from a table it cannot parse by reloading the file with the section header
+            # fields zeroed -- but that runs after this, so a file whose e_shoff points past the end
+            # lost its whole load here instead. RELRO is a property we report, not one the load
+            # needs. NONE rather than PARTIAL because the failure can come from the PT_GNU_RELRO
+            # test itself and the two are not distinguishable here; only Relro.FULL changes any
+            # behaviour, and FULL is what needs the dynamic table we could not reach.
+            log.warning("Could not determine the RELRO level of %s", self.binary, exc_info=True)
+            self.relro = Relro.NONE
         self._plt = {}
         self._ppc64_abiv1_initial_rtoc = None
 
