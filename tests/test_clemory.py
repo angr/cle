@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import os
 import sys
 import timeit
 import unittest
 
+import archinfo
 import cffi
 
 import cle
+
+TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "binaries", "tests")
 
 
 @unittest.skipIf(sys.platform == "emscripten", "runtime CFFI compilation is unavailable in Pyodide")
@@ -72,6 +76,33 @@ def test_clemory():
     clemory.seek(0)
     assert clemory.read(25) == b""
     assert clemory.load(10, 25) == b"A" * 20
+
+
+def test_clemory_iter_yields_addresses():
+    arch = archinfo.ArchAMD64()
+
+    # add_backer stores a bytes backer as a bytearray, so the first case covers both
+    for backer in (bytes((0x00, 0x01, 0x41, 0xFF)), [0x00, 0x01, 0x41, 0xFF]):
+        clemory = cle.Clemory(arch, root=True)
+        clemory.add_backer(0x100, backer)
+        assert list(clemory) == [0x100, 0x101, 0x102, 0x103]
+
+    inner = cle.Clemory(arch)
+    inner.add_backer(0x10, bytes((0x00, 0x01, 0x41, 0xFF)))
+    outer = cle.Clemory(arch, root=True)
+    outer.add_backer(0x1000, inner)
+    assert list(outer) == [0x1010, 0x1011, 0x1012, 0x1013]
+
+
+def test_clemory_iter_loaded_binary():
+    loader = cle.Loader(os.path.join(TEST_BASE, "x86_64", "fauxware"), auto_load_libs=False)
+    expected = set()
+    for start, backer in loader.memory.backers():
+        expected.update(range(start, start + len(backer)))
+
+    addresses = list(loader.memory)
+    assert set(addresses) == expected
+    assert len(addresses) == len(expected)
 
 
 def performance_clemory_contains():
