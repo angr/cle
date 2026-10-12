@@ -10,6 +10,8 @@ import unittest
 import pefile
 
 import cle
+from cle.backends.pe.relocation.generic import IMAGE_REL_BASED_HIGHLOW
+from cle.backends.pe.relocation.pereloc import PEReloc
 from cle.backends.pe.symbolserver import PDBInfo
 from cle.structs import MemRegionSort
 
@@ -338,6 +340,29 @@ class TestPEBackend(unittest.TestCase):
             MemRegionSort.IMPORT_DIRECTORY,
             MemRegionSort.RESOURCE_DIRECTORY,
         }
+
+    def test_relocation_to_unbacked_memory_is_an_invalid_binary(self):
+        exe = os.path.join(TEST_BASE, "tests", "x86", "windows", "TLS.exe")
+        obj = cle.Loader(exe, auto_load_libs=False).main_object
+        unbacked_rva = obj.memory.max_addr
+
+        base_reloc = IMAGE_REL_BASED_HIGHLOW(obj, None, unbacked_rva)
+        with self.assertRaisesRegex(
+            cle.CLEInvalidBinaryError,
+            rf"IMAGE_REL_BASED_HIGHLOW relocation at RVA {unbacked_rva:#x} targets unbacked memory",
+        ) as caught:
+            base_reloc.relocate()
+        assert isinstance(caught.exception.__cause__, KeyError)
+
+        import_reloc = next(reloc for reloc in obj.relocs if isinstance(reloc, PEReloc) and reloc.is_import)
+        assert import_reloc.resolved
+        import_reloc.relative_addr = unbacked_rva
+        with self.assertRaisesRegex(
+            cle.CLEInvalidBinaryError,
+            rf"DllImport relocation at RVA {unbacked_rva:#x} targets unbacked memory",
+        ) as caught:
+            import_reloc.relocate()
+        assert isinstance(caught.exception.__cause__, KeyError)
 
     def test_uefi_image_is_not_windows(self):
         # A UEFI module is a PE, but it runs under the UEFI boot environment rather than Windows, and it says so in
