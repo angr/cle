@@ -85,6 +85,9 @@ class ELF(MetaELF):
     - ``discard_section_headers``: Do not parse section headers. Use this if they are corrupted or malicious.
     - ``discard_program_headers``: Do not parse program headers. Use this if the binary is for a platform whose ELF
             loader only looks at section headers, but whose toolchain generates program headers anyway.
+    - ``section_addrs``: A mapping from section name to a virtual address. This is only used for relocatable objects
+            (``ET_REL``), which do not carry meaningful section addresses and are laid out by cle's own linker
+            emulation. Set this to reproduce the section layout of another tool (e.g. Ghidra) so that addresses match.
     """
 
     is_default = True  # Tell CLE to automatically consider using the ELF backend
@@ -96,6 +99,7 @@ class ELF(MetaELF):
         debug_symbols=None,
         discard_section_headers=False,
         discard_program_headers=False,
+        section_addrs=None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -104,6 +108,7 @@ class ELF(MetaELF):
             debug_symbols=debug_symbols,
             discard_section_headers=discard_section_headers,
             discard_program_headers=discard_program_headers,
+            section_addrs=section_addrs,
         )
         patch_undo = []
         try:
@@ -1497,15 +1502,24 @@ class ELF(MetaELF):
         new_addr = 0
         sec_list = []
 
+        # A caller may pin specific sections to specific addresses for a relocatable object, so that its layout
+        # matches an external tool (e.g. Ghidra). Unspecified sections keep following cle's linker emulation.
+        section_addrs = self.load_args.get("section_addrs") or {}
+
         for sec_readelf in self._reader.iter_sections():
             remap_offset = 0
             if self.is_relocatable and sec_readelf.header["sh_flags"] & 2:  # alloc flag
                 # Relocatable objects' section addresses are meaningless (they are meant to be relocated anyway)
                 # We thus have to map them manually to valid virtual addresses to emulate a linker's behaviour.
                 sh_addr = sec_readelf.header["sh_addr"]
-                align = sec_readelf.header["sh_addralign"]
-                if align > 0:
-                    new_addr = (new_addr + (align - 1)) // align * align
+                sec_name = maybedecode(sec_readelf.name)
+                if sec_name in section_addrs:
+                    # Place this section at the caller-provided address instead of guessing one.
+                    new_addr = section_addrs[sec_name]
+                else:
+                    align = sec_readelf.header["sh_addralign"]
+                    if align > 0:
+                        new_addr = (new_addr + (align - 1)) // align * align
                 remap_offset = new_addr - sh_addr
 
                 if sec_readelf.header["sh_type"] not in _NON_ALLOCATED_SECTION_NAMES:
