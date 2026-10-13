@@ -10,6 +10,7 @@ import unittest
 import pefile
 
 import cle
+from cle.backends.pe.symbol import WinSymbol
 from cle.backends.pe.symbolserver import PDBInfo
 from cle.structs import MemRegionSort
 
@@ -205,6 +206,15 @@ class TestPEBackend(unittest.TestCase):
         exe = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "simple_crackme_x64.exe")
         ld = cle.Loader(exe, auto_load_libs=False)
         assert ld.find_symbol("main")
+
+    def test_invalid_export_forwarder_encoding(self):
+        exe = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "invalid_export_forwarder.dll")
+        ld = cle.Loader(exe, auto_load_libs=False)
+
+        symbol = ld.main_object.get_symbol("forwarded_export")
+        assert isinstance(symbol, WinSymbol)
+        assert symbol.forwarder == "u\x9fer32.MessageBoxA"
+        assert "u\x9fer32.dll" in ld.main_object.deps
 
     @requires_pyxdia
     def test_debug_symbol_paths_flat_layout(self):
