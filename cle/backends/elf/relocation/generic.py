@@ -152,7 +152,7 @@ class GenericRelativeReloc(ELFReloc):
     def value(self):
         if self.resolvedby is not None:
             return self.resolvedby.rebased_addr
-        return self.owner.mapped_base + self.addend
+        return self.owner.image_base_delta + self.addend
 
 
 class GenericAbsoluteReloc(ELFReloc):
