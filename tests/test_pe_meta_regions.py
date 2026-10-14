@@ -236,10 +236,8 @@ class TestPEMetaRegions(unittest.TestCase):
 class TestPEMetaRegionsHeldToTheImage(unittest.TestCase):
     """A metadata region may not describe bytes the image does not have.
 
-    A data directory's address and size are whatever the file says, and a packed or truncated image says
-    things the Windows loader would never honour. One junk directory then costs a consumer the whole binary
-    rather than the directory: angr's CFGFast marks every metadata region as data in its segment list, so a
-    region spanning the image leaves no address code and the CFG comes back with nothing in it.
+    angr's CFGFast marks every metadata region as data in its segment list, so a region spanning the image
+    leaves no address that can be code and the CFG comes back empty.
     """
 
     @classmethod

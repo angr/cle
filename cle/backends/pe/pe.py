@@ -506,17 +506,13 @@ class PE(Backend):
         Hold every metadata region to the image the section table describes.
 
         A region's address and extent are whatever a data directory says, and nothing in the format keeps those
-        honest. ``_meta_load_config`` reads the four guard tables, and on a 32-bit image the SE handler table as
-        well, straight out of the load-config directory; each is built when its address and count are both
-        non-zero, which rejects an empty table and nothing else. So an image whose load-config is not a
-        load-config -- a packer wrote over it, the file ends inside it -- hands pefile string bytes and gets
-        pointer arrays back. Measured on one 32-bit image: five of them, none of which starts inside the object,
-        the largest declaring 6.8 GB against an image of 797,696 bytes.
+        honest. An image whose load-config is not a load-config -- a packer wrote over it, the file ends inside
+        it -- still gets pointer arrays from ``_meta_load_config``, built from whatever bytes are there and
+        pointing anywhere.
 
         A region that starts outside the object is dropped. One that starts inside and runs past the end is
-        shortened rather than dropped, because the tail is the part that is not there:
-        ``tests/i386/windows/9f2ef84b...`` in ``angr/binaries`` declares 29,696 bytes of resource directory where
-        the image has 4,096 left, and dropping that region would throw away the resource data in front of it.
+        shortened rather than dropped: only its tail is missing, and dropping it would lose the data the image
+        does hold, as with a resource directory that declares more bytes than the image has left.
 
         Called after ``_register_sections``: the image ends at ``max_addr``, which is read off the sections, and
         reading it before they are registered would also cache the wrong value for the life of the object.
@@ -531,7 +527,7 @@ class PE(Backend):
         self.meta_regions = kept
 
     def _clip_meta_region(self, region: MemRegion) -> MemRegion | None:
-        """``region`` held to the image, or None when it does not start inside it."""
+        """Return ``region``, shortened in place if it runs past the image, or None if it starts outside it."""
         if not self.min_addr <= region.vaddr <= self.max_addr:
             log.warning(
                 "%s: the %s metadata region at %#x is outside the image %#x-%#x; ignoring it",
