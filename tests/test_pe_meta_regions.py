@@ -234,11 +234,7 @@ class TestPEMetaRegions(unittest.TestCase):
 
 
 class TestPEMetaRegionsHeldToTheImage(unittest.TestCase):
-    """A metadata region may not describe bytes the image does not have.
-
-    angr's CFGFast marks every metadata region as data in its segment list, so a region spanning the image
-    leaves no address that can be code and the CFG comes back empty.
-    """
+    """A metadata region may not describe bytes the image does not have."""
 
     @classmethod
     def setUpClass(cls):
