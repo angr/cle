@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 import timeit
 import unittest
@@ -7,6 +8,8 @@ import unittest
 import cffi
 
 import cle
+
+TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "binaries", "tests")
 
 
 @unittest.skipIf(sys.platform == "emscripten", "runtime CFFI compilation is unavailable in Pyodide")
@@ -72,6 +75,22 @@ def test_clemory():
     clemory.seek(0)
     assert clemory.read(25) == b""
     assert clemory.load(10, 25) == b"A" * 20
+
+
+def test_clemory_view_backers_are_clamped_to_the_window():
+    loader = cle.Loader(os.path.join(TEST_BASE, "x86_64", "fauxware"), auto_load_libs=False)
+    memory = loader.memory
+
+    # A window clamped at its high end only.
+    view = cle.ClemoryView(memory, 0x400000, 0x400100)
+    assert [(start, len(backer)) for start, backer in view.backers()] == [(0, 0x100)]
+    assert b"".join(bytes(backer) for _, backer in view.backers()) == memory.load(0x400000, 0x100)
+
+    # A window clamped at both ends, given an offset of its own, so both clamps and the
+    # translation back into the view's address space are exercised together.
+    view = cle.ClemoryView(memory, 0x400010, 0x400100, offset=0x1000)
+    assert [(start, len(backer)) for start, backer in view.backers()] == [(0x1000, 0xF0)]
+    assert b"".join(bytes(backer) for _, backer in view.backers()) == memory.load(0x400010, 0xF0)
 
 
 def performance_clemory_contains():
