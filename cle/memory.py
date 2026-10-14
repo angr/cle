@@ -769,15 +769,8 @@ class ClemoryReadOnlyView(ClemoryBase):
         raise NotImplementedError("ClemoryReadOnlyView does not support storing")
 
     def backers(self, addr: int = 0):
-        start_pos = bisect.bisect_right(self._flattened_backers, addr, key=lambda x: x[0])
-        if start_pos > 0:
-            start_pos -= 1
-        for idx in range(start_pos, len(self._flattened_backers)):
-            start, data = self._flattened_backers[idx]
-            if start > addr:
-                break
-            if 0 <= addr - start < len(data):
-                yield start, data
+        start_pos = bisect.bisect_right(self._flattened_backers, addr, key=lambda x: x[0] + len(x[1]))
+        yield from itertools.islice(self._flattened_backers, start_pos, None)
 
     def unpack(self, addr, fmt):
         if self._last_backer_pos is not None:
