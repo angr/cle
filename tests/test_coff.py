@@ -6,6 +6,7 @@ import struct
 import unittest
 
 import cle
+from cle.backends.coff import _raw_data_in_file
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
 
@@ -73,6 +74,32 @@ class TestCoff(unittest.TestCase):
         ld = cle.Loader(exe, auto_load_libs=False)
         field_addr = section_vaddr(ld.main_object, ".text") + field_offset
         assert ld.memory.load(field_addr, 4) == struct.pack("<i", expected)
+
+    def test_a_sections_raw_data_is_bounded_by_the_file(self):
+        file_size = 0x100
+
+        # Raw data the file holds is mapped whole.
+        assert _raw_data_in_file(0x3C, 0x10, file_size) == 0x10
+        # Raw data the file cuts short is mapped as far as the file goes.
+        assert _raw_data_in_file(0x3C, 0x4000000, file_size) == file_size - 0x3C
+        # Raw data that starts past the end of the file: none of it is there, and Coff skips the section.
+        assert _raw_data_in_file(0x1000, 0x10, file_size) == 0
+        # PointerToRawData 0 says the section has no raw data and SizeOfRawData is its size in memory,
+        # which the file does not bound.
+        assert _raw_data_in_file(0, 0x1300, file_size) == 0x1300
+
+    def test_a_well_formed_objects_sections_map_the_bytes_they_declare(self):
+        exe = os.path.join(TEST_BASE, "tests", "x86", "fauxware.obj")
+        with open(exe, "rb") as f:
+            raw = f.read()
+
+        ld = cle.Loader(exe, auto_load_libs=False, perform_relocations=False)
+        sections = ld.main_object.sections
+        assert sections
+        for section in sections:
+            assert section.memsize == section.filesize
+            mapped = ld.memory.load(section.vaddr, section.memsize)
+            assert mapped == raw[section.offset : section.offset + section.filesize]
 
 
 if __name__ == "__main__":
