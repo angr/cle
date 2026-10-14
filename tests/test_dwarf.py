@@ -35,6 +35,28 @@ class TestDwarf(TestCase):
         assert inlined[0].low_pc == 0x43FC49
         assert inlined[0].high_pc == 0x43FEE8
 
+    def test_dwarf64_line_program(self):
+        # The .debug_line units of this binary use the 64-bit DWARF format while the compilation
+        # units that reference them use the 32-bit one.
+        binary_path = os.path.join(TESTS_BASE, "mips64", "true")
+        ld = cle.Loader(binary_path, auto_load_libs=False, load_debug_info=True)
+        elf = ld.main_object
+        assert isinstance(elf, cle.backends.ELF)
+        subroutine = elf.functions_debug_info[0x12000206C]
+        assert subroutine.name == "main"
+        assert subroutine.source_file == "src/true.c"
+        assert ("/home/qinfan/coreutils/coreutils-8.32/src/true.c", 56) in elf.addr_to_line[0x12000206C]
+
+    def test_line_info_without_eh_frame(self):
+        # This binary carries .debug_line and no .eh_frame, and a stream has no file name to look
+        # a separate debug file up by.
+        binary_path = os.path.join(TESTS_BASE, "armel", "efm32gg.elf")
+        with open(binary_path, "rb") as stream:
+            ld = cle.Loader(stream, auto_load_libs=False, load_debug_info=True)
+        elf = ld.main_object
+        assert isinstance(elf, cle.backends.ELF)
+        assert ("/home/tobi/research/mbed-os-projects/basic_exercises/main.cpp", 31) in elf.addr_to_line[0x20A2]
+
 
 if __name__ == "__main__":
     main()
