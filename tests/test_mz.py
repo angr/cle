@@ -65,7 +65,8 @@ def test_backend_is_selected_without_being_named():
     # real mode has 16-bit registers and a 20-bit linear address space; the loader needs the second one
     assert obj.arch.name == "x86:LE:16:Real Mode"
     assert obj.arch.bits == 16
-    assert obj.mapped_address_bits == 20
+    assert obj.arch.memory_address_bits == 20
+    assert obj.mapped_address_bits == obj.arch.memory_address_bits
 
 
 def test_header_matches_the_file():
