@@ -7,12 +7,17 @@ from .generic import relocation_table_generic
 from .mips import relocation_table_mips
 from .riscv import relocation_table_riscv
 
+# Keyed on archinfo's arch.name, which is what PE._make_reloc looks these up with.
 ALL_RELOCATIONS = {
+    "AARCH64": relocation_table_generic,
     "AMD64": relocation_table_generic,
-    "arm": relocation_table_generic | relocation_table_arm,
+    "ARMCortexM": relocation_table_generic | relocation_table_arm,
+    "ARMEL": relocation_table_generic | relocation_table_arm,
+    "ARMHF": relocation_table_generic | relocation_table_arm,
+    "MIPS32": relocation_table_generic | relocation_table_mips,
+    "PPC32": relocation_table_generic,
+    "RISCV64": relocation_table_generic | relocation_table_riscv,
     "X86": relocation_table_generic,
-    "mips": relocation_table_generic | relocation_table_mips,
-    "RISCV": relocation_table_generic | relocation_table_riscv,
 }
 
 log = logging.getLogger(name=__name__)
