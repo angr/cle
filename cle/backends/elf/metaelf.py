@@ -33,6 +33,33 @@ def maybedecode(string):
     return string if isinstance(string, str) else string.decode()
 
 
+# FreeBSD has branded its executables two ways. EI_OSABI is the one the gABI defines, and
+# before it existed FreeBSD wrote its name into the identification bytes from byte 8 on,
+# which is what brandelf(1) sets; its own loader calls that "FreeBSD 3.x's traditional
+# string branding w/in the ELF header" and still accepts either spelling.
+# __elfN(get_brandinfo) in sys/kern/imgact_elf.c matches
+# `hdr->e_ident[EI_OSABI] == bi->brand` or `strcmp(&hdr->e_ident[OLD_EI_BRAND],
+# bi->compat_3_brand) == 0`, with OLD_EI_BRAND defined as 8 and FreeBSD's own brandinfo
+# carrying "FreeBSD".
+_OLD_EI_BRAND = 8
+_EI_BRANDS = {b"FreeBSD": "ELFOSABI_FREEBSD"}
+
+
+def _describe_os(elf):
+    """
+    The operating system an ELF declares, read the way its loader would read it.
+
+    A branded binary leaves EI_OSABI at ELFOSABI_SYSV, which says nothing about the OS, so
+    the brand is only consulted when the header itself names no OS.
+    """
+    osabi = elf.header.e_ident.EI_OSABI
+    if osabi == "ELFOSABI_SYSV":
+        brand = elf.e_ident_raw[_OLD_EI_BRAND:].split(b"\0")[0]
+        if brand in _EI_BRANDS:
+            return describe_ei_osabi(_EI_BRANDS[brand])
+    return describe_ei_osabi(osabi)
+
+
 def _get_relro(elf):
     # The tests for partial and full RELRO have been taken from
     # checksec.sh v1.5 (https://www.trapkit.de/tools/checksec/):
@@ -61,7 +88,7 @@ class MetaELF(Backend):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         tmp_reader = elftools.elf.elffile.ELFFile(self._binary_stream)
-        self.os = describe_ei_osabi(tmp_reader.header.e_ident.EI_OSABI)
+        self.os = _describe_os(tmp_reader)
         self.elfflags = tmp_reader.header.e_flags
         self.relro = _get_relro(tmp_reader)
         self._plt = {}
