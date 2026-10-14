@@ -3,6 +3,42 @@ from __future__ import annotations
 from cle.backends.region import Section
 
 
+class PEHeaderSection(Section):
+    """
+    The image headers, which the Windows loader maps at the image base.
+
+    The section table describes every other part of a loaded image and not this one, so nothing in
+    the PE backend used to cover it. ``PE._header_section`` says when one of these is registered and
+    why; the short version is an image whose entry point is in the header slack.
+
+    The loader's own mapping is read-only. It is reported as executable because the only image that
+    gets one of these is an image without DEP, which has no non-executable pages.
+    """
+
+    def __init__(self, vaddr: int, size: int):
+        super().__init__("pe_headers", 0, vaddr, size)
+
+    #
+    # Public properties
+    #
+
+    @property
+    def is_readable(self):
+        return True
+
+    @property
+    def is_writable(self):
+        return False
+
+    @property
+    def is_executable(self):
+        return True
+
+    @property
+    def only_contains_uninitialized_data(self):
+        return False
+
+
 class PESection(Section):
     """
     Represents a section for the PE format.
