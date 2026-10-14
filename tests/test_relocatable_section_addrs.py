@@ -5,6 +5,7 @@ import unittest
 
 import cle
 from cle.address_translator import AT
+from cle.backends.elf.regions import ELFSection
 
 TESTS_BASE = os.path.join(
     os.path.dirname(os.path.realpath(__file__)),
@@ -23,10 +24,12 @@ class TestRelocatableSectionAddrs(unittest.TestCase):
     so that cle's layout can match an external tool (e.g. Ghidra).
     """
 
-    def _load(self, **main_opts):
+    @staticmethod
+    def _load(**main_opts):
         return cle.Loader(BINARY, auto_load_libs=False, main_opts=main_opts)
 
-    def _lva(self, ld, name):
+    @staticmethod
+    def _lva(ld, name):
         # the requested address is a link-time address, so compare in LVA space to be independent of any rebase
         return AT.from_mva(ld.main_object.sections_map[name].vaddr, ld.main_object).to_lva()
 
@@ -39,8 +42,11 @@ class TestRelocatableSectionAddrs(unittest.TestCase):
         # the pinned sections really occupy those addresses
         text = ld.main_object.sections_map[".text"]
         rodata = ld.main_object.sections_map[".rodata"]
-        self.assertEqual(ld.main_object.find_section_containing(text.vaddr).name, ".text")
-        self.assertEqual(ld.main_object.find_section_containing(rodata.vaddr).name, ".rodata")
+        text_containing = ld.main_object.find_section_containing(text.vaddr)
+        rodata_containing = ld.main_object.find_section_containing(rodata.vaddr)
+        assert text_containing is not None and rodata_containing is not None
+        self.assertEqual(text_containing.name, ".text")
+        self.assertEqual(rodata_containing.name, ".rodata")
 
     def test_default_layout_is_unchanged_without_the_option(self):
         ld = self._load()
@@ -52,7 +58,7 @@ class TestRelocatableSectionAddrs(unittest.TestCase):
         self.assertEqual(self._lva(ld, ".text"), PINNED_TEXT)
         # every other section still has a usable address
         for section in ld.main_object.sections:
-            if section.occupies_memory:
+            if isinstance(section, ELFSection) and section.occupies_memory:
                 self.assertGreaterEqual(section.vaddr, 0)
 
 
