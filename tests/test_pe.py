@@ -447,5 +447,67 @@ class TestPESectionMappedSize(unittest.TestCase):
         assert obj.max_addr - obj.mapped_base < 0x4F02E
 
 
+# pylint: disable=no-self-use
+class TestPEWithoutSectionTable(unittest.TestCase):
+    """
+    An image whose section table maps nothing is mapped as one view of the file when its alignment is below the page
+    size, and as its headers alone otherwise.
+    """
+
+    def test_low_alignment_image_is_the_file(self):
+        # lowalign_nosections.exe is lowalign.exe with NumberOfSections set to zero. At a 16-byte alignment each
+        # section's file offset is its RVA, so mapping the file puts the code and the import table where the
+        # section table would have.
+        windows = os.path.join(TEST_BASE, "tests", "i386", "windows")
+        sectioned = cle.Loader(os.path.join(windows, "lowalign.exe"), auto_load_libs=False)
+        ld = cle.Loader(os.path.join(windows, "lowalign_nosections.exe"), auto_load_libs=False)
+        obj = ld.main_object
+
+        assert len(obj.sections) == 1
+        mapping = obj.sections[0]
+        assert mapping.vaddr == obj.mapped_base
+        assert mapping.memsize == 0x3A0
+        assert mapping.is_executable
+        assert obj.find_section_containing(obj.entry) is mapping
+
+        text = sectioned.main_object.sections_map[".text"]
+        assert ld.memory.load(text.vaddr, text.memsize) == sectioned.memory.load(text.vaddr, text.memsize)
+        imports = {name: reloc.rebased_addr for name, reloc in sectioned.main_object.imports.items()}
+        assert len(imports) == 4
+        assert {name: reloc.rebased_addr for name, reloc in obj.imports.items()} == imports
+        for addr in imports.values():
+            assert ld.memory.unpack_word(addr) == sectioned.memory.unpack_word(addr)
+
+    def test_other_image_maps_its_headers(self):
+        # nosections.exe is the same program at the default alignment with NumberOfSections set to zero, which
+        # leaves the loader nothing to map but the headers.
+        exe = os.path.join(TEST_BASE, "tests", "i386", "windows", "nosections.exe")
+        obj = cle.Loader(exe, auto_load_libs=False).main_object
+
+        assert len(obj.sections) == 1
+        mapping = obj.sections[0]
+        assert mapping.vaddr == obj.mapped_base
+        assert mapping.memsize == 0x400
+        assert not mapping.is_executable
+        assert obj.find_section_containing(obj.entry) is None
+
+    def test_image_that_maps_no_bytes_is_refused(self):
+        # nosections_zeroheaders.exe is nosections.exe with SizeOfHeaders set to zero, so there is nothing to map.
+        exe = os.path.join(TEST_BASE, "tests", "i386", "windows", "nosections_zeroheaders.exe")
+        with self.assertRaises(cle.CLEInvalidBinaryError):
+            cle.Loader(exe, auto_load_libs=False)
+
+    def test_empty_section_at_rva_zero_maps_the_headers(self):
+        # emptysection.exe has two section headers, zero apart from the first one's name, so the one section read is
+        # empty and at RVA 0. Its max_addr is one less than its vaddr, so the section table alone gives the object a
+        # max_addr below its min_addr.
+        exe = os.path.join(TEST_BASE, "tests", "i386", "windows", "emptysection.exe")
+        obj = cle.Loader(exe, auto_load_libs=False).main_object
+
+        assert [(section.name, section.memsize) for section in obj.sections] == [(".text", 0), ("pe_headers", 0x400)]
+        assert obj.min_addr < obj.max_addr
+        assert not obj.sections[1].is_executable
+
+
 if __name__ == "__main__":
     unittest.main()

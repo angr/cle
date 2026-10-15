@@ -21,10 +21,11 @@ from cle.backends.backend import Backend, FunctionHint, FunctionHintSource, regi
 from cle.backends.coff import IMAGE_SYM_CLASS
 from cle.backends.gopclntab import register_gopclntab_symbols
 from cle.backends.symbol import SymbolType
+from cle.errors import CLEInvalidBinaryError
 from cle.structs import DataDirectory, MemRegion, MemRegionSort, PointerArray, StringBlob, StructArray
 from cle.utils import extract_null_terminated_bytestr
 
-from .regions import PESection
+from .regions import PEFileMapping, PESection
 from .relocation import get_relocation
 from .relocation.generic import IMAGE_REL_BASED_ABSOLUTE, IMAGE_REL_BASED_HIGHADJ, DllImport
 from .symbol import WinSymbol
@@ -293,8 +294,13 @@ class PE(Backend):
         Get the data corresponding to the memory layout of the PE file as a single bytes object.
 
         This method replicates the feature of pefile.PE.get_memory_mapped_image() but with the addition of some logic
-        for keeping partially mapped sections.
+        for keeping partially mapped sections. For an image whose section table maps nothing, it is the start of the
+        file, as long as the mapping ``_register_sections`` added for it.
         """
+
+        for region in self.sections:
+            if isinstance(region, PEFileMapping):
+                return self._raw_data[: region.memsize]
 
         data = self._pe.__data__
 
@@ -1141,6 +1147,37 @@ class PE(Backend):
             self.sections.append(section)
             self.sections_map[section.name] = section
 
+        if not any(section.memsize for section in self.sections):
+            mapping = self._file_mapping_without_sections()
+            self.sections.append(mapping)
+            self.sections_map[mapping.name] = mapping
+
+    def _file_mapping_without_sections(self) -> PEFileMapping:
+        """
+        The region to map for an image whose section table maps nothing.
+
+        A SectionAlignment below the page size requires a FileAlignment equal to it, and Windows maps such an image
+        as one view of the file, so each RVA is its file offset. Its header is writable there and an image with no
+        section table runs from it, so the region is readable, writable and executable, up to SizeOfImage or the end
+        of the file. Any other image gets only its SizeOfHeaders bytes of headers, read-only.
+
+        An image whose optional header leaves that region empty maps no bytes at all, and is refused with
+        CLEInvalidBinaryError.
+        """
+        optional_header = self._pe.OPTIONAL_HEADER
+        alignment = optional_header.SectionAlignment
+        if self.os == "windows" and 0 < alignment < 0x1000 and optional_header.FileAlignment == alignment:
+            size = min(len(self._raw_data), optional_header.SizeOfImage)
+            mapping = PEFileMapping("pe_image", self.linked_base, size, is_writable=True, is_executable=True)
+        else:
+            size = min(len(self._raw_data), optional_header.SizeOfHeaders)
+            mapping = PEFileMapping("pe_headers", self.linked_base, size, is_writable=False, is_executable=False)
+        if not size:
+            raise CLEInvalidBinaryError(
+                f"{self.binary_basename}: the section table maps no memory and the optional header maps no bytes"
+            )
+        return mapping
+
     def _mark_sections_executable_without_dep(self):
         """
         Report the sections that hold content as executable, when a 32-bit Windows image enters one
@@ -1171,7 +1208,7 @@ class PE(Backend):
         if self.supports_nx or self._pe.OPTIONAL_HEADER.AddressOfEntryPoint == 0:
             return
         entry_section = self.find_section_containing(self._entry)
-        if entry_section is None or entry_section.is_executable:
+        if not isinstance(entry_section, PESection) or entry_section.is_executable:
             return
 
         log.warning(
