@@ -502,3 +502,19 @@ def test_relocatable_object_no_symtab():
     # The rest of the object still loads: one unnamed segment holding __text and the DWARF sections.
     assert len(obj.segments) == 1
     assert {"__text", "__apple_names", "__apple_types"} <= {sec.name for sec in obj.sections}
+
+
+def test_relocatable_object_empty():
+    """
+    A relocatable object can map nothing: this one, compiled from a translation unit with no code, has one segment
+    with vmsize 0 and an empty __text. Counting that segment in max_addr used to put max_addr one below min_addr, and
+    the loader's assertion lost the whole load.
+    """
+    machofile = os.path.join(TEST_BASE, "tests", "aarch64", "relocatable_object_empty.macho")
+    ld = cle.Loader(machofile, auto_load_libs=False)
+    obj = ld.main_object
+    assert isinstance(obj, MachO)
+    assert obj.filetype == MachoFiletype.MH_OBJECT
+    assert [seg.memsize for seg in obj.segments] == [0]
+    assert not list(obj.memory.backers())
+    assert obj.min_addr == obj.max_addr == 0
