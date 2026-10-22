@@ -13,6 +13,7 @@ from cle import MachO
 from cle.backends.backend import FunctionHintSource
 from cle.backends.macho.macho_enums import LoadCommands, MachoFiletype, SectionAttributes, SectionType
 from cle.backends.macho.section import MachOSection
+from cle.backends.macho.symbol import SYMBOL_TYPE_SECT, SymbolTableSymbol
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
 
@@ -302,6 +303,65 @@ def test_instruction_sections():
     }
     assert macho.sections_map["__TEXT,__text"].attributes & SectionAttributes.S_ATTR_PURE_INSTRUCTIONS
     assert macho.sections_map["__TEXT,__cstring"].attributes == 0
+
+
+def test_symbol_is_function():
+    machofile = os.path.join(TEST_BASE, "tests", "x86_64", "fauxware.macho")
+    ld = cle.Loader(machofile, auto_load_libs=False)
+    macho = ld.main_object
+    assert isinstance(macho, cle.MachO)
+
+    symbols = {sym.name: sym for sym in macho.symbols if isinstance(sym, SymbolTableSymbol)}
+
+    # The four symbols defined in a section that holds instructions, and nothing else.
+    assert {name for name, sym in symbols.items() if sym.is_function} == {
+        "_authenticate",
+        "_accepted",
+        "_rejected",
+        "_main",
+    }
+
+    # _sneaky is an N_SECT symbol too, but its section holds data.
+    assert symbols["_sneaky"].section is not None
+    assert symbols["_sneaky"].section.full_name == "__DATA,__data"
+    assert not symbols["_sneaky"].is_function
+
+    # __mh_execute_header names the first section of __TEXT and addresses the Mach-O header in front of it.
+    header = symbols["__mh_execute_header"]
+    assert header.sym_type == SYMBOL_TYPE_SECT
+    assert header.section is not None
+    assert header.section.full_name == "__TEXT,__text"
+    assert not header.section.contains_addr(header.rebased_addr)
+    assert not header.is_function
+
+    # An undefined symbol defines nothing here, so it names no code here either.
+    assert symbols["_printf"].is_import
+    assert symbols["_printf"].section is None
+    assert not symbols["_printf"].is_function
+
+
+def test_arm_thumb_definition_carries_the_flag_in_its_address():
+    machofile = os.path.join(TEST_BASE, "tests", "armhf", "FileProtection-05.armv7.macho")
+    ld = cle.Loader(machofile, auto_load_libs=False)
+    macho = ld.main_object
+    assert isinstance(macho, cle.MachO)
+    assert macho.arch.name == "ARMEL"
+
+    symbols = {sym.name: sym for sym in macho.symbols if isinstance(sym, SymbolTableSymbol)}
+
+    # n_value is 0x83a8 and n_desc says Thumb. ELF would have stated both in st_value.
+    main = symbols["_main"]
+    assert main.is_function
+    assert main.is_thumb_definition
+    assert main.rebased_addr == 0x83A9
+
+    # The one ARM-mode definition in this image keeps the address the file gives it.
+    helpers = symbols[" stub helpers"]
+    assert helpers.is_function
+    assert not helpers.is_thumb_definition
+    assert helpers.rebased_addr == 0xA2F0
+
+    assert sum(1 for sym in symbols.values() if sym.is_function) == 74
 
 
 def test_find_symbol():
