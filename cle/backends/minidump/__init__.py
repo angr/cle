@@ -12,9 +12,13 @@ from cle.backends.region import Section, Segment
 from cle.errors import CLEError, CLEInvalidBinaryError
 
 
-class MinidumpMissingStreamError(Exception):
+class MinidumpMissingStreamError(CLEError):
+    """
+    Error raised when a minidump does not contain a stream that the backend cannot do without.
+    """
+
     def __init__(self, stream, message=None):
-        super().__init__()
+        super().__init__(f"{stream}Stream is missing. {message}" if message else f"{stream}Stream is missing")
         self.message = message
         self.stream = stream
 
@@ -33,12 +37,18 @@ class Minidump(Backend):
 
         self.wow64 = False
 
+        # A minidump holds only the streams its writer chose to emit; the header and the stream directory are the
+        # only mandatory parts of the file. A dump with no module or thread list says nothing about the process's
+        # images or its threads, which is not the same thing as being invalid.
+        modules = self._mdf.modules.modules if self._mdf.modules is not None else []
+        threads = self._mdf.threads.threads if self._mdf.threads is not None else []
+
         if self._arch is None:
             if getattr(self._mdf, "sysinfo", None) is None:
                 raise MinidumpMissingStreamError("SystemInfo", "The architecture was not specified")
             arch = self._mdf.sysinfo.ProcessorArchitecture
             if arch == SystemInfoStream.PROCESSOR_ARCHITECTURE.AMD64:
-                if any(module.name.endswith("wow64.dll") for module in self._mdf.modules.modules):
+                if any(module.name.endswith("wow64.dll") for module in modules):
                     self.wow64 = True
                     self.set_arch(archinfo.ArchX86())
                 else:
@@ -54,7 +64,8 @@ class Minidump(Backend):
         elif self._mdf.memory_segments is not None:
             segments = self._mdf.memory_segments.memory_segments
         else:
-            raise MinidumpMissingStreamError("MemoryList", "The memory segments were not defined")
+            # neither memory list stream is present, so the dump captured no memory at all
+            segments = []
 
         for segment in segments:
             data = segment.read(segment.start_virtual_address, segment.size, self._mdf.file_handle)
@@ -63,7 +74,7 @@ class Minidump(Backend):
             )
             self.memory.add_backer(segment.start_virtual_address, data)
 
-        for module in self._mdf.modules.modules:
+        for module in modules:
             for segment in segments:
                 if segment.start_virtual_address == module.baseaddress:
                     break
@@ -75,7 +86,7 @@ class Minidump(Backend):
 
         self._thread_data = {}
 
-        for thread in self._mdf.threads.threads:
+        for thread in threads:
             tid = thread.ThreadId
             teb = thread.Teb
             self._binary_stream.seek(thread.ThreadContext.Rva)  # pylint: disable=undefined-loop-variable
