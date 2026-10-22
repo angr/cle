@@ -32,6 +32,9 @@ class ClemoryBase:
     def __contains__(self, k):
         raise NotImplementedError
 
+    def __iter__(self):
+        raise NotImplementedError
+
     def load(self, addr, n):
         raise NotImplementedError
 
