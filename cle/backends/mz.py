@@ -11,6 +11,7 @@ from cle.errors import CLEInvalidBinaryError, CLEOperationError
 from cle.utils import stream_or_path
 
 from .backend import Backend, register_backend
+from .go32 import coff_image_offset
 from .region import Segment
 from .relocation import Relocation
 
@@ -357,6 +358,9 @@ class MZ(Backend):
 
     @staticmethod
     def _recognized_extension(reader: _Reader) -> bytes | None:
+        # a DJGPP go32 stub carries no extended-header pointer: its program is the COFF image after the stub
+        if coff_image_offset(reader._stream) is not None:
+            return b"COFF"
         # e_lfanew lives at 0x3c whatever the header paragraph count says, and PE images exist whose
         # stub declares a two-paragraph header and still carries a real pointer there, so this must
         # not be gated on the declared header size.
