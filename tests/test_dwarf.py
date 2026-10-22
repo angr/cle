@@ -3,6 +3,9 @@ from __future__ import annotations
 
 import os
 from unittest import TestCase, main
+from unittest.mock import Mock
+
+from elftools.construct import Container
 
 import cle
 
@@ -10,6 +13,40 @@ TESTS_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.j
 
 
 class TestDwarf(TestCase):
+    def test_line_program_file_indices(self):
+        cases = (
+            (4, (1, 2), [b"include"], "/build/main.c", "/build/include/header.h"),
+            (5, (0, 1), [b"source", b"include"], "/build/source/main.c", "/build/include/header.h"),
+            (5, (0, 1), [b"/source", b"/include"], "/source/main.c", "/include/header.h"),
+        )
+        for version, files, directories, main_path, header_path in cases:
+            with self.subTest(version=version, directories=directories):
+                cu = Mock()
+                cu.get_top_DIE.return_value.attributes = {"DW_AT_comp_dir": Container(value=b"/build")}
+                lineprog = Mock()
+                lineprog.header = Container(
+                    version=version,
+                    file_entry=[Container(name=b"main.c", dir_index=0), Container(name=b"header.h", dir_index=1)],
+                    include_directory=directories,
+                )
+                lineprog.get_entries.return_value = [Container(state=None)] + [
+                    Container(state=Container(address=addr, file=file, line=line))
+                    for addr, file, line in ((0x1010, files[0], 11), (0x1011, files[1], 23), (0x1012, files[0], 12))
+                ]
+                dwarf = Mock()
+                dwarf.iter_CUs.return_value = [cu]
+                dwarf.line_program_for_CU.return_value = lineprog
+                elf = cle.backends.ELF.__new__(cle.backends.ELF)
+                elf.linked_base = 0x1000
+                elf.mapped_base = 0x4000
+                elf.addr_to_line = {}
+                elf._load_line_info(dwarf)
+                assert elf.addr_to_line == {
+                    0x4010: {(main_path, 11)},
+                    0x4011: {(header_path, 23)},
+                    0x4012: {(main_path, 12)},
+                }
+
     def test_rust_binary(self):
         binary_path = os.path.join(
             TESTS_BASE, "x86_64", "1cbbf108f44c8f4babde546d26425ca5340dccf878d306b90eb0fbec2f83ab51"
