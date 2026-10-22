@@ -102,15 +102,33 @@ class ExternObject(Backend):
         self.segments.append(ExternSegment(self.map_size))
         super().rebase(new_base)
 
+    @staticmethod
+    def _check_simdata_type(symbol: SimData, requested_type: SymbolType) -> None:
+        if requested_type in (SymbolType.TYPE_NONE, symbol.type):
+            return
+
+        mismatch = (requested_type, symbol.type)
+        warned_mismatches = getattr(symbol, "_warned_symbol_type_mismatches", None)
+        if warned_mismatches is None:
+            warned_mismatches = set()
+            setattr(symbol, "_warned_symbol_type_mismatches", warned_mismatches)
+        if mismatch not in warned_mismatches:
+            warned_mismatches.add(mismatch)
+            log.warning(
+                "Symbol type mismatch between export request and response for %s. What's going on?", symbol.name
+            )
+
     def make_extern(
         self, name, size=0, alignment=None, thumb=False, sym_type=SymbolType.TYPE_FUNCTION, point_to=None, libname=None
     ) -> Symbol:
         try:
-            return self._symbol_cache[name]
+            symbol = self._symbol_cache[name]
+            if isinstance(symbol, SimData):
+                self._check_simdata_type(symbol, sym_type)
+            return symbol
         except KeyError:
             pass
 
-        tls = sym_type == SymbolType.TYPE_TLS_OBJECT
         SymbolCls = Symbol
         if point_to is not None:
             simdata = PointToPrecise
@@ -119,9 +137,10 @@ class ExternObject(Backend):
         if simdata is not None:
             SymbolCls = simdata
             size = simdata.static_size(self)
-            if sym_type != simdata.type:
-                log.warning("Symbol type mismatch between export request and response for %s. What's going on?", name)
+            if sym_type == SymbolType.TYPE_NONE:
+                sym_type = simdata.type
 
+        tls = sym_type == SymbolType.TYPE_TLS_OBJECT
         real_size = max(size, 1)
 
         if alignment is None:
@@ -164,6 +183,8 @@ class ExternObject(Backend):
         self._symbol_cache[name] = new_symbol
         self.symbols.add(new_symbol)
         self._init_symbol(new_symbol)
+        if isinstance(new_symbol, SimData):
+            self._check_simdata_type(new_symbol, sym_type)
 
         if make_toc:
             # write the pointer to the func into the toc
