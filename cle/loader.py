@@ -1327,8 +1327,12 @@ class Loader:
 
         with stream_or_path(spec) as stream:
             for rear in [bk for bk in ALL_BACKENDS.values() if bk is not Blob] + [Blob]:
-                if rear.is_default and rear.is_compatible(stream):
-                    return rear
+                try:
+                    if rear.is_default and rear.is_compatible(stream):
+                        return rear
+                except Exception as e:  # pylint: disable=broad-except
+                    log.warning("Skipping the %s backend for %s: %r", rear.__name__, spec, e)
+                    stream.seek(0)
 
         return None
 
