@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from cle.backends.relocation import Relocation
+from cle.errors import CLEInvalidBinaryError
 
 log = logging.getLogger(name=__name__)
 
@@ -40,14 +41,19 @@ class PEReloc(Relocation):
         self.symbol.resolvedby = newsym
 
     def relocate(self):
-        if self.symbol is None:  # relocation described in the DIRECTORY_ENTRY_BASERELOC table
-            value = self.value
-            if value is None:
-                log.debug("Unresolved relocation with no symbol.")
-                return
-            self.owner.memory.store(self.relative_addr, value)
-        else:
-            super().relocate()
+        try:
+            if self.symbol is None:  # relocation described in the DIRECTORY_ENTRY_BASERELOC table
+                value = self.value
+                if value is None:
+                    log.debug("Unresolved relocation with no symbol.")
+                    return
+                self.owner.memory.store(self.relative_addr, value)
+            else:
+                super().relocate()
+        except KeyError as exc:
+            raise CLEInvalidBinaryError(
+                f"{type(self).__name__} relocation at RVA {self.relative_addr:#x} targets unbacked memory"
+            ) from exc
 
     @property
     def value(self):
