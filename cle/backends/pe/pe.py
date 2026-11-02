@@ -176,6 +176,7 @@ class PE(Backend):
         # parse sections
         self._register_sections()
         self._mark_sections_executable_without_dep()
+        self._clip_meta_regions()
 
         self.linking = "dynamic" if self.deps else "static"
         self.jmprel = self._get_jmprel()
@@ -499,6 +500,61 @@ class PE(Backend):
         self._meta_load_config()
         self._meta_bound_imports()
         self._meta_com_descriptor()
+
+    def _clip_meta_regions(self):
+        """
+        Hold every metadata region to the image the section table describes.
+
+        A region's address and extent are whatever a data directory says, and nothing in the format keeps those
+        honest. An image whose load-config is not a load-config -- a packer wrote over it, the file ends inside
+        it -- still gets pointer arrays from ``_meta_load_config``, built from whatever bytes are there and
+        pointing anywhere.
+
+        A region that starts outside the object is dropped. One that starts inside and runs past the end is
+        shortened rather than dropped: only its tail is missing, and dropping it would lose the data the image
+        does hold, as with a resource directory that declares more bytes than the image has left.
+
+        Called after ``_register_sections``: the image ends at ``max_addr``, which is read off the sections, and
+        reading it before they are registered would also cache the wrong value for the life of the object.
+        """
+        kept = []
+        for region in self.meta_regions:
+            if self._clip_meta_region(region) is None:
+                continue
+            if isinstance(region, DataDirectory) and region.sub_regions:
+                region.sub_regions = [sub for sub in region.sub_regions if self._clip_meta_region(sub) is not None]
+            kept.append(region)
+        self.meta_regions = kept
+
+    def _clip_meta_region(self, region: MemRegion) -> MemRegion | None:
+        """Return ``region``, shortened in place if it runs past the image, or None if it starts outside it."""
+        if not self.min_addr <= region.vaddr <= self.max_addr:
+            log.warning(
+                "%s: the %s metadata region at %#x is outside the image %#x-%#x; ignoring it",
+                self.binary_basename,
+                region.sort.name,
+                region.vaddr,
+                self.min_addr,
+                self.max_addr,
+            )
+            return None
+        room = self.max_addr - region.vaddr + 1
+        if region.size > room:
+            log.debug(
+                "%s: the %s metadata region at %#x declares %d bytes with %d left in the image; "
+                "holding it to the image",
+                self.binary_basename,
+                region.sort.name,
+                region.vaddr,
+                region.size,
+                room,
+            )
+            if isinstance(region, (PointerArray, StructArray)) and region.entry_size:
+                region.count = room // region.entry_size
+                region.size = region.count * region.entry_size
+            else:
+                region.size = room
+        return region
 
     def _meta_pe_context(self) -> tuple[pefile.PE, int, bool, int]:
         """Return common values used by meta-region helpers: (pe, base, is_64, ptr_size)."""
