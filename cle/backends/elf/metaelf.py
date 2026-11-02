@@ -440,7 +440,9 @@ class MetaELF(Backend):
         Get initial rtoc value for PowerPC64 architecture.
         """
         if self.is_ppc64_abiv1:
-            return self._ppc64_abiv1_initial_rtoc
+            if self._ppc64_abiv1_initial_rtoc is None:
+                return None
+            return AT.from_lva(self._ppc64_abiv1_initial_rtoc, self).to_mva()
         elif self.is_ppc64_abiv2:
             return self._ppc64_abiv2_get_initial_rtoc()
         else:
