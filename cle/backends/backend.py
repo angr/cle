@@ -122,8 +122,8 @@ class Backend:
     :ivar str os:           The operating system this binary is meant to run under
     :ivar int mapped_base:  The base address of this object in virtual memory
     :ivar int mapped_address_bits: Number of bits in the flat address space used to map this object. This normally
-                                   matches ``arch.bits``, but a segmented architecture may use a wider address space
-                                   for analysis while keeping its native register width.
+                                   matches ``arch.bits``, but segmented architectures and outer containers may use a
+                                   wider address space for analysis while keeping the child's native register width.
     :ivar deps:             A list of names of shared libraries this binary depends on
     :ivar linking:          'dynamic' or 'static'
     :ivar linked_base:      The base address this object requests to be loaded at
@@ -325,7 +325,9 @@ class Backend:
     @property
     def mapped_address_bits(self) -> int:
         """Width of the flat address space CLE uses for this object's mappings."""
-        return self.arch.bits
+        # An outer object is a container, not one image in its child's address space. Its children share CLE's flat
+        # analysis namespace and may collectively need more room than a narrow child architecture can address.
+        return max(self.arch.memory_address_bits, 32) if self.is_outer else self.arch.memory_address_bits
 
     @property
     def loader(self) -> Loader:
