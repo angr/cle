@@ -148,9 +148,26 @@ class SRec(Backend):
     @staticmethod
     def is_compatible(stream):
         stream.seek(0)
-        s = stream.read(0x10)
-        stream.seek(0)
-        return s.startswith(b"S")
+        try:
+            lines = stream.read(0x204).splitlines()
+        finally:
+            stream.seek(0)
+        if not lines:
+            return False
+
+        record = lines[0]
+        if len(record) < 4 or not record.startswith(b"S"):
+            return False
+        addr_size = SREC_ADDR_SIZE.get(chr(record[1]))
+        if addr_size is None:
+            return False
+
+        try:
+            count = int(record[2:4], 16)
+            body = binascii.unhexlify(record[2:])
+        except (ValueError, binascii.Error):
+            return False
+        return count >= addr_size // 8 + 1 and len(record) == 4 + count * 2 and sum(body) % 256 == 0xFF
 
 
 register_backend("srec", SRec)
