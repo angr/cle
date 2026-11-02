@@ -451,7 +451,7 @@ class Clemory(ClemoryBase):
 
         :param bytes data:          The bytestring to search for
         :param int search_min:      Optional: The first address to include as valid
-        :param int search_max:      Optional: The last address to include as valid
+        :param int search_max:      Optional: The address to stop searching at, exclusive
         :return Iterator[int]:      Iterates over addresses at which the bytestring occurs
         """
         if search_min is None:
@@ -467,13 +467,14 @@ class Clemory(ClemoryBase):
             elif isinstance(backer, list):
                 raise TypeError("find is not supported for list-backed clemories")
             else:
-                if search_max < start or search_min > start + len(data):
+                if search_max < start or search_min > start + len(backer):
                     continue
+                limit = min(len(backer), search_max - start)
                 ptr = search_min - start - 1
                 while True:
                     ptr += 1
                     ptr = backer.find(data, max(0, ptr))
-                    if ptr == -1 or ptr + len(data) > search_max - start - 1:
+                    if ptr == -1 or ptr >= limit or ptr + len(data) > search_max - start:
                         break
                     yield ptr + start
 
