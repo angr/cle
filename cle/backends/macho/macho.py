@@ -182,7 +182,8 @@ class MachO(Backend):
             # Determine the base address the binary was linked against
             # and set the values for the Backend and Loader accordingly
             if self.pic and self.filetype == MachoFiletype.MH_EXECUTE:
-                assert self.is_main_bin, "An file of type MH_EXECUTE should be the main bin, this should not happen"
+                # is_main_bin can be False here: a container backend (CaRT, universal binary) owns
+                # the child until the loader promotes it through force_main_object
                 # a Position Independent Main binary would later be loaded at 0x400000, which isn't legal for Mach-O
                 # Also, its segment vaddrs are relative to 0x100000000, so we set this as the linked base
                 # and the MachO Backend code uses the AdressTranslator to translate linked addresses to relative ones
