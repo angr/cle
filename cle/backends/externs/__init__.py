@@ -56,6 +56,14 @@ class TOCRelocation(Relocation):
 
 
 class ExternObject(Backend):
+    @staticmethod
+    def default_map_size(arch):
+        if arch.bits < 32:
+            return 0x200
+        if arch.bits == 32:
+            return 0x8000
+        return 0x80000
+
     def __init__(self, loader, map_size=0, tls_size=0):
         super().__init__("cle##externs", None, loader=loader)
         self._next_object = None
