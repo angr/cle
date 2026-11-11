@@ -68,7 +68,10 @@ class PDBInfo:
             guid = f"{data1:08X}{data2:04X}{data3:04X}{data4:02X}{data5:02X}{data6:012X}"
 
             age = entry.Age
-            pdb_name = entry.PdbFileName.rstrip(b"\x00").decode("utf-8", errors="replace")
+            pdb_name = entry.PdbFileName
+            if b"\x00" in pdb_name:
+                pdb_name = pdb_name[: pdb_name.index(b"\x00")]
+            pdb_name = pdb_name.decode("utf-8", errors="replace")
             pdb_name = os.path.basename(pdb_name.replace("\\", "/"))
 
             # Symbol server format: GUID + age (lowercase hex, no padding)
@@ -86,7 +89,10 @@ class PDBInfo:
             # NB10 uses TimeDateStamp instead of GUID
             timestamp = entry.TimeDateStamp
             age = entry.Age
-            pdb_name = entry.PdbFileName.rstrip(b"\x00").decode("utf-8", errors="replace")
+            pdb_name = entry.PdbFileName
+            if b"\x00" in pdb_name:
+                pdb_name = pdb_name[: pdb_name.index(b"\x00")]
+            pdb_name = pdb_name.decode("utf-8", errors="replace")
             pdb_name = os.path.basename(pdb_name.replace("\\", "/"))
 
             # For NB10, signature_id uses timestamp instead of GUID
