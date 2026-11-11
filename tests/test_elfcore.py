@@ -189,6 +189,8 @@ def test_prstatus_abi_mismatch():
     assert core.threads == []
     assert core.thread_registers() == {}
     assert ld.memory.load(0x400400, 8).hex() == "4883ec084883c408"
+    # x32's NT_PRPSINFO has the 16-bit uid and gid of i386, which shift every field after them
+    assert core.pr_fname == "a.out"
 
     # the auxv note is an ELFCLASS32 one whatever e_machine says, so its entries are two four-byte
     # words; read at eight the note runs out mid-entry and AT_HWCAP's CPUID word becomes nonsense
