@@ -165,7 +165,9 @@ class PE(Backend):
         self._handle_delay_imports()
         coff_symbol_types = self._load_symbols_from_coff_header()
         self._handle_exports(coff_symbol_types)
-        self._handle_seh()
+        runtime_functions = self._parse_runtime_functions()
+        self._runtime_function_count = len(runtime_functions)
+        self._handle_seh(runtime_functions)
         self._parse_meta_regions()
         if self.loader._perform_relocations:
             # parse base relocs
@@ -345,14 +347,14 @@ class PE(Backend):
     def _parse_pe_non_reloc_data_directories(self):
         """
         Parse data directories that is not DIRECTORY_ENTRY_BASERELOC since parsing relocations can take a long time in
-        many PE binaries.
+        many PE binaries. The exception directory is read by _parse_runtime_functions instead: pefile decodes every
+        UNWIND_INFO, which takes seconds on large binaries.
         """
 
         directory_names = (
             "IMAGE_DIRECTORY_ENTRY_EXPORT",
             "IMAGE_DIRECTORY_ENTRY_IMPORT",
             "IMAGE_DIRECTORY_ENTRY_RESOURCE",
-            "IMAGE_DIRECTORY_ENTRY_EXCEPTION",
             "IMAGE_DIRECTORY_ENTRY_SECURITY",
             "IMAGE_DIRECTORY_ENTRY_DEBUG",
             "IMAGE_DIRECTORY_ENTRY_COPYRIGHT",
@@ -470,16 +472,47 @@ class PE(Backend):
                     if forwardlib not in self.deps:
                         self.deps.append(forwardlib)
 
-    def _handle_seh(self):
-        if hasattr(self._pe, "DIRECTORY_ENTRY_EXCEPTION"):
-            for entry in self._pe.DIRECTORY_ENTRY_EXCEPTION:
-                self.function_hints.append(
-                    FunctionHint(
-                        entry.struct.BeginAddress + self.linked_base,
-                        entry.struct.EndAddress - entry.struct.BeginAddress,
-                        FunctionHintSource.EH_FRAME,
-                    )
-                )
+    def _parse_runtime_functions(self) -> list[tuple[int, int]]:
+        """
+        Return (BeginAddress, EndAddress) RVAs from the x64 RUNTIME_FUNCTION table.
+
+        Mirrors pefile's parse_exceptions_directory without decoding unwind codes: AMD64 only, stops at the first entry
+        whose UNWIND_INFO has an unsupported version, and yields nothing if an UNWIND_INFO header cannot be read.
+        """
+        assert self._pe.FILE_HEADER is not None
+        if self._pe.FILE_HEADER.Machine != pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_AMD64"]:
+            return []
+        exc_dd = self._dd("IMAGE_DIRECTORY_ENTRY_EXCEPTION")
+        if exc_dd is None or not exc_dd.VirtualAddress:
+            return []
+        try:
+            table = self._pe.get_data(exc_dd.VirtualAddress, exc_dd.Size)
+        except pefile.PEFormatError:
+            return []
+
+        valid_unwind: dict[int, bool] = {}
+        result = []
+        for begin, end, unwind in struct.iter_unpack("<III", table[: len(table) - len(table) % 12]):
+            if unwind & 1 == 0:  # otherwise a chained RUNTIME_FUNCTION, which pefile does not follow
+                ok = valid_unwind.get(unwind)
+                if ok is None:
+                    try:
+                        header = self._pe.get_data(unwind, 4)
+                    except pefile.PEFormatError:
+                        return []
+                    if len(header) < 4:
+                        return []
+                    ok = valid_unwind[unwind] = header[0] & 7 in (1, 2)
+                if not ok:
+                    break
+            result.append((begin, end))
+        return result
+
+    def _handle_seh(self, runtime_functions: list[tuple[int, int]]):
+        base = self.linked_base
+        self.function_hints.extend(
+            FunctionHint(base + begin, end - begin, FunctionHintSource.EH_FRAME) for begin, end in runtime_functions
+        )
 
     def _parse_meta_regions(self):
         """
@@ -789,8 +822,8 @@ class PE(Backend):
 
     def _meta_exceptions(self):
         """Exception Directory (Data Directory 3) - RUNTIME_FUNCTION table."""
-        pe, base, _is_64, _ptr_size = self._meta_pe_context()
-        if not hasattr(pe, "DIRECTORY_ENTRY_EXCEPTION"):
+        _pe, base, _is_64, _ptr_size = self._meta_pe_context()
+        if not self._runtime_function_count:
             return
         exc_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_EXCEPTION")
         if exc_dd is None:
