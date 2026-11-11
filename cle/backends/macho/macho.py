@@ -297,6 +297,14 @@ class MachO(Backend):
     def min_addr(self):
         return self.mapped_base
 
+    @property
+    def max_addr(self):
+        # A segment with vmsize 0 maps nothing (see _load_segment), so it does not extend the image.
+        if self._max_addr is None:
+            mapped = [seg.max_addr for seg in self.segments if seg.memsize > 0]
+            self._max_addr = max(mapped, default=self.mapped_base) - self.mapped_base
+        return self._max_addr + self.mapped_base
+
     @classmethod
     def check_compatibility(cls, spec, obj):
         # TODO: Check properly, but for now libs are just used via force load libs anyway
