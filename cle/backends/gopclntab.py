@@ -105,6 +105,8 @@ _FRAME_SENTINEL = 0x1234567
 _MAX_FUNC_ID = 0x40
 # A table found without its magic must be at least this big; the Go runtime alone has ~1000 functions.
 _MIN_STRICT_NFUNC = 100
+# we assume go obfuscators do not erase runtime.main from the function name table
+_GO_RUNTIME_MARKER = b"runtime.main"
 
 
 class GoFunction(NamedTuple):
@@ -963,6 +965,8 @@ def _find_pclntab_data_strict(backend: Backend, endness: str, ptr_size: int):
     counts and offsets are plausible.
     """
     runs = _section_runs(backend, _embedding_sections(backend) + _other_sections(backend))
+    if not any(_GO_RUNTIME_MARKER in blob for _, blob in runs):
+        return
     yield from _scan(runs, endness, _magic_bytes(endness), 0, True)
     # minLC and ptrSize alone: a needle starting with the zero pad crawls through zero-filled memory
     yield from _scan(runs, endness, [bytes((min_lc, ptr_size)) for min_lc in _VALID_MIN_LC], 6, True)
