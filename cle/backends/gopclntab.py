@@ -701,7 +701,7 @@ def _read_varint(data, pos: int) -> tuple[int, int]:
             raise ValueError("varint longer than 32 bits")
 
 
-def _parse_headers(data: bytes, endness: str) -> Iterator[_Header]:
+def _parse_headers(data: bytes | memoryview, endness: str) -> Iterator[_Header]:
     """
     Yield every structurally valid reading of the header. A known magic fixes the header shape; an
     unknown one tries the 1.18+ header (8 words, with textStart), then the 1.16 one (7 words), then
@@ -719,7 +719,7 @@ def _parse_headers(data: bytes, endness: str) -> Iterator[_Header]:
 
 
 def _parse_header_words(
-    data: bytes, endness: str, magic: int, min_lc: int, ptr_size: int, layout: _Layout
+    data: bytes | memoryview, endness: str, magic: int, min_lc: int, ptr_size: int, layout: _Layout
 ) -> _Header | None:
     nwords = layout.header_words
     header_size = 8 + nwords * ptr_size
@@ -926,9 +926,10 @@ def _scan(blobs, endness: str, needles, back: int, strict: bool):
             pos = data.find(needle, back)
             while pos != -1:
                 start = pos - back
+                # check the header on a zero-copy view; copying the tail per hit is quadratic
                 if not strict or (
                     (vaddr + start) % 4 == 0
-                    and any(h.nfunc >= _MIN_STRICT_NFUNC for h in _parse_headers(bytes(view[start:]), endness))
+                    and any(h.nfunc >= _MIN_STRICT_NFUNC for h in _parse_headers(view[start:], endness))
                 ):
                     yield vaddr + start, bytes(view[start:])
                 pos = data.find(needle, pos + 1)
