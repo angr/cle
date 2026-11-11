@@ -37,6 +37,11 @@ class IMAGE_REL_BASED_ABSOLUTE(PEReloc):
 
 
 class IMAGE_REL_BASED_HIGHADJ(PEReloc):
+    """
+    Adjusts the high half of a 32-bit value whose low half sits in the following relocation slot; ``next_rva`` holds
+    that low half.
+    """
+
     __slots__ = ("next_rva",)
 
     def __init__(self, owner, addr, next_rva):
@@ -45,17 +50,11 @@ class IMAGE_REL_BASED_HIGHADJ(PEReloc):
 
     @property
     def value(self):
-        """
-        In all the other cases, we can ignore the relocation difference part of the
-        calculation because we simply use to_mva() to get our rebased address. In this
-        case, however, we have to adjust the un-rebased address first.
-        """
-        org_bytes = self.owner.memory.load(self.relative_addr, 2)
-        org_value = struct.unpack("<H", org_bytes)[0]
-        adjusted_value = (org_value << 16) + self.next_rva
-        adjusted_value = (AT.from_lva(adjusted_value, self.owner).to_mva() & 0xFFFF0000) >> 16
-        adjusted_bytes = struct.pack("<I", adjusted_value)
-        return adjusted_bytes
+        org_high = struct.unpack("<H", self.owner.memory.load(self.relative_addr, 2))[0]
+        low = self.next_rva - 0x10000 if self.next_rva & 0x8000 else self.next_rva
+        rebased = AT.from_lva((org_high << 16) + low, self.owner).to_mva()
+        # round to the nearest high half, as the Windows loader does
+        return struct.pack("<H", ((rebased + 0x8000) >> 16) & 0xFFFF)
 
 
 class IMAGE_REL_BASED_HIGHLOW(PEReloc):

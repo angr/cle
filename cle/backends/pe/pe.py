@@ -1060,9 +1060,12 @@ class PE(Backend):
                 word = words[entry_idx]
                 reloc_type = word >> 12
                 addr = block_va + (word & 0xFFF)
-                if reloc_type == highadj:  # special case, occupies 2 entries
+                if reloc_type == highadj:  # the next slot holds the low 16 bits of the value
+                    if entry_idx + 1 == len(words):
+                        log.warning("PE contains corrupt base relocation table")
+                        break
                     entry_idx += 1
-                    reloc = self._make_reloc(addr=addr, reloc_type=reloc_type, next_rva=addr)
+                    reloc = self._make_reloc(addr=addr, reloc_type=reloc_type, next_rva=words[entry_idx])
                 else:
                     if reloc_type not in reloc_classes:
                         reloc_classes[reloc_type] = get_relocation(self.arch.name, reloc_type)

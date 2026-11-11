@@ -11,6 +11,7 @@ import unittest
 import pefile
 
 import cle
+from cle.backends.pe.relocation.generic import IMAGE_REL_BASED_HIGHADJ
 
 BINARY = os.path.join(
     os.path.dirname(os.path.realpath(__file__)), "..", "..", "binaries", "tests", "x86_64", "windows", "fauxware.exe"
@@ -69,6 +70,28 @@ class TestPeBaseRelocations(unittest.TestCase):
         want = _pefile_relocs(bytes(data))
         assert 0 < len(want) < len(_pefile_relocs(self.data))
         assert _cle_relocs(bytes(data)) == want
+
+    def test_highadj_takes_the_low_half_from_the_next_slot(self):
+        data = bytearray(self.data)
+        pe, offsets = _block_offsets(self.data)
+        block_va = struct.unpack_from("<I", data, offsets[0])[0]
+        first = struct.unpack_from("<H", data, offsets[0] + 8)[0]
+        offset, low = first & 0xFFF, 0x9234  # a negative low half
+        struct.pack_into("<HH", data, offsets[0] + 8, (4 << 12) | offset, low)
+        field = pe.get_offset_from_rva(block_va + offset)
+        high, after = struct.unpack_from("<HH", data, field)
+
+        delta = 0x20000
+        base = pe.OPTIONAL_HEADER.ImageBase + delta
+        ld = cle.Loader(io.BytesIO(bytes(data)), auto_load_libs=False, main_opts={"base_addr": base})
+        obj = ld.main_object
+        (reloc,) = (r for r in obj.relocs if isinstance(r, IMAGE_REL_BASED_HIGHADJ))
+        assert (reloc.relative_addr, reloc.next_rva) == (block_va + offset, low)
+        # the low-half slot is not a relocation of its own
+        assert all(r.relative_addr != block_va + (low & 0xFFF) for r in obj.relocs if r.symbol is None)
+
+        expected = (((high << 16) + low - 0x10000 + delta + 0x8000) >> 16) & 0xFFFF
+        assert struct.unpack("<HH", ld.memory.load(base + block_va + offset, 4)) == (expected, after)
 
 
 if __name__ == "__main__":
