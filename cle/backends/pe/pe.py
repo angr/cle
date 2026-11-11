@@ -472,15 +472,29 @@ class PE(Backend):
                     if forwardlib not in self.deps:
                         self.deps.append(forwardlib)
 
+    def _runtime_function_entry_size(self) -> int | None:
+        """Size of an exception directory entry for this machine, or None if its table is not read."""
+        assert self._pe.FILE_HEADER is not None
+        machine = self._pe.FILE_HEADER.Machine
+        if machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_AMD64"]:
+            return 12
+        if machine in (
+            pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_ARM64"],
+            pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_ARMNT"],
+        ):
+            return 8
+        return None
+
     def _parse_runtime_functions(self) -> list[tuple[int, int]]:
         """
-        Return (BeginAddress, EndAddress) RVAs from the x64 RUNTIME_FUNCTION table.
+        Return (BeginAddress, EndAddress) RVAs from the exception directory of an AMD64, ARM64, or ARMNT binary.
 
-        Mirrors pefile's parse_exceptions_directory without decoding unwind codes: AMD64 only, stops at the first entry
-        whose UNWIND_INFO has an unsupported version, and yields nothing if an UNWIND_INFO header cannot be read.
+        Every entry is read; nothing is returned if an unwind info header cannot be read, and reading stops at the first
+        entry with an unsupported unwind info version or reserved flag. For AMD64 this mirrors pefile's
+        parse_exceptions_directory without decoding unwind codes; pefile does not parse ARM tables.
         """
-        assert self._pe.FILE_HEADER is not None
-        if self._pe.FILE_HEADER.Machine != pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_AMD64"]:
+        entry_size = self._runtime_function_entry_size()
+        if entry_size is None:
             return []
         exc_dd = self._dd("IMAGE_DIRECTORY_ENTRY_EXCEPTION")
         if exc_dd is None or not exc_dd.VirtualAddress:
@@ -489,23 +503,65 @@ class PE(Backend):
             table = self._pe.get_data(exc_dd.VirtualAddress, exc_dd.Size)
         except pefile.PEFormatError:
             return []
+        table = table[: len(table) - len(table) % entry_size]
+        if entry_size == 12:
+            return self._parse_amd64_runtime_functions(table)
+        assert self._pe.FILE_HEADER is not None
+        # function lengths count 4-byte instructions on ARM64 and 2-byte units on ARMNT
+        unit = 4 if self._pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_ARM64"] else 2
+        return self._parse_arm_runtime_functions(table, unit)
 
+    def _read_unwind_header(self, rva: int) -> int | None:
+        """The first 32-bit word of an unwind info record, or None if it cannot be read."""
+        try:
+            header = self._pe.get_data(rva, 4)
+        except pefile.PEFormatError:
+            return None
+        if len(header) < 4:
+            return None
+        return struct.unpack("<I", header)[0]
+
+    def _parse_amd64_runtime_functions(self, table: bytes) -> list[tuple[int, int]]:
         valid_unwind: dict[int, bool] = {}
         result = []
-        for begin, end, unwind in struct.iter_unpack("<III", table[: len(table) - len(table) % 12]):
+        for begin, end, unwind in struct.iter_unpack("<III", table):
             if unwind & 1 == 0:  # otherwise a chained RUNTIME_FUNCTION, which pefile does not follow
                 ok = valid_unwind.get(unwind)
                 if ok is None:
-                    try:
-                        header = self._pe.get_data(unwind, 4)
-                    except pefile.PEFormatError:
+                    header = self._read_unwind_header(unwind)
+                    if header is None:
                         return []
-                    if len(header) < 4:
-                        return []
-                    ok = valid_unwind[unwind] = header[0] & 7 in (1, 2)
+                    ok = valid_unwind[unwind] = header & 7 in (1, 2)
                 if not ok:
                     break
             result.append((begin, end))
+        return result
+
+    def _parse_arm_runtime_functions(self, table: bytes, unit: int) -> list[tuple[int, int]]:
+        """
+        ARM64 and ARMNT entries: BeginAddress (with the Thumb bit on ARMNT), then a word whose low two bits are 0 for an
+        .xdata RVA, 1 or 2 for packed unwind data (2: a fragment without prolog), or 3 (reserved).
+        """
+        xdata_lengths: dict[int, int | None] = {}
+        result = []
+        for begin, unwind in struct.iter_unpack("<II", table):
+            flag = unwind & 3
+            if flag == 3:
+                break
+            if flag:
+                length = ((unwind >> 2) & 0x7FF) * unit
+            else:
+                if unwind not in xdata_lengths:
+                    header = self._read_unwind_header(unwind)
+                    if header is None:
+                        return []
+                    # FunctionLength in bits 0-17, version in bits 18-19
+                    xdata_lengths[unwind] = (header & 0x3FFFF) * unit if (header >> 18) & 3 == 0 else None
+                xdata_length = xdata_lengths[unwind]
+                if xdata_length is None:
+                    break
+                length = xdata_length
+            result.append((begin, begin + length))
         return result
 
     def _handle_seh(self, runtime_functions: list[tuple[int, int]]):
@@ -828,7 +884,8 @@ class PE(Backend):
         exc_dd = self._meta_dd("IMAGE_DIRECTORY_ENTRY_EXCEPTION")
         if exc_dd is None:
             return
-        runtime_function_size = 12  # sizeof(RUNTIME_FUNCTION)
+        runtime_function_size = self._runtime_function_entry_size()
+        assert runtime_function_size is not None
         count = exc_dd.Size // runtime_function_size
         sub_regions: list[MemRegion] = []
         if count:
