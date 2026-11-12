@@ -41,6 +41,9 @@ class PEReloc(Relocation):
 
     def relocate(self):
         if self.symbol is None:  # relocation described in the DIRECTORY_ENTRY_BASERELOC table
+            if self.owner.mapped_base == self.owner.linked_base:
+                # not rebased: the fixup would rewrite the bytes already there
+                return
             value = self.value
             if value is None:
                 log.debug("Unresolved relocation with no symbol.")
