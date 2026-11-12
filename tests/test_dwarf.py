@@ -2,10 +2,8 @@
 from __future__ import annotations
 
 import os
+from pathlib import PurePosixPath
 from unittest import TestCase, main
-from unittest.mock import Mock
-
-from elftools.construct import Container
 
 import cle
 
@@ -14,38 +12,35 @@ TESTS_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.j
 
 class TestDwarf(TestCase):
     def test_line_program_file_indices(self):
-        cases = (
-            (4, (1, 2), [b"include"], "/build/main.c", "/build/include/header.h"),
-            (5, (0, 1), [b"source", b"include"], "/build/source/main.c", "/build/include/header.h"),
-            (5, (0, 1), [b"/source", b"/include"], "/source/main.c", "/include/header.h"),
+        load_options = (
+            (0x400000, {}),
+            (0x700000, {"base_addr": 0x700000, "force_rebase": True}),
         )
-        for version, files, directories, main_path, header_path in cases:
-            with self.subTest(version=version, directories=directories):
-                cu = Mock()
-                cu.get_top_DIE.return_value.attributes = {"DW_AT_comp_dir": Container(value=b"/build")}
-                lineprog = Mock()
-                lineprog.header = Container(
-                    version=version,
-                    file_entry=[Container(name=b"main.c", dir_index=0), Container(name=b"header.h", dir_index=1)],
-                    include_directory=directories,
-                )
-                lineprog.get_entries.return_value = [Container(state=None)] + [
-                    Container(state=Container(address=addr, file=file, line=line))
-                    for addr, file, line in ((0x1010, files[0], 11), (0x1011, files[1], 23), (0x1012, files[0], 12))
-                ]
-                dwarf = Mock()
-                dwarf.iter_CUs.return_value = [cu]
-                dwarf.line_program_for_CU.return_value = lineprog
-                elf = cle.backends.ELF.__new__(cle.backends.ELF)
-                elf.linked_base = 0x1000
-                elf.mapped_base = 0x4000
-                elf.addr_to_line = {}
-                elf._load_line_info(dwarf)
-                assert elf.addr_to_line == {
-                    0x4010: {(main_path, 11)},
-                    0x4011: {(header_path, 23)},
-                    0x4012: {(main_path, 12)},
-                }
+        for variant in ("v4", "v5_relative", "v5_absolute"):
+            binary_path = os.path.join(TESTS_BASE, "x86_64", f"dwarf_line_filenames_{variant}")
+            for base_addr, main_opts in load_options:
+                with self.subTest(variant=variant, base_addr=base_addr):
+                    ld = cle.Loader(
+                        binary_path,
+                        auto_load_libs=False,
+                        load_debug_info=True,
+                        main_opts=main_opts,
+                    )
+                    elf = ld.main_object
+                    assert isinstance(elf, cle.backends.ELF)
+                    assert elf.mapped_base == base_addr
+                    assert elf.compilation_units is not None and len(elf.compilation_units) == 1
+                    comp_dir = PurePosixPath(elf.compilation_units[0].comp_dir)
+                    assert comp_dir.is_absolute()
+
+                    main_symbol = elf.get_symbol("main")
+                    increment_symbol = elf.get_symbol("increment")
+                    assert main_symbol is not None
+                    assert increment_symbol is not None
+                    main_path = comp_dir / "main.c"
+                    header_path = comp_dir / "include" / "header.h"
+                    assert elf.addr_to_line[main_symbol.rebased_addr] == {(str(main_path), 4)}
+                    assert elf.addr_to_line[increment_symbol.rebased_addr] == {(str(header_path), 2)}
 
     def test_rust_binary(self):
         binary_path = os.path.join(
