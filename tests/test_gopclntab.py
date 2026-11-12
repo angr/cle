@@ -222,6 +222,16 @@ class TestGoPclntab(unittest.TestCase):
             assert (tab.layout_version, tab.functions) == (ref.gopclntab.layout_version, ref.gopclntab.functions)
             assert _go_symbols(obj) == _go_symbols(ref)
 
+    def test_strict_scan_needs_runtime_names(self):
+        # the header-shape scan only runs on objects with Go runtime function names
+        with open(GO_PE_BINARY, "rb") as fp:
+            data = fp.read()
+        header = struct.pack("<I", 0xFFFFFFF1) + b"\0\0\x01"
+        data = data.replace(header, b"\x8b\x98\x0a\x6c\0\0\x01")
+        assert cle.Loader(io.BytesIO(data), auto_load_libs=False).main_object.gopclntab is not None
+        data = data.replace(b"runtime.main", b"runtime.mai_")
+        assert cle.Loader(io.BytesIO(data), auto_load_libs=False).main_object.gopclntab is None
+
     def test_pe_binary_renamed_sections(self):
         # Sections renamed to look UPX-packed while still holding the program, merged so that the
         # table straddles a boundary: .text -> UPX0, .rdata split inside the table into UPX1 + UPX2.
