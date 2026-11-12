@@ -27,6 +27,7 @@ from cle.utils import extract_null_terminated_bytestr
 from .regions import PESection
 from .relocation import get_relocation
 from .relocation.generic import IMAGE_REL_BASED_ABSOLUTE, IMAGE_REL_BASED_HIGHADJ, DllImport
+from .relocation.pereloc import PEReloc
 from .symbol import WinSymbol
 from .symbolserver import PDBInfo, SymbolResolver
 
@@ -170,8 +171,6 @@ class PE(Backend):
         self._handle_seh(runtime_functions)
         self._parse_meta_regions()
         if self.loader._perform_relocations:
-            # parse base relocs
-            self._pe.parse_data_directories(directories=[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_BASERELOC"]])
             self.__register_relocs()
         # parse TLS
         self._register_tls()
@@ -1094,27 +1093,76 @@ class PE(Backend):
             )
         )
 
-    def __register_relocs(self):
-        if not hasattr(self._pe, "DIRECTORY_ENTRY_BASERELOC"):
-            log.debug("%s has no relocations", self.binary)
-            return []
+    def _parse_base_relocation_blocks(self) -> list[tuple[int, list[int]]]:
+        """
+        Return (VirtualAddress, entry words) for each IMAGE_BASE_RELOCATION block.
 
-        for base_reloc in self._pe.DIRECTORY_ENTRY_BASERELOC:
+        Mirrors pefile's parse_relocations_directory, which builds an object per entry and takes over a second on
+        large binaries: stop at an unreadable block or one whose VirtualAddress or SizeOfBlock exceeds SizeOfImage,
+        stop after a block with SizeOfBlock 0, and cut a block at its first repeated (offset, type).
+        """
+        reloc_dd = self._dd("IMAGE_DIRECTORY_ENTRY_BASERELOC")
+        if reloc_dd is None or not reloc_dd.VirtualAddress:
+            return []
+        assert self._pe.OPTIONAL_HEADER is not None
+        size_of_image = self._pe.OPTIONAL_HEADER.SizeOfImage
+
+        blocks = []
+        rva = reloc_dd.VirtualAddress
+        end = rva + reloc_dd.Size
+        while rva < end:
+            try:
+                header = self._pe.get_data(rva, 8)
+            except pefile.PEFormatError:
+                break
+            if len(header) < 8:
+                break
+            block_va, block_size = struct.unpack("<II", header)
+            if block_va > size_of_image or block_size > size_of_image:
+                break
+
+            words = []
+            if block_size > 8:
+                try:
+                    data = self._pe.get_data(rva + 8, block_size - 8)
+                except pefile.PEFormatError:
+                    data = b""
+                seen = set()
+                for (word,) in struct.iter_unpack("<H", data[: len(data) & ~1]):
+                    if word in seen:  # the word is (type << 12) | offset
+                        break
+                    seen.add(word)
+                    words.append(word)
+            blocks.append((block_va, words))
+
+            if not block_size:
+                break
+            rva += block_size
+        return blocks
+
+    def __register_relocs(self):
+        highadj = pefile.RELOCATION_TYPE["IMAGE_REL_BASED_HIGHADJ"]
+        # resolved once per type instead of per entry: there can be hundreds of thousands of entries
+        reloc_classes: dict[int, type[PEReloc] | None] = {0: IMAGE_REL_BASED_ABSOLUTE}
+        for block_va, words in self._parse_base_relocation_blocks():
             entry_idx = 0
-            while entry_idx < len(base_reloc.entries):
-                reloc_data = base_reloc.entries[entry_idx]
-                if (
-                    reloc_data.type == pefile.RELOCATION_TYPE["IMAGE_REL_BASED_HIGHADJ"]
-                ):  # special case, occupies 2 entries
-                    if entry_idx == len(base_reloc.entries):
+            while entry_idx < len(words):
+                word = words[entry_idx]
+                reloc_type = word >> 12
+                addr = block_va + (word & 0xFFF)
+                if reloc_type == highadj:  # the next slot holds the low 16 bits of the value
+                    if entry_idx + 1 == len(words):
                         log.warning("PE contains corrupt base relocation table")
                         break
-
-                    next_entry = base_reloc.entries[entry_idx]
                     entry_idx += 1
-                    reloc = self._make_reloc(addr=reloc_data.rva, reloc_type=reloc_data.type, next_rva=next_entry.rva)
+                    reloc = self._make_reloc(addr=addr, reloc_type=reloc_type, next_rva=words[entry_idx])
                 else:
-                    reloc = self._make_reloc(addr=reloc_data.rva, reloc_type=reloc_data.type)
+                    if reloc_type not in reloc_classes:
+                        reloc_classes[reloc_type] = get_relocation(self.arch.name, reloc_type)
+                    reloc_cls = reloc_classes[reloc_type]
+                    if reloc_cls is None:
+                        log.debug("Failed to find relocation class for arch %s, type %d", self.arch.name, reloc_type)
+                    reloc = None if reloc_cls is None else reloc_cls(owner=self, symbol=None, addr=addr)
 
                 if reloc is not None:
                     # Some binaries have the DYNAMIC_BASE DllCharacteristic unset but have tons of fixup relocations
@@ -1122,8 +1170,6 @@ class PE(Backend):
                     self.relocs.append(reloc)
 
                 entry_idx += 1
-
-        return self.relocs
 
     def _make_reloc(self, addr, reloc_type, symbol=None, next_rva=None, resolvewith=None):
         # Handle special cases first
