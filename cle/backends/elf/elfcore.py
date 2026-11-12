@@ -31,6 +31,11 @@ FREEBSD_NAMESPACE = "FreeBSD"
 # NetBSD names its process-wide note "NetBSD-CORE" and its per-LWP notes "NetBSD-CORE@<lwpid>".
 NETBSD_NAMESPACE_PREFIX = "NetBSD-CORE"
 
+# Note types in the CORE namespace. FreeBSD numbers its own NT_PRSTATUS the same way.
+NT_PRSTATUS = 1
+NT_PRPSINFO = 3
+NT_AUXV = 6
+NT_FILE = 0x46494C45
 # The type of the Linux note holding a thread's GDT entries, in the LINUX namespace.
 NT_386_TLS = 512
 
@@ -137,9 +142,30 @@ class ELFCore(ELF):
             thread = 0
         return self._threads[thread]["registers"]
 
-    @staticmethod
-    def __note_desc(note):
-        return note.n_desc.encode("latin-1") if isinstance(note.n_desc, str) else note.n_desc
+    @property
+    def __endness(self):
+        return ">" if self.arch.memory_endness == "Iend_BE" else "<"
+
+    def __iter_notes(self, segment):
+        """
+        Yield the name, type and descriptor of every note in a PT_NOTE segment. pyelftools is not used
+        here: which note types it names, and which descriptors it decodes and how, changes between its
+        versions, while elfcore needs each type as the number its owner gave it and each descriptor raw.
+        """
+        data = segment.data()
+        # n_namesz, n_descsz and n_type are four bytes wide in both ELF classes
+        nhdr = struct.Struct(self.__endness + "3I")
+        offset = 0
+        while offset + nhdr.size <= len(data):
+            namesz, descsz, n_type = nhdr.unpack_from(data, offset)
+            name_start = offset + nhdr.size
+            desc_start = name_start + (namesz + 3) // 4 * 4
+            offset = desc_start + (descsz + 3) // 4 * 4
+            if desc_start + descsz > len(data):
+                log.warning("Ignoring a note that runs past the end of its PT_NOTE segment")
+                return
+            name = data[name_start : name_start + namesz].split(b"\x00", 1)[0].decode("latin-1") if namesz else None
+            yield name, n_type, data[desc_start : desc_start + descsz]
 
     def __extract_note_info(self):
         """
@@ -147,35 +173,35 @@ class ELFCore(ELF):
         """
         for seg_readelf in self._reader.iter_segments():
             if seg_readelf.header.p_type == "PT_NOTE":
-                for note in seg_readelf.iter_notes():
-                    if note.n_name == CORE_NAMESPACE:
-                        if note.n_type == "NT_PRSTATUS":
+                for n_name, n_type, desc in self.__iter_notes(seg_readelf):
+                    if n_name == CORE_NAMESPACE:
+                        if n_type == NT_PRSTATUS:
                             self.__cycle_thread()
-                            self.__parse_prstatus(self.__note_desc(note))
-                        elif note.n_type == "NT_PRPSINFO":
-                            self.__parse_prpsinfo(note.n_desc)
-                        elif note.n_type == "NT_AUXV":
-                            self.__parse_auxv(self.__note_desc(note))
-                        elif note.n_type == "NT_FILE":
-                            self.__parse_files(note.n_desc)
-                    elif note.n_name == LINUX_NAMESPACE:
-                        if note.n_type == NT_386_TLS and self.arch.name == "X86":
-                            self.__parse_x86_tls(self.__note_desc(note))
-                    elif note.n_name == FREEBSD_NAMESPACE:
-                        if note.n_type == "NT_PRSTATUS":
+                            self.__parse_prstatus(desc)
+                        elif n_type == NT_PRPSINFO:
+                            self.__parse_prpsinfo(desc)
+                        elif n_type == NT_AUXV:
+                            self.__parse_auxv(desc)
+                        elif n_type == NT_FILE:
+                            self.__parse_files(desc)
+                    elif n_name == LINUX_NAMESPACE:
+                        if n_type == NT_386_TLS and self.arch.name == "X86":
+                            self.__parse_x86_tls(desc)
+                    elif n_name == FREEBSD_NAMESPACE:
+                        if n_type == NT_PRSTATUS:
                             self.__cycle_thread()
-                            self.__parse_freebsd_prstatus(self.__note_desc(note))
-                    elif note.n_name is not None and note.n_name.startswith(NETBSD_NAMESPACE_PREFIX):
+                            self.__parse_freebsd_prstatus(desc)
+                    elif n_name is not None and n_name.startswith(NETBSD_NAMESPACE_PREFIX):
                         # NetBSD's NT_PRSTATUS is a struct netbsd_elfcore_procinfo, which holds no registers
                         # at all - those live in one PT_GETREGS note per LWP.
                         netbsd = netbsd_register_sets.get(self.arch.name)
                         if netbsd is None:
                             raise CLECompatibilityError(f"Architecture '{self.arch.name}' unsupported by ELFCore")
-                        if note.n_type == netbsd.note_type:
+                        if n_type == netbsd.note_type:
                             self.__cycle_thread()
-                            self.__parse_netbsd_regs(self.__note_desc(note), netbsd.gregset)
-                    elif note.n_type == "NT_PRSTATUS":
-                        log.warning("Don't know how to read the registers of a core note namespaced '%s'", note.n_name)
+                            self.__parse_netbsd_regs(desc, netbsd.gregset)
+                    elif n_type == NT_PRSTATUS:
+                        log.warning("Don't know how to read the registers of a core note namespaced '%s'", n_name)
 
         self._replace_main_object_path()
 
@@ -384,17 +410,37 @@ class ELFCore(ELF):
         self.__current_thread.update({"registers": registers})
 
     def __parse_prpsinfo(self, desc):
-        pr_fname = desc.pr_fname.split(b"\x00", 1)[0]
+        # Every ABI's struct elf_prpsinfo ends in pr_fname[16] and pr_psargs[80], with no padding after
+        # them; the widths of the fields before them, uid and gid among them, vary between ABIs.
+        if len(desc) < 96:
+            log.warning("Ignoring an NT_PRPSINFO of %d bytes, too short to hold pr_fname and pr_psargs", len(desc))
+            return
+        pr_fname = desc[-96:-80].split(b"\x00", 1)[0]
         try:
             self.pr_fname = pr_fname.decode()
         except UnicodeDecodeError:
             self.pr_fname = repr(pr_fname)
 
     def __parse_files(self, desc):
-        self._page_size = desc.page_size
+        # A count and the page size, then a start, end and page offset per mapping, all words of the
+        # container's width, and finally the NUL-terminated name of each mapping's file.
+        word = self._reader.elfclass // 8
+        fmt = "Q" if word == 8 else "I"
+        if len(desc) < 2 * word:
+            log.warning("Ignoring an NT_FILE of %d bytes", len(desc))
+            return
+        count, page_size = struct.unpack_from(self.__endness + fmt * 2, desc)
+        names_start = (2 + 3 * count) * word
+        names = desc[names_start:].split(b"\x00")
+        if len(desc) < names_start or len(names) < count:
+            log.warning("Ignoring an NT_FILE of %d bytes that describes %d mappings", len(desc), count)
+            return
+        mappings = struct.iter_unpack(self.__endness + fmt * 3, desc[2 * word : names_start])
+
+        self._page_size = page_size
         self.filename_lookup = [
-            (ent.vm_start, ent.vm_end, ent.page_offset * desc.page_size, self._remote_file_mapper(fn.decode()))
-            for ent, fn in zip(desc.Elf_Nt_File_Entry, desc.filename)
+            (start, end, page_offset * page_size, self._remote_file_mapper(fn.decode()))
+            for (start, end, page_offset), fn in zip(mappings, names[:count], strict=True)
         ]
 
     def __parse_x86_tls(self, desc):
