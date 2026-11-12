@@ -907,6 +907,33 @@ class ELF(MetaELF):
                     new_namespace = namespace
                 self._load_die_namespace(die_child, dwarf, aranges, cu_, expr_parser, type_list, cu, new_namespace)
 
+    def _dwarf_idx_to_filename(
+        self, cu: CompileUnit, filename_idx: int, default_filename: str | None = None
+    ) -> str | None:
+        debug_line = cu.dwarfinfo.line_program_for_CU(cu)
+        assert debug_line is not None
+        if debug_line.header.file_names is not None:
+            basename = debug_line.header.file_names[filename_idx]
+            basename_str = basename.DW_LNCT_path.decode(errors="replace")
+            dirname_idx = basename.DW_LNCT_directory_index
+            dirname = debug_line.header.directories[dirname_idx]
+            dirname_str = dirname.DW_LNCT_path.decode(errors="replace")
+            filename = f"{dirname_str}/{basename_str}"
+        elif debug_line.header.file_entry is not None:
+            basename = debug_line.header.file_entry[filename_idx - 1]
+            basename_str = basename.name.decode(errors="replace")
+            dirname_idx = basename.dir_index
+            if dirname_idx == 0:
+                dirname_str = "."
+            else:
+                dirname_str = debug_line.header.include_directory[dirname_idx - 1].decode(errors="replace")
+            filename = f"{dirname_str}/{basename_str}"
+        else:
+            assert filename_idx == 1
+            filename = default_filename
+
+        return filename
+
     def _load_die_lex_block(
         self,
         die: DIE,
@@ -942,27 +969,7 @@ class ELF(MetaELF):
             filename_idx = None
 
         if filename_idx is not None:
-            debug_line = dwarf.line_program_for_CU(cu)
-            assert debug_line is not None
-            if debug_line.header.file_names is not None:
-                basename = debug_line.header.file_names[filename_idx]
-                basename_str = basename.DW_LNCT_path.decode(errors="replace")
-                dirname_idx = basename.DW_LNCT_directory_index
-                dirname = debug_line.header.directories[dirname_idx]
-                dirname_str = dirname.DW_LNCT_path.decode(errors="replace")
-                filename = f"{dirname_str}/{basename_str}"
-            elif debug_line.header.file_entry is not None:
-                basename = debug_line.header.file_entry[filename_idx - 1]
-                basename_str = basename.name.decode(errors="replace")
-                dirname_idx = basename.dir_index
-                if dirname_idx == 0:
-                    dirname_str = "."
-                else:
-                    dirname_str = debug_line.header.include_directory[dirname_idx - 1].decode(errors="replace")
-                filename = f"{dirname_str}/{basename_str}"
-            else:
-                assert filename_idx == 1
-                filename = file_path
+            filename = self._dwarf_idx_to_filename(cu, filename_idx, file_path)
         else:
             filename = None
 
@@ -973,6 +980,13 @@ class ELF(MetaELF):
         else:
             line = None
 
+        if "DW_AT_decl_column" in die.attributes:
+            column = die.attributes["DW_AT_decl_column"].value
+        elif origin is not None and "DW_AT_decl_column" in origin.attributes:
+            column = origin.attributes["DW_AT_decl_column"].value
+        else:
+            column = None
+
         low_pc, high_pc = self._load_low_high_pc_form_die(die)
         ranges = None
         if low_pc is None or high_pc is None:
@@ -981,9 +995,9 @@ class ELF(MetaELF):
                 return None
 
         if subprogram is None:
-            subprogram = block = Subprogram(name, low_pc, high_pc, ranges, filename, line)
+            subprogram = block = Subprogram(name, low_pc, high_pc, ranges, filename, line, column)
         else:
-            block = LexicalBlock(low_pc, high_pc, ranges, filename, line)
+            block = LexicalBlock(low_pc, high_pc, ranges, filename, line, column)
 
         for sub_die in cu.iter_DIE_children(die):
             if sub_die.tag in ["DW_TAG_variable", "DW_TAG_formal_parameter"]:
@@ -1009,6 +1023,19 @@ class ELF(MetaELF):
                     ranges = self._load_ranges_form_die(sub_die, aranges)
                     if ranges is not None:
                         subr.ranges = ranges
+                call_filename = None
+                call_line = None
+                call_col = 0
+                if "DW_AT_call_file" in sub_die.attributes:
+                    call_filename = self._dwarf_idx_to_filename(
+                        cu, sub_die.attributes["DW_AT_call_file"].value, file_path
+                    )
+                if "DW_AT_call_line" in sub_die.attributes:
+                    call_line = sub_die.attributes["DW_AT_call_line"].value
+                if "DW_AT_call_column" in sub_die.attributes:
+                    call_col = sub_die.attributes["DW_AT_call_column"].value
+                if call_filename is not None and call_line is not None:
+                    subr.call_site = (call_filename, call_line, call_col)
                 subr.void = "DW_AT_type" not in sub_die.attributes
                 if "DW_AT_abstract_origin" in sub_die.attributes:
                     origin = sub_die.get_DIE_from_attribute("DW_AT_abstract_origin")
@@ -1021,7 +1048,7 @@ class ELF(MetaELF):
                         if arg_die.tag == "DW_TAG_formal_parameter":
                             nargs += 1
                     subr.nargs = nargs
-                subr.void = "DW_AT_type" not in origin.attributes
+                    subr.void = "DW_AT_type" not in origin.attributes
 
                 subprogram.inlined_functions.append(subr)
 
@@ -1029,6 +1056,8 @@ class ELF(MetaELF):
                     sub_die, dwarf, aranges, expr_parser, type_list, cu, file_path, subprogram, namespace
                 )
                 if sub_block is not None:
+                    if sub_block.source_file is not None and sub_block.source_line is not None:
+                        subr.decl_site = (sub_block.source_file, sub_block.source_line, sub_block.source_column or 0)
                     block.child_blocks.append(sub_block)
 
         return block
