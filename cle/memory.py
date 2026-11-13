@@ -557,7 +557,7 @@ class ClemoryView(ClemoryBase):
 
     def __contains__(self, k):
         if not self._offset <= k < self._endoffset:
-            raise KeyError(k)
+            return False
         return k + self._rebase in self._backer
 
     def backers(self, addr=0):
