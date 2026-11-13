@@ -74,6 +74,25 @@ class TestCoff(unittest.TestCase):
         field_addr = section_vaddr(ld.main_object, ".text") + field_offset
         assert ld.memory.load(field_addr, 4) == struct.pack("<i", expected)
 
+    def test_undefined_externals_are_imports(self):
+        # A COFF object names what it needs from elsewhere with section number zero. Those never reached
+        # self.imports, which is the only thing angr looks at, so nothing hooked them and the extern
+        # addresses stayed decodable zero fill.
+        exe = os.path.join(TEST_BASE, "tests", "x86_64", "fauxware.obj")
+        ld = cle.Loader(exe, auto_load_libs=True)
+        imports = ld.main_object.imports
+
+        assert "strcmp" in imports
+        assert "_RTC_CheckStackVars" in imports
+        # a symbol the object defines itself is not an import
+        assert "main" not in imports
+
+        for name, reloc in imports.items():
+            symbol = reloc.symbol
+            assert symbol is not None and symbol.is_import, name
+            assert reloc.resolvedby is not None, name
+            assert reloc.resolvedby.owner is ld.extern_object, name
+
 
 if __name__ == "__main__":
     unittest.main()
