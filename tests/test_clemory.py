@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 import timeit
 import unittest
@@ -7,6 +8,8 @@ import unittest
 import cffi
 
 import cle
+
+TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "binaries", "tests")
 
 
 @unittest.skipIf(sys.platform == "emscripten", "runtime CFFI compilation is unavailable in Pyodide")
@@ -72,6 +75,54 @@ def test_clemory():
     clemory.seek(0)
     assert clemory.read(25) == b""
     assert clemory.load(10, 25) == b"A" * 20
+
+
+def test_clemory_find_bounds():
+    loader = cle.Loader(os.path.join(TEST_BASE, "x86_64", "fauxware"), auto_load_libs=False)
+    memory = loader.memory
+
+    # A match that ends on the last byte of the searched range is still a match. The default
+    # search_max is max_addr, so this is the last eight bytes of the loaded image.
+    end = memory.max_addr
+    tail = memory.load(end - 8, 8)
+    assert (end - 8) in set(memory.find(tail))
+
+    needle = b"SOSNEAKY"
+    (addr,) = memory.find(needle)
+
+    # search_max is exclusive: a range ending where the match ends still reports it.
+    assert list(memory.find(needle, search_max=addr + len(needle))) == [addr]
+    assert list(memory.find(needle, search_max=addr + len(needle) - 1)) == []
+
+    # search_min bounds where a match may start. A backer is out of range once search_min is
+    # past the end of the backer, not past its start plus the length of the needle.
+    assert list(memory.find(needle, search_min=addr)) == [addr]
+    assert list(memory.find(needle, search_min=addr + 1)) == []
+
+
+def test_clemory_find_stays_inside_its_backers():
+    loader = cle.Loader(os.path.join(TEST_BASE, "x86_64", "fauxware"), auto_load_libs=False)
+    memory = loader.memory
+
+    # The empty bytestring is the only needle a buffer reports at the offset one past its own
+    # end, and that offset is not an address in memory. fauxware leaves a gap after each of its
+    # first two backers, so master reports two addresses here that it does not contain.
+    assert [addr for addr in memory.find(b"") if addr not in memory] == []
+
+
+def test_clemory_find_stays_inside_the_range_it_was_given():
+    loader = cle.Loader(os.path.join(TEST_BASE, "x86_64", "fauxware"), auto_load_libs=False)
+    memory = loader.memory
+    entry = loader.main_object.entry
+
+    # A zero-length match has no bytes to run past search_max, so only a bound on where a match
+    # may start keeps the empty bytestring out of the searched range's own end.
+    assert list(memory.find(b"", search_min=entry, search_max=entry + 4)) == [
+        entry,
+        entry + 1,
+        entry + 2,
+        entry + 3,
+    ]
 
 
 def performance_clemory_contains():
