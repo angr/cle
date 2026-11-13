@@ -6,6 +6,7 @@ from .cartfile import CARTFile
 from .cgc import CGC, BackedCGC
 from .coff import Coff
 from .elf import ELF, ELFCore, MetaELF
+from .go32 import Go32
 from .gopclntab import GoFunction, GoPclntab, GoSymbol
 from .ihex import Hex
 from .java.apk import Apk
@@ -53,6 +54,7 @@ __all__ = [
     "MachO",
     "NamedRegion",
     "MZ",
+    "Go32",
     "Jar",
     "Apk",
     "Dex",
