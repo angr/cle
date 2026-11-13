@@ -5,12 +5,17 @@ import unittest
 
 import cle
 from cle.address_translator import AT
-from cle.backends import Section, Segment
+from cle.backends import ELF, Section, Segment
 
 TESTS_BASE = os.path.join(
     os.path.dirname(os.path.realpath(__file__)),
     os.path.join("..", "..", "binaries", "tests"),
 )
+
+
+def name_of(section: Section | None) -> str | None:
+    """The name of a section an address lookup returned, or None when it found nothing."""
+    return None if section is None else section.name
 
 
 groundtruth = {
@@ -173,6 +178,49 @@ class TestRunSections(unittest.TestCase):
     def test_segments(self):
         for (arch, filename), data in groundtruth.items():
             self._run_segments(arch, filename, data["segments"])
+
+
+class TestRelocatableSections(unittest.TestCase):
+    """
+    A relocatable object carries no addresses of its own, so CLE assigns them. The assignment has to
+    agree with what CLE actually maps.
+    """
+
+    BINARY = os.path.join(TESTS_BASE, "x86_64", "switch_default_abort.o")
+
+    def _load(self):
+        ld = cle.Loader(self.BINARY, auto_load_libs=False)
+        main = ld.main_object
+        assert isinstance(main, ELF)
+        self.assertTrue(main.is_relocatable)
+        return ld, main
+
+    def test_every_mapped_address_resolves_to_its_section(self):
+        ld, main = self._load()
+
+        mapped = sorted((s for s in main.sections if s.occupies_memory), key=lambda s: s.vaddr)
+        for lower, upper in zip(mapped, mapped[1:]):
+            self.assertLessEqual(
+                lower.vaddr + lower.memsize,
+                upper.vaddr,
+                f"{lower.name} overlaps {upper.name}",
+            )
+
+        # The lookup bisects on the section end addresses, so one overlap loses whole sections.
+        for section in mapped:
+            for addr in range(section.vaddr, section.vaddr + section.memsize):
+                self.assertEqual(name_of(main.sections.find_region_containing(addr)), section.name)
+                self.assertEqual(name_of(ld.find_section_containing(addr)), section.name)
+
+    def test_unloaded_section_claims_no_address(self):
+        _, main = self._load()
+
+        # No space is reserved for a note section and none of its bytes are loaded, so the address it
+        # would take belongs to the section that follows it.
+        note = main.sections_map[".note.gnu.property"]
+        self.assertEqual(note.type, "SHT_NOTE")
+        self.assertFalse(note.occupies_memory)
+        self.assertEqual(main.sections_map[".text"].vaddr, main.mapped_base)
 
 
 if __name__ == "__main__":
