@@ -11,9 +11,11 @@ in the image. A paragraph-aligned ``base_addr`` together with
 header relocation to the corresponding word.
 
 The single load-module segment includes the minimum allocation requested by
-the header in its memory size. Only bytes declared by the executable are
-backed; the Program Segment Prefix, uninitialized allocation, trailing
-overlays, and other DOS runtime state are not synthesized.
+the header in its memory size, and all of it is backed: the load module from
+the file, and the paragraphs beyond it, which the program reads as its own
+uninitialized data, as zeros. The Program Segment Prefix, allocation beyond
+the header's requested minimum, trailing overlays, and other DOS runtime state
+are not synthesized.
 
 .. automodule:: cle.backends.mz
    :members: MZHeader, MZRelocation
