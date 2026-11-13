@@ -52,6 +52,38 @@ class PESection(Section):
         return self.filesize == 0
 
 
+class PEFileMapping(Section):
+    """
+    The start of the file, mapped at the image base as the file holds it, for an image whose section table maps
+    nothing. ``PE._file_mapping_without_sections`` says how much of the file that is and how it is protected.
+    """
+
+    def __init__(self, name: str, vaddr: int, size: int, is_writable: bool, is_executable: bool):
+        super().__init__(name, 0, vaddr, size)
+        self._is_writable = is_writable
+        self._is_executable = is_executable
+
+    #
+    # Public properties
+    #
+
+    @property
+    def is_readable(self):
+        return True
+
+    @property
+    def is_writable(self):
+        return self._is_writable
+
+    @property
+    def is_executable(self):
+        return self._is_executable
+
+    @property
+    def only_contains_uninitialized_data(self):
+        return False
+
+
 def _mapped_size(pe_section, image_size: int | None, file_size: int | None) -> int:
     """
     How many bytes of a section the Windows loader maps.
