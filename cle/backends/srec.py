@@ -14,7 +14,7 @@ log = logging.getLogger(name=__name__)
 
 __all__ = ("SRec",)
 
-srec_regex = "S([0-9])([0-9a-fA-F]{{2}})([0-9a-fA-F]{{{addr_size}}})([0-9a-fA-F]{{4,64}})([0-9a-fA-F]{{2}})"
+srec_regex = "S([0-9])([0-9a-fA-F]{{2}})([0-9a-fA-F]{{{addr_size}}})([0-9a-fA-F]*)([0-9a-fA-F]{{2}})"
 SREC_ADDR_SIZE = {"0": 16, "1": 16, "5": 16, "9": 16, "2": 24, "6": 24, "8": 24, "3": 32, "7": 32}
 
 
@@ -41,28 +41,37 @@ class SRec(Backend):
         sum(x.to for x in data)
 
     @staticmethod
-    def parse_record(line):
+    def parse_record(line: bytes) -> tuple[int, int, bytes]:
+        # The record type determines the width of the address field, so it has to be read before the
+        # rest of the record can be matched.
+        if len(line) < 2 or not line.startswith(b"S"):
+            raise CLEError(f"Invalid SRec record: {line}")
+        if chr(line[1]) not in SREC_ADDR_SIZE:
+            raise CLEError(f"Invalid SRec record type: {line}")
         addr_size = SREC_ADDR_SIZE[chr(line[1])]
         srec_re = re.compile(srec_regex.format(addr_size=addr_size // 4).encode())
-        m = srec_re.match(line)
+        # A record occupies exactly one line. Matching only a prefix would leave the groups describing
+        # something other than the bytes the checksum is computed over below.
+        m = srec_re.fullmatch(line)
         if not m:
             raise CLEError(f"Invalid SRec record: {line}")
-        my_cksum = 0
         rectype, count, addr, data, cksum = m.groups()
+        try:
+            # The checksum covers the byte count, the address and the data, that is, everything but the
+            # record type and the checksum itself. An odd number of digits there is not valid hex.
+            counted = binascii.unhexlify(line[2:-2])
+        except binascii.Error as error:
+            raise CLEError(f"Invalid SRec hexadecimal data: {line}") from error
         cksum = int(cksum, 16)
-        for d in binascii.unhexlify(line[2:-2]):
-            my_cksum = (my_cksum + d) % 256
-        my_cksum = 0xFF - my_cksum
+        my_cksum = 0xFF - (sum(counted) % 256)
         if my_cksum != cksum:
             raise CLEError(f"Invalid checksum: Computed {hex(my_cksum)}, found {hex(cksum)}")
-        count = int(count, 16) - ((addr_size // 8) + 1)
-        addr = int(addr, 16)
-        rectype = int(rectype, 16)
-        if data:
-            data = binascii.unhexlify(data)
-        if data and count != len(data):
-            raise CLEError("Data length field does not match length of actual data: " + line)
-        return rectype, addr, data
+        # The byte count covers the address, the data and the checksum.
+        data_size = int(count, 16) - (addr_size // 8 + 1)
+        data = binascii.unhexlify(data)
+        if data_size != len(data):
+            raise CLEError(f"Data length field does not match length of actual data: {line}")
+        return int(rectype, 16), int(addr, 16), data
 
     @staticmethod
     def coalesce_regions(regions):
@@ -115,6 +124,10 @@ class SRec(Backend):
             if rectype == SREC_HEADER:
                 continue
             if rectype in SREC_DATA:
+                if not data:
+                    # A data record whose data field is empty carries nothing to load. Backing it would
+                    # add an empty region and drag max_addr one byte below the record's own address.
+                    continue
                 addr += self._base_address
                 # l.debug("Loading %d bytes at " % len(data) + hex(addr))
                 # Raw data.  Put the bytes
@@ -124,7 +137,8 @@ class SRec(Backend):
                 max_addr = max(max_addr, addr + len(data) - 1)
             elif rectype in SREC_START_EXEC:
                 got_entry = True
-                self._entry = int.from_bytes(data, "big")
+                # A termination record carries the start address in its address field and has no data.
+                self._entry = addr
                 log.debug("Found entry point at %#x", self._entry)
                 self._initial_ip = self._entry
             else:
