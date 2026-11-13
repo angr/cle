@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import struct
 import sys
 import tempfile
 import unittest
@@ -115,6 +116,19 @@ class TestPEBackend(unittest.TestCase):
             ]
         )
         assert ld.main_object.provides is None
+
+    def test_pe_header_after_large_dos_stub(self):
+        exe = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "pe_large_dos_stub.exe")
+        with open(exe, "rb") as stream:
+            dos_header = stream.read(0x40)
+            pe_offset = struct.unpack_from("<I", dos_header, 0x3C)[0]
+            assert pe_offset >= 0x1000
+            stream.seek(pe_offset)
+            assert stream.read(4) == b"PE\0\0"
+
+        ld = cle.Loader(exe, auto_load_libs=False)
+        assert isinstance(ld.main_object, cle.PE)
+        assert ld.main_object.arch.name == "AMD64"
 
     def test_tls(self):
         exe = os.path.join(TEST_BASE, "tests", "x86", "windows", "TLS.exe")
