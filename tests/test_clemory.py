@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 import timeit
 import unittest
@@ -7,6 +8,8 @@ import unittest
 import cffi
 
 import cle
+
+TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "binaries", "tests")
 
 
 @unittest.skipIf(sys.platform == "emscripten", "runtime CFFI compilation is unavailable in Pyodide")
@@ -72,6 +75,23 @@ def test_clemory():
     clemory.seek(0)
     assert clemory.read(25) == b""
     assert clemory.load(10, 25) == b"A" * 20
+
+
+def test_clemory_read_only_view_contains():
+    loader = cle.Loader(os.path.join(TEST_BASE, "x86_64", "fauxware"), auto_load_libs=False)
+    loader.gen_ro_memview()
+    view = loader.memory_ro_view
+    assert view is not None
+
+    entry = loader.main_object.entry
+    assert entry in view
+    assert entry - 0x10000 not in view
+
+    # The view answers the same as the clemory it was flattened from, including in the gaps
+    # between backers.
+    for start, backer in loader.memory.backers():
+        for addr in (start - 1, start, start + len(backer) - 1, start + len(backer)):
+            assert (addr in view) == (addr in loader.memory)
 
 
 def performance_clemory_contains():
