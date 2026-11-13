@@ -17,6 +17,8 @@ class InlinedFunction:
     entry: int | None = None
     nargs: int | None = None
     void: bool = False
+    decl_site: tuple[str, int, int] | None = None
+    call_site: tuple[str, int, int] | None = None
 
     @property
     def low_pc(self):

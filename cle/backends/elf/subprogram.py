@@ -29,9 +29,11 @@ class LexicalBlock:
         ranges: list[tuple[int, int]] | None = None,
         source_file: str | None = None,
         source_line: int | None = None,
+        source_column: int | None = None,
     ) -> None:
         self.source_file = source_file
         self.source_line = source_line
+        self.source_column = source_column
 
         if low_pc is None and high_pc is None:
             if ranges is not None:
@@ -77,10 +79,11 @@ class Subprogram(LexicalBlock):
         ranges: list[tuple[int, int]] | None = None,
         source_file: str | None = None,
         source_line: int | None = None,
+        source_column: int | None = None,
     ) -> None:
         # pass self as the super_block of this subprogram
         self.subprogram = self
-        super().__init__(low_pc, high_pc, ranges, source_file, source_line)
+        super().__init__(low_pc, high_pc, ranges, source_file, source_line, source_column)
         self.name = name
         self.local_variables: list[Variable] = []
         self.inlined_functions: list[InlinedFunction] = []
