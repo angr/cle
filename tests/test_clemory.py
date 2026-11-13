@@ -5,6 +5,7 @@ import timeit
 import unittest
 
 import cffi
+import pytest
 
 import cle
 
@@ -116,6 +117,20 @@ def test_clemory_contains():
     assert clemory.min_addr == 0
     assert clemory.max_addr == 70
     assert clemory.consecutive is True
+
+
+def test_clemory_view_setitem():
+    clemory = cle.Clemory(None, root=True)  # type: ignore[arg-type]
+    clemory.add_backer(0x1000, b"AAAABBBB")
+    view = cle.ClemoryView(clemory, 0x1000, 0x1008)
+
+    view[0] = 0x5A
+    assert view[0] == 0x5A
+    assert clemory[0x1000] == 0x5A
+    assert clemory.load(0x1000, 8) == b"ZAAABBBB"
+
+    with pytest.raises(KeyError):
+        view[8] = 0x5A
 
 
 def main():
