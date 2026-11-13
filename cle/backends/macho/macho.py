@@ -160,8 +160,14 @@ class MachO(Backend):
                 "7I", binary_file, 0, 28
             )
 
-            # Libraries are always implicitly PIC
-            self.pic = bool(self.flags & MH_flags.MH_PIE) or bool(self.filetype & MachoFiletype.MH_DYLIB)
+            # MH_PIE only ever appears on executables; everything linked relative to 0 is implicitly
+            # position independent. Bundles have an ordinal without the MH_DYLIB bit that older code
+            # relied on, so recognize them explicitly.
+            self.pic = (
+                bool(self.flags & MH_flags.MH_PIE)
+                or bool(self.filetype & MachoFiletype.MH_DYLIB)
+                or self.filetype == MachoFiletype.MH_BUNDLE
+            )
 
             if not bool(self.flags & MH_flags.MH_TWOLEVEL):  # ensure MH_TWOLEVEL
                 log.error(
@@ -196,29 +202,21 @@ class MachO(Backend):
                     self.linked_base = self.mapped_base = 2**32
                 elif self.arch.bits == 32:
                     self.linked_base = self.mapped_base = 0x4000
-            elif self.filetype == MachoFiletype.MH_DYLIB and self.is_main_bin:
-                # the segments of dylibs are just relative to the load address, i.e. the lowest segment addr is 0
-                # we need to set the load address to something because otherwise the loader will try to map the
-                # file to 0x400000, which is technically illegal for Mach-O because of PAGEZERO
-                #
-                # The problem is that libraries also tend to have relative pointers (e.g. inside ObjC Metadata),
-                # which are rebased by parsing the rebase_blob, which isn't supported yet (but coming soon)
-                # so we set the base addr to 0 to make them work out without having to deal with this
-                # IDA and Ghidra both seem to handle it this way too
-                # AFAIU this isn't a problem with iOS15+ binaries anymore that use the new binding fixups
-                # but for now we just load all libraries, that are loaded as the main object, at address 0
+            elif self.filetype in (MachoFiletype.MH_DYLIB, MachoFiletype.MH_BUNDLE) and self.is_main_bin:
+                # the segments of dylibs and bundles are just relative to the load address, i.e. the lowest segment
+                # addr is 0. We need to set the load address to something because otherwise the loader will try to
+                # map the file to 0x400000.
                 #
                 # We can't set the linked base to request this, because the MachO Backend implementation
-                # uses this to recalculate the addresses
+                # uses this to recalculate the addresses.
                 self._custom_base_addr = 0
             elif self.filetype == MachoFiletype.MH_OBJECT:
                 # A relocatable object is linked against 0, and carries one unnamed segment holding every
                 # section. Nothing is bound yet, so this is the same base-address situation as a dylib
                 # loaded as the main object.
                 self._custom_base_addr = 0
-            elif self.filetype == MachoFiletype.MH_DYLIB and not self.is_main_bin:
-                # A Library is loaded as a dependency, this is fine, the loader will map it to somewhere above the main
-                # binary, so we don't need to do anything
+            elif self.filetype in (MachoFiletype.MH_DYLIB, MachoFiletype.MH_BUNDLE) and not self.is_main_bin:
+                # A library or bundle loaded as a dependency will be mapped above the main binary.
                 pass
             else:
                 # This case is not explicitly supported yet.
