@@ -742,6 +742,7 @@ class ELF(MetaELF):
                 continue
             if lineprog is None:
                 continue
+            index_offset = 1 if lineprog.header["version"] < 5 else 0
             file_cache = {}
             for line in lineprog.get_entries():
                 if line.state is None:
@@ -749,13 +750,13 @@ class ELF(MetaELF):
                 if line.state.file in file_cache:
                     filename = file_cache[line.state.file]
                 else:
-                    file_entry = lineprog.header["file_entry"][line.state.file - 1]
-                    if file_entry["dir_index"] == 0:
+                    file_entry = lineprog.header["file_entry"][line.state.file - index_offset]
+                    if file_entry["dir_index"] == 0 and index_offset == 1:
                         filename = pathlib.PurePosixPath(comp_dir) / file_entry.name.decode()
                     else:
                         filename = (
                             pathlib.PurePosixPath(comp_dir)
-                            / lineprog.header["include_directory"][file_entry["dir_index"] - 1].decode()
+                            / lineprog.header["include_directory"][file_entry["dir_index"] - index_offset].decode()
                             / file_entry.name.decode()
                         )
                     file_cache[line.state.file] = filename
