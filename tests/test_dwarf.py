@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import PurePosixPath
 from unittest import TestCase, main
 
 import cle
@@ -10,6 +11,37 @@ TESTS_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.j
 
 
 class TestDwarf(TestCase):
+    def test_line_program_file_indices(self):
+        load_options = (
+            (0x400000, {}),
+            (0x700000, {"base_addr": 0x700000, "force_rebase": True}),
+        )
+        for variant in ("v4", "v5_relative", "v5_absolute"):
+            binary_path = os.path.join(TESTS_BASE, "x86_64", f"dwarf_line_filenames_{variant}")
+            for base_addr, main_opts in load_options:
+                with self.subTest(variant=variant, base_addr=base_addr):
+                    ld = cle.Loader(
+                        binary_path,
+                        auto_load_libs=False,
+                        load_debug_info=True,
+                        main_opts=main_opts,
+                    )
+                    elf = ld.main_object
+                    assert isinstance(elf, cle.backends.ELF)
+                    assert elf.mapped_base == base_addr
+                    assert elf.compilation_units is not None and len(elf.compilation_units) == 1
+                    comp_dir = PurePosixPath(elf.compilation_units[0].comp_dir)
+                    assert comp_dir.is_absolute()
+
+                    main_symbol = elf.get_symbol("main")
+                    increment_symbol = elf.get_symbol("increment")
+                    assert main_symbol is not None
+                    assert increment_symbol is not None
+                    main_path = comp_dir / "main.c"
+                    header_path = comp_dir / "include" / "header.h"
+                    assert elf.addr_to_line[main_symbol.rebased_addr] == {(str(main_path), 4)}
+                    assert elf.addr_to_line[increment_symbol.rebased_addr] == {(str(header_path), 2)}
+
     def test_rust_binary(self):
         binary_path = os.path.join(
             TESTS_BASE, "x86_64", "1cbbf108f44c8f4babde546d26425ca5340dccf878d306b90eb0fbec2f83ab51"
