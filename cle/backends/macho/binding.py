@@ -514,24 +514,57 @@ class MachOSymbolRelocation(Relocation):
 
     def resolve_symbol(self, solist, thumb=False, extern_object=None, **kwargs):
         if isinstance(self.symbol, SymbolTableSymbol | BindingSymbol | DyldBoundSymbol):
-            for so in solist:
-                if self.symbol.library_base_name == so.binary_basename:
-                    symbols = so.get_symbol(self.symbol.name)
-                    if not symbols:
-                        log.warning(
-                            "Symbol %s should have been resolved by %s but wasn't", self.symbol.name, so.binary_basename
-                        )
-                        continue
-                    (symbol,) = symbols
-                    assert symbol.is_export
+            if self.symbol.binds_to_main_executable or self.symbol.binds_by_flat_lookup:
+                symbol = self._lookup_special_symbol(solist)
+                if symbol is not None:
                     self.resolve(symbol, extern_object=extern_object)
                     log.info("Resolved %s to %s", self.symbol.name, symbol)
                     return
+            elif self.symbol.library_base_name is not None:
+                for so in solist:
+                    if self.symbol.library_base_name == so.binary_basename:
+                        symbols = so.get_symbol(self.symbol.name)
+                        if not symbols:
+                            log.warning(
+                                "Symbol %s should have been resolved by %s but wasn't",
+                                self.symbol.name,
+                                so.binary_basename,
+                            )
+                            continue
+                        (symbol,) = symbols
+                        assert symbol.is_export
+                        self.resolve(symbol, extern_object=extern_object)
+                        log.info("Resolved %s to %s", self.symbol.name, symbol)
+                        return
             # None of the available libraries contain it, so we create an extern symbol for it
             new_symbol = extern_object.make_extern(self.symbol.name, sym_type=self.symbol._type, thumb=thumb)
             self.resolve(new_symbol, extern_object=extern_object)
         else:
             raise NotImplementedError("Did not expect this to happen")
+
+    def _lookup_special_symbol(self, solist) -> AbstractMachOSymbol | None:
+        """
+        Find the export an import bound to the main executable or by flat lookup resolves to, since neither names the
+        library to look in.
+        """
+        from .macho import MachO  # pylint: disable=import-outside-toplevel
+
+        if self.symbol.binds_to_main_executable:
+            # A bundle linked with -bundle_loader binds to the executable that loads it. When the bundle is itself the
+            # main object, that executable is not loaded.
+            main_object = self.owner.loader.main_object
+            candidates = [main_object] if main_object is not self.owner else []
+        else:
+            # dyld searches every loaded image in load order, starting with the main executable
+            candidates = solist
+
+        for so in candidates:
+            if not isinstance(so, MachO):
+                continue
+            exports = [sym for sym in so.get_symbol(self.symbol.name) if sym.is_export]
+            if exports:
+                return exports[0]
+        return None
 
     @property
     def dest_addr(self):

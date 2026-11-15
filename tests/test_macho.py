@@ -443,6 +443,96 @@ def test_non_macho_magic_is_reported():
         assert f"{magic:#010x}" in message
 
 
+def test_bundle():
+    """
+    A bundle (MH_BUNDLE) is the image dlopen loads as a plugin. It is laid out like a dylib, so loaded on its own it
+    is placed at 0 like a dylib loaded as the main object.
+    """
+    for arch in ("aarch64", "x86_64"):
+        machofile = os.path.join(TEST_BASE, "tests", arch, "macho_bundle", "plugin.bundle")
+        ld = cle.Loader(machofile, auto_load_libs=False)
+        bundle = ld.main_object
+        assert isinstance(bundle, MachO)
+        assert bundle.filetype == MachoFiletype.MH_BUNDLE
+        assert bundle.pic
+        assert bundle.mapped_base == 0
+        assert "_plugin_run" in bundle.exports_by_name
+
+        # The executable the bundle binds to is not loaded, so its imports from it resolve to the extern object
+        assert set(bundle.imports) >= {"_host_callback", "_host_value", "_printf"}
+        for name in ("_host_callback", "_host_value"):
+            reloc = bundle.imports[name]
+            assert reloc.symbol.binds_to_main_executable
+            assert reloc.symbol.library_name is None
+            assert reloc.resolvedby.owner is ld.extern_object
+
+
+def _load_bundle_into_host(arch: str, bundle_name: str) -> tuple[cle.Loader, MachO, MachO]:
+    host = os.path.join(TEST_BASE, "tests", arch, "macho_bundle", "host")
+    bundle = os.path.join(TEST_BASE, "tests", arch, "macho_bundle", bundle_name)
+    ld = cle.Loader(host, auto_load_libs=False, force_load_libs=[bundle])
+    assert isinstance(ld.main_object, MachO)
+    assert ld.main_object.filetype == MachoFiletype.MH_EXECUTE
+    loaded_bundle = ld.shared_objects[bundle_name]
+    assert isinstance(loaded_bundle, MachO)
+    assert loaded_bundle.filetype == MachoFiletype.MH_BUNDLE
+    return ld, ld.main_object, loaded_bundle
+
+
+def test_bundle_binds_to_bundle_loader():
+    """
+    A bundle linked with -bundle_loader binds its imports from that executable to the main executable rather than to
+    a library. They resolve to the main object's exports, through chained fixups (aarch64) and bind opcodes (x86_64).
+    """
+    for arch in ("aarch64", "x86_64"):
+        ld, host, bundle = _load_bundle_into_host(arch, "plugin.bundle")
+        assert bundle.mapped_base > host.max_addr
+
+        for name in ("_host_callback", "_host_value"):
+            reloc = bundle.imports[name]
+            assert reloc.symbol.binds_to_main_executable
+            assert not reloc.symbol.binds_by_flat_lookup
+            (export,) = host.get_symbol(name)
+            assert reloc.resolvedby is export
+
+        # _host_value is bound eagerly through the GOT, so the bundle's GOT slot holds the host's variable
+        reloc = bundle.imports["_host_value"]
+        assert ld.memory.unpack_word(reloc.rebased_addr) == host.get_symbol("_host_value")[0].rebased_addr
+
+        # imports from a library still go to that library, here not loaded
+        printf = bundle.imports["_printf"]
+        assert not printf.symbol.binds_to_main_executable
+        assert printf.symbol.library_base_name == "libSystem.B.dylib"
+        assert printf.resolvedby.owner is ld.extern_object
+
+
+def test_bundle_flat_lookup():
+    """
+    A bundle linked with -undefined dynamic_lookup, as a Python extension module is, binds the imports no library
+    provides by flat lookup, which searches every loaded image in load order.
+    """
+    ld, host, bundle = _load_bundle_into_host("x86_64", "plugin_flat.bundle")
+
+    for name in ("_host_callback", "_host_value"):
+        reloc = bundle.imports[name]
+        assert reloc.symbol.binds_by_flat_lookup
+        assert not reloc.symbol.binds_to_main_executable
+        assert reloc.symbol.library_name is None
+        (export,) = host.get_symbol(name)
+        assert reloc.resolvedby is export
+
+    reloc = bundle.imports["_host_value"]
+    assert ld.memory.unpack_word(reloc.rebased_addr) == host.get_symbol("_host_value")[0].rebased_addr
+    assert bundle.imports["_printf"].resolvedby.owner is ld.extern_object
+
+    # Loaded on its own, nothing provides them
+    bundle = cle.Loader(
+        os.path.join(TEST_BASE, "tests", "x86_64", "macho_bundle", "plugin_flat.bundle"), auto_load_libs=False
+    ).main_object
+    assert isinstance(bundle, MachO)
+    assert bundle.imports["_host_value"].resolvedby.owner is bundle.loader.extern_object
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     test_dummy()
@@ -456,6 +546,9 @@ if __name__ == "__main__":
     test_instruction_sections()
     test_zero_vmsize_segment()
     test_filesize_larger_than_vmsize()
+    test_bundle()
+    test_bundle_binds_to_bundle_loader()
+    test_bundle_flat_lookup()
 
 
 def test_relocatable_object():

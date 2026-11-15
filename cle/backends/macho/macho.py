@@ -30,6 +30,7 @@ from .structs import (
     DYLD_CHAINED_PTR_START_NONE,
     ChainedFixupPointerOnDisk,
     DyldChainedPtrFormats,
+    DyldImportFormats,
     DyldImportStruct,
     FileOffset,
     FilePointer,
@@ -160,8 +161,12 @@ class MachO(Backend):
                 "7I", binary_file, 0, 28
             )
 
-            # Libraries are always implicitly PIC
-            self.pic = bool(self.flags & MH_flags.MH_PIE) or bool(self.filetype & MachoFiletype.MH_DYLIB)
+            # Libraries and bundles are always implicitly PIC
+            self.pic = (
+                bool(self.flags & MH_flags.MH_PIE)
+                or bool(self.filetype & MachoFiletype.MH_DYLIB)
+                or self.filetype == MachoFiletype.MH_BUNDLE
+            )
 
             if not bool(self.flags & MH_flags.MH_TWOLEVEL):  # ensure MH_TWOLEVEL
                 log.error(
@@ -196,7 +201,7 @@ class MachO(Backend):
                     self.linked_base = self.mapped_base = 2**32
                 elif self.arch.bits == 32:
                     self.linked_base = self.mapped_base = 0x4000
-            elif self.filetype == MachoFiletype.MH_DYLIB and self.is_main_bin:
+            elif self.filetype in (MachoFiletype.MH_DYLIB, MachoFiletype.MH_BUNDLE) and self.is_main_bin:
                 # the segments of dylibs are just relative to the load address, i.e. the lowest segment addr is 0
                 # we need to set the load address to something because otherwise the loader will try to map the
                 # file to 0x400000, which is technically illegal for Mach-O because of PAGEZERO
@@ -208,6 +213,9 @@ class MachO(Backend):
                 # AFAIU this isn't a problem with iOS15+ binaries anymore that use the new binding fixups
                 # but for now we just load all libraries, that are loaded as the main object, at address 0
                 #
+                # A bundle (the plugin format dlopen loads, also used for Python extension modules) is laid out
+                # like a dylib and differs only in having no install name, so it gets the same treatment
+                #
                 # We can't set the linked base to request this, because the MachO Backend implementation
                 # uses this to recalculate the addresses
                 self._custom_base_addr = 0
@@ -216,9 +224,9 @@ class MachO(Backend):
                 # section. Nothing is bound yet, so this is the same base-address situation as a dylib
                 # loaded as the main object.
                 self._custom_base_addr = 0
-            elif self.filetype == MachoFiletype.MH_DYLIB and not self.is_main_bin:
-                # A Library is loaded as a dependency, this is fine, the loader will map it to somewhere above the main
-                # binary, so we don't need to do anything
+            elif self.filetype in (MachoFiletype.MH_DYLIB, MachoFiletype.MH_BUNDLE) and not self.is_main_bin:
+                # A Library or bundle is loaded as a dependency, this is fine, the loader will map it to somewhere above
+                # the main binary, so we don't need to do anything
                 pass
             else:
                 # This case is not explicitly supported yet.
@@ -1157,11 +1165,17 @@ class MachO(Backend):
         symbols_start_addr: FilePointer = self._dyld_chained_fixups_offset + header.symbols_offset
 
         import_struct = DyldImportStruct.get_struct(header.imports_format)
+        # The BIND_SPECIAL_DYLIB_* ordinals are negative numbers stored in the width of the lib_ordinal field.
+        # Like dyld, read every value in the top 16 of the field's range as one of them.
+        ordinal_bits = 16 if header.imports_format == DyldImportFormats.DYLD_CHAINED_IMPORT_ADDEND64 else 8
 
         # Parse Imports
         for i in range(header.imports_count):
             import_addr = imports_start_addr + i * ctypes.sizeof(import_struct)
             imp = self._get_struct(import_struct, import_addr)
+            lib_ordinal = imp.lib_ordinal
+            if lib_ordinal > (1 << ordinal_bits) - 0x10:
+                lib_ordinal -= 1 << ordinal_bits
             sym_name_addr = symbols_start_addr + imp.name_offset
             try:
                 sym_name_bytes = self._read_cstring_from_file(sym_name_addr, max_length=2**21)
@@ -1171,29 +1185,16 @@ class MachO(Backend):
                 log.error("Failed to read symbol name at %x: %s", sym_name_addr, e)
                 sym_name = f"<Excessively long symbol name at fileoffset 0x{sym_name_addr:x}>"
 
-            symbols = self.symbols.get_by_name_and_ordinal(sym_name, imp.lib_ordinal)
+            symbols = self.symbols.get_by_name_and_ordinal(sym_name, lib_ordinal)
             if len(symbols) == 1:
                 self._dyld_imports.append(symbols[0])
             elif len(symbols) == 0:
-                try:
-                    log.debug(
-                        "Creating DyldBoundSymbol with name %s for library %s",
-                        sym_name,
-                        self.imported_libraries[imp.lib_ordinal],
-                    )
-                except IndexError:
-                    log.debug(
-                        "Creating DyldBoundSymbol with name %s and library ordinal %s (unknown library)",
-                        sym_name,
-                        imp.lib_ordinal,
-                    )
-                sym = DyldBoundSymbol(self, sym_name, imp.lib_ordinal)
+                log.debug("Creating DyldBoundSymbol with name %s and library ordinal %d", sym_name, lib_ordinal)
+                sym = DyldBoundSymbol(self, sym_name, lib_ordinal)
                 self.symbols.add(sym)
                 self._dyld_imports.append(sym)
             else:
-                raise NotImplementedError(
-                    f"Multiple symbols with name {sym_name}for library {self.imported_libraries[imp.lib_ordinal]}."
-                )
+                raise NotImplementedError(f"Multiple symbols with name {sym_name} for library ordinal {lib_ordinal}.")
 
     def _parse_dyld_chained_fixups(self):
         header: dyld_chained_fixups_header = self._get_struct(
