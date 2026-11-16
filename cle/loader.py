@@ -735,28 +735,6 @@ class Loader:
             log.warning("Dynamic load failed: %r", e)
             return None
 
-    def get_loader_symbolic_constraints(self):
-        """
-        Do not use this method.
-        """
-        if not self.aslr:
-            return []
-
-        try:
-            import claripy  # pylint:disable=import-outside-toplevel
-        except ImportError:
-            claripy = None
-
-        if not claripy:
-            log.error("Please install claripy to get symbolic constraints")
-            return []
-        outputlist = []
-        for obj in self.all_objects:
-            # TODO Fix Symbolic for tls whatever
-            if obj.aslr and isinstance(obj.mapped_base_symbolic, claripy.ast.BV):
-                outputlist.append(obj.mapped_base_symbolic == obj.mapped_base)
-        return outputlist
-
     # Private stuff
 
     @staticmethod
