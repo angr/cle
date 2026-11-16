@@ -23,7 +23,6 @@ _EXTENDED_HEADER_POINTER_END = 0x40
 _PAGE_SIZE = 512
 _PARAGRAPH_SIZE = 16
 _REAL_MODE_ADDRESS_SPACE = 1 << 20
-_SEGMENT_WRAP = 1 << 16
 _EXTENDED_SIGNATURES = frozenset({b"NE", b"LE", b"LX", b"W3", b"W4", b"P2", b"P3", b"PL", b"PM"})
 
 
@@ -55,23 +54,17 @@ class _Reader:
         return data
 
 
-def _resolve_relative(segment: int, offset: int, limit: int) -> int | None:
-    """Read a header's relative ``segment:offset`` as an offset below ``limit``, or None.
+def _resolve_relative(segment: int, offset: int) -> int:
+    """Read a header's relative ``segment:offset`` as an offset from the load module.
 
     DOS adds a relative segment to the run-time load segment in 16-bit arithmetic, so a high
-    segment word is ambiguous on its own: ``0xfff0`` is how a linker writes the sixteen paragraphs
-    below the load module, where the Program Segment Prefix sits, and a large enough image can
-    reach the same paragraph counting upwards. Both readings name the same segment register at run
-    time, and they are exactly one real-mode address space apart -- so as long as ``limit`` does
-    not exceed that space, at most one of them is in range and there is nothing to choose
-    between.
+    segment word is a negative displacement: ``0xfff0`` is how a linker writes the sixteen
+    paragraphs below the load module, where the Program Segment Prefix sits. Reducing the address
+    modulo the real-mode space is that arithmetic, and it is also what the processor does, since
+    an 8086 wraps its 20-bit bus at the same point. Two 16-bit words cannot reach 2 MiB, so one
+    reduction is always enough.
     """
-    assert limit <= _REAL_MODE_ADDRESS_SPACE
-    for paragraphs in (segment, segment - _SEGMENT_WRAP):
-        address = paragraphs * _PARAGRAPH_SIZE + offset
-        if 0 <= address < limit:
-            return address
-    return None
+    return (segment * _PARAGRAPH_SIZE + offset) % _REAL_MODE_ADDRESS_SPACE
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,20 +113,14 @@ class MZHeader:
         return (self.image_paragraphs + self.maximum_extra_paragraphs) * _PARAGRAPH_SIZE
 
     @property
-    def entry_rva(self) -> int | None:
-        """Offset of the entry point in the load module, or None if CS:IP names no byte of it."""
-        return _resolve_relative(self.initial_cs, self.initial_ip, min(self.image_size, _REAL_MODE_ADDRESS_SPACE))
+    def entry_rva(self) -> int:
+        """Offset of the entry point from the load module, as DOS computes CS:IP."""
+        return _resolve_relative(self.initial_cs, self.initial_ip)
 
     @property
-    def stack_rva(self) -> int | None:
-        """Offset of the initial stack, or None if SS:SP names nothing DOS would give the program.
-
-        The stack may sit one byte past the end of the allocation, because DOS starts a program
-        with SP at the top of the block and every push decrements it first.
-        """
-        # the + 1 is not an off-by-one: SP is allowed to equal the size of the block
-        limit = min(self.maximum_allocation_size + 1, _REAL_MODE_ADDRESS_SPACE)
-        return _resolve_relative(self.initial_ss, self.initial_sp, limit)
+    def stack_rva(self) -> int:
+        """Offset of the initial stack from the load module, as DOS computes SS:SP."""
+        return _resolve_relative(self.initial_ss, self.initial_sp)
 
 
 class MZRelocation(Relocation):
@@ -198,18 +185,20 @@ class MZ(Backend):
         self.overlay_number = header.overlay_number
         self.declared_file_size = header.declared_file_size
         self.trailing_size = reader.size - header.declared_file_size
-        # _parse_header has already refused a header whose CS:IP or SS:SP resolves to nothing.
-        assert header.entry_rva is not None and header.stack_rva is not None
         self._entry = header.entry_rva
 
+        # The segment below has always declared the whole block DOS must find before it will start
+        # the program, while only the load module was backed. DOS applies a fixup anywhere inside
+        # that block and the program reads its own uninitialised data there, so back all of it.
+        allocation = header.minimum_allocation_size
         image = reader.read(header.header_size, header.image_size, "load module")
-        self.memory.add_backer(0, image)
+        self.memory.add_backer(0, image.ljust(allocation, b"\0"))
         self.segments = [
             Segment(
                 header.header_size,
                 0,
                 header.image_size,
-                header.minimum_allocation_size,
+                allocation,
             )
         ]
 
@@ -227,9 +216,7 @@ class MZ(Backend):
     @property
     def initial_stack(self) -> int:
         """The canonical linear address corresponding to the initial SS:SP."""
-        stack_rva = self.mz_header.stack_rva
-        assert stack_rva is not None
-        return self.mapped_base + stack_rva
+        return self.mapped_base + self.mz_header.stack_rva
 
     @property
     def initial_cs_value(self) -> int:
@@ -313,6 +300,8 @@ class MZ(Backend):
                 f"MZ header size {header.header_size:#x} is invalid for "
                 f"the {header.declared_file_size:#x}-byte declared file"
             )
+        if header.image_size == 0:
+            raise CLEInvalidBinaryError("MZ header declares a load module of no bytes")
         if header.relocation_count:
             if header.relocation_table_offset < _FIXED_HEADER_SIZE:
                 raise CLEInvalidBinaryError("MZ relocation table overlaps the fixed header")
@@ -323,15 +312,6 @@ class MZ(Backend):
             raise CLEInvalidBinaryError(f"MZ overlay {header.overlay_number} is not an ordinary primary executable")
         if header.minimum_allocation_size > _REAL_MODE_ADDRESS_SPACE:
             raise CLEInvalidBinaryError("MZ minimum allocation exceeds the 20-bit real-mode address space")
-        if header.entry_rva is None:
-            raise CLEInvalidBinaryError(
-                f"MZ entry point {header.initial_cs:04x}:{header.initial_ip:04x} lies outside the load module"
-            )
-        if header.stack_rva is None:
-            raise CLEInvalidBinaryError(
-                f"MZ initial stack {header.initial_ss:04x}:{header.initial_sp:04x} "
-                "lies beyond the memory DOS would give the program"
-            )
 
         return header
 
@@ -348,9 +328,13 @@ class MZ(Backend):
         for index in range(header.relocation_count):
             offset, segment = struct.unpack_from("<HH", table, index * 4)
             target = segment * _PARAGRAPH_SIZE + offset
-            if target + 2 > header.image_size:
+            # DOS applies a fixup anywhere in the block it reserves, which reaches past the load
+            # module whenever the header asks for extra paragraphs: a linker writes a far pointer
+            # into uninitialised data and leaves its segment word for the loader to fill in.
+            if target + 2 > header.minimum_allocation_size:
                 raise CLEInvalidBinaryError(
-                    f"MZ relocation {index} target {segment:04x}:{offset:04x} extends past the load module"
+                    f"MZ relocation {index} target {segment:04x}:{offset:04x} extends past "
+                    "the memory DOS must find for the program"
                 )
             records.append((offset, segment))
         return tuple(records)
