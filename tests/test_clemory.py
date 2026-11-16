@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import os
 import sys
 import timeit
 import unittest
 
 import cffi
+import pytest
 
 import cle
 
@@ -85,6 +87,38 @@ def performance_clemory_contains():
         number=20000000,
     )
     print(t)
+
+
+def test_split_backer_refuses_to_split_through_a_nested_clemory():
+    child = cle.Clemory(None)  # type: ignore[arg-type]
+    child.add_backer(0, b"A" * 0x200)
+    child.add_backer(0x200, b"B" * 0x200)
+
+    clemory = cle.Clemory(None, root=True)  # type: ignore[arg-type]
+    clemory.add_backer(0, b"C" * 0x400)
+    clemory.add_backer(0x400, child)
+
+    before = [(start, bytes(backer)) for start, backer in clemory.backers()]
+
+    with pytest.raises(ValueError, match="itself a clemory"):
+        clemory.split_backer(0x401)
+
+    assert [(start, bytes(backer)) for start, backer in clemory.backers()] == before
+    assert clemory.load(0x600, 0x10) == b"B" * 0x10
+
+
+def test_split_backer_refuses_to_split_through_a_loaded_object():
+    filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../binaries/tests/x86_64/fauxware")
+    ld = cle.Loader(filename, auto_load_libs=False)
+    assert any(isinstance(backer, cle.Clemory) for _, backer in ld.memory._backers)
+
+    addr = ld.main_object.entry
+    before = [(start, bytes(backer)) for start, backer in ld.memory.backers()]
+
+    with pytest.raises(ValueError, match="itself a clemory"):
+        ld.memory.split_backer(addr + 1)
+
+    assert [(start, bytes(backer)) for start, backer in ld.memory.backers()] == before
 
 
 def test_clemory_contains():
