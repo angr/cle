@@ -217,10 +217,6 @@ class MZ(Backend):
             self.relocs.append(MZRelocation(self, offset, segment))
 
     @property
-    def mapped_address_bits(self) -> int:
-        return 20
-
-    @property
     def load_segment(self) -> int:
         return self.mapped_base // _PARAGRAPH_SIZE
 
