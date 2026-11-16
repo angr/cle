@@ -5,11 +5,42 @@ import itertools
 import struct
 from collections.abc import Iterator
 from mmap import mmap
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import archinfo
 
 __all__ = ("ClemoryBase", "Clemory", "ClemoryView", "ClemoryTranslator", "UninitializedClemory")
+
+# The word sizes struct has an integer format character for. Every other width - the 3-byte word of
+# a 24-bit architecture, or anything wider than 8 bytes - has to be composed from its bytes.
+_STRUCT_WORD_SIZES = frozenset((1, 2, 4, 8))
+
+
+def _byteorder(endness: archinfo.Endness) -> Literal["little", "big"]:
+    """
+    Translate an :class:`archinfo.Endness` into a byte order accepted by ``int.from_bytes``.
+    """
+    if endness == archinfo.Endness.BE:
+        return "big"
+    if endness == archinfo.Endness.LE:
+        return "little"
+    raise ValueError(f"Unsupported endness value {endness}.")
+
+
+def _classify_struct_error(error: struct.error, fmt: str, available: int, addr: int) -> Exception:
+    """
+    Decide what an access that raised `error` should report: a ``KeyError`` if it ran off the end of
+    its backer, and the error itself otherwise.
+
+    Return the exception rather than raising it so the caller can raise it outside its own handler,
+    where a short access does not carry the struct error as its context.
+    """
+    try:
+        fmt_size = struct.calcsize(fmt)
+    except struct.error:
+        # `fmt` itself is malformed, so this is not a question of how much room is left
+        return error
+    return KeyError(addr) if available < fmt_size else error
 
 
 class ClemoryBase:
@@ -60,15 +91,17 @@ class ClemoryBase:
         try:
             return struct.unpack_from(fmt, backer, addr - start)
         except struct.error as e:
-            if len(backer) - (addr - start) >= struct.calcsize(fmt):
-                raise e
-            raise KeyError(addr)  # pylint: disable=raise-missing-from
+            error = _classify_struct_error(e, fmt, len(backer) - (addr - start), addr)
+        raise error
 
     def unpack_word(
         self, addr: int, size: int | None = None, signed: bool = False, endness: archinfo.Endness | None = None
     ) -> int:
         """
-        Use the ``struct`` module to unpack a single integer from the address `addr`.
+        Unpack a single integer from the address `addr`.
+
+        Any positive size works. Widths ``struct`` has no format character for are read as bytes and
+        recombined.
 
         You may override any of the attributes of the word being extracted:
 
@@ -77,26 +110,19 @@ class ClemoryBase:
         :param bool signed: Whether the data should be extracted signed/unsigned. Default unsigned
         :param archinfo.Endness endness: The endian to use in packing/unpacking. Defaults to memory endness
         """
-        if size is not None and size > 8:
-            # support larger wordsizes via recursive algorithm
-            subsize = size >> 1
-            if size != subsize << 1:
-                raise ValueError("Cannot unpack non-power-of-two sizes")
+        word_size: int = self._arch.bytes if size is None else size
+        word_endness: archinfo.Endness = self._arch.memory_endness if endness is None else endness
+        if word_size <= 0:
+            raise ValueError(f"Invalid size: {word_size}")
 
-            if endness is None:
-                endness = self._arch.memory_endness
-            if endness == archinfo.Endness.BE:
-                lo_off, hi_off = subsize, 0
-            elif endness == archinfo.Endness.LE:
-                lo_off, hi_off = 0, subsize
-            else:
-                raise ValueError(f"Unsupported endness value {endness}.")
+        if word_size not in _STRUCT_WORD_SIZES:
+            data = self.load(addr, word_size)
+            if len(data) != word_size:
+                # `load` stops at the first unmapped byte instead of raising
+                raise KeyError(addr)
+            return int.from_bytes(data, _byteorder(word_endness), signed=signed)
 
-            lo = self.unpack_word(addr + lo_off, size=subsize, signed=False, endness=endness)
-            hi = self.unpack_word(addr + hi_off, size=subsize, signed=signed, endness=endness)
-            return (hi << (subsize << 3)) | lo
-
-        return self.unpack(addr, self._arch.struct_fmt(size=size, signed=signed, endness=endness))[0]
+        return self.unpack(addr, self._arch.struct_fmt(size=word_size, signed=signed, endness=word_endness))[0]
 
     def load_null_terminated_bytes(self, addr: int, max_size: int = 4096) -> bytes:
         """
@@ -130,9 +156,8 @@ class ClemoryBase:
         try:
             return struct.pack_into(fmt, backer, addr - start, *data)
         except struct.error as e:
-            if len(backer) - (addr - start) >= struct.calcsize(fmt):
-                raise e
-            raise KeyError(addr)  # pylint: disable=raise-missing-from
+            error = _classify_struct_error(e, fmt, len(backer) - (addr - start), addr)
+        raise error
 
     def pack_word(
         self,
@@ -143,7 +168,11 @@ class ClemoryBase:
         endness: archinfo.Endness | None = None,
     ):
         """
-        Use the ``struct`` module to pack a single integer `data` into memory at the address `addr`.
+        Pack a single integer `data` into memory at the address `addr`.
+
+        Any positive size works. Widths ``struct`` has no format character for are written as bytes.
+        The whole word has to be backed; a write that would run off the end raises ``KeyError`` and
+        leaves memory alone.
 
         You may override any of the attributes of the word being packed:
 
@@ -152,9 +181,22 @@ class ClemoryBase:
         :param bool signed: Whether the data should be extracted signed/unsigned. Default unsigned
         :param archinfo.Endness endness: The endian to use in packing/unpacking. Defaults to memory endness
         """
+        word_size: int = self._arch.bytes if size is None else size
+        word_endness: archinfo.Endness = self._arch.memory_endness if endness is None else endness
+        if word_size <= 0:
+            raise ValueError(f"Invalid size: {word_size}")
+
         if not signed:
-            data &= (1 << (size * 8 if size is not None else self._arch.bits)) - 1
-        return self.pack(addr, self._arch.struct_fmt(size=size, signed=signed, endness=endness), data)
+            data &= (1 << (word_size * 8)) - 1
+
+        if word_size not in _STRUCT_WORD_SIZES:
+            if len(self.load(addr, word_size)) != word_size:
+                # `store` writes the bytes that fit before it reports the overrun, so check the whole
+                # word is backed before writing any of it
+                raise KeyError(addr)
+            return self.store(addr, data.to_bytes(word_size, _byteorder(word_endness), signed=signed))
+
+        return self.pack(addr, self._arch.struct_fmt(size=word_size, signed=signed, endness=word_endness), data)
 
     def read(self, nbytes: int):
         """
@@ -786,9 +828,8 @@ class ClemoryReadOnlyView(ClemoryBase):
                 try:
                     return struct.unpack_from(fmt, data, addr - start)
                 except struct.error as ex:
-                    if len(data) - (addr - start) >= struct.calcsize(fmt):
-                        raise ex
-                    raise KeyError(addr) from ex
+                    error = _classify_struct_error(ex, fmt, len(data) - (addr - start), addr)
+                raise error
 
         idx = bisect.bisect_right(self._flattened_backers, addr, key=lambda x: x[0])
         if idx > 0:
@@ -803,9 +844,8 @@ class ClemoryReadOnlyView(ClemoryBase):
             self._last_backer_pos = idx
             return v
         except struct.error as ex:
-            if len(data) - (addr - start) >= struct.calcsize(fmt):
-                raise ex
-            raise KeyError(addr) from ex
+            error = _classify_struct_error(ex, fmt, len(data) - (addr - start), addr)
+        raise error
 
     def _flatten_backers(self):
         for start, backer in self._clemory.backers():
