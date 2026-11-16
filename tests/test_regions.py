@@ -1,3 +1,4 @@
+# pylint:disable=no-self-use
 from __future__ import annotations
 
 import os
@@ -57,6 +58,10 @@ groundtruth = {
 
 
 class TestRunSections(unittest.TestCase):
+    """
+    Check the sections and segments CLE reports against a known-good table.
+    """
+
     def _run_sections(self, arch, filename, sections):
         binary_path = os.path.join(TESTS_BASE, arch, filename)
 
@@ -173,6 +178,51 @@ class TestRunSections(unittest.TestCase):
     def test_segments(self):
         for (arch, filename), data in groundtruth.items():
             self._run_segments(arch, filename, data["segments"])
+
+
+class TestOverlappingRegions(unittest.TestCase):
+    """
+    Check the address lookups where regions share addresses.
+    """
+
+    def test_lookups_survive_an_overlap(self):
+        # Regions is documented as holding regions that do not overlap, and the lookups bisected the end
+        # addresses on that basis. When two regions do overlap the list is no longer sorted by that key, and
+        # the bisection can walk past a region that covers the address and report there is none.
+        outer = Segment(0, 0x1000, 0x3000, 0x3000)
+        inner = Segment(0, 0x2000, 0x100, 0x100)
+        regions = cle.backends.Regions([outer, inner])
+
+        assert regions.find_region_containing(0x1500) is outer
+        assert regions.find_region_containing(0x3500) is outer
+        assert regions.find_region_containing(0x4000) is None
+        # where both cover the address, the first one in address order wins
+        assert regions.find_region_containing(0x2050) is outer
+
+        assert regions.find_region_next_to(0x2200) is outer
+        assert regions.find_region_next_to(0x4000) is None
+
+        assert regions.max_addr == 0x3FFF
+
+    def test_tbss_does_not_answer_for_what_is_over_it(self):
+        # .tbss is the zero-filled tail of the thread-local template. Its address is where a thread's copy
+        # begins, and in the image the linker places the section after it over the top, so it holds none of
+        # the bytes at the addresses it claims.
+        binary_path = os.path.join(TESTS_BASE, "x86_64", "libc.so.6")
+        ld = cle.Loader(binary_path, auto_load_libs=False)
+        obj = ld.main_object
+
+        tbss = obj.sections_map[".tbss"]
+        covered = [
+            section
+            for section in obj.sections
+            if section is not tbss and section.memsize and tbss.contains_addr(section.vaddr)
+        ]
+        assert covered
+
+        for section in covered:
+            assert obj.sections.find_region_containing(section.vaddr) is section
+            assert obj.find_section_containing(section.vaddr) is section
 
 
 if __name__ == "__main__":
