@@ -286,13 +286,12 @@ class Clemory(ClemoryBase):
         self._update_min_max()
 
     def __iter__(self):
-        for start, string in self._backers:
-            if isinstance(string, bytes | list):
-                for x in range(len(string)):
-                    yield start + x
+        for start, backer in self._backers:
+            if isinstance(backer, Clemory):
+                for addr in backer:
+                    yield start + addr
             else:
-                for x in string:
-                    yield start + x
+                yield from range(start, start + len(backer))
 
     def __getitem__(self, k):
         for start, data in self._backers:
