@@ -23,14 +23,17 @@ SYMBOL_TYPE_INDIR = 0xA
 N_STAB = 0xE0  # actually a mask
 N_EXT = 0x01  # external symbol bit
 
+# library ordinals as an nlist's n_desc encodes them (mach-o/nlist.h)
 LIBRARY_ORDINAL_SELF = 0x0
 LIBRARY_ORDINAL_OLD_MAX = 0xFE
 LIBRARY_ORDINAL_DYN_LOOKUP = 0xFE
+LIBRARY_ORDINAL_EXECUTABLE = 0xFF
 
-BIND_SPECIAL_DYLIB_SELF = 0x0
-BIND_SPECIAL_DYLIB_WEAK_LOOKUP = 0xFD
-BIND_SPECIAL_DYLIB_FLAT_LOOKUP = 0xFE
-BIND_SPECIAL_DYLIB_MAIN_EXECUTABLE = 0xFF  # technically -1
+# library ordinals as bind opcodes and chained fixup imports encode them (mach-o/loader.h)
+BIND_SPECIAL_DYLIB_SELF = 0
+BIND_SPECIAL_DYLIB_MAIN_EXECUTABLE = -1
+BIND_SPECIAL_DYLIB_FLAT_LOOKUP = -2
+BIND_SPECIAL_DYLIB_WEAK_LOOKUP = -3
 
 
 class AbstractMachOSymbol(Symbol):
@@ -61,6 +64,22 @@ class AbstractMachOSymbol(Symbol):
     @property
     def library_name(self) -> str | None:
         return None
+
+    @property
+    def binds_to_main_executable(self) -> bool:
+        """
+        Whether this import is bound to the main executable rather than to a library, as the imports of a bundle
+        linked with ``-bundle_loader`` are.
+        """
+        return False
+
+    @property
+    def binds_by_flat_lookup(self) -> bool:
+        """
+        Whether this import is looked up in every loaded image rather than in one library, as the imports of an
+        image linked with ``-undefined dynamic_lookup`` are.
+        """
+        return False
 
     @property
     def library_base_name(self) -> str | None:
@@ -142,13 +161,17 @@ class SymbolTableSymbol(AbstractMachOSymbol):
 
     @property
     def library_name(self) -> str | None:
-        if self.is_import:
-            if LIBRARY_ORDINAL_DYN_LOOKUP == self.library_ordinal:
-                log.warning("LIBRARY_ORDINAL_DYN_LOOKUP found, cannot handle")
-                return None
-            else:
-                return self.owner.imported_libraries[self.library_ordinal]
+        if self.is_import and not (self.binds_to_main_executable or self.binds_by_flat_lookup):
+            return self.owner.imported_libraries[self.library_ordinal]
         return None
+
+    @property
+    def binds_to_main_executable(self) -> bool:
+        return self.is_import and self.library_ordinal == LIBRARY_ORDINAL_EXECUTABLE
+
+    @property
+    def binds_by_flat_lookup(self) -> bool:
+        return self.is_import and self.library_ordinal == LIBRARY_ORDINAL_DYN_LOOKUP
 
     @property
     def segment_name(self):
@@ -283,10 +306,8 @@ class DyldBoundSymbol(AbstractMachOSymbol):
 
     @property
     def library_name(self) -> str | None:
-        if BIND_SPECIAL_DYLIB_FLAT_LOOKUP == self.lib_ordinal:
-            log.warning("BIND_SPECIAL_DYLIB_FLAT_LOOKUP found, cannot handle")
-            return None
-        elif BIND_SPECIAL_DYLIB_WEAK_LOOKUP == self.lib_ordinal:
+        if self.lib_ordinal < 0:
+            # one of the BIND_SPECIAL_DYLIB_* ordinals, which name no library
             return None
         try:
             return self.owner.imported_libraries[self.lib_ordinal]
@@ -311,6 +332,14 @@ class DyldBoundSymbol(AbstractMachOSymbol):
     @property
     def library_ordinal(self):
         return self.lib_ordinal
+
+    @property
+    def binds_to_main_executable(self) -> bool:
+        return self.lib_ordinal == BIND_SPECIAL_DYLIB_MAIN_EXECUTABLE
+
+    @property
+    def binds_by_flat_lookup(self) -> bool:
+        return self.lib_ordinal == BIND_SPECIAL_DYLIB_FLAT_LOOKUP
 
 
 class BindingSymbol(AbstractMachOSymbol):
@@ -349,8 +378,8 @@ class BindingSymbol(AbstractMachOSymbol):
 
     @property
     def library_name(self) -> str | None:
-        if LIBRARY_ORDINAL_DYN_LOOKUP == self.lib_ordinal:
-            log.warning("LIBRARY_ORDINAL_DYN_LOOKUP found, cannot handle")
+        if self.lib_ordinal < 0:
+            # one of the BIND_SPECIAL_DYLIB_* ordinals, which name no library
             return None
 
         return self.owner.imported_libraries[self.lib_ordinal]
@@ -367,6 +396,14 @@ class BindingSymbol(AbstractMachOSymbol):
     @property
     def library_ordinal(self):
         return self.lib_ordinal
+
+    @property
+    def binds_to_main_executable(self) -> bool:
+        return self.lib_ordinal == BIND_SPECIAL_DYLIB_MAIN_EXECUTABLE
+
+    @property
+    def binds_by_flat_lookup(self) -> bool:
+        return self.lib_ordinal == BIND_SPECIAL_DYLIB_FLAT_LOOKUP
 
 
 __all__ = [
