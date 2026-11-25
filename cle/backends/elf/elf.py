@@ -1079,8 +1079,8 @@ class ELF(MetaELF):
                 and (name_piece := origin_die.attributes.get("DW_AT_linkage_name", None)) is not None
             ):
                 return name_piece.value.decode("utf-8")
-            else:
-                return None
+            elif origin_die is real_origin:
+                break
 
             origin_die = cast(DIE, origin_die.get_parent())
             if origin_die is None or origin_die.tag != "DW_TAG_namespace":
