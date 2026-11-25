@@ -93,7 +93,7 @@ class Relocation:
         if self.symbol.is_weak:
             return
 
-        # Use extern_size_hints if available (computed from relocation addends)
+        # Use any external size inferred by the owning backend.
         extern_size_hints = getattr(self.owner, "extern_size_hints", {})
         min_size = extern_size_hints.get(self.symbol.name, 0)
 

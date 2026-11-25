@@ -313,14 +313,14 @@ class Loader:
         3) All requests for size are passed down the chain until they reach an object which has the space to service
             it or an object which has not yet been mapped. If all objects have been mapped and are full, a new extern
             object is mapped with a fixed size.
+
+        The architecture-dependent default capacity also bounds individual optional metadata hints, preventing one
+        hint from forcing a larger-than-normal extern reservation.
+        The bound applies per hint; aggregate extern allocation may still grow beyond this capacity when many symbols
+        are allocated.
         """
         if self._extern_object is None:
-            if self.main_object.arch.bits < 32:
-                extern_size = 0x200
-            elif self.main_object.arch.bits == 32:
-                extern_size = 0x8000
-            else:
-                extern_size = 0x80000
+            extern_size = ExternObject.default_map_size(self.main_object.arch)
             self._extern_object = ExternObject(self, map_size=extern_size)
             self._internal_load(self._extern_object)
         return self._extern_object
