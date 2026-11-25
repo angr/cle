@@ -1041,6 +1041,8 @@ class ELF(MetaELF):
                     origin = sub_die.get_DIE_from_attribute("DW_AT_abstract_origin")
                     assert origin is not None
                     subr.name = self._dwarf_get_name_with_namespace(origin)
+                    if subr.name is None and "DW_AT_linkage_name" in origin.attributes:
+                        subr.name = origin.attributes["DW_AT_linkage_name"].value.decode("utf-8")
                     if "DW_AT_external" in origin.attributes:
                         subr.extern = origin.attributes["DW_AT_external"].value
                     nargs = 0
