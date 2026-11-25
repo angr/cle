@@ -479,6 +479,9 @@ class Coff(Backend):
             )
 
         self.memory.add_backer(0, bytes(self._image_vmem))
+        # The image is the whole file, which reaches past the last section: the relocation, symbol
+        # and string tables follow the section data.
+        self._max_addr = len(self._image_vmem) - 1
         self.mapped_base = self.linked_base = 0
         self.pic = True
         # assume windows, this can be wrong, but is more often right.
