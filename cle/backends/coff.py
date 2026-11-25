@@ -430,6 +430,18 @@ RELOC_CLASSES: dict[IntEnum, dict[IntEnum, type[Relocation]]] = {
     },
 }
 
+
+def _raw_data_in_file(pointer_to_raw_data: int, size_of_raw_data: int, file_size: int) -> int:
+    """
+    How many of a section's declared raw data bytes the file holds. A section that states
+    PointerToRawData 0 has no raw data in the file and gives its size in memory instead, which the
+    file does not bound.
+    """
+    if not pointer_to_raw_data:
+        return size_of_raw_data
+    return max(0, min(size_of_raw_data, file_size - pointer_to_raw_data))
+
+
 COFF_MACHINE_TO_ARCH_NAME = {
     IMAGE_FILE_MACHINE.I386: "x86",
     IMAGE_FILE_MACHINE.AMD64: "AMD64",
@@ -465,13 +477,33 @@ class Coff(Backend):
         for section_idx, section in enumerate(self._coff.sections):
             section_name = self._coff.get_section_name(section_idx)
             vaddr = section.PointerToRawData
-            vsize = section.SizeOfRawData
-            self.segments.append(Segment(section.PointerToRawData, vaddr, section.SizeOfRawData, vsize))
+            vsize = _raw_data_in_file(section.PointerToRawData, section.SizeOfRawData, len(self._data))
+            if vsize == 0 and section.SizeOfRawData:
+                log.warning(
+                    "Section %s states %#x bytes of raw data at %#x, which a %#x byte file does not reach. "
+                    "Skipping this section.",
+                    section_name,
+                    section.SizeOfRawData,
+                    section.PointerToRawData,
+                    len(self._data),
+                )
+                continue
+            if vsize != section.SizeOfRawData:
+                log.warning(
+                    "Section %s states %#x bytes of raw data at %#x, which a %#x byte file does not hold. "
+                    "Mapping the %#x bytes it does.",
+                    section_name,
+                    section.SizeOfRawData,
+                    section.PointerToRawData,
+                    len(self._data),
+                    vsize,
+                )
+            self.segments.append(Segment(section.PointerToRawData, vaddr, vsize, vsize))
             self.sections.append(
                 CoffSection(
                     section_name,
                     section.PointerToRawData,
-                    section.SizeOfRawData,
+                    vsize,
                     vaddr,
                     vsize,
                     section,
