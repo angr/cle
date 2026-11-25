@@ -946,20 +946,20 @@ class ELF(MetaELF):
         subprogram,
         namespace: list[str] | None = None,
     ) -> LexicalBlock | None:
+        origin = None
         if "DW_AT_abstract_origin" in die.attributes:
-            try:
-                origin = cu.get_DIE_from_refaddr(cu.cu_offset + die.attributes["DW_AT_abstract_origin"].value)
-            except DWARFError:
-                origin = None
-        else:
-            origin = None
+            origin = die.get_DIE_from_attribute("DW_AT_abstract_origin")
+        specification = None
+        if "DW_AT_specification" in die.attributes:
+            specification = die.get_DIE_from_attribute("DW_AT_specification")
+        elif origin is not None and "DW_AT_specification" in origin.attributes:
+            specification = origin.get_DIE_from_attribute("DW_AT_specification")
 
-        if "DW_AT_name" in die.attributes:
-            name = "::".join((namespace or []) + [die.attributes["DW_AT_name"].value.decode("utf-8")])
-        elif origin is not None:
+        name = self._dwarf_get_name_with_namespace(die)
+        if name is None and origin is not None:
             name = self._dwarf_get_name_with_namespace(origin)
-        else:
-            name = None
+        if name is None and specification is not None:
+            name = self._dwarf_get_name_with_namespace(specification)
 
         if "DW_AT_decl_file" in die.attributes:
             filename_idx = die.attributes["DW_AT_decl_file"].value
@@ -997,7 +997,7 @@ class ELF(MetaELF):
         if subprogram is None:
             subprogram = block = Subprogram(name, low_pc, high_pc, ranges, filename, line, column)
         else:
-            block = LexicalBlock(low_pc, high_pc, ranges, filename, line, column)
+            block = LexicalBlock(low_pc, high_pc, ranges, filename, line, column, name)
 
         for sub_die in cu.iter_DIE_children(die):
             if sub_die.tag in ["DW_TAG_variable", "DW_TAG_formal_parameter"]:
@@ -1016,13 +1016,6 @@ class ELF(MetaELF):
                 low_pc, high_pc = self._load_low_high_pc_form_die(sub_die)
                 if "DW_AT_entry_pc" in sub_die.attributes:
                     subr.entry = sub_die.attributes["DW_AT_entry_pc"].value
-                if low_pc is not None and high_pc is not None:
-                    subr.ranges.append((low_pc, high_pc))
-                elif "DW_AT_ranges" in sub_die.attributes:
-                    aranges = dwarf.range_lists()
-                    ranges = self._load_ranges_form_die(sub_die, aranges)
-                    if ranges is not None:
-                        subr.ranges = ranges
                 call_filename = None
                 call_line = None
                 call_col = 0
@@ -1040,9 +1033,6 @@ class ELF(MetaELF):
                 if "DW_AT_abstract_origin" in sub_die.attributes:
                     origin = sub_die.get_DIE_from_attribute("DW_AT_abstract_origin")
                     assert origin is not None
-                    subr.name = self._dwarf_get_name_with_namespace(origin)
-                    if subr.name is None and "DW_AT_linkage_name" in origin.attributes:
-                        subr.name = origin.attributes["DW_AT_linkage_name"].value.decode("utf-8")
                     if "DW_AT_external" in origin.attributes:
                         subr.extern = origin.attributes["DW_AT_external"].value
                     nargs = 0
@@ -1051,6 +1041,13 @@ class ELF(MetaELF):
                             nargs += 1
                     subr.nargs = nargs
                     subr.void = "DW_AT_type" not in origin.attributes
+
+                    if "DW_AT_specification" in origin.attributes:
+                        specification = origin.get_DIE_from_attribute("DW_AT_specification")
+                        if "DW_AT_external" in specification.attributes:
+                            subr.extern = specification.attributes["DW_AT_external"].value
+                        subr.nargs = nargs
+                        subr.void = "DW_AT_type" not in specification.attributes
 
                 subprogram.inlined_functions.append(subr)
 
@@ -1061,16 +1058,24 @@ class ELF(MetaELF):
                     if sub_block.source_file is not None and sub_block.source_line is not None:
                         subr.decl_site = (sub_block.source_file, sub_block.source_line, sub_block.source_column or 0)
                     block.child_blocks.append(sub_block)
+                    subr.name = sub_block.name
+                    subr.ranges = sub_block.ranges
 
         return block
 
     @staticmethod
     def _dwarf_get_name_with_namespace(origin_die: DIE) -> str | None:
+        real_origin = origin_die
         name_pieces = []
         while True:
             name_piece = origin_die.attributes.get("DW_AT_name", None)
             if name_piece is not None:
                 name_pieces.append(name_piece.value.decode("utf-8"))
+            elif (
+                origin_die is real_origin
+                and (name_piece := origin_die.attributes.get("DW_AT_linkage_name", None)) is not None
+            ):
+                return name_piece.value.decode("utf-8")
 
             origin_die = cast(DIE, origin_die.get_parent())
             if origin_die is None or origin_die.tag != "DW_TAG_namespace":
