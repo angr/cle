@@ -13,6 +13,7 @@ from cle import MachO
 from cle.backends.backend import FunctionHintSource
 from cle.backends.macho.macho_enums import LoadCommands, MachoFiletype, SectionAttributes, SectionType
 from cle.backends.macho.section import MachOSection
+from cle.backends.macho.symbol import LIBRARY_ORDINAL_EXECUTABLE, BindingSymbol, SymbolTableSymbol
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
 
@@ -443,6 +444,36 @@ def test_non_macho_magic_is_reported():
         assert f"{magic:#010x}" in message
 
 
+def test_bundle():
+    """A compiler-produced dlopen-ed plugin bundle is linked relative to zero"""
+    machofile = os.path.join(TEST_BASE, "tests", "x86_64", "macho_bundle")
+    bundle = cle.Loader(machofile, auto_load_libs=False).main_object
+    assert isinstance(bundle, MachO)
+
+    assert bundle.filetype == MachoFiletype.MH_BUNDLE
+    assert bundle.pic
+    assert bundle.linked_base == bundle.mapped_base == 0
+
+
+def test_bundle_special_library_ordinals():
+    """A bundle can bind against its loader or defer symbol lookup to runtime"""
+    machofile = os.path.join(TEST_BASE, "tests", "x86_64", "macho_bundle")
+    macho = cle.Loader(machofile, auto_load_libs=False).main_object
+    assert isinstance(macho, MachO)
+
+    nlist_imports = [sym for sym in macho.symbols if isinstance(sym, SymbolTableSymbol) and sym.is_import]
+    assert {(sym.name, sym.library_ordinal, sym.library_name) for sym in nlist_imports} == {
+        ("_flat_value", 0xFE, None),
+        ("_host_value", LIBRARY_ORDINAL_EXECUTABLE, None),
+    }
+
+    binding_imports = [sym for sym in macho.symbols if isinstance(sym, BindingSymbol)]
+    assert {(sym.name, sym.library_ordinal, sym.library_name) for sym in binding_imports} == {
+        ("_flat_value", -2, None),
+        ("_host_value", -1, None),
+    }
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     test_dummy()
@@ -456,6 +487,8 @@ if __name__ == "__main__":
     test_instruction_sections()
     test_zero_vmsize_segment()
     test_filesize_larger_than_vmsize()
+    test_bundle()
+    test_bundle_special_library_ordinals()
 
 
 def test_relocatable_object():
