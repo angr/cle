@@ -30,6 +30,7 @@ class LexicalBlock:
         source_file: str | None = None,
         source_line: int | None = None,
         source_column: int | None = None,
+        name: str | None = None,
     ) -> None:
         self.source_file = source_file
         self.source_line = source_line
@@ -47,6 +48,7 @@ class LexicalBlock:
         self.low_pc = low_pc
         self.high_pc = high_pc
         self.child_blocks: list[LexicalBlock] = []
+        self.name = name
 
     def rebase(self, delta: int):
         self.low_pc += delta
@@ -83,8 +85,7 @@ class Subprogram(LexicalBlock):
     ) -> None:
         # pass self as the super_block of this subprogram
         self.subprogram = self
-        super().__init__(low_pc, high_pc, ranges, source_file, source_line, source_column)
-        self.name = name
+        super().__init__(low_pc, high_pc, ranges, source_file, source_line, source_column, name)
         self.local_variables: list[Variable] = []
         self.inlined_functions: list[InlinedFunction] = []
 

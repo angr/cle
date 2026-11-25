@@ -41,10 +41,7 @@ class Variable:
         expr_parser,
         elf_object: ELF,
         lexical_block: LexicalBlock | None = None,
-        namespace: list[str] | None = None,
     ):
-        if namespace is None:
-            namespace = []
         # first the address
         if "DW_AT_location" in die.attributes and die.attributes["DW_AT_location"].form == "DW_FORM_exprloc":
             parsed_exprs = expr_parser.parse_expr(die.attributes["DW_AT_location"].value)
@@ -63,7 +60,7 @@ class Variable:
             var = Variable(elf_object)
 
         if "DW_AT_name" in die.attributes:
-            var.name = "::".join(namespace + [die.attributes["DW_AT_name"].value.decode("utf-8")])
+            var.name = die.attributes["DW_AT_name"].value.decode("utf-8")
         if "DW_AT_type" in die.attributes:
             var._type_offset = die.attributes["DW_AT_type"].value + die.cu.cu_offset
         if "DW_AT_decl_line" in die.attributes:
